@@ -111,10 +111,7 @@ export default function SquadSettingsForm({
           }}
         />
       </label>
-      <div style={styles.modeHint}>
-        How long each goalkeeper stays in before rotating. Leave blank to change keeper every sub window, same as
-        outfield subs.
-      </div>
+      <div style={styles.modeHint}>Leave blank to rotate keepers every sub window.</div>
 
       <div style={styles.intervalPreview}>
         {(() => {
