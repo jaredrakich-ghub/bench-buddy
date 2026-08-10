@@ -3,6 +3,8 @@ import { Plus, Trash2, Shuffle, ChevronRight, ChevronLeft, RotateCcw, Play, Paus
 import { intervalAtElapsed, computeIntervals, buildCarryState, generatePlan, computeMinutesSummary } from "../lib/rotation.js";
 import { computeLiveElapsedSec } from "../lib/clock.js";
 import { fontStyle, styles } from "./styles.js";
+import { getFormationLayout } from "../lib/formation.js";
+import FootballerIcon from "./FootballerIcon.jsx";
 
 const STORAGE_KEY = "team-data-v2";
 // Separate key from the roster/settings above: this is the *in-progress
@@ -18,30 +20,6 @@ export const fmtClock = (totalSeconds) => {
   const sec = s % 60;
   return `${m}:${sec.toString().padStart(2, "0")}`;
 };
-
-// Simple running-player pictogram — reads as an active footballer rather
-// than a generic person icon.
-const FootballerIcon = ({ size = 18 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
-    <circle cx="14.5" cy="4.2" r="2.1" />
-    <path d="M12.8 7.3c-.5-.2-1-.1-1.4.3l-2.6 2.6-3.4.6a1 1 0 00.3 2l3.9-.7c.3-.1.6-.2.8-.4l1.7-1.7.6 2-3 2.3-1.6 5.1a1 1 0 001.9.6l1.5-4.7 2.1-1.6 1 2.9-1.6 4.1a1 1 0 001.9.7l1.8-4.7a1.6 1.6 0 00-.1-1.3l-1.3-2.7 1.1-3.4 2.6 1.2a1 1 0 10.9-1.8l-3.3-1.6a1.3 1.3 0 00-1.6.4l-1.2 1.7-1.9-.6z" />
-  </svg>
-);
-
-// Lay out the on-field players into a formation (GK + two rows), e.g. 1-2-2
-// for a 5-a-side team. Splits outfielders evenly across a back and front row.
-function getFormationLayout(onField) {
-  const gk = onField.find((p) => p.isGk);
-  const outfielders = onField.filter((p) => !p.isGk);
-  const backCount = Math.ceil(outfielders.length / 2);
-  const back = outfielders.slice(0, backCount);
-  const front = outfielders.slice(backCount);
-
-  const spread = (row, topPct) =>
-    row.map((p, i) => ({ ...p, topPct, leftPct: ((i + 1) / (row.length + 1)) * 100 }));
-
-  return [...(gk ? [{ ...gk, topPct: 88, leftPct: 50 }] : []), ...spread(back, 62), ...spread(front, 30)];
-}
 
 const defaultTeamData = () => ({
   roster: [],
