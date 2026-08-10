@@ -46,15 +46,15 @@ export function buildCarryState(ids, doneIntervals) {
   return carryState;
 }
 
-// Core rotation algorithm. Two modes:
-//  - "combined": GK is picked from whoever's already on the field that
-//    interval (today's default, everyone shares GK duty).
-//  - "split": GK is picked ONLY from the keeper-eligible pool, rotated
-//    independently of outfield fairness. The remaining field slots are then
-//    filled from everyone else using normal outfield fairness. This
-//    guarantees a valid keeper every interval without pulling outfield
-//    fairness numbers into the keeper decision (and vice versa).
-export function generatePlan({ availableIds, gameMinutes, numIntervals, fieldSize, mode, keeperEligibleIds, startInterval = 0, carryState = null }) {
+// Core rotation algorithm. GK is drawn from the keeper-eligible pool (players
+// with their 🧤 toggled on), picking whoever's owed the least keeper time,
+// rotated independently of outfield fairness — this guarantees a valid
+// keeper every interval without pulling outfield fairness numbers into the
+// keeper decision (and vice versa). If nobody in the squad is marked
+// keeper-eligible (an edge case — every player defaults to eligible), this
+// falls back to picking a GK from whoever's already on the field, so the
+// app never ends up with no keeper at all.
+export function generatePlan({ availableIds, gameMinutes, numIntervals, fieldSize, keeperEligibleIds, startInterval = 0, carryState = null }) {
   const size = Math.min(fieldSize, availableIds.length);
   const intervalLen = gameMinutes / numIntervals;
 
@@ -64,7 +64,7 @@ export function generatePlan({ availableIds, gameMinutes, numIntervals, fieldSiz
   });
 
   const eligibleSet = new Set(keeperEligibleIds || []);
-  const useSplit = mode === "split" && availableIds.some((id) => eligibleSet.has(id));
+  const hasEligibleKeeper = availableIds.some((id) => eligibleSet.has(id));
 
   const pickGkFrom = (pool, prevGk) =>
     [...pool].sort((a, b) => {
@@ -86,7 +86,7 @@ export function generatePlan({ availableIds, gameMinutes, numIntervals, fieldSiz
   for (let i = startInterval; i < numIntervals; i++) {
     let onFieldIds, gk;
 
-    if (useSplit) {
+    if (hasEligibleKeeper) {
       const eligiblePool = availableIds.filter((id) => eligibleSet.has(id));
       gk = pickGkFrom(eligiblePool, prevGk);
       const outfieldPool = availableIds.filter((id) => id !== gk);

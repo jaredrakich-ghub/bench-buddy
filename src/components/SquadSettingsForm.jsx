@@ -99,29 +99,6 @@ export default function SquadSettingsForm({
         })()}
       </div>
 
-      <div style={styles.modeBlock}>
-        <span style={styles.settingLabelText}>Rotation mode</span>
-        <div style={styles.modeToggleRow}>
-          <button
-            style={{ ...styles.modeBtn, ...(gameSettings.mode !== "split" ? styles.modeBtnActive : {}) }}
-            onClick={() => setGameSettings({ ...gameSettings, mode: "combined" })}
-          >
-            Combined
-          </button>
-          <button
-            style={{ ...styles.modeBtn, ...(gameSettings.mode === "split" ? styles.modeBtnActive : {}) }}
-            onClick={() => setGameSettings({ ...gameSettings, mode: "split" })}
-          >
-            Split: Outfield + Keepers
-          </button>
-        </div>
-        <div style={styles.modeHint}>
-          {gameSettings.mode === "split"
-            ? "Keeper duty rotates only among players marked 🧤 below, separately from outfield rotation."
-            : "Anyone on the field can be picked for a turn in goal."}
-        </div>
-      </div>
-
       <div style={styles.subTitleRow}>
         <h3 style={styles.subTitle}>Squad &amp; availability</h3>
         <span style={styles.countBadge}>{availableIds.length} available</span>
@@ -147,6 +124,10 @@ export default function SquadSettingsForm({
           <Plus size={16} /> Add
         </button>
       </div>
+
+      {roster.length > 0 && (
+        <div style={styles.modeHint}>Tap 🧤 to mark who can play keeper — GK duty always rotates among whoever's toggled on.</div>
+      )}
 
       <div style={styles.squadList}>
         {roster.length === 0 && <div style={styles.emptyState}>No players yet. Add your squad above.</div>}

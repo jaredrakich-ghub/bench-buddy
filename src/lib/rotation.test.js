@@ -72,14 +72,13 @@ describe("buildCarryState", () => {
 describe("generatePlan", () => {
   const ids = ["p1", "p2", "p3", "p4", "p5", "p6", "p7"];
 
-  it("distributes outfield minutes fairly in combined mode (nobody more than one interval ahead of anyone else)", () => {
+  it("distributes outfield minutes fairly (nobody more than one interval ahead of anyone else)", () => {
     const { numIntervals } = computeIntervals(42, 6); // 7 intervals
     const { intervals } = generatePlan({
       availableIds: ids,
       gameMinutes: 42,
       numIntervals,
       fieldSize: 5,
-      mode: "combined",
       keeperEligibleIds: ids,
     });
 
@@ -103,7 +102,6 @@ describe("generatePlan", () => {
       gameMinutes: 30,
       numIntervals,
       fieldSize: 5,
-      mode: "combined",
       keeperEligibleIds: ids,
     });
     intervals.forEach((iv) => {
@@ -120,7 +118,6 @@ describe("generatePlan", () => {
       gameMinutes: 20,
       numIntervals,
       fieldSize: 5,
-      mode: "combined",
       keeperEligibleIds: smallSquad,
     });
     intervals.forEach((iv) => {
@@ -129,7 +126,7 @@ describe("generatePlan", () => {
     });
   });
 
-  it("in split mode, only picks the goalkeeper from the keeper-eligible pool", () => {
+  it("only picks the goalkeeper from the keeper-eligible pool (players with 🧤 toggled off are never GK)", () => {
     const eligible = ["p1", "p2"];
     const { numIntervals } = computeIntervals(30, 6);
     const { intervals } = generatePlan({
@@ -137,12 +134,51 @@ describe("generatePlan", () => {
       gameMinutes: 30,
       numIntervals,
       fieldSize: 5,
-      mode: "split",
       keeperEligibleIds: eligible,
     });
     intervals.forEach((iv) => {
       const gk = iv.onField.find((p) => p.isGk);
       expect(eligible).toContain(gk.id);
+    });
+  });
+
+  it("pulls an eligible keeper onto the field even if outfield fairness alone wouldn't have picked them", () => {
+    // p7 is the only keeper-eligible player and has the least gk time (0),
+    // but is last in outfield fairness order (already has the most field time).
+    // The algorithm should still pull them on to keep goal, rather than only
+    // choosing a GK from whoever outfield fairness already selected.
+    const carryState = {
+      p1: { fieldMin: 0, gkMin: 0, consecBench: 0 },
+      p2: { fieldMin: 0, gkMin: 0, consecBench: 0 },
+      p3: { fieldMin: 0, gkMin: 0, consecBench: 0 },
+      p4: { fieldMin: 0, gkMin: 0, consecBench: 0 },
+      p5: { fieldMin: 0, gkMin: 0, consecBench: 0 },
+      p6: { fieldMin: 0, gkMin: 0, consecBench: 0 },
+      p7: { fieldMin: 100, gkMin: 0, consecBench: 0 }, // least "owed" outfield time
+    };
+    const { intervals } = generatePlan({
+      availableIds: ids,
+      gameMinutes: 30,
+      numIntervals: 5,
+      fieldSize: 5,
+      keeperEligibleIds: ["p7"],
+      carryState,
+    });
+    const gk = intervals[0].onField.find((p) => p.isGk);
+    expect(gk.id).toBe("p7");
+  });
+
+  it("falls back to picking a GK from the field when nobody is keeper-eligible, instead of leaving no keeper", () => {
+    const { numIntervals } = computeIntervals(30, 6);
+    const { intervals } = generatePlan({
+      availableIds: ids,
+      gameMinutes: 30,
+      numIntervals,
+      fieldSize: 5,
+      keeperEligibleIds: [], // everyone toggled off — shouldn't happen in practice, but must not break
+    });
+    intervals.forEach((iv) => {
+      expect(iv.onField.filter((p) => p.isGk).length).toBe(1);
     });
   });
 
@@ -153,7 +189,6 @@ describe("generatePlan", () => {
       gameMinutes: 30,
       numIntervals,
       fieldSize: 5,
-      mode: "combined",
       keeperEligibleIds: ids,
     });
     intervals.forEach((iv) => {
@@ -163,6 +198,10 @@ describe("generatePlan", () => {
 
   it("respects carryState so a player who already played a lot doesn't get immediately favored again", () => {
     // p1 has already played the whole game so far; everyone else has zero minutes.
+    // Keeper eligibility is forced onto p2 alone here so GK selection (which
+    // only looks at gkMin, by design — see the "pulls an eligible keeper
+    // onto the field" test above) can't interfere with isolating outfield
+    // fairness, which is what this test is actually checking.
     const carryState = {
       p1: { fieldMin: 100, gkMin: 0, consecBench: 0 },
       p2: { fieldMin: 0, gkMin: 0, consecBench: 0 },
@@ -176,8 +215,7 @@ describe("generatePlan", () => {
       gameMinutes: 30,
       numIntervals: 5,
       fieldSize: 5,
-      mode: "combined",
-      keeperEligibleIds: Object.keys(carryState),
+      keeperEligibleIds: ["p2"],
       startInterval: 0,
       carryState,
     });

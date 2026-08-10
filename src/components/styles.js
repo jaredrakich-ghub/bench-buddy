@@ -54,13 +54,6 @@ export const styles = {
   settingLabelText: { minHeight: 28, display: "flex", alignItems: "flex-end", marginBottom: 4, lineHeight: 1.2 },
   intervalPreview: { fontSize: 12, color: colors.field, fontWeight: 700, marginTop: 8 },
 
-  modeBlock: { marginTop: 20 },
-  modeToggleRow: { display: "flex", gap: 8, marginTop: 4 },
-  modeBtn: {
-    flex: 1, padding: "9px 10px", borderRadius: 10, border: "1px solid " + colors.border, background: colors.cardBg,
-    fontSize: 12, fontWeight: 700, color: colors.ink, cursor: "pointer",
-  },
-  modeBtnActive: { background: colors.grass, color: colors.chalk, border: "1px solid " + colors.grass },
   modeHint: { fontSize: 11, color: "#7C8983", marginTop: 6, lineHeight: 1.4 },
 
   subTitle: { fontSize: 15, fontWeight: 700, color: colors.ink, margin: 0 },

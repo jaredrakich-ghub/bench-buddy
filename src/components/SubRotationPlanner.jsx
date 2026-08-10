@@ -17,7 +17,7 @@ const uid = () => Math.random().toString(36).slice(2, 10);
 
 const defaultTeamData = () => ({
   roster: [],
-  settings: { fieldSize: 5, gameMinutes: 40, subIntervalMinutes: 6, mode: "combined" },
+  settings: { fieldSize: 5, gameMinutes: 40, subIntervalMinutes: 6 },
 });
 
 export default function SubRotationPlanner() {
@@ -194,7 +194,6 @@ export default function SubRotationPlanner() {
       gameMinutes: settings.gameMinutes,
       numIntervals,
       fieldSize: settings.fieldSize,
-      mode: settings.mode,
       keeperEligibleIds,
     });
     setPlan(intervals);
@@ -222,7 +221,6 @@ export default function SubRotationPlanner() {
       gameMinutes: gameSettings.gameMinutes,
       numIntervals,
       fieldSize: gameSettings.fieldSize,
-      mode: gameSettings.mode,
       keeperEligibleIds,
       startInterval: activeInterval,
       carryState,
@@ -259,7 +257,6 @@ export default function SubRotationPlanner() {
       gameMinutes: gameSettings.gameMinutes,
       numIntervals,
       fieldSize: gameSettings.fieldSize,
-      mode: gameSettings.mode,
       keeperEligibleIds,
       startInterval: activeInterval + 1,
       carryState,
@@ -295,7 +292,6 @@ export default function SubRotationPlanner() {
       gameMinutes: gameSettings.gameMinutes,
       numIntervals,
       fieldSize: gameSettings.fieldSize,
-      mode: gameSettings.mode,
       keeperEligibleIds,
       startInterval: activeInterval + 1,
       carryState,
