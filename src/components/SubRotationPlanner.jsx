@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import { intervalAtElapsed, computeIntervals, buildCarryState, generatePlan, keeperShiftIntervalsFor, lastGkId } from "../lib/rotation.js";
 import { validateGameSettings } from "../lib/validation.js";
 import { computeLiveElapsedSec } from "../lib/clock.js";
+import { generateId } from "../lib/id.js";
 import { fontStyle, styles } from "./styles.js";
 import SummaryModal from "./SummaryModal.jsx";
 import SquadSettingsForm from "./SquadSettingsForm.jsx";
@@ -13,8 +14,6 @@ const STORAGE_KEY = "team-data-v2";
 // match* (plan, clock, injuries, subs so far) — see the Phase 3 note above
 // the load effect for why it's kept apart.
 const MATCH_STORAGE_KEY = "match-state-v1";
-
-const uid = () => Math.random().toString(36).slice(2, 10);
 
 const defaultTeamData = () => ({
   roster: [],
@@ -178,7 +177,7 @@ export default function SubRotationPlanner() {
   const addPlayer = () => {
     const name = newPlayerName.trim();
     if (!name) return;
-    const newId = uid();
+    const newId = generateId();
     const roster = [...teamData.roster, { id: newId, name, keeperEligible: true }];
     saveTeamData({ ...teamData, roster });
     setAvailableIds((prev) => [...prev, newId]); // new players default to available
