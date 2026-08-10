@@ -151,7 +151,7 @@ export default function SquadSettingsForm({
       </div>
 
       {roster.length > 0 && (
-        <div style={styles.modeHint}>Tap 🧤 to mark who can play keeper — GK duty always rotates among whoever's toggled on.</div>
+        <div style={styles.modeHint}>Tap 🧤 to mark who can play keeper.</div>
       )}
 
       <div style={styles.squadList}>
