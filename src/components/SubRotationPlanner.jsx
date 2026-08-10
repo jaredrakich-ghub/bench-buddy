@@ -21,6 +21,16 @@ const defaultTeamData = () => ({
   settings: { fieldSize: 5, gameMinutes: 40, subIntervalMinutes: 6 },
 });
 
+// A save to browser storage failing is rare, but worth explaining in plain
+// terms rather than a raw error — the coach can't do anything about a stack
+// trace, but "storage is full" is actionable.
+const describeSaveError = (err) => {
+  if (err && err.name === "QuotaExceededError") {
+    return "Your browser's storage is full, so changes aren't being saved. Free up space or try a different browser/device.";
+  }
+  return "Changes aren't saving on this device right now — don't close this tab until this is resolved.";
+};
+
 export default function SubRotationPlanner() {
   const [teamData, setTeamData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -43,6 +53,11 @@ export default function SubRotationPlanner() {
   const [importConfirming, setImportConfirming] = useState(false);
   const [importStatus, setImportStatus] = useState("");
   const [copyStatus, setCopyStatus] = useState("");
+  // Set when a save to browser storage fails (e.g. storage full or
+  // disabled) — surfaced as a persistent banner rather than swallowed, so a
+  // coach isn't silently trusting saves that aren't happening. Cleared the
+  // next time either save succeeds.
+  const [saveError, setSaveError] = useState(null);
 
   // Load the roster/settings, then try to resume an in-progress match if one
   // was saved (Phase 3). The clock is reconstructed from a real timestamp
@@ -97,8 +112,9 @@ export default function SubRotationPlanner() {
     setTeamData(data);
     try {
       await window.storage.set(STORAGE_KEY, JSON.stringify(data), false);
-    } catch {
-      // best-effort; ignore failure in-session
+      setSaveError(null);
+    } catch (err) {
+      setSaveError(describeSaveError(err));
     }
   }, []);
 
@@ -116,8 +132,9 @@ export default function SubRotationPlanner() {
           JSON.stringify({ availableIds, gameSettings, plan, activeInterval, injuredThisGame, subLog, baseElapsedSec, runStartedAt, timerRunning }),
           false
         );
-      } catch {
-        // best-effort; ignore failure in-session
+        setSaveError(null);
+      } catch (err) {
+        setSaveError(describeSaveError(err));
       }
     })();
   }, [availableIds, gameSettings, plan, activeInterval, injuredThisGame, subLog, baseElapsedSec, runStartedAt, timerRunning]);
@@ -388,6 +405,8 @@ export default function SubRotationPlanner() {
           <div style={styles.headerTitle}>SUB TRACKER</div>
         </div>
       </header>
+
+      {saveError && <div style={styles.saveErrorBanner}>⚠️ {saveError}</div>}
 
       <main style={styles.main}>
         {!plan && (

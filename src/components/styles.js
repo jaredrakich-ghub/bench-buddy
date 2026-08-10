@@ -230,4 +230,8 @@ export const styles = {
   modalWarning: {
     marginTop: 14, fontSize: 12, color: colors.danger, background: "#FBEAE4", padding: "8px 12px", borderRadius: 8, fontWeight: 600,
   },
+  saveErrorBanner: {
+    background: colors.danger, color: "#fff", fontSize: 12, fontWeight: 700, textAlign: "center",
+    padding: "8px 16px", lineHeight: 1.4,
+  },
 };
