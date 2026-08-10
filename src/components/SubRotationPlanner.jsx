@@ -5,7 +5,7 @@ const STORAGE_KEY = "team-data-v2";
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-const fmtClock = (totalSeconds) => {
+export const fmtClock = (totalSeconds) => {
   const s = Math.max(0, Math.round(totalSeconds));
   const m = Math.floor(s / 60);
   const sec = s % 60;
@@ -13,7 +13,7 @@ const fmtClock = (totalSeconds) => {
 };
 
 // Given elapsed seconds, find which plan interval we're currently in.
-const intervalAtElapsed = (plan, elapsedSec) => {
+export const intervalAtElapsed = (plan, elapsedSec) => {
   if (!plan || plan.length === 0) return 0;
   const elapsedMin = elapsedSec / 60;
   const idx = plan.findIndex((iv) => elapsedMin >= iv.startMin && elapsedMin < iv.endMin);
@@ -51,7 +51,7 @@ const defaultTeamData = () => ({
 
 // Turn a target sub interval (e.g. "every 5-7 min") into a whole number of
 // even intervals across the game, landing as close to the target as possible.
-function computeIntervals(gameMinutes, subIntervalMinutes) {
+export function computeIntervals(gameMinutes, subIntervalMinutes) {
   const numIntervals = Math.max(2, Math.round(gameMinutes / subIntervalMinutes));
   const intervalLen = gameMinutes / numIntervals;
   return { numIntervals, intervalLen };
@@ -60,7 +60,7 @@ function computeIntervals(gameMinutes, subIntervalMinutes) {
 // Replays a set of already-decided intervals to work out each player's
 // fairness state (minutes played, GK minutes, and how long they've been
 // waiting on the bench) as of right after those intervals happened.
-function buildCarryState(ids, doneIntervals) {
+export function buildCarryState(ids, doneIntervals) {
   const carryState = {};
   ids.forEach((id) => {
     let fieldMin = 0, gkMin = 0, consecBench = 0;
@@ -87,7 +87,7 @@ function buildCarryState(ids, doneIntervals) {
 //    filled from everyone else using normal outfield fairness. This
 //    guarantees a valid keeper every interval without pulling outfield
 //    fairness numbers into the keeper decision (and vice versa).
-function generatePlan({ availableIds, gameMinutes, numIntervals, fieldSize, mode, keeperEligibleIds, startInterval = 0, carryState = null }) {
+export function generatePlan({ availableIds, gameMinutes, numIntervals, fieldSize, mode, keeperEligibleIds, startInterval = 0, carryState = null }) {
   const size = Math.min(fieldSize, availableIds.length);
   const intervalLen = gameMinutes / numIntervals;
 
