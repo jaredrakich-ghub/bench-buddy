@@ -24,3 +24,11 @@ export function computeLiveElapsedSec(baseElapsedSec, startedAtMs, capSec) {
   const live = baseElapsedSec + (Date.now() - startedAtMs) / 1000;
   return Math.min(Math.max(live, 0), capSec);
 }
+
+// Formats a seconds count as m:ss for the match clock display.
+export const fmtClock = (totalSeconds) => {
+  const s = Math.max(0, Math.round(totalSeconds));
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}:${sec.toString().padStart(2, "0")}`;
+};
