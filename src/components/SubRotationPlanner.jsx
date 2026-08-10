@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { X } from "lucide-react";
-import { intervalAtElapsed, computeIntervals, buildCarryState, generatePlan } from "../lib/rotation.js";
+import { intervalAtElapsed, computeIntervals, buildCarryState, generatePlan, keeperShiftIntervalsFor, lastGkId } from "../lib/rotation.js";
 import { computeLiveElapsedSec } from "../lib/clock.js";
 import { fontStyle, styles } from "./styles.js";
 import SummaryModal from "./SummaryModal.jsx";
@@ -189,12 +189,14 @@ export default function SubRotationPlanner() {
     const settings = { ...gameSettings };
     saveTeamData({ ...teamData, settings });
     const { numIntervals } = computeIntervals(settings.gameMinutes, settings.subIntervalMinutes);
+    const keeperShiftIntervals = keeperShiftIntervalsFor(settings.subIntervalMinutes, settings.keeperShiftMinutes);
     const { intervals } = generatePlan({
       availableIds,
       gameMinutes: settings.gameMinutes,
       numIntervals,
       fieldSize: settings.fieldSize,
       keeperEligibleIds,
+      keeperShiftIntervals,
     });
     setPlan(intervals);
     setActiveInterval(0);
@@ -216,6 +218,7 @@ export default function SubRotationPlanner() {
     const carryState = buildCarryState(availableIds, priorIntervals);
 
     const { numIntervals } = computeIntervals(gameSettings.gameMinutes, gameSettings.subIntervalMinutes);
+    const keeperShiftIntervals = keeperShiftIntervalsFor(gameSettings.subIntervalMinutes, gameSettings.keeperShiftMinutes);
     const { intervals: rebuiltRemainder } = generatePlan({
       availableIds: remainingAvailable,
       gameMinutes: gameSettings.gameMinutes,
@@ -224,6 +227,8 @@ export default function SubRotationPlanner() {
       keeperEligibleIds,
       startInterval: activeInterval,
       carryState,
+      keeperShiftIntervals,
+      currentGkId: lastGkId(priorIntervals),
     });
 
     setPlan([...priorIntervals, ...rebuiltRemainder]);
@@ -252,6 +257,7 @@ export default function SubRotationPlanner() {
 
     const remainingAvailable = availableIds.filter((id) => !newInjuredList.includes(id));
     const { numIntervals } = computeIntervals(gameSettings.gameMinutes, gameSettings.subIntervalMinutes);
+    const keeperShiftIntervals = keeperShiftIntervalsFor(gameSettings.subIntervalMinutes, gameSettings.keeperShiftMinutes);
     const { intervals: rebuiltRemainder } = generatePlan({
       availableIds: remainingAvailable,
       gameMinutes: gameSettings.gameMinutes,
@@ -260,6 +266,8 @@ export default function SubRotationPlanner() {
       keeperEligibleIds,
       startInterval: activeInterval + 1,
       carryState,
+      keeperShiftIntervals,
+      currentGkId: lastGkId(doneIntervals),
     });
 
     setPlan([...priorIntervals, frozenCurrent, ...rebuiltRemainder]);
@@ -287,6 +295,7 @@ export default function SubRotationPlanner() {
 
     const remainingAvailable = availableIds.filter((id) => !injuredThisGame.includes(id));
     const { numIntervals } = computeIntervals(gameSettings.gameMinutes, gameSettings.subIntervalMinutes);
+    const keeperShiftIntervals = keeperShiftIntervalsFor(gameSettings.subIntervalMinutes, gameSettings.keeperShiftMinutes);
     const { intervals: rebuiltRemainder } = generatePlan({
       availableIds: remainingAvailable,
       gameMinutes: gameSettings.gameMinutes,
@@ -295,6 +304,8 @@ export default function SubRotationPlanner() {
       keeperEligibleIds,
       startInterval: activeInterval + 1,
       carryState,
+      keeperShiftIntervals,
+      currentGkId: lastGkId(doneIntervals),
     });
 
     setPlan([...priorIntervals, frozenCurrent, ...rebuiltRemainder]);

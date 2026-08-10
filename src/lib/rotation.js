@@ -24,6 +24,27 @@ export function computeIntervals(gameMinutes, subIntervalMinutes) {
   return { numIntervals, intervalLen };
 }
 
+// Turns a target keeper-shift length (in minutes) into a whole number of
+// sub-intervals, so a keeper's shift always lines up on sub-interval
+// boundaries. Falls back to `subIntervalMinutes` (i.e. one sub-interval per
+// shift — today's default rotate-every-sub behavior) when no shift length
+// is set, so this is purely additive: nobody sees a change unless they
+// explicitly set a longer keeper shift.
+export function keeperShiftIntervalsFor(subIntervalMinutes, keeperShiftMinutes) {
+  const target = keeperShiftMinutes || subIntervalMinutes;
+  return Math.max(1, Math.round(target / subIntervalMinutes));
+}
+
+// Who was marked as goalkeeper in the last of a list of already-decided
+// intervals — i.e. "who's currently in goal" as of right before some later
+// point in the game. Used so a mid-game rebuild (injury, swap, bring-back)
+// knows a keeper is already partway through a shift, instead of treating
+// the rebuild's starting point as a fresh shift boundary.
+export function lastGkId(intervals) {
+  if (!intervals || intervals.length === 0) return null;
+  return intervals[intervals.length - 1].onField.find((p) => p.isGk)?.id ?? null;
+}
+
 // Replays a set of already-decided intervals to work out each player's
 // fairness state (minutes played, GK minutes, and how long they've been
 // waiting on the bench) as of right after those intervals happened.
@@ -54,9 +75,20 @@ export function buildCarryState(ids, doneIntervals) {
 // keeper-eligible (an edge case — every player defaults to eligible), this
 // falls back to picking a GK from whoever's already on the field, so the
 // app never ends up with no keeper at all.
-export function generatePlan({ availableIds, gameMinutes, numIntervals, fieldSize, keeperEligibleIds, startInterval = 0, carryState = null }) {
+//
+// `keeperShiftIntervals` controls how many consecutive intervals one
+// keeper stays in for before rotating (default 1 = every interval, today's
+// original behavior). `currentGkId` lets a mid-game rebuild (injury, swap,
+// bring-back) tell the algorithm someone is already partway through a
+// shift, so the rebuild's start doesn't get treated as a fresh shift
+// boundary — see keeperShiftIntervalsFor/lastGkId above.
+export function generatePlan({
+  availableIds, gameMinutes, numIntervals, fieldSize, keeperEligibleIds,
+  startInterval = 0, carryState = null, keeperShiftIntervals = 1, currentGkId = null,
+}) {
   const size = Math.min(fieldSize, availableIds.length);
   const intervalLen = gameMinutes / numIntervals;
+  const shiftLen = Math.max(1, keeperShiftIntervals);
 
   const sim = {};
   availableIds.forEach((id) => {
@@ -81,19 +113,33 @@ export function generatePlan({ availableIds, gameMinutes, numIntervals, fieldSiz
   };
 
   const intervals = [];
-  let prevGk = null;
+  // Seeded with currentGkId (not null) so a rebuild starting mid-shift knows
+  // who's already in goal — see the doc comment above.
+  let prevGk = currentGkId;
 
   for (let i = startInterval; i < numIntervals; i++) {
     let onFieldIds, gk;
+    // Absolute interval index, not relative to startInterval, so shift
+    // boundaries land on the same schedule regardless of when a rebuild
+    // happens mid-game.
+    const atShiftBoundary = i % shiftLen === 0;
 
     if (hasEligibleKeeper) {
       const eligiblePool = availableIds.filter((id) => eligibleSet.has(id));
-      gk = pickGkFrom(eligiblePool, prevGk);
+      // Keep the same keeper mid-shift as long as they're still available
+      // and eligible (e.g. not the one who just got injured); otherwise
+      // fall through to a fresh pick even off-boundary.
+      const keepGk = !atShiftBoundary && prevGk && eligiblePool.includes(prevGk);
+      gk = keepGk ? prevGk : pickGkFrom(eligiblePool, prevGk);
       const outfieldPool = availableIds.filter((id) => id !== gk);
       const sortedOutfield = [...outfieldPool].sort(outfieldSort);
       const outfieldOn = sortedOutfield.slice(0, Math.max(0, size - 1));
       onFieldIds = [...outfieldOn, gk];
     } else {
+      // No one is marked keeper-eligible at all — an unusual edge case.
+      // Keeper shifts don't apply here; keep the original every-interval
+      // fallback rather than adding shift-continuation complexity for a
+      // state that's already a degraded fallback.
       const pool = [...availableIds].sort(outfieldSort);
       onFieldIds = pool.slice(0, size);
       gk = pickGkFrom(onFieldIds, prevGk);

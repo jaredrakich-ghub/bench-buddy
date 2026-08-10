@@ -5,6 +5,8 @@ import {
   buildCarryState,
   generatePlan,
   computeMinutesSummary,
+  keeperShiftIntervalsFor,
+  lastGkId,
 } from "./rotation.js";
 
 describe("intervalAtElapsed", () => {
@@ -47,6 +49,39 @@ describe("computeIntervals", () => {
   it("keeps interval length * numIntervals equal to the total game length", () => {
     const { numIntervals, intervalLen } = computeIntervals(50, 7);
     expect(numIntervals * intervalLen).toBeCloseTo(50);
+  });
+});
+
+describe("keeperShiftIntervalsFor", () => {
+  it("defaults to one sub-interval per shift when no keeper shift length is set", () => {
+    expect(keeperShiftIntervalsFor(5, undefined)).toBe(1);
+    expect(keeperShiftIntervalsFor(5, null)).toBe(1);
+    expect(keeperShiftIntervalsFor(5, 0)).toBe(1);
+  });
+
+  it("rounds to the nearest whole number of sub-intervals", () => {
+    expect(keeperShiftIntervalsFor(5, 15)).toBe(3);
+    expect(keeperShiftIntervalsFor(5, 17)).toBe(3); // rounds to nearest, not up
+    expect(keeperShiftIntervalsFor(6, 15)).toBe(3); // round(15/6) = round(2.5) = 3
+  });
+
+  it("never returns fewer than 1, even if the shift is set shorter than a sub-interval", () => {
+    expect(keeperShiftIntervalsFor(10, 2)).toBe(1);
+  });
+});
+
+describe("lastGkId", () => {
+  it("returns the GK id from the last interval in the list", () => {
+    const intervals = [
+      { onField: [{ id: "a", isGk: true }, { id: "b", isGk: false }] },
+      { onField: [{ id: "b", isGk: true }, { id: "a", isGk: false }] },
+    ];
+    expect(lastGkId(intervals)).toBe("b");
+  });
+
+  it("returns null for an empty or missing interval list", () => {
+    expect(lastGkId([])).toBe(null);
+    expect(lastGkId(null)).toBe(null);
   });
 });
 
@@ -222,6 +257,92 @@ describe("generatePlan", () => {
     // p1 (already at 100 min) should be the one benched in the very next interval,
     // since everyone else has zero minutes and is more "owed" field time.
     expect(intervals[0].bench).toEqual(["p1"]);
+  });
+
+  describe("keeper shift length", () => {
+    const eligible = ["p1", "p2"];
+
+    it("keeps the same keeper for keeperShiftIntervals in a row, then rotates", () => {
+      const { intervals } = generatePlan({
+        availableIds: ids,
+        gameMinutes: 60,
+        numIntervals: 6,
+        fieldSize: 5,
+        keeperEligibleIds: eligible,
+        keeperShiftIntervals: 3,
+      });
+      const gks = intervals.map((iv) => iv.onField.find((p) => p.isGk).id);
+      // 6 intervals, shift length 3 -> two shifts of 3 identical intervals each
+      expect(gks[0]).toBe(gks[1]);
+      expect(gks[1]).toBe(gks[2]);
+      expect(gks[3]).toBe(gks[4]);
+      expect(gks[4]).toBe(gks[5]);
+      expect(gks[0]).not.toBe(gks[3]); // rotates to the other eligible keeper at the boundary
+    });
+
+    it("defaults to changing every interval when keeperShiftIntervals isn't set", () => {
+      const { intervals } = generatePlan({
+        availableIds: ids,
+        gameMinutes: 30,
+        numIntervals: 5,
+        fieldSize: 5,
+        keeperEligibleIds: eligible,
+      });
+      const gks = intervals.map((iv) => iv.onField.find((p) => p.isGk).id);
+      // with only 2 eligible keepers and no shift length, expect it to alternate
+      expect(gks[0]).not.toBe(gks[1]);
+    });
+
+    it("a mid-game rebuild continues an in-progress shift instead of picking a new keeper immediately", () => {
+      // Interval 0 already happened with p1 in goal, 1 interval into a 3-interval shift.
+      const priorIntervals = [
+        {
+          index: 0, startMin: 0, endMin: 10,
+          onField: [{ id: "p1", isGk: true }, { id: "p2", isGk: false }, { id: "p3", isGk: false }, { id: "p4", isGk: false }, { id: "p5", isGk: false }],
+          bench: ["p6", "p7"],
+        },
+      ];
+      const carryState = buildCarryState(ids, priorIntervals);
+      const { intervals } = generatePlan({
+        availableIds: ids,
+        gameMinutes: 60,
+        numIntervals: 6,
+        fieldSize: 5,
+        keeperEligibleIds: eligible,
+        keeperShiftIntervals: 3,
+        startInterval: 1,
+        carryState,
+        currentGkId: lastGkId(priorIntervals),
+      });
+      // interval 1 is not a shift boundary (1 % 3 !== 0) — p1 should still be keeper.
+      expect(intervals[0].onField.find((p) => p.isGk).id).toBe("p1");
+    });
+
+    it("replaces the keeper immediately if they become unavailable mid-shift, even off-boundary", () => {
+      const priorIntervals = [
+        {
+          index: 0, startMin: 0, endMin: 10,
+          onField: [{ id: "p1", isGk: true }, { id: "p2", isGk: false }, { id: "p3", isGk: false }, { id: "p4", isGk: false }, { id: "p5", isGk: false }],
+          bench: ["p6", "p7"],
+        },
+      ];
+      const carryState = buildCarryState(ids, priorIntervals);
+      // p1 (the current keeper) is now injured/unavailable.
+      const remainingAvailable = ids.filter((id) => id !== "p1");
+      const { intervals } = generatePlan({
+        availableIds: remainingAvailable,
+        gameMinutes: 60,
+        numIntervals: 6,
+        fieldSize: 5,
+        keeperEligibleIds: eligible,
+        keeperShiftIntervals: 3,
+        startInterval: 1,
+        carryState,
+        currentGkId: lastGkId(priorIntervals),
+      });
+      // p1 is gone, so p2 (the only other eligible keeper) must take over right away.
+      expect(intervals[0].onField.find((p) => p.isGk).id).toBe("p2");
+    });
   });
 });
 

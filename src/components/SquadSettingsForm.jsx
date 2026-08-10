@@ -1,5 +1,5 @@
 import { Plus, Trash2, Shuffle } from "lucide-react";
-import { computeIntervals } from "../lib/rotation.js";
+import { computeIntervals, keeperShiftIntervalsFor } from "../lib/rotation.js";
 import { styles } from "./styles.js";
 
 // Shared form for both first-time setup (inline) and later edits (modal).
@@ -92,10 +92,35 @@ export default function SquadSettingsForm({
           />
         </label>
       </div>
+
+      <label style={{ ...styles.settingLabel, marginTop: 12, maxWidth: 220 }}>
+        <span style={styles.settingLabelText}>Keeper shift (min)</span>
+        <input
+          type="number"
+          min={gameSettings.subIntervalMinutes || 2}
+          step={0.5}
+          style={styles.numInput}
+          placeholder={`Same as sub (${gameSettings.subIntervalMinutes || "?"})`}
+          value={gameSettings.keeperShiftMinutes ?? ""}
+          onChange={(e) => {
+            const v = e.target.value;
+            setGameSettings({ ...gameSettings, keeperShiftMinutes: v === "" ? "" : Number(v) });
+          }}
+        />
+      </label>
+      <div style={styles.modeHint}>
+        How long each goalkeeper stays in before rotating. Leave blank to change keeper every sub window, same as
+        outfield subs.
+      </div>
+
       <div style={styles.intervalPreview}>
         {(() => {
           const { numIntervals, intervalLen } = computeIntervals(gameSettings.gameMinutes || 1, gameSettings.subIntervalMinutes || 1);
-          return `≈ ${intervalLen.toFixed(1)} min per interval · ${numIntervals} sub windows this game`;
+          const shiftIntervals = keeperShiftIntervalsFor(gameSettings.subIntervalMinutes || 1, gameSettings.keeperShiftMinutes);
+          const preview = `≈ ${intervalLen.toFixed(1)} min per interval · ${numIntervals} sub windows this game`;
+          return shiftIntervals > 1
+            ? `${preview} · keeper changes every ${shiftIntervals} sub windows (~${(shiftIntervals * intervalLen).toFixed(0)} min)`
+            : preview;
         })()}
       </div>
 
