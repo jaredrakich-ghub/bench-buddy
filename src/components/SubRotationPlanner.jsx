@@ -4,21 +4,22 @@ import { intervalAtElapsed, computeIntervals, buildCarryState, generatePlan, kee
 import { validateGameSettings } from "../lib/validation.js";
 import { computeLiveElapsedSec } from "../lib/clock.js";
 import { generateId } from "../lib/id.js";
+import { defaultSettings, normalizeTeam, migrateLegacyTeam, createTeam, findTeam, updateTeam } from "../lib/teams.js";
 import { fontStyle, styles } from "./styles.js";
 import SummaryModal from "./SummaryModal.jsx";
 import SquadSettingsForm from "./SquadSettingsForm.jsx";
 import MatchView from "./MatchView.jsx";
 
-const STORAGE_KEY = "team-data-v2";
-// Separate key from the roster/settings above: this is the *in-progress
-// match* (plan, clock, injuries, subs so far) — see the Phase 3 note above
-// the load effect for why it's kept apart.
-const MATCH_STORAGE_KEY = "match-state-v1";
-
-const defaultTeamData = () => ({
-  roster: [],
-  settings: { fieldSize: 5, gameMinutes: 40, subIntervalMinutes: 6 },
-});
+// The multi-team registry: { teams: [{id, name, roster, settings}, ...], activeTeamId }.
+const TEAMS_STORAGE_KEY = "teams-v1";
+// Pre-multi-team key. Only ever read once, to migrate an existing single-team
+// user's roster into the new shape — never written to again.
+const LEGACY_TEAM_STORAGE_KEY = "team-data-v2";
+// In-progress match, scoped per team (so e.g. a Saturday team and a Sunday
+// team's games can't collide/overwrite each other in storage) — see the
+// Phase 3 note above the load effect for why match state is kept separate
+// from team data in the first place.
+const matchStorageKeyFor = (teamId) => `match-state-v1:${teamId}`;
 
 // A save to browser storage failing is rare, but worth explaining in plain
 // terms rather than a raw error — the coach can't do anything about a stack
@@ -31,11 +32,16 @@ const describeSaveError = (err) => {
 };
 
 export default function SubRotationPlanner() {
-  const [teamData, setTeamData] = useState(null);
+  // The full team registry, and which one is currently active. `teamData`
+  // (the active team's { id, name, roster, settings }) is derived from
+  // these below rather than its own state — see the note right before it's
+  // computed.
+  const [teams, setTeams] = useState([]);
+  const [activeTeamId, setActiveTeamId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [newPlayerName, setNewPlayerName] = useState("");
   const [availableIds, setAvailableIds] = useState([]);
-  const [gameSettings, setGameSettings] = useState(defaultTeamData().settings);
+  const [gameSettings, setGameSettings] = useState(defaultSettings());
   const [plan, setPlan] = useState(null);
   const [activeInterval, setActiveInterval] = useState(0);
   const [injuredThisGame, setInjuredThisGame] = useState([]);
@@ -58,38 +64,60 @@ export default function SubRotationPlanner() {
   // next time either save succeeds.
   const [saveError, setSaveError] = useState(null);
 
-  // Load the roster/settings, then try to resume an in-progress match if one
-  // was saved (Phase 3). The clock is reconstructed from a real timestamp
-  // rather than a raw counter, so it comes back correct even after a long
-  // gap — as long as it was actually running (not paused) when last saved.
+  // Load the team registry — migrating an existing single-team user's data
+  // the first time this runs, or bootstrapping a brand-new empty team if
+  // there's nothing saved at all — then try to resume an in-progress match
+  // for whichever team ends up active (Phase 3). The clock is reconstructed
+  // from a real timestamp rather than a raw counter, so it comes back
+  // correct even after a long gap — as long as it was actually running
+  // (not paused) when last saved.
   useEffect(() => {
     (async () => {
-      let roster = [];
+      let loadedTeams = [];
+      let loadedActiveId = null;
+
+      // window.storage.get throws (rather than returning null) when a key
+      // doesn't exist, so "no teams-v1 yet" and "corrupted teams-v1" both
+      // land here — either way, fall back to trying to migrate the older
+      // single-team format before giving up and bootstrapping empty.
       try {
-        const res = await window.storage.get(STORAGE_KEY, false);
-        const raw = res ? JSON.parse(res.value) : defaultTeamData();
-        const data = {
-          roster: (raw.roster || []).map((p) => ({ ...p, keeperEligible: p.keeperEligible !== false })),
-          settings: { ...defaultTeamData().settings, ...raw.settings },
-        };
-        roster = data.roster;
-        setTeamData(data);
-        setGameSettings(data.settings);
-        setAvailableIds(data.roster.map((p) => p.id)); // default: everyone on the squad is assumed available
+        const res = await window.storage.get(TEAMS_STORAGE_KEY, false);
+        const parsed = JSON.parse(res.value);
+        loadedTeams = (parsed.teams || []).map(normalizeTeam);
+        loadedActiveId = findTeam(loadedTeams, parsed.activeTeamId) ? parsed.activeTeamId : loadedTeams[0]?.id ?? null;
       } catch {
-        setTeamData(defaultTeamData());
+        try {
+          const legacyRes = await window.storage.get(LEGACY_TEAM_STORAGE_KEY, false);
+          const migrated = migrateLegacyTeam(JSON.parse(legacyRes.value));
+          loadedTeams = [migrated];
+          loadedActiveId = migrated.id;
+        } catch {
+          // no legacy single-team data to migrate either — normal for a first run
+        }
       }
 
+      if (loadedTeams.length === 0) {
+        const fresh = createTeam("My Team");
+        loadedTeams = [fresh];
+        loadedActiveId = fresh.id;
+      }
+
+      const active = findTeam(loadedTeams, loadedActiveId) || loadedTeams[0];
+      setTeams(loadedTeams);
+      setActiveTeamId(active.id);
+      setGameSettings(active.settings);
+      setAvailableIds(active.roster.map((p) => p.id)); // default: everyone on the squad is assumed available
+
       try {
-        const matchRes = await window.storage.get(MATCH_STORAGE_KEY, false);
+        const matchRes = await window.storage.get(matchStorageKeyFor(active.id), false);
         const saved = matchRes ? JSON.parse(matchRes.value) : null;
         if (saved?.plan?.length) {
           const capSec = saved.plan[saved.plan.length - 1].endMin * 60;
           const live = computeLiveElapsedSec(saved.baseElapsedSec, saved.timerRunning ? saved.runStartedAt : null, capSec);
           const stillRunning = saved.timerRunning && live < capSec;
 
-          setAvailableIds(saved.availableIds || roster.map((p) => p.id));
-          setGameSettings(saved.gameSettings || defaultTeamData().settings);
+          setAvailableIds(saved.availableIds || active.roster.map((p) => p.id));
+          setGameSettings(saved.gameSettings || active.settings);
           setPlan(saved.plan);
           setInjuredThisGame(saved.injuredThisGame || []);
           setSubLog(saved.subLog || {});
@@ -107,27 +135,39 @@ export default function SubRotationPlanner() {
     })();
   }, []);
 
-  const saveTeamData = useCallback(async (data) => {
-    setTeamData(data);
-    try {
-      await window.storage.set(STORAGE_KEY, JSON.stringify(data), false);
-      setSaveError(null);
-    } catch (err) {
-      setSaveError(describeSaveError(err));
-    }
-  }, []);
+  // Updates the active team's data (roster/settings) in the registry.
+  // Actual persistence happens in the effect right below, not here — an
+  // updater function passed to setState can run twice under React
+  // StrictMode, so it shouldn't have side effects like a storage write.
+  const saveTeamData = useCallback((data) => {
+    setTeams((prev) => updateTeam(prev, activeTeamId, data));
+  }, [activeTeamId]);
+
+  // Persist the team registry whenever it changes.
+  useEffect(() => {
+    if (teams.length === 0 || !activeTeamId) return; // not loaded yet
+    (async () => {
+      try {
+        await window.storage.set(TEAMS_STORAGE_KEY, JSON.stringify({ teams, activeTeamId }), false);
+        setSaveError(null);
+      } catch (err) {
+        setSaveError(describeSaveError(err));
+      }
+    })();
+  }, [teams, activeTeamId]);
 
   // Persist the in-progress match so a refresh, a backgrounded tab getting
   // reloaded, or closing the browser doesn't lose it. This deliberately does
   // NOT fire every second — only baseElapsedSec/runStartedAt change (on
   // Start/Pause/Reset/full-time), not the ticking display value — so saving
-  // stays cheap and infrequent.
+  // stays cheap and infrequent. Keyed per team so two teams' games can't
+  // collide/overwrite each other in storage.
   useEffect(() => {
-    if (!plan) return;
+    if (!plan || !activeTeamId) return;
     (async () => {
       try {
         await window.storage.set(
-          MATCH_STORAGE_KEY,
+          matchStorageKeyFor(activeTeamId),
           JSON.stringify({ availableIds, gameSettings, plan, activeInterval, injuredThisGame, subLog, baseElapsedSec, runStartedAt, timerRunning }),
           false
         );
@@ -136,7 +176,7 @@ export default function SubRotationPlanner() {
         setSaveError(describeSaveError(err));
       }
     })();
-  }, [availableIds, gameSettings, plan, activeInterval, injuredThisGame, subLog, baseElapsedSec, runStartedAt, timerRunning]);
+  }, [activeTeamId, availableIds, gameSettings, plan, activeInterval, injuredThisGame, subLog, baseElapsedSec, runStartedAt, timerRunning]);
 
   // Tick the clock — recomputed from the real-time anchor every second
   // rather than counted, and auto-frozen once the match reaches full time.
@@ -165,6 +205,11 @@ export default function SubRotationPlanner() {
     if (!timerRunning || !plan) return;
     setActiveInterval(intervalAtElapsed(plan, elapsedSec));
   }, [elapsedSec, timerRunning, plan]);
+
+  // The active team's data, derived from the registry rather than its own
+  // state — see saveTeamData above for why the registry is the single
+  // source of truth.
+  const teamData = findTeam(teams, activeTeamId);
 
   if (loading || !teamData) {
     return (
@@ -350,7 +395,7 @@ export default function SubRotationPlanner() {
       const parsed = JSON.parse(importText);
       if (!parsed || !Array.isArray(parsed.roster)) throw new Error("bad format");
       const normalizedRoster = parsed.roster.map((p) => ({ ...p, keeperEligible: p.keeperEligible !== false }));
-      const normalizedSettings = { ...defaultTeamData().settings, ...(parsed.settings || {}) };
+      const normalizedSettings = { ...defaultSettings(), ...(parsed.settings || {}) };
       saveTeamData({ roster: normalizedRoster, settings: normalizedSettings });
       setGameSettings(normalizedSettings);
       setAvailableIds(normalizedRoster.map((p) => p.id));
