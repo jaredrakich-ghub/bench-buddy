@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { defaultSettings, normalizeTeam, createTeam, migrateLegacyTeam, findTeam, addTeam, updateTeam } from "./teams.js";
+import { defaultSettings, normalizeTeam, createTeam, migrateLegacyTeam, findTeam, addTeam, updateTeam, removeTeam } from "./teams.js";
 
 describe("defaultSettings", () => {
   it("returns the expected defaults", () => {
@@ -103,6 +103,19 @@ describe("findTeam / addTeam / updateTeam", () => {
 
   it("updateTeam is a no-op if the id doesn't match any team", () => {
     const updated = updateTeam(teams, "nonexistent", { name: "X" });
+    expect(updated).toEqual(teams);
+  });
+
+  it("removeTeam filters out the matching team without mutating the original array", () => {
+    const updated = removeTeam(teams, teamA.id);
+    expect(updated.length).toBe(1);
+    expect(findTeam(updated, teamA.id)).toBe(null);
+    expect(findTeam(updated, teamB.id)).toEqual(teamB);
+    expect(teams.length).toBe(2); // original untouched
+  });
+
+  it("removeTeam is a no-op if the id doesn't match any team", () => {
+    const updated = removeTeam(teams, "nonexistent");
     expect(updated).toEqual(teams);
   });
 });

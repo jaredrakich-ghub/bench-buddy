@@ -4,11 +4,12 @@ import { intervalAtElapsed, computeIntervals, buildCarryState, generatePlan, kee
 import { validateGameSettings } from "../lib/validation.js";
 import { computeLiveElapsedSec } from "../lib/clock.js";
 import { generateId } from "../lib/id.js";
-import { defaultSettings, normalizeTeam, migrateLegacyTeam, createTeam, findTeam, updateTeam } from "../lib/teams.js";
+import { defaultSettings, normalizeTeam, migrateLegacyTeam, createTeam, findTeam, addTeam, updateTeam, removeTeam } from "../lib/teams.js";
 import { fontStyle, styles } from "./styles.js";
 import SummaryModal from "./SummaryModal.jsx";
 import SquadSettingsForm from "./SquadSettingsForm.jsx";
 import MatchView from "./MatchView.jsx";
+import TeamSwitcher from "./TeamSwitcher.jsx";
 
 // The multi-team registry: { teams: [{id, name, roster, settings}, ...], activeTeamId }.
 const TEAMS_STORAGE_KEY = "teams-v1";
@@ -53,6 +54,7 @@ export default function SubRotationPlanner() {
   const [swapPickId, setSwapPickId] = useState(null); // bench player id awaiting a pitch target to swap with
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [showTeamSwitcher, setShowTeamSwitcher] = useState(false);
   const [showBackupPanel, setShowBackupPanel] = useState(false);
   const [importText, setImportText] = useState("");
   const [importConfirming, setImportConfirming] = useState(false);
@@ -64,13 +66,66 @@ export default function SubRotationPlanner() {
   // next time either save succeeds.
   const [saveError, setSaveError] = useState(null);
 
+  // Makes `team` the active one and loads whatever match state belongs to
+  // it (resuming an in-progress game, Phase 3 style, or starting fresh if
+  // there isn't one) — shared between the initial page load and switching
+  // teams via the switcher, so both stay in sync.
+  //
+  // The async storage read happens first, and every setState call happens
+  // together afterward in one synchronous burst (React 18 batches these
+  // into a single update). This matters: if activeTeamId changed before
+  // plan/gameSettings/etc. caught up, the match-state-persist effect below
+  // could fire in between and write the *previous* team's game into the
+  // *new* team's storage slot.
+  const activateTeam = useCallback(async (team) => {
+    let resume = null;
+    try {
+      const matchRes = await window.storage.get(matchStorageKeyFor(team.id), false);
+      const saved = matchRes ? JSON.parse(matchRes.value) : null;
+      if (saved?.plan?.length) {
+        const capSec = saved.plan[saved.plan.length - 1].endMin * 60;
+        const live = computeLiveElapsedSec(saved.baseElapsedSec, saved.timerRunning ? saved.runStartedAt : null, capSec);
+        resume = { saved, live, stillRunning: saved.timerRunning && live < capSec };
+      }
+    } catch {
+      // no in-progress match for this team — normal
+    }
+
+    setActiveTeamId(team.id);
+    setShowSettingsModal(false);
+    setShowSummaryModal(false);
+    setSwapPickId(null);
+
+    if (resume) {
+      const { saved, live, stillRunning } = resume;
+      setAvailableIds(saved.availableIds || team.roster.map((p) => p.id));
+      setGameSettings(saved.gameSettings || team.settings);
+      setPlan(saved.plan);
+      setInjuredThisGame(saved.injuredThisGame || []);
+      setSubLog(saved.subLog || {});
+      setBaseElapsedSec(live);
+      setElapsedSec(live);
+      setRunStartedAt(stillRunning ? saved.runStartedAt : null);
+      setTimerRunning(stillRunning);
+      setActiveInterval(intervalAtElapsed(saved.plan, live));
+    } else {
+      setAvailableIds(team.roster.map((p) => p.id)); // default: everyone on the squad is assumed available
+      setGameSettings(team.settings);
+      setPlan(null);
+      setActiveInterval(0);
+      setInjuredThisGame([]);
+      setElapsedSec(0);
+      setBaseElapsedSec(0);
+      setRunStartedAt(null);
+      setTimerRunning(false);
+      setSubLog({});
+    }
+  }, []);
+
   // Load the team registry — migrating an existing single-team user's data
   // the first time this runs, or bootstrapping a brand-new empty team if
-  // there's nothing saved at all — then try to resume an in-progress match
-  // for whichever team ends up active (Phase 3). The clock is reconstructed
-  // from a real timestamp rather than a raw counter, so it comes back
-  // correct even after a long gap — as long as it was actually running
-  // (not paused) when last saved.
+  // there's nothing saved at all — then activate whichever team ends up
+  // active.
   useEffect(() => {
     (async () => {
       let loadedTeams = [];
@@ -104,36 +159,10 @@ export default function SubRotationPlanner() {
 
       const active = findTeam(loadedTeams, loadedActiveId) || loadedTeams[0];
       setTeams(loadedTeams);
-      setActiveTeamId(active.id);
-      setGameSettings(active.settings);
-      setAvailableIds(active.roster.map((p) => p.id)); // default: everyone on the squad is assumed available
-
-      try {
-        const matchRes = await window.storage.get(matchStorageKeyFor(active.id), false);
-        const saved = matchRes ? JSON.parse(matchRes.value) : null;
-        if (saved?.plan?.length) {
-          const capSec = saved.plan[saved.plan.length - 1].endMin * 60;
-          const live = computeLiveElapsedSec(saved.baseElapsedSec, saved.timerRunning ? saved.runStartedAt : null, capSec);
-          const stillRunning = saved.timerRunning && live < capSec;
-
-          setAvailableIds(saved.availableIds || active.roster.map((p) => p.id));
-          setGameSettings(saved.gameSettings || active.settings);
-          setPlan(saved.plan);
-          setInjuredThisGame(saved.injuredThisGame || []);
-          setSubLog(saved.subLog || {});
-          setBaseElapsedSec(live);
-          setElapsedSec(live);
-          setRunStartedAt(stillRunning ? saved.runStartedAt : null);
-          setTimerRunning(stillRunning);
-          setActiveInterval(intervalAtElapsed(saved.plan, live));
-        }
-      } catch {
-        // no in-progress match to resume — normal on a first run
-      }
-
+      await activateTeam(active);
       setLoading(false);
     })();
-  }, []);
+  }, [activateTeam]);
 
   // Updates the active team's data (roster/settings) in the registry.
   // Actual persistence happens in the effect right below, not here — an
@@ -242,6 +271,39 @@ export default function SubRotationPlanner() {
   const toggleKeeperEligible = (id) => {
     const roster = teamData.roster.map((p) => (p.id === id ? { ...p, keeperEligible: !p.keeperEligible } : p));
     saveTeamData({ ...teamData, roster });
+  };
+
+  const switchTeam = (id) => {
+    const team = findTeam(teams, id);
+    if (team) activateTeam(team);
+    setShowTeamSwitcher(false);
+  };
+
+  // Creates a new empty team and immediately switches to it — a coach
+  // hitting "+ Add Team" is about to start setting up that team's squad.
+  const addNewTeam = (name) => {
+    const team = createTeam(name);
+    setTeams((prev) => addTeam(prev, team));
+    activateTeam(team);
+    setShowTeamSwitcher(false);
+  };
+
+  const renameTeamById = (id, name) => {
+    setTeams((prev) => updateTeam(prev, id, { name: name.trim() || findTeam(prev, id)?.name }));
+  };
+
+  const deleteTeamById = async (id) => {
+    const remaining = removeTeam(teams, id);
+    if (remaining.length === 0) return; // TeamSwitcher already disables deleting the last team
+    setTeams(remaining);
+    try {
+      await window.storage.delete(matchStorageKeyFor(id), false);
+    } catch {
+      // best-effort cleanup of that team's match data; not critical if it fails
+    }
+    if (id === activeTeamId) {
+      await activateTeam(remaining[0]);
+    }
   };
 
   const keeperEligibleIds = teamData.roster.filter((p) => p.keeperEligible).map((p) => p.id);
@@ -445,8 +507,13 @@ export default function SubRotationPlanner() {
       <style>{fontStyle}</style>
       <header style={styles.header}>
         <div style={styles.headerInner}>
-          <div style={styles.logoMark}>⚽</div>
-          <div style={styles.headerTitle}>SUB TRACKER</div>
+          <div style={styles.headerLogoGroup}>
+            <div style={styles.logoMark}>⚽</div>
+            <div style={styles.headerTitle}>SUB TRACKER</div>
+          </div>
+          <button style={styles.teamSwitcherTrigger} onClick={() => setShowTeamSwitcher(true)} title="Switch teams">
+            {teamData.name} ▾
+          </button>
         </div>
       </header>
 
@@ -504,6 +571,18 @@ export default function SubRotationPlanner() {
 
       {showSummaryModal && plan && (
         <SummaryModal plan={plan} availableIds={availableIds} nameOf={nameOf} onClose={() => setShowSummaryModal(false)} />
+      )}
+
+      {showTeamSwitcher && (
+        <TeamSwitcher
+          teams={teams}
+          activeTeamId={activeTeamId}
+          onSwitch={switchTeam}
+          onAdd={addNewTeam}
+          onRename={renameTeamById}
+          onDelete={deleteTeamById}
+          onClose={() => setShowTeamSwitcher(false)}
+        />
       )}
     </div>
   );

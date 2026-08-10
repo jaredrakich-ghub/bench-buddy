@@ -48,3 +48,7 @@ export function addTeam(teams, team) {
 export function updateTeam(teams, id, updates) {
   return teams.map((t) => (t.id === id ? { ...t, ...updates } : t));
 }
+
+export function removeTeam(teams, id) {
+  return teams.filter((t) => t.id !== id);
+}
