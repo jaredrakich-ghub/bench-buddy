@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Plus, Trash2, Shuffle, ChevronRight, ChevronLeft, RotateCcw, Play, Pause, Settings, X, BarChart2 } from "lucide-react";
-import { intervalAtElapsed, computeIntervals, buildCarryState, generatePlan, computeMinutesSummary } from "../lib/rotation.js";
+import { intervalAtElapsed, computeIntervals, buildCarryState, generatePlan } from "../lib/rotation.js";
 import { computeLiveElapsedSec } from "../lib/clock.js";
 import { fontStyle, styles } from "./styles.js";
 import { getFormationLayout } from "../lib/formation.js";
 import FootballerIcon from "./FootballerIcon.jsx";
+import SummaryModal from "./SummaryModal.jsx";
 
 const STORAGE_KEY = "team-data-v2";
 // Separate key from the roster/settings above: this is the *in-progress
@@ -815,47 +816,7 @@ export default function SubRotationPlanner() {
       )}
 
       {showSummaryModal && plan && (
-        <div style={styles.modalOverlay} onClick={() => setShowSummaryModal(false)}>
-          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.modalHeader}>
-              <h3 style={styles.modalTitle}>Minutes Summary</h3>
-              <button style={styles.modalCloseBtn} onClick={() => setShowSummaryModal(false)}>
-                <X size={18} />
-              </button>
-            </div>
-            <p style={styles.backupHint}>
-              Based on the full {plan[plan.length - 1].endMin}-minute rotation as planned — this updates the moment you
-              regenerate or edit the game.
-            </p>
-            {(() => {
-              const summary = computeMinutesSummary(plan, availableIds);
-              const anyInjured = summary.some((r) => r.injuredMin > 0);
-              return (
-                <div style={styles.summaryTable}>
-                  <div style={{ ...styles.summaryRow, ...styles.summaryHeadRow, ...(anyInjured ? styles.summaryRow5 : {}) }}>
-                    <span style={styles.summaryName}>Player</span>
-                    <span>Outfield</span>
-                    <span>Keeper</span>
-                    <span>Bench</span>
-                    {anyInjured && <span>Injured</span>}
-                  </div>
-                  {summary
-                    .slice()
-                    .sort((a, b) => b.outfieldMin + b.gkMin - (a.outfieldMin + a.gkMin))
-                    .map((r) => (
-                      <div key={r.id} style={{ ...styles.summaryRow, ...(anyInjured ? styles.summaryRow5 : {}) }}>
-                        <span style={styles.summaryName}>{nameOf(r.id)}</span>
-                        <span>{Math.round(r.outfieldMin)}</span>
-                        <span>{Math.round(r.gkMin)}</span>
-                        <span>{Math.round(r.benchMin)}</span>
-                        {anyInjured && <span>{r.injuredMin > 0 ? Math.round(r.injuredMin) : "—"}</span>}
-                      </div>
-                    ))}
-                </div>
-              );
-            })()}
-          </div>
-        </div>
+        <SummaryModal plan={plan} availableIds={availableIds} nameOf={nameOf} onClose={() => setShowSummaryModal(false)} />
       )}
     </div>
   );
