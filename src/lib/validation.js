@@ -30,8 +30,18 @@ export function validateGameSettings(settings, availableCount) {
       errors.push("Keeper shift must be 0 or greater.");
     }
   }
-  if (availableCount < 2) {
-    errors.push("Select at least 2 available players.");
+  // The real minimum isn't a flat 2 — it's however many fill the field plus
+  // at least one player on the bench, since a bench of zero means there's
+  // nothing to ever substitute. If fieldSize itself isn't valid, that's
+  // already flagged above, so just fall back to the bare "need someone to
+  // rotate" floor here rather than compounding a confusing message.
+  const minAvailable = Number.isFinite(fieldSize) && fieldSize >= 2 ? fieldSize + 1 : 2;
+  if (availableCount < minAvailable) {
+    errors.push(
+      minAvailable > 2
+        ? `Select at least ${minAvailable} available players — ${fieldSize} on the field, plus at least 1 on the bench.`
+        : "Select at least 2 available players."
+    );
   }
 
   return { valid: errors.length === 0, errors };

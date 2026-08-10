@@ -43,9 +43,25 @@ describe("validateGameSettings", () => {
     expect(validateGameSettings({ ...goodSettings, keeperShiftMinutes: -3 }, 7).valid).toBe(false);
   });
 
-  it("rejects fewer than 2 available players", () => {
+  it("rejects too few available players outright (well below even the field size)", () => {
     expect(validateGameSettings(goodSettings, 1).valid).toBe(false);
     expect(validateGameSettings(goodSettings, 0).valid).toBe(false);
+  });
+
+  it("requires enough available players to fill the field plus at least one bench spot, not just 2", () => {
+    // fieldSize 5: exactly 5 available fills the field with an empty bench —
+    // nobody to ever substitute, so this should be rejected even though 5 > 2.
+    const noBench = validateGameSettings({ ...goodSettings, fieldSize: 5 }, 5);
+    expect(noBench.valid).toBe(false);
+    expect(noBench.errors[0]).toMatch(/at least 6/);
+
+    // One more (6 = field size + 1) is exactly enough for a single sub.
+    expect(validateGameSettings({ ...goodSettings, fieldSize: 5 }, 6).valid).toBe(true);
+  });
+
+  it("falls back to the plain 'at least 2' message when fieldSize itself is invalid, rather than a confusing compound message", () => {
+    const result = validateGameSettings({ ...goodSettings, fieldSize: 0 }, 1);
+    expect(result.errors).toContain("Select at least 2 available players.");
   });
 
   it("reports multiple errors at once when several fields are invalid", () => {
