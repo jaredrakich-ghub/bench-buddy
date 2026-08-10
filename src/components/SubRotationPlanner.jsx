@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { X } from "lucide-react";
 import { intervalAtElapsed, computeIntervals, buildCarryState, generatePlan, keeperShiftIntervalsFor, lastGkId } from "../lib/rotation.js";
+import { validateGameSettings } from "../lib/validation.js";
 import { computeLiveElapsedSec } from "../lib/clock.js";
 import { fontStyle, styles } from "./styles.js";
 import SummaryModal from "./SummaryModal.jsx";
@@ -185,7 +186,11 @@ export default function SubRotationPlanner() {
   const keeperEligibleIds = teamData.roster.filter((p) => p.keeperEligible).map((p) => p.id);
 
   const startPlanning = () => {
-    if (availableIds.length < 2) return;
+    // Defense in depth: SquadSettingsForm already disables the submit
+    // button when settings are invalid, but this guard stays here too so
+    // startPlanning itself can never run with e.g. subIntervalMinutes <= 0,
+    // which would otherwise hang the tab in an infinite loop.
+    if (!validateGameSettings(gameSettings, availableIds.length).valid) return;
     const settings = { ...gameSettings };
     saveTeamData({ ...teamData, settings });
     const { numIntervals } = computeIntervals(settings.gameMinutes, settings.subIntervalMinutes);

@@ -1,5 +1,6 @@
 import { Plus, Trash2, Shuffle } from "lucide-react";
 import { computeIntervals, keeperShiftIntervalsFor } from "../lib/rotation.js";
+import { validateGameSettings } from "../lib/validation.js";
 import { styles } from "./styles.js";
 
 // Shared form for both first-time setup (inline) and later edits (modal).
@@ -39,6 +40,8 @@ export default function SquadSettingsForm({
   onSubmit,
   submitLabel,
 }) {
+  const validation = validateGameSettings(gameSettings, availableIds.length);
+
   return (
     <>
       <div style={styles.settingsGrid}>
@@ -232,9 +235,17 @@ export default function SquadSettingsForm({
         <div style={styles.modalWarning}>This will restart the rotation from 0:00 and clear this game's progress so far.</div>
       )}
 
+      {!validation.valid && (
+        <div style={styles.modalWarning}>
+          {validation.errors.map((err) => (
+            <div key={err}>{err}</div>
+          ))}
+        </div>
+      )}
+
       <button
-        style={{ ...styles.primaryBtn, marginTop: 20, opacity: availableIds.length < 2 ? 0.5 : 1 }}
-        disabled={availableIds.length < 2}
+        style={{ ...styles.primaryBtn, marginTop: 20, opacity: validation.valid ? 1 : 0.5 }}
+        disabled={!validation.valid}
         onClick={onSubmit}
       >
         <Shuffle size={16} /> {submitLabel}
