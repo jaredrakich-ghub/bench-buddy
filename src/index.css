@@ -1,0 +1,20 @@
+/* The SubRotationPlanner component styles everything itself via inline
+   styles (this is how it was originally built as a Claude.ai artifact).
+   This file just clears the browser's default page margins so the app
+   isn't sitting inside unwanted whitespace. */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+}
