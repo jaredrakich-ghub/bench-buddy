@@ -1,8 +1,13 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Plus, Trash2, Shuffle, ChevronRight, ChevronLeft, RotateCcw, Play, Pause, Settings, X, BarChart2 } from "lucide-react";
 import { intervalAtElapsed, computeIntervals, buildCarryState, generatePlan, computeMinutesSummary } from "../lib/rotation.js";
+import { computeLiveElapsedSec } from "../lib/clock.js";
 
 const STORAGE_KEY = "team-data-v2";
+// Separate key from the roster/settings above: this is the *in-progress
+// match* (plan, clock, injuries, subs so far) — see the Phase 3 note above
+// the load effect for why it's kept apart.
+const MATCH_STORAGE_KEY = "match-state-v1";
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -51,7 +56,9 @@ export default function SubRotationPlanner() {
   const [plan, setPlan] = useState(null);
   const [activeInterval, setActiveInterval] = useState(0);
   const [injuredThisGame, setInjuredThisGame] = useState([]);
-  const [elapsedSec, setElapsedSec] = useState(0);
+  const [elapsedSec, setElapsedSec] = useState(0); // derived display value — recomputed from baseElapsedSec/runStartedAt, see the tick effect below
+  const [baseElapsedSec, setBaseElapsedSec] = useState(0); // elapsed time as of the start of the current run segment (or the frozen value while paused)
+  const [runStartedAt, setRunStartedAt] = useState(null); // Date.now() timestamp the clock was last started, or null while paused
   const [timerRunning, setTimerRunning] = useState(false);
   const [subLog, setSubLog] = useState({}); // intervalIndex -> elapsedSec when sub was confirmed made
   const [swapPickId, setSwapPickId] = useState(null); // bench player id awaiting a pitch target to swap with
@@ -63,8 +70,13 @@ export default function SubRotationPlanner() {
   const [importStatus, setImportStatus] = useState("");
   const [copyStatus, setCopyStatus] = useState("");
 
+  // Load the roster/settings, then try to resume an in-progress match if one
+  // was saved (Phase 3). The clock is reconstructed from a real timestamp
+  // rather than a raw counter, so it comes back correct even after a long
+  // gap — as long as it was actually running (not paused) when last saved.
   useEffect(() => {
     (async () => {
+      let roster = [];
       try {
         const res = await window.storage.get(STORAGE_KEY, false);
         const raw = res ? JSON.parse(res.value) : defaultTeamData();
@@ -72,12 +84,37 @@ export default function SubRotationPlanner() {
           roster: (raw.roster || []).map((p) => ({ ...p, keeperEligible: p.keeperEligible !== false })),
           settings: { ...defaultTeamData().settings, ...raw.settings },
         };
+        roster = data.roster;
         setTeamData(data);
         setGameSettings(data.settings);
         setAvailableIds(data.roster.map((p) => p.id)); // default: everyone on the squad is assumed available
       } catch {
         setTeamData(defaultTeamData());
       }
+
+      try {
+        const matchRes = await window.storage.get(MATCH_STORAGE_KEY, false);
+        const saved = matchRes ? JSON.parse(matchRes.value) : null;
+        if (saved?.plan?.length) {
+          const capSec = saved.plan[saved.plan.length - 1].endMin * 60;
+          const live = computeLiveElapsedSec(saved.baseElapsedSec, saved.timerRunning ? saved.runStartedAt : null, capSec);
+          const stillRunning = saved.timerRunning && live < capSec;
+
+          setAvailableIds(saved.availableIds || roster.map((p) => p.id));
+          setGameSettings(saved.gameSettings || defaultTeamData().settings);
+          setPlan(saved.plan);
+          setInjuredThisGame(saved.injuredThisGame || []);
+          setSubLog(saved.subLog || {});
+          setBaseElapsedSec(live);
+          setElapsedSec(live);
+          setRunStartedAt(stillRunning ? saved.runStartedAt : null);
+          setTimerRunning(stillRunning);
+          setActiveInterval(intervalAtElapsed(saved.plan, live));
+        }
+      } catch {
+        // no in-progress match to resume — normal on a first run
+      }
+
       setLoading(false);
     })();
   }, []);
@@ -91,12 +128,47 @@ export default function SubRotationPlanner() {
     }
   }, []);
 
-  // tick the clock
+  // Persist the in-progress match so a refresh, a backgrounded tab getting
+  // reloaded, or closing the browser doesn't lose it. This deliberately does
+  // NOT fire every second — only baseElapsedSec/runStartedAt change (on
+  // Start/Pause/Reset/full-time), not the ticking display value — so saving
+  // stays cheap and infrequent.
   useEffect(() => {
-    if (!timerRunning) return;
-    const id = setInterval(() => setElapsedSec((s) => s + 1), 1000);
+    if (!plan) return;
+    (async () => {
+      try {
+        await window.storage.set(
+          MATCH_STORAGE_KEY,
+          JSON.stringify({ availableIds, gameSettings, plan, activeInterval, injuredThisGame, subLog, baseElapsedSec, runStartedAt, timerRunning }),
+          false
+        );
+      } catch {
+        // best-effort; ignore failure in-session
+      }
+    })();
+  }, [availableIds, gameSettings, plan, activeInterval, injuredThisGame, subLog, baseElapsedSec, runStartedAt, timerRunning]);
+
+  // Tick the clock — recomputed from the real-time anchor every second
+  // rather than counted, and auto-frozen once the match reaches full time.
+  useEffect(() => {
+    if (!timerRunning || !plan) return;
+    const capSec = plan[plan.length - 1].endMin * 60;
+
+    const sync = () => {
+      const live = computeLiveElapsedSec(baseElapsedSec, runStartedAt, capSec);
+      setElapsedSec(live);
+      if (live >= capSec) {
+        // Full time — freeze the clock rather than let it run past the game.
+        setBaseElapsedSec(capSec);
+        setRunStartedAt(null);
+        setTimerRunning(false);
+      }
+    };
+
+    sync();
+    const id = setInterval(sync, 1000);
     return () => clearInterval(id);
-  }, [timerRunning]);
+  }, [timerRunning, runStartedAt, baseElapsedSec, plan]);
 
   // while the timer is running, keep the pitch board following the live interval
   useEffect(() => {
@@ -156,6 +228,8 @@ export default function SubRotationPlanner() {
     setActiveInterval(0);
     setInjuredThisGame([]);
     setElapsedSec(0);
+    setBaseElapsedSec(0);
+    setRunStartedAt(null);
     setTimerRunning(false);
     setSubLog({});
     setSwapPickId(null);
@@ -532,6 +606,7 @@ export default function SubRotationPlanner() {
 
             {(() => {
               const totalGameSec = plan[plan.length - 1].endMin * 60;
+              const isMatchComplete = elapsedSec >= totalGameSec;
               const cur = plan[intervalAtElapsed(plan, elapsedSec)];
               const secLeftInInterval = cur.endMin * 60 - elapsedSec;
               const nextIv = plan[cur.index + 1];
@@ -542,6 +617,22 @@ export default function SubRotationPlanner() {
               const inWarningWindow = nextIv && secLeftInInterval <= 60 && (!noBenchToRotate || gkChanging);
               const confirmedAt = subLog[cur.index];
 
+              // Start resumes from wherever the clock is frozen; Pause freezes
+              // it at the correct live value (computed from the timestamp
+              // anchor, not just whatever the display last happened to show).
+              const toggleTimer = () => {
+                if (timerRunning) {
+                  const live = computeLiveElapsedSec(baseElapsedSec, runStartedAt, totalGameSec);
+                  setBaseElapsedSec(live);
+                  setElapsedSec(live);
+                  setRunStartedAt(null);
+                  setTimerRunning(false);
+                } else {
+                  setRunStartedAt(Date.now());
+                  setTimerRunning(true);
+                }
+              };
+
               return (
                 <>
                   <div style={styles.timerBar}>
@@ -549,18 +640,26 @@ export default function SubRotationPlanner() {
                       <div style={styles.clockDisplay}>{fmtClock(elapsedSec)}</div>
                       <div style={styles.clockSub}>of {fmtClock(totalGameSec)}</div>
                     </div>
-                    <button
-                      style={{ ...styles.timerBtn, ...(timerRunning ? styles.timerBtnPause : styles.timerBtnPlay) }}
-                      onClick={() => setTimerRunning((r) => !r)}
-                    >
-                      {timerRunning ? <Pause size={18} /> : <Play size={18} />}
-                      {timerRunning ? "Pause" : "Start"}
-                    </button>
+                    {isMatchComplete ? (
+                      <button style={{ ...styles.timerBtn, ...styles.timerBtnDone }} disabled title="Match complete — reset the clock to keep tracking (e.g. extra time)">
+                        Full Time
+                      </button>
+                    ) : (
+                      <button
+                        style={{ ...styles.timerBtn, ...(timerRunning ? styles.timerBtnPause : styles.timerBtnPlay) }}
+                        onClick={toggleTimer}
+                      >
+                        {timerRunning ? <Pause size={18} /> : <Play size={18} />}
+                        {timerRunning ? "Pause" : "Start"}
+                      </button>
+                    )}
                     <button
                       style={styles.iconBtn}
                       title="Reset clock"
                       onClick={() => {
                         setTimerRunning(false);
+                        setRunStartedAt(null);
+                        setBaseElapsedSec(0);
                         setElapsedSec(0);
                         setSubLog({});
                       }}
@@ -880,6 +979,7 @@ const styles = {
   },
   timerBtnPlay: { background: colors.field, color: "#fff" },
   timerBtnPause: { background: colors.gk, color: "#fff" },
+  timerBtnDone: { background: colors.border, color: colors.bench, cursor: "default" },
   intervalCountdown: {
     display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
     textAlign: "center", fontSize: 12, color: "#5B6B64", fontWeight: 600, margin: "6px 0",
