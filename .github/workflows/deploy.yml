@@ -24,7 +24,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # firebase-tools (a devDependency, needed for local emulator testing)
+          # pulls in transitive deps that require Node >=22 — using anything
+          # older here produces a different dependency resolution than what
+          # generated package-lock.json locally, which is exactly what broke
+          # the first deploy run (`npm ci` reported the lock file "out of
+          # sync" even though it wasn't, on a real machine).
+          node-version: 22
           cache: npm
       - run: npm ci
       - run: npm test
