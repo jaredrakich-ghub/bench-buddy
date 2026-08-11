@@ -148,7 +148,6 @@ export default function MatchView({
             </button>
           ))}
         </div>
-        <div style={styles.intervalTabsFade} />
       </div>
 
       <div style={styles.pitchBoard}>

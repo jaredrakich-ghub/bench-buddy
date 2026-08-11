@@ -134,20 +134,27 @@ export const styles = {
     textAlign: "center", fontSize: 11, fontWeight: 700, color: colors.field, background: "#E9F5EE",
     padding: "6px 10px", borderRadius: 8, marginBottom: 8,
   },
-  // Wraps intervalTabs so the fade-out hint below can be positioned over its
-  // trailing edge — a plain overflow-x:auto row otherwise gives no visual
-  // sign there's more to scroll to once the game has enough intervals to
-  // overflow a phone-width screen.
   intervalTabsWrap: { position: "relative", marginBottom: 8 },
-  intervalTabs: { display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 },
-  intervalTabsFade: {
-    position: "absolute", top: 0, right: 0, bottom: 2, width: 28,
-    background: `linear-gradient(to right, rgba(244,247,242,0), ${colors.chalk})`,
-    pointerEvents: "none",
+  // Once a game has enough intervals to overflow a phone-width screen, this
+  // row scrolls horizontally. Two things make that read as an intentional
+  // "swipe for more" affordance instead of a broken/clipped layout:
+  //   - maskImage fades the row's own trailing pixels (including any
+  //     partially-cut tab text) to transparent, rather than layering a
+  //     translucent color wash on top — a wash alone still leaves crisp dark
+  //     text on white visibly legible even at high opacity. Standard +
+  //     -webkit- prefixed for iOS Safari, which has long-standing solid
+  //     support for this.
+  //   - scrollSnapType makes the row always settle with a full tab flush at
+  //     the left edge after a swipe, rather than resting mid-tab.
+  intervalTabs: {
+    display: "flex", gap: 6, overflowX: "auto", paddingRight: 16, paddingBottom: 2, scrollSnapType: "x mandatory",
+    WebkitMaskImage: "linear-gradient(to right, black calc(100% - 40px), transparent 100%)",
+    maskImage: "linear-gradient(to right, black calc(100% - 40px), transparent 100%)",
   },
   intervalTab: {
     flex: "0 0 auto", padding: "9px 12px", borderRadius: 8, border: "1px solid " + colors.border,
     background: colors.cardBg, fontSize: 12, fontWeight: 700, cursor: "pointer", color: colors.ink,
+    scrollSnapAlign: "start",
   },
   intervalTabActive: { background: colors.grass, color: colors.chalk, border: "1px solid " + colors.grass },
 
