@@ -9,5 +9,10 @@ export default defineConfig({
     // and dependency-light. Switch to "jsdom" if/when component tests
     // (e.g. React Testing Library) are added.
     environment: "node",
+    // Scoped to src/ so this plain `npm test` run never picks up the
+    // Firebase emulator integration tests in firebase-tests/ — those need
+    // the emulators running and are run separately via `npm run test:emulator`
+    // (see vitest.emulator.config.js).
+    include: ["src/**/*.{test,spec}.js"],
   },
 });

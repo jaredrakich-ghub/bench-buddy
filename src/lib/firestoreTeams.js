@@ -35,12 +35,18 @@ export async function updateTeamDoc(teamId, updates) {
 }
 
 export async function deleteTeamDoc(teamId) {
-  await deleteDoc(doc(db, TEAMS_COLLECTION, teamId));
+  // Delete the matchState subdoc BEFORE the team doc, not after. The
+  // matchState security rule checks membership via get() on the parent team
+  // doc — if the team doc is already gone, that get() returns null and the
+  // rule evaluation errors out (denying the delete), silently orphaning the
+  // matchState/current subdocument forever. Caught the hard way via the
+  // Firestore emulator integration tests in firebase-tests/.
   try {
     await deleteDoc(doc(db, TEAMS_COLLECTION, teamId, "matchState", MATCH_STATE_DOC));
   } catch {
     // fine if there wasn't one to delete
   }
+  await deleteDoc(doc(db, TEAMS_COLLECTION, teamId));
 }
 
 export async function fetchMatchState(teamId) {
