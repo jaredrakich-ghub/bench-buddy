@@ -175,7 +175,7 @@ export const styles = {
     width: 28, height: 28, borderRadius: "50%", border: "none", background: "rgba(193,80,46,0.9)",
     display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, cursor: "pointer", padding: 0,
   },
-  gloveIcon: { fontSize: 16, lineHeight: 1 },
+  gloveIcon: { fontSize: 21, lineHeight: 1 },
   pitchLabel: { color: "rgba(255,255,255,0.7)", fontSize: 10, fontWeight: 800, letterSpacing: 1.2, marginBottom: 6, marginTop: 8 },
   tokenRow: { display: "flex", flexWrap: "wrap", gap: 10 },
   tokenCol: { display: "flex", flexDirection: "column", alignItems: "center", gap: 3, width: 62 },

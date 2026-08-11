@@ -72,7 +72,7 @@ export default function MatchView({
   return (
     <section>
       <div style={styles.subTrackerHeaderRow}>
-        <h2 style={styles.sectionTitle}>Bench Buddy</h2>
+        <h2 style={styles.sectionTitle}>Match Timer</h2>
         <div style={styles.headerBtnGroup}>
           <button style={styles.editSettingsBtn} onClick={onShowSummary} title="View minutes summary">
             <BarChart2 size={14} /> Summary
@@ -176,7 +176,7 @@ export default function MatchView({
                   onClick={() => swapPickId && onSwap(swapPickId, id)}
                   disabled={!swapPickId}
                 >
-                  {isGk ? <span style={styles.gloveIcon}>🧤</span> : <FootballerIcon size={17} />}
+                  {isGk ? <span style={styles.gloveIcon}>🧤</span> : <FootballerIcon size={22} />}
                 </button>
                 {!injuredThisGame.includes(id) && !swapPickId && (
                   <button style={styles.injuryBtnSide} onClick={() => onInjury(id)} title="Mark injured / off">
@@ -196,7 +196,7 @@ export default function MatchView({
               {plan[activeInterval].bench.map((id) => (
                 <div key={id} style={styles.tokenCol}>
                   <div style={{ ...styles.token, ...styles.tokenBench }}>
-                    <FootballerIcon size={17} />
+                    <FootballerIcon size={22} />
                   </div>
                   <span style={styles.tokenName}>{nameOf(id)}</span>
                   <button
