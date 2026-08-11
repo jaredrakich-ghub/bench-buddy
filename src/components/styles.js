@@ -154,6 +154,12 @@ export const styles = {
     display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: colors.gk, color: "#fff",
     fontWeight: 700, fontSize: 12, padding: "8px 12px", borderRadius: 10, marginBottom: 8,
   },
+  // Same shape as gkWarmup but field-green rather than gk-gold — this is a
+  // "you're done, here's what's next" moment, not a warning.
+  matchCompleteBanner: {
+    display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: colors.field, color: "#fff",
+    fontWeight: 700, fontSize: 13, padding: "10px 12px", borderRadius: 10, marginBottom: 8,
+  },
   warmupText: { display: "flex", flexDirection: "column", gap: 3, lineHeight: 1.3 },
   confirmBtn: {
     flex: "0 0 auto", background: "rgba(255,255,255,0.9)", color: colors.ink, border: "none", borderRadius: 8,

@@ -502,6 +502,8 @@ export default function SubRotationPlanner({ user }) {
     showRestartWarning: Boolean(plan && (elapsedSec > 0 || Object.keys(subLog).length > 0)),
   };
 
+  const isMatchComplete = Boolean(plan) && elapsedSec >= plan[plan.length - 1].endMin * 60;
+
   return (
     <div style={styles.app}>
       <style>{fontStyle}</style>
@@ -561,12 +563,16 @@ export default function SubRotationPlanner({ user }) {
         <div style={styles.modalOverlay} onClick={() => setShowSettingsModal(false)}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
-              <h3 style={styles.modalTitle}>Edit Game Settings</h3>
+              <h3 style={styles.modalTitle}>{isMatchComplete ? "Set Up New Game" : "Edit Game Settings"}</h3>
               <button style={styles.modalCloseBtn} onClick={() => setShowSettingsModal(false)}>
                 <X size={18} />
               </button>
             </div>
-            <SquadSettingsForm {...squadSettingsProps} onSubmit={startPlanning} submitLabel="Save & Regenerate" />
+            <SquadSettingsForm
+              {...squadSettingsProps}
+              onSubmit={startPlanning}
+              submitLabel={isMatchComplete ? "Start Game" : "Save & Regenerate"}
+            />
           </div>
         </div>
       )}

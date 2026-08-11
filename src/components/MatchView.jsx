@@ -149,14 +149,28 @@ export default function MatchView({
         </button>
       </div>
 
-      <div style={styles.intervalCountdown}>
-        Sub window ends in <strong>{fmtClock(Math.max(0, secLeftInInterval))}</strong>
-        {nextIv && confirmedAt === undefined && !inWarningWindow && (
-          <button style={styles.confirmBtnInline} onClick={() => setSubLog((prev) => ({ ...prev, [cur.index]: elapsedSec }))}>
-            ✓ Sub made early
+      {isMatchComplete ? (
+        // The clear next step once a match ends — same underlying flow as
+        // Edit (opens the same settings form to change squad/settings and
+        // regenerate), just surfaced as its own obvious call-to-action
+        // right when it becomes relevant, instead of leaving "start a new
+        // game" to be discovered via a gear-icon Edit button.
+        <div style={styles.matchCompleteBanner}>
+          <span>🏁 Match complete</span>
+          <button style={styles.confirmBtn} onClick={onShowSettings}>
+            Start new game
           </button>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div style={styles.intervalCountdown}>
+          Sub window ends in <strong>{fmtClock(Math.max(0, secLeftInInterval))}</strong>
+          {nextIv && confirmedAt === undefined && !inWarningWindow && (
+            <button style={styles.confirmBtnInline} onClick={() => setSubLog((prev) => ({ ...prev, [cur.index]: elapsedSec }))}>
+              ✓ Sub made early
+            </button>
+          )}
+        </div>
+      )}
 
       {inWarningWindow && confirmedAt === undefined && (
         <div style={styles.gkWarmup}>
