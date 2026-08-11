@@ -47,6 +47,12 @@ export default function SubRotationPlanner({ user }) {
   const [gameSettings, setGameSettings] = useState(defaultSettings());
   const [plan, setPlan] = useState(null);
   const [activeInterval, setActiveInterval] = useState(0);
+  // Tracks the last live interval the auto-follow effect (below) saw, so it
+  // can tell "the coach is still following along live" apart from "the
+  // coach manually browsed to a different interval" — see that effect for
+  // why this matters. Kept in sync with activeInterval at every other
+  // place activeInterval gets set directly (team switch, restart, etc).
+  const lastLiveIntervalRef = useRef(0);
   const [injuredThisGame, setInjuredThisGame] = useState([]);
   const [elapsedSec, setElapsedSec] = useState(0); // derived display value — recomputed from baseElapsedSec/runStartedAt, see the tick effect below
   const [baseElapsedSec, setBaseElapsedSec] = useState(0); // elapsed time as of the start of the current run segment (or the frozen value while paused)
@@ -103,11 +109,13 @@ export default function SubRotationPlanner({ user }) {
       setElapsedSec(live);
       setRunStartedAt(stillRunning ? saved.runStartedAt : null);
       setTimerRunning(stillRunning);
-      setActiveInterval(intervalAtElapsed(saved.plan, live));
+      lastLiveIntervalRef.current = intervalAtElapsed(saved.plan, live);
+      setActiveInterval(lastLiveIntervalRef.current);
     } else {
       setAvailableIds(team.roster.map((p) => p.id)); // default: everyone on the squad is assumed available
       setGameSettings(team.settings);
       setPlan(null);
+      lastLiveIntervalRef.current = 0;
       setActiveInterval(0);
       setInjuredThisGame([]);
       setElapsedSec(0);
@@ -227,10 +235,21 @@ export default function SubRotationPlanner({ user }) {
     return () => clearInterval(id);
   }, [timerRunning, runStartedAt, baseElapsedSec, plan]);
 
-  // while the timer is running, keep the pitch board following the live interval
+  // While the timer's running, follow the live interval — but only across
+  // an actual boundary crossing (the live interval changing to a new one),
+  // and only if the board was already showing the previous live interval.
+  // That second condition is what lets a coach tap ahead/back to check
+  // another interval without instantly getting dragged back to the live
+  // one on the next tick: the moment they navigate away, activeInterval no
+  // longer matches lastLiveIntervalRef, so this stops touching it until
+  // they navigate back to live themselves (which re-syncs the two and lets
+  // auto-follow resume from there).
   useEffect(() => {
     if (!timerRunning || !plan) return;
-    setActiveInterval(intervalAtElapsed(plan, elapsedSec));
+    const live = intervalAtElapsed(plan, elapsedSec);
+    if (live === lastLiveIntervalRef.current) return;
+    setActiveInterval((current) => (current === lastLiveIntervalRef.current ? live : current));
+    lastLiveIntervalRef.current = live;
   }, [elapsedSec, timerRunning, plan]);
 
   // The active team's data, derived from the registry rather than its own
@@ -337,6 +356,7 @@ export default function SubRotationPlanner({ user }) {
       keeperShiftIntervals,
     });
     setPlan(intervals);
+    lastLiveIntervalRef.current = 0;
     setActiveInterval(0);
     setInjuredThisGame([]);
     setElapsedSec(0);
@@ -378,16 +398,30 @@ export default function SubRotationPlanner({ user }) {
     rebuildFromInterval([...injuredThisGame, playerId]);
   };
 
-  // A returning player joins the bench for whatever's left of the current
-  // interval (nobody currently on the pitch gets bumped for them), and their
-  // consecutive-bench streak resets to zero so they go to the back of the
-  // queue rather than jumping it on the strength of their injury time.
+  // Normally a returning player joins the bench for whatever's left of the
+  // current interval — nobody currently on the pitch gets bumped for them.
+  // But if earlier injuries left the pitch short-staffed (fewer players out
+  // there than the squad now supports, up to the extreme of everyone having
+  // been hurt and the field emptying out entirely), there's an open slot:
+  // seat them directly on the field instead. Otherwise a returning player
+  // sits stuck on an oversized bench for the rest of the interval despite
+  // an empty spot on the pitch, which is exactly backwards.
+  //
+  // Either way, their consecutive-bench streak resets to zero so they go to
+  // the back of the queue rather than jumping it on the strength of their
+  // injury time.
   const bringBack = (playerId) => {
     if (!injuredThisGame.includes(playerId)) return;
     const newInjuredList = injuredThisGame.filter((id) => id !== playerId);
 
     const priorIntervals = plan.slice(0, activeInterval);
-    const frozenCurrent = { ...plan[activeInterval], bench: [...plan[activeInterval].bench, playerId] };
+    const cur = plan[activeInterval];
+    const remainingAvailableThisInterval = availableIds.filter((id) => !newInjuredList.includes(id));
+    const normalFieldSize = Math.min(gameSettings.fieldSize, remainingAvailableThisInterval.length);
+    const hasOpenFieldSlot = cur.onField.length < normalFieldSize;
+    const frozenCurrent = hasOpenFieldSlot
+      ? { ...cur, onField: [...cur.onField, { id: playerId, isGk: false }] }
+      : { ...cur, bench: [...cur.bench, playerId] };
     const doneIntervals = [...priorIntervals, frozenCurrent];
 
     const carryState = buildCarryState(availableIds, doneIntervals);

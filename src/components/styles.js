@@ -60,15 +60,21 @@ export const styles = {
   },
   teamRowBtnActive: { background: "#E9F5EE", border: "1px solid " + colors.field, color: colors.grass },
   teamRowMeta: { fontWeight: 600, fontSize: 11, color: "#7C8983" },
-  // paddingBottom is deliberately generous: on mobile Safari the docked
+  // paddingBottom is deliberately generous: on mobile browsers the docked
   // bottom toolbar (back/forward/tabs) isn't reserved space the page knows
   // about — it just overlaps whatever content happens to end near the
   // bottom of the page. Without this, the last element on any screen (e.g.
   // MatchView's "Interval X of Y" nav) sits flush against that chrome.
-  // env(safe-area-inset-bottom) adds further clearance for the home
-  // indicator on notched iPhones; index.html's viewport-fit=cover is what
-  // makes that env() value non-zero.
-  main: { padding: "12px 16px", paddingBottom: "calc(40px + env(safe-area-inset-bottom, 0px))", maxWidth: 640, margin: "0 auto" },
+  // 96px flat (not just env(safe-area-inset-bottom)) on purpose: that env()
+  // value is really the home-indicator gesture-area inset, not toolbar
+  // height, and while Safari's toolbar happens to roughly track it, Chrome
+  // for iOS's toolbar doesn't — confirmed by a real phone screenshot still
+  // showing the nav cut off in Chrome even with its toolbar auto-hidden. A
+  // flat value that comfortably clears any mobile browser's toolbar is more
+  // reliable than depending on that inset for this. env() is kept additive
+  // on top for the safe-area itself; index.html's viewport-fit=cover is
+  // what makes that env() value non-zero.
+  main: { padding: "12px 16px", paddingBottom: "calc(96px + env(safe-area-inset-bottom, 0px))", maxWidth: 640, margin: "0 auto" },
   sectionTitle: { fontSize: 17, fontWeight: 900, marginBottom: 8, color: colors.grass, textTransform: "uppercase", letterSpacing: 0.5 },
   subTrackerHeaderRow: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 },
   headerBtnGroup: { display: "flex", gap: 6 },
@@ -213,6 +219,23 @@ export const styles = {
     display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, cursor: "pointer", padding: 0,
   },
   gloveIcon: { fontSize: 25, lineHeight: 1 },
+  // Advance notice of the next sub window's changes, shown on top of the
+  // relevant token — top-left corner, opposite side from injuryBtnSide
+  // (top-right-ish) so the two never collide. Colors echo where the player
+  // is headed: bench-gray for coming off, field-green for coming on.
+  nextOffBadge: {
+    position: "absolute", left: -6, top: -6, width: 18, height: 18, borderRadius: "50%",
+    background: colors.bench, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
+    fontSize: 11, fontWeight: 900, pointerEvents: "none", boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
+  },
+  nextOnBadge: {
+    position: "absolute", left: -6, top: -6, width: 18, height: 18, borderRadius: "50%",
+    background: colors.field, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
+    fontSize: 11, fontWeight: 900, pointerEvents: "none", boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
+  },
+  // Bench tokens don't have their own relative wrapper the way on-pitch
+  // tokens get from tokenWithAction — this is that, just for the bench row.
+  tokenCircleWrap: { position: "relative", display: "inline-flex" },
   pitchLabel: { color: "rgba(255,255,255,0.7)", fontSize: 10, fontWeight: 800, letterSpacing: 1.2, marginBottom: 6, marginTop: 8 },
   tokenRow: { display: "flex", flexWrap: "wrap", gap: 10 },
   tokenCol: { display: "flex", flexDirection: "column", alignItems: "center", gap: 3, width: 62 },

@@ -45,6 +45,24 @@ export default function MatchView({
   const inWarningWindow = nextIv && secLeftInInterval <= 60 && (!noBenchToRotate || gkChanging);
   const confirmedAt = subLog[cur.index];
 
+  // Who's actually changing at the next sub window, so the board can flag
+  // it well before the last-minute warning above kicks in — visible only
+  // while looking at the live interval itself (browsing to a past/future
+  // interval, see the auto-follow effect in SubRotationPlanner, naturally
+  // hides it, since "coming off/on next" only means something for what's
+  // happening right now).
+  const isViewingLiveInterval = activeInterval === cur.index;
+  const comingOffIds = new Set(
+    isViewingLiveInterval && nextIv
+      ? cur.onField.map((p) => p.id).filter((id) => !nextIv.onField.some((p) => p.id === id))
+      : []
+  );
+  const comingOnIds = new Set(
+    isViewingLiveInterval && nextIv
+      ? nextIv.onField.map((p) => p.id).filter((id) => !cur.onField.some((p) => p.id === id))
+      : []
+  );
+
   // Start resumes from wherever the clock is frozen; Pause freezes it at the
   // correct live value (computed from the timestamp anchor, not just
   // whatever the display last happened to show).
@@ -177,6 +195,11 @@ export default function MatchView({
                 >
                   {isGk ? <span style={styles.gloveIcon}>🧤</span> : <FootballerIcon size={27} />}
                 </button>
+                {comingOffIds.has(id) && (
+                  <span style={styles.nextOffBadge} title="Coming off next interval">
+                    ↓
+                  </span>
+                )}
                 {!injuredThisGame.includes(id) && !swapPickId && (
                   <button style={styles.injuryBtnSide} onClick={() => onInjury(id)} title="Mark injured / off">
                     🤕
@@ -194,8 +217,15 @@ export default function MatchView({
               {plan[activeInterval].bench.length === 0 && <span style={styles.noneText}>Full squad on field</span>}
               {plan[activeInterval].bench.map((id) => (
                 <div key={id} style={styles.tokenCol}>
-                  <div style={{ ...styles.token, ...styles.tokenBench }}>
-                    <FootballerIcon size={27} />
+                  <div style={styles.tokenCircleWrap}>
+                    <div style={{ ...styles.token, ...styles.tokenBench }}>
+                      <FootballerIcon size={27} />
+                    </div>
+                    {comingOnIds.has(id) && (
+                      <span style={styles.nextOnBadge} title="Coming on next interval">
+                        ↑
+                      </span>
+                    )}
                   </div>
                   <span style={styles.tokenName}>{nameOf(id)}</span>
                   <button

@@ -98,12 +98,23 @@ export function generatePlan({
   const eligibleSet = new Set(keeperEligibleIds || []);
   const hasEligibleKeeper = availableIds.some((id) => eligibleSet.has(id));
 
+  // Keeper-minutes fairness comes first (unchanged). Among candidates tied
+  // on that, prefer whoever's already due to rotate onto the field anyway
+  // (longest current bench streak, then least field time — the same order
+  // outfieldSort uses) rather than someone already playing outfield. With
+  // everyone keeper-eligible, most gk changes have everyone tied on gkMin,
+  // so this tiebreak is what makes a keeper change land as a single clean
+  // bench<->field swap instead of pulling someone off the pitch who's
+  // already out there, which otherwise needs a second, unrelated swap to
+  // free up their old outfield spot.
   const pickGkFrom = (pool, prevGk) =>
     [...pool].sort((a, b) => {
       let sa = sim[a].gkMin, sb = sim[b].gkMin;
       if (a === prevGk) sa += 500;
       if (b === prevGk) sb += 500;
-      return sa - sb;
+      if (sa !== sb) return sa - sb;
+      if (sim[b].consecBench !== sim[a].consecBench) return sim[b].consecBench - sim[a].consecBench;
+      return sim[a].fieldMin - sim[b].fieldMin;
     })[0];
 
   const outfieldSort = (a, b) => {

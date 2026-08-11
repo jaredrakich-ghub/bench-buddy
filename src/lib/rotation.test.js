@@ -231,6 +231,25 @@ describe("generatePlan", () => {
     });
   });
 
+  it("prefers picking a new keeper from the bench over pulling someone off outfield, when gk minutes are tied — so a keeper change is usually a single clean bench<->field swap", () => {
+    // everyone keeper-eligible, everyone tied at 0 gk/field minutes to start —
+    // interval 0 puts p1 in goal, p6/p7 on the bench. Interval 1 is a fresh
+    // keeper pick (default shift = every interval): p6/p7 now have a bench
+    // streak p2-p5 don't, so they should be preferred for goal even though
+    // everyone's still tied at 0 gk minutes.
+    const { numIntervals } = computeIntervals(30, 6); // 5 intervals
+    const { intervals } = generatePlan({
+      availableIds: ids,
+      gameMinutes: 30,
+      numIntervals,
+      fieldSize: 5,
+      keeperEligibleIds: ids,
+    });
+    const bench0 = new Set(intervals[0].bench);
+    const gk1 = intervals[1].onField.find((p) => p.isGk).id;
+    expect(bench0.has(gk1)).toBe(true);
+  });
+
   it("respects carryState so a player who already played a lot doesn't get immediately favored again", () => {
     // p1 has already played the whole game so far; everyone else has zero minutes.
     // Keeper eligibility is forced onto p2 alone here so GK selection (which
