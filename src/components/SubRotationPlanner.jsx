@@ -5,34 +5,35 @@ import { validateGameSettings } from "../lib/validation.js";
 import { computeLiveElapsedSec } from "../lib/clock.js";
 import { generateId } from "../lib/id.js";
 import { defaultSettings, normalizeTeam, migrateLegacyTeam, createTeam, findTeam, addTeam, updateTeam, removeTeam } from "../lib/teams.js";
+import { fetchTeams, createTeamDoc, updateTeamDoc, deleteTeamDoc, fetchMatchState, saveMatchState } from "../lib/firestoreTeams.js";
+import { signOutUser } from "../lib/auth.js";
 import { fontStyle, styles } from "./styles.js";
 import SummaryModal from "./SummaryModal.jsx";
 import SquadSettingsForm from "./SquadSettingsForm.jsx";
 import MatchView from "./MatchView.jsx";
 import TeamSwitcher from "./TeamSwitcher.jsx";
 
-// The multi-team registry: { teams: [{id, name, roster, settings}, ...], activeTeamId }.
+// Both of these are now read-only, used exactly once each: migrating an
+// existing browser's local data into the signed-in user's Firestore account
+// the first time they sign in (see the migration effect below). Nothing
+// writes to either of these keys anymore — Firestore is the ongoing store.
 const TEAMS_STORAGE_KEY = "teams-v1";
-// Pre-multi-team key. Only ever read once, to migrate an existing single-team
-// user's roster into the new shape — never written to again.
 const LEGACY_TEAM_STORAGE_KEY = "team-data-v2";
-// In-progress match, scoped per team (so e.g. a Saturday team and a Sunday
-// team's games can't collide/overwrite each other in storage) — see the
-// Phase 3 note above the load effect for why match state is kept separate
-// from team data in the first place.
-const matchStorageKeyFor = (teamId) => `match-state-v1:${teamId}`;
 
-// A save to browser storage failing is rare, but worth explaining in plain
-// terms rather than a raw error — the coach can't do anything about a stack
-// trace, but "storage is full" is actionable.
+// A save failing is rare, but worth explaining in plain terms rather than a
+// raw error — the coach can't do anything about a stack trace, but "you're
+// offline" or "you don't have access" is actionable.
 const describeSaveError = (err) => {
-  if (err && err.name === "QuotaExceededError") {
-    return "Your browser's storage is full, so changes aren't being saved. Free up space or try a different browser/device.";
+  if (err?.code === "permission-denied") {
+    return "You don't have access to save changes to this team.";
   }
-  return "Changes aren't saving on this device right now — don't close this tab until this is resolved.";
+  if (err?.code === "unavailable") {
+    return "You're offline — changes will sync once you're back online.";
+  }
+  return "Changes aren't saving right now — don't close this tab until this is resolved.";
 };
 
-export default function SubRotationPlanner() {
+export default function SubRotationPlanner({ user }) {
   // The full team registry, and which one is currently active. `teamData`
   // (the active team's { id, name, roster, settings }) is derived from
   // these below rather than its own state — see the note right before it's
@@ -80,8 +81,7 @@ export default function SubRotationPlanner() {
   const activateTeam = useCallback(async (team) => {
     let resume = null;
     try {
-      const matchRes = await window.storage.get(matchStorageKeyFor(team.id), false);
-      const saved = matchRes ? JSON.parse(matchRes.value) : null;
+      const saved = await fetchMatchState(team.id);
       if (saved?.plan?.length) {
         const capSec = saved.plan[saved.plan.length - 1].endMin * 60;
         const live = computeLiveElapsedSec(saved.baseElapsedSec, saved.timerRunning ? saved.runStartedAt : null, capSec);
@@ -122,84 +122,76 @@ export default function SubRotationPlanner() {
     }
   }, []);
 
-  // Load the team registry — migrating an existing single-team user's data
-  // the first time this runs, or bootstrapping a brand-new empty team if
-  // there's nothing saved at all — then activate whichever team ends up
-  // active.
+  // Load this account's teams from Firestore. On a brand-new account (no
+  // teams yet), migrate whatever's in this browser's local storage instead
+  // of starting empty — that's the one-time bridge from the old
+  // local-only version of the app into a real account.
+  //
+  // Known simplification: unlike the old local-storage version, "which team
+  // was last active" isn't persisted anywhere server-side, so a reload
+  // always lands on the first team Firestore returns rather than
+  // remembering your last selection. Reasonable trade-off for now given
+  // most accounts will have one or two teams; worth revisiting if that
+  // turns out to matter in practice.
   useEffect(() => {
+    if (!user) return;
     (async () => {
-      let loadedTeams = [];
-      let loadedActiveId = null;
-
-      // window.storage.get throws (rather than returning null) when a key
-      // doesn't exist, so "no teams-v1 yet" and "corrupted teams-v1" both
-      // land here — either way, fall back to trying to migrate the older
-      // single-team format before giving up and bootstrapping empty.
-      try {
-        const res = await window.storage.get(TEAMS_STORAGE_KEY, false);
-        const parsed = JSON.parse(res.value);
-        loadedTeams = (parsed.teams || []).map(normalizeTeam);
-        loadedActiveId = findTeam(loadedTeams, parsed.activeTeamId) ? parsed.activeTeamId : loadedTeams[0]?.id ?? null;
-      } catch {
-        try {
-          const legacyRes = await window.storage.get(LEGACY_TEAM_STORAGE_KEY, false);
-          const migrated = migrateLegacyTeam(JSON.parse(legacyRes.value));
-          loadedTeams = [migrated];
-          loadedActiveId = migrated.id;
-        } catch {
-          // no legacy single-team data to migrate either — normal for a first run
-        }
-      }
+      let loadedTeams = await fetchTeams(user.uid);
 
       if (loadedTeams.length === 0) {
-        const fresh = createTeam("My Team");
-        loadedTeams = [fresh];
-        loadedActiveId = fresh.id;
+        let localTeams = [];
+        // window.storage.get throws (rather than returning null) when a key
+        // doesn't exist, so "no teams-v1 locally" and "corrupted teams-v1"
+        // both land here — either way, fall back to the older single-team
+        // format before giving up and bootstrapping a fresh empty team.
+        try {
+          const res = await window.storage.get(TEAMS_STORAGE_KEY, false);
+          const parsed = JSON.parse(res.value);
+          localTeams = (parsed.teams || []).map(normalizeTeam);
+        } catch {
+          try {
+            const legacyRes = await window.storage.get(LEGACY_TEAM_STORAGE_KEY, false);
+            localTeams = [migrateLegacyTeam(JSON.parse(legacyRes.value))];
+          } catch {
+            // nothing local to migrate — normal for a brand-new user
+          }
+        }
+        if (localTeams.length === 0) {
+          localTeams = [createTeam("My Team")];
+        }
+        loadedTeams = await Promise.all(localTeams.map((t) => createTeamDoc(user.uid, t)));
       }
 
-      const active = findTeam(loadedTeams, loadedActiveId) || loadedTeams[0];
       setTeams(loadedTeams);
-      await activateTeam(active);
+      await activateTeam(loadedTeams[0]);
       setLoading(false);
     })();
-  }, [activateTeam]);
+  }, [user, activateTeam]);
 
-  // Updates the active team's data (roster/settings) in the registry.
-  // Actual persistence happens in the effect right below, not here — an
-  // updater function passed to setState can run twice under React
-  // StrictMode, so it shouldn't have side effects like a storage write.
+  // Updates the active team's data (roster/settings). Updates local state
+  // immediately for a snappy UI (no waiting on a network round-trip to see
+  // your own edit), and fires the real Firestore write in the background.
   const saveTeamData = useCallback((data) => {
     setTeams((prev) => updateTeam(prev, activeTeamId, data));
+    updateTeamDoc(activeTeamId, data)
+      .then(() => setSaveError(null))
+      .catch((err) => setSaveError(describeSaveError(err)));
   }, [activeTeamId]);
-
-  // Persist the team registry whenever it changes.
-  useEffect(() => {
-    if (teams.length === 0 || !activeTeamId) return; // not loaded yet
-    (async () => {
-      try {
-        await window.storage.set(TEAMS_STORAGE_KEY, JSON.stringify({ teams, activeTeamId }), false);
-        setSaveError(null);
-      } catch (err) {
-        setSaveError(describeSaveError(err));
-      }
-    })();
-  }, [teams, activeTeamId]);
 
   // Persist the in-progress match so a refresh, a backgrounded tab getting
   // reloaded, or closing the browser doesn't lose it. This deliberately does
   // NOT fire every second — only baseElapsedSec/runStartedAt change (on
   // Start/Pause/Reset/full-time), not the ticking display value — so saving
-  // stays cheap and infrequent. Keyed per team so two teams' games can't
-  // collide/overwrite each other in storage.
+  // stays cheap and infrequent. Kept in its own subdocument per team so two
+  // teams' games can't collide/overwrite each other, and so a future
+  // collaborator on one team never sees another team's match data.
   useEffect(() => {
     if (!plan || !activeTeamId) return;
     (async () => {
       try {
-        await window.storage.set(
-          matchStorageKeyFor(activeTeamId),
-          JSON.stringify({ availableIds, gameSettings, plan, activeInterval, injuredThisGame, subLog, baseElapsedSec, runStartedAt, timerRunning }),
-          false
-        );
+        await saveMatchState(activeTeamId, {
+          availableIds, gameSettings, plan, activeInterval, injuredThisGame, subLog, baseElapsedSec, runStartedAt, timerRunning,
+        });
         setSaveError(null);
       } catch (err) {
         setSaveError(describeSaveError(err));
@@ -281,28 +273,40 @@ export default function SubRotationPlanner() {
 
   // Creates a new empty team and immediately switches to it — a coach
   // hitting "+ Add Team" is about to start setting up that team's squad.
-  const addNewTeam = (name) => {
-    const team = createTeam(name);
-    setTeams((prev) => addTeam(prev, team));
-    activateTeam(team);
+  // Firestore assigns the real id, so this has to wait for the write to
+  // come back before it can add the team locally or switch to it.
+  const addNewTeam = async (name) => {
     setShowTeamSwitcher(false);
+    try {
+      const team = await createTeamDoc(user.uid, createTeam(name));
+      setTeams((prev) => addTeam(prev, team));
+      await activateTeam(team);
+      setSaveError(null);
+    } catch (err) {
+      setSaveError(describeSaveError(err));
+    }
   };
 
   const renameTeamById = (id, name) => {
-    setTeams((prev) => updateTeam(prev, id, { name: name.trim() || findTeam(prev, id)?.name }));
+    const newName = name.trim() || findTeam(teams, id)?.name;
+    setTeams((prev) => updateTeam(prev, id, { name: newName }));
+    updateTeamDoc(id, { name: newName })
+      .then(() => setSaveError(null))
+      .catch((err) => setSaveError(describeSaveError(err)));
   };
 
   const deleteTeamById = async (id) => {
     const remaining = removeTeam(teams, id);
     if (remaining.length === 0) return; // TeamSwitcher already disables deleting the last team
     setTeams(remaining);
-    try {
-      await window.storage.delete(matchStorageKeyFor(id), false);
-    } catch {
-      // best-effort cleanup of that team's match data; not critical if it fails
-    }
     if (id === activeTeamId) {
       await activateTeam(remaining[0]);
+    }
+    try {
+      await deleteTeamDoc(id); // also removes that team's matchState subdocument
+      setSaveError(null);
+    } catch (err) {
+      setSaveError(describeSaveError(err));
     }
   };
 
@@ -582,6 +586,8 @@ export default function SubRotationPlanner() {
           onRename={renameTeamById}
           onDelete={deleteTeamById}
           onClose={() => setShowTeamSwitcher(false)}
+          userEmail={user.email}
+          onSignOut={signOutUser}
         />
       )}
     </div>

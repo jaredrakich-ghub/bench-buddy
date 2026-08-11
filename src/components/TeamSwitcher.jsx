@@ -6,7 +6,7 @@ import { styles } from "./styles.js";
 // new one. Mirrors the app's existing modal/confirm-row patterns (same
 // styles used for the backup-restore confirmation) rather than introducing
 // a new interaction style.
-export default function TeamSwitcher({ teams, activeTeamId, onSwitch, onAdd, onRename, onDelete, onClose }) {
+export default function TeamSwitcher({ teams, activeTeamId, onSwitch, onAdd, onRename, onDelete, onClose, userEmail, onSignOut }) {
   const [showAddInput, setShowAddInput] = useState(false);
   const [addName, setAddName] = useState("");
   const [renamingId, setRenamingId] = useState(null);
@@ -129,6 +129,10 @@ export default function TeamSwitcher({ teams, activeTeamId, onSwitch, onAdd, onR
             <Plus size={16} /> Add Team
           </button>
         )}
+
+        <button style={styles.backupToggle} onClick={onSignOut}>
+          Sign out {userEmail ? `(${userEmail})` : ""}
+        </button>
       </div>
     </div>
   );
