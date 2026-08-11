@@ -136,16 +136,19 @@ export default function MatchView({
       )}
       {confirmedAt !== undefined && nextIv && <div style={styles.confirmedNote}>✓ Sub confirmed at {fmtClock(confirmedAt)}</div>}
 
-      <div style={styles.intervalTabs}>
-        {plan.map((iv) => (
-          <button
-            key={iv.index}
-            onClick={() => setActiveInterval(iv.index)}
-            style={{ ...styles.intervalTab, ...(activeInterval === iv.index ? styles.intervalTabActive : {}) }}
-          >
-            {iv.startMin}–{iv.endMin}′
-          </button>
-        ))}
+      <div style={styles.intervalTabsWrap}>
+        <div style={styles.intervalTabs}>
+          {plan.map((iv) => (
+            <button
+              key={iv.index}
+              onClick={() => setActiveInterval(iv.index)}
+              style={{ ...styles.intervalTab, ...(activeInterval === iv.index ? styles.intervalTabActive : {}) }}
+            >
+              {iv.startMin}–{iv.endMin}′
+            </button>
+          ))}
+        </div>
+        <div style={styles.intervalTabsFade} />
       </div>
 
       <div style={styles.pitchBoard}>
