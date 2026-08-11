@@ -45,7 +45,15 @@ export const styles = {
   },
   teamRowBtnActive: { background: "#E9F5EE", border: "1px solid " + colors.field, color: colors.grass },
   teamRowMeta: { fontWeight: 600, fontSize: 11, color: "#7C8983" },
-  main: { padding: "12px 16px", maxWidth: 640, margin: "0 auto" },
+  // paddingBottom is deliberately generous: on mobile Safari the docked
+  // bottom toolbar (back/forward/tabs) isn't reserved space the page knows
+  // about — it just overlaps whatever content happens to end near the
+  // bottom of the page. Without this, the last element on any screen (e.g.
+  // MatchView's "Interval X of Y" nav) sits flush against that chrome.
+  // env(safe-area-inset-bottom) adds further clearance for the home
+  // indicator on notched iPhones; index.html's viewport-fit=cover is what
+  // makes that env() value non-zero.
+  main: { padding: "12px 16px", paddingBottom: "calc(40px + env(safe-area-inset-bottom, 0px))", maxWidth: 640, margin: "0 auto" },
   sectionTitle: { fontSize: 17, fontWeight: 900, marginBottom: 8, color: colors.grass, textTransform: "uppercase", letterSpacing: 0.5 },
   subTrackerHeaderRow: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 },
   headerBtnGroup: { display: "flex", gap: 6 },
@@ -182,7 +190,7 @@ export const styles = {
     width: 28, height: 28, borderRadius: "50%", border: "none", background: "rgba(193,80,46,0.9)",
     display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, cursor: "pointer", padding: 0,
   },
-  gloveIcon: { fontSize: 21, lineHeight: 1 },
+  gloveIcon: { fontSize: 25, lineHeight: 1 },
   pitchLabel: { color: "rgba(255,255,255,0.7)", fontSize: 10, fontWeight: 800, letterSpacing: 1.2, marginBottom: 6, marginTop: 8 },
   tokenRow: { display: "flex", flexWrap: "wrap", gap: 10 },
   tokenCol: { display: "flex", flexDirection: "column", alignItems: "center", gap: 3, width: 62 },

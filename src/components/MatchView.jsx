@@ -175,7 +175,7 @@ export default function MatchView({
                   onClick={() => swapPickId && onSwap(swapPickId, id)}
                   disabled={!swapPickId}
                 >
-                  {isGk ? <span style={styles.gloveIcon}>🧤</span> : <FootballerIcon size={22} />}
+                  {isGk ? <span style={styles.gloveIcon}>🧤</span> : <FootballerIcon size={27} />}
                 </button>
                 {!injuredThisGame.includes(id) && !swapPickId && (
                   <button style={styles.injuryBtnSide} onClick={() => onInjury(id)} title="Mark injured / off">
@@ -195,7 +195,7 @@ export default function MatchView({
               {plan[activeInterval].bench.map((id) => (
                 <div key={id} style={styles.tokenCol}>
                   <div style={{ ...styles.token, ...styles.tokenBench }}>
-                    <FootballerIcon size={22} />
+                    <FootballerIcon size={27} />
                   </div>
                   <span style={styles.tokenName}>{nameOf(id)}</span>
                   <button
