@@ -5,13 +5,17 @@ import { styles } from "./styles.js";
 
 // Shared form for both first-time setup (inline) and later edits (modal).
 // This also doubles as squad management — add, remove, mark available, and
-// mark keeper-eligible, plus backup/restore — all in one place, since in
-// practice a coach touches all of this together when setting up a game.
+// mark keeper-eligible — all in one place, since in practice a coach
+// touches all of this together when setting up a game.
+//
+// The old manual "Backup & restore" text-export panel was removed once
+// Firestore sync landed — that was the workaround for data living only in
+// one browser, which is exactly what a real account now solves properly.
 //
 // This is a genuinely large component because it's a genuinely multi-purpose
-// form. If it keeps growing, splitting the squad list and backup panel into
-// their own components would be a reasonable next step — not done now to
-// avoid over-fragmenting for a modest reduction in size (see the Phase 4
+// form. If it keeps growing, splitting the squad list into its own
+// component would be a reasonable next step — not done now to avoid
+// over-fragmenting for a modest reduction in size (see the Phase 4
 // architecture notes).
 export default function SquadSettingsForm({
   roster,
@@ -25,17 +29,6 @@ export default function SquadSettingsForm({
   removePlayer,
   toggleAvailable,
   toggleKeeperEligible,
-  showBackupPanel,
-  setShowBackupPanel,
-  exportText,
-  handleCopyExport,
-  copyStatus,
-  importText,
-  setImportText,
-  importConfirming,
-  setImportConfirming,
-  importStatus,
-  runImport,
   showRestartWarning,
   onSubmit,
   submitLabel,
@@ -183,50 +176,6 @@ export default function SquadSettingsForm({
           );
         })}
       </div>
-
-      <button style={styles.backupToggle} onClick={() => setShowBackupPanel((v) => !v)}>
-        {showBackupPanel ? "Hide" : "Backup & restore squad"}
-      </button>
-
-      {showBackupPanel && (
-        <div style={styles.backupPanel}>
-          <div style={styles.backupSubTitle}>Export</div>
-          <p style={styles.backupHint}>Copy this text somewhere safe (notes app, email to yourself) to restore your squad later.</p>
-          <textarea style={styles.backupTextarea} readOnly value={exportText} onClick={(e) => e.target.select()} />
-          <button style={styles.backupBtn} onClick={handleCopyExport}>
-            Copy backup text
-          </button>
-          {copyStatus && <div style={styles.backupStatus}>{copyStatus}</div>}
-
-          <div style={{ ...styles.backupSubTitle, marginTop: 18 }}>Import</div>
-          <p style={styles.backupHint}>Paste a previously copied backup below to restore it. This replaces your current squad.</p>
-          <textarea
-            style={styles.backupTextarea}
-            placeholder="Paste backup text here"
-            value={importText}
-            onChange={(e) => {
-              setImportText(e.target.value);
-              setImportConfirming(false);
-            }}
-          />
-          {!importConfirming ? (
-            <button style={styles.backupBtn} disabled={!importText.trim()} onClick={() => setImportConfirming(true)}>
-              Restore from backup
-            </button>
-          ) : (
-            <div style={styles.backupConfirmRow}>
-              <span style={styles.backupHint}>This replaces your current squad — are you sure?</span>
-              <button style={styles.backupConfirmBtn} onClick={runImport}>
-                Yes, replace it
-              </button>
-              <button style={styles.backupCancelBtn} onClick={() => setImportConfirming(false)}>
-                Cancel
-              </button>
-            </div>
-          )}
-          {importStatus && <div style={styles.backupStatus}>{importStatus}</div>}
-        </div>
-      )}
 
       {showRestartWarning && (
         <div style={styles.modalWarning}>This will restart the rotation from 0:00 and clear this game's progress so far.</div>

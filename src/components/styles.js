@@ -234,18 +234,11 @@ export const styles = {
     display: "block", marginTop: 20, background: "transparent", border: "none", color: colors.field,
     fontWeight: 700, fontSize: 12, cursor: "pointer", padding: 0, textDecoration: "underline",
   },
-  backupPanel: { marginTop: 10, background: "#F4F7F2", border: "1px solid " + colors.border, borderRadius: 10, padding: 12 },
-  backupSubTitle: { fontSize: 12, fontWeight: 800, color: colors.grass, textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 4 },
   backupHint: { fontSize: 11, color: "#5B6B64", lineHeight: 1.4, margin: "0 0 6px 0" },
-  backupTextarea: {
-    width: "100%", minHeight: 70, fontSize: 11, fontFamily: "monospace", padding: 8, borderRadius: 8,
-    border: "1px solid " + colors.border, resize: "vertical", marginBottom: 6, color: colors.ink, background: "#fff",
-  },
   backupBtn: {
     background: colors.grass, color: colors.chalk, border: "none", borderRadius: 8, padding: "7px 12px",
     fontWeight: 700, fontSize: 12, cursor: "pointer",
   },
-  backupStatus: { marginTop: 6, fontSize: 11, fontWeight: 700, color: colors.field },
   backupConfirmRow: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8 },
   backupConfirmBtn: {
     background: colors.danger, color: "#fff", border: "none", borderRadius: 8, padding: "7px 12px",

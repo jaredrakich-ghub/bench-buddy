@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { X } from "lucide-react";
 import { intervalAtElapsed, computeIntervals, buildCarryState, generatePlan, keeperShiftIntervalsFor, lastGkId } from "../lib/rotation.js";
 import { validateGameSettings } from "../lib/validation.js";
@@ -56,11 +56,6 @@ export default function SubRotationPlanner({ user }) {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [showTeamSwitcher, setShowTeamSwitcher] = useState(false);
-  const [showBackupPanel, setShowBackupPanel] = useState(false);
-  const [importText, setImportText] = useState("");
-  const [importConfirming, setImportConfirming] = useState(false);
-  const [importStatus, setImportStatus] = useState("");
-  const [copyStatus, setCopyStatus] = useState("");
   // Set when a save to browser storage fails (e.g. storage full or
   // disabled) — surfaced as a persistent banner rather than swallowed, so a
   // coach isn't silently trusting saves that aren't happening. Cleared the
@@ -133,8 +128,18 @@ export default function SubRotationPlanner({ user }) {
   // remembering your last selection. Reasonable trade-off for now given
   // most accounts will have one or two teams; worth revisiting if that
   // turns out to matter in practice.
+  //
+  // loadStartedForUser guards against this effect's async body running
+  // twice concurrently for the same account — React StrictMode
+  // deliberately double-invokes effects in development, and without this
+  // guard both invocations would see "zero teams" and each create their
+  // own bootstrap/migrated team, producing duplicates. A ref (not state)
+  // on purpose: setting it needs to happen synchronously, before any
+  // await, which a state update can't guarantee.
+  const loadStartedForUser = useRef(null);
   useEffect(() => {
-    if (!user) return;
+    if (!user || loadStartedForUser.current === user.uid) return;
+    loadStartedForUser.current = user.uid;
     (async () => {
       let loadedTeams = await fetchTeams(user.uid);
 
@@ -444,37 +449,6 @@ export default function SubRotationPlanner({ user }) {
     setSwapPickId(null);
   };
 
-  const exportText = JSON.stringify({ roster: teamData.roster, settings: teamData.settings }, null, 2);
-
-  const handleCopyExport = async () => {
-    try {
-      await navigator.clipboard.writeText(exportText);
-      setCopyStatus("Copied!");
-    } catch {
-      setCopyStatus("Couldn't auto-copy — tap the text box and copy manually");
-    }
-    setTimeout(() => setCopyStatus(""), 2500);
-  };
-
-  const runImport = () => {
-    try {
-      const parsed = JSON.parse(importText);
-      if (!parsed || !Array.isArray(parsed.roster)) throw new Error("bad format");
-      const normalizedRoster = parsed.roster.map((p) => ({ ...p, keeperEligible: p.keeperEligible !== false }));
-      const normalizedSettings = { ...defaultSettings(), ...(parsed.settings || {}) };
-      saveTeamData({ roster: normalizedRoster, settings: normalizedSettings });
-      setGameSettings(normalizedSettings);
-      setAvailableIds(normalizedRoster.map((p) => p.id));
-      setImportText("");
-      setImportConfirming(false);
-      setImportStatus("Squad restored.");
-    } catch {
-      setImportStatus("Couldn't read that — check you pasted the whole backup and try again.");
-      setImportConfirming(false);
-    }
-    setTimeout(() => setImportStatus(""), 3000);
-  };
-
   const nameOf = (id) => teamData.roster.find((p) => p.id === id)?.name || "?";
 
   // Shared props for SquadSettingsForm — used both for first-time setup
@@ -492,17 +466,6 @@ export default function SubRotationPlanner({ user }) {
     removePlayer,
     toggleAvailable,
     toggleKeeperEligible,
-    showBackupPanel,
-    setShowBackupPanel,
-    exportText,
-    handleCopyExport,
-    copyStatus,
-    importText,
-    setImportText,
-    importConfirming,
-    setImportConfirming,
-    importStatus,
-    runImport,
     showRestartWarning: Boolean(plan && (elapsedSec > 0 || Object.keys(subLog).length > 0)),
   };
 
