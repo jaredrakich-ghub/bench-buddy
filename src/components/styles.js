@@ -227,26 +227,28 @@ export const styles = {
   gloveIcon: { fontSize: 25, lineHeight: 1 },
   // Advance notice of the next sub window's changes, shown on top of the
   // relevant token — top-left corner, opposite side from injuryBtnSide
-  // (top-right-ish) so the two never collide. `background` is applied
-  // per-instance from MatchView's subPairColors, not fixed here, so an
-  // off/on pair can share a color — see the comment above where these are
-  // computed. A given token only ever shows one badge (this or
-  // nextKeeperBadge below), so they can safely share the same position.
+  // (top-right-ish) so the two never collide. Deliberately simple, fixed
+  // colors: red = off the pitch, green = playing outfield next (whether
+  // arriving from the bench or staying on but losing keeper duty — same
+  // badge either way, see steppingDownKeeperId in MatchView). A given token
+  // only ever shows one badge (this or nextKeeperBadge below), so they can
+  // safely share the same position.
   nextOffBadge: {
     position: "absolute", left: -6, top: -6, width: 18, height: 18, borderRadius: "50%",
-    color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
-    fontSize: 11, fontWeight: 900, pointerEvents: "none", boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
+    background: colors.danger, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
+    pointerEvents: "none", boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
   },
   nextOnBadge: {
     position: "absolute", left: -6, top: -6, width: 18, height: 18, borderRadius: "50%",
-    color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
-    fontSize: 11, fontWeight: 900, pointerEvents: "none", boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
+    background: colors.field, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
+    pointerEvents: "none", boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
   },
   // A keeper handover is a role change, not necessarily a substitution (the
   // two players involved are often already both on the pitch) — this gets
-  // its own gold-and-glove treatment, distinct from the colored ↓/↑ subs
-  // badges above, so it never reads as "just another sub". Shown on
-  // whoever's becoming keeper, wherever they currently are.
+  // its own gold-and-glove treatment, distinct from the red/green subs
+  // badges above, so it never reads as "just another sub". Shown only on
+  // whoever's becoming keeper, wherever they currently are — the outgoing
+  // keeper just gets the regular green "switching to outfield" badge.
   nextKeeperBadge: {
     position: "absolute", left: -6, top: -6, width: 18, height: 18, borderRadius: "50%",
     background: colors.gk, display: "flex", alignItems: "center", justifyContent: "center",

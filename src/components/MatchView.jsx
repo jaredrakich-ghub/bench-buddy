@@ -1,4 +1,4 @@
-import { ChevronRight, ChevronLeft, RotateCcw, Play, Pause, Settings, BarChart2 } from "lucide-react";
+import { ChevronRight, ChevronLeft, RotateCcw, Play, Pause, Settings, BarChart2, ArrowDown, ArrowUp } from "lucide-react";
 import { intervalAtElapsed } from "../lib/rotation.js";
 import { computeLiveElapsedSec, fmtClock } from "../lib/clock.js";
 import { getFormationLayout } from "../lib/formation.js";
@@ -52,21 +52,17 @@ export default function MatchView({
   // hides it, since "coming off/on next" only means something for what's
   // happening right now).
   //
-  // Two kinds of badge, kept visually distinct on purpose:
-  //   - Regular bench<->field subs get a colored ↓/↑ badge. Off/on players
-  //     are paired up by position in their respective lists and share a
-  //     color per pair (cycling through subPairColors), so "these two
-  //     changes go together" reads at a glance instead of as 2-4 unrelated
-  //     dots. This is a display-only pairing, not something the rotation
-  //     algorithm itself tracks — with the usual 1 (occasionally 2) change
-  //     per interval it lines up naturally.
-  //   - A keeper handover is a role change, not necessarily a substitution
-  //     (the two players involved often stay on the pitch the whole time,
-  //     invisible to a plain bench/field diff) — it gets its own gold 🧤
-  //     badge on whoever's becoming keeper, wherever they currently are,
-  //     instead of a colored arrow, even if they're also physically coming
-  //     on from the bench. That's what makes it read as "keeper's
-  //     changing", not "just another sub".
+  // Three states, kept deliberately simple after an earlier per-pair-color
+  // version turned out less clear in practice:
+  //   - Red ↓ = leaving the pitch (whether from a regular sub or a keeper
+  //     stepping down doesn't matter — either way, off).
+  //   - Green ↑ = playing outfield next interval, whether arriving from the
+  //     bench OR already on the pitch and just losing keeper duty ("staying
+  //     on, switching to outfield" gets the exact same badge as "coming on
+  //     from the bench" — same outcome, same meaning).
+  //   - Gold 🧤 = becoming keeper, wherever they currently are. The one
+  //     state that's genuinely distinct from a normal sub, so it's the one
+  //     that gets a different badge rather than reusing red/green.
   const isViewingLiveInterval = activeInterval === cur.index;
   const showNextChangeBadges = isViewingLiveInterval && Boolean(nextIv);
   const rawComingOff = showNextChangeBadges
@@ -76,15 +72,16 @@ export default function MatchView({
     ? nextIv.onField.map((p) => p.id).filter((id) => !cur.onField.some((p) => p.id === id))
     : [];
   const becomingKeeperId = showNextChangeBadges && gkChanging ? nextGk.id : null;
+  // "Switching to outfield" covers both a genuine bench arrival AND the
+  // outgoing keeper staying on the pitch — same green badge either way. The
+  // outgoing keeper only needs it when they're NOT also leaving the field
+  // entirely (that's already covered by the red ↓ below).
+  const steppingDownKeeperId =
+    showNextChangeBadges && gkChanging && curGk && !rawComingOff.includes(curGk.id) ? curGk.id : null;
   const regularComingOn = rawComingOn.filter((id) => id !== becomingKeeperId);
-
-  const subPairColors = ["#3B82F6", "#8B5CF6", "#0D9488"];
-  const offColorFor = (id) => subPairColors[rawComingOff.indexOf(id) % subPairColors.length];
-  const onColorFor = (id) => subPairColors[regularComingOn.indexOf(id) % subPairColors.length];
 
   const comingOffIds = new Set(rawComingOff);
   const comingOnIds = new Set(regularComingOn);
-
   // Start resumes from wherever the clock is frozen; Pause freezes it at the
   // correct live value (computed from the timestamp anchor, not just
   // whatever the display last happened to show).
@@ -238,13 +235,18 @@ export default function MatchView({
                   {isGk ? <span style={styles.gloveIcon}>🧤</span> : <FootballerIcon size={27} />}
                 </button>
                 {comingOffIds.has(id) && (
-                  <span style={{ ...styles.nextOffBadge, background: offColorFor(id) }} title="Coming off next interval">
-                    ↓
+                  <span style={styles.nextOffBadge} title="Coming off next interval">
+                    <ArrowDown size={11} strokeWidth={3.5} />
                   </span>
                 )}
                 {becomingKeeperId === id && (
                   <span style={styles.nextKeeperBadge} title="Becoming keeper next interval">
                     🧤
+                  </span>
+                )}
+                {steppingDownKeeperId === id && (
+                  <span style={styles.nextOnBadge} title="Staying on, switching to outfield next interval">
+                    <ArrowUp size={11} strokeWidth={3.5} />
                   </span>
                 )}
                 {!injuredThisGame.includes(id) && !swapPickId && (
@@ -269,8 +271,8 @@ export default function MatchView({
                       <FootballerIcon size={27} />
                     </div>
                     {comingOnIds.has(id) && (
-                      <span style={{ ...styles.nextOnBadge, background: onColorFor(id) }} title="Coming on next interval">
-                        ↑
+                      <span style={styles.nextOnBadge} title="Coming on next interval">
+                        <ArrowUp size={11} strokeWidth={3.5} />
                       </span>
                     )}
                     {becomingKeeperId === id && (
