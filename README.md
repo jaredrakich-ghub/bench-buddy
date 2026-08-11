@@ -102,3 +102,9 @@ The rotation logic itself lives near the top of
 `src/components/SubRotationPlanner.jsx` (the `generatePlan` function) —
 that's the core algorithm if you ever want Claude Code to explain or
 extend it.
+
+## Credits
+
+The header mascot (`src/assets/header-mascot.jpg`) is a free illustration
+from [Vecteezy](https://www.vecteezy.com/vector-art/49165452-soccer-player-with-ball-flat-style-element-illustration-on-white-background-free-vector),
+used under Vecteezy's free license, which requires attribution.

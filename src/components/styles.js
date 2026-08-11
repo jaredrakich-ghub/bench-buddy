@@ -26,10 +26,25 @@ export const styles = {
   app: { fontFamily: "system-ui, -apple-system, sans-serif", background: colors.chalk, minHeight: 500, color: colors.ink },
   loadingWrap: { display: "flex", alignItems: "center", justifyContent: "center", height: 300, background: colors.chalk },
   loadingText: { color: colors.grass, fontWeight: 700 },
-  header: { background: colors.grass, padding: "10px 16px" },
+  header: {
+    background: `linear-gradient(135deg, ${colors.grass} 0%, ${colors.grassLight} 100%)`,
+    borderBottom: "3px solid " + colors.gk, boxShadow: "0 2px 8px rgba(0,0,0,0.25)", padding: "10px 16px",
+  },
   headerInner: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 },
   headerLogoGroup: { display: "flex", alignItems: "center", gap: 10, minWidth: 0 },
-  logoMark: { fontSize: 20 },
+  // The source image (a licensed Vecteezy illustration — see README for
+  // attribution) is a mascot on a yellow circle badge with white margin
+  // around it. logoMark is a fixed-size clipping window (overflow:hidden is
+  // what actually crops it — border-radius alone doesn't clip an oversized
+  // transformed child); logoMarkImg is scaled up and repositioned inside it
+  // so only the circular badge shows, cropping the white margin away.
+  logoMark: {
+    width: 34, height: 34, borderRadius: "50%", flexShrink: 0, overflow: "hidden",
+    boxShadow: "0 0 0 2px rgba(255,255,255,0.25)",
+  },
+  logoMarkImg: {
+    width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 46%", transform: "scale(1.7)",
+  },
   headerTitle: { color: colors.chalk, fontWeight: 900, letterSpacing: 2, fontSize: 16, textTransform: "uppercase" },
   teamSwitcherTrigger: {
     display: "flex", alignItems: "center", gap: 4, background: "rgba(255,255,255,0.12)", color: colors.chalk,
@@ -181,12 +196,19 @@ export const styles = {
     position: "absolute", transform: "translate(-50%, -50%)", display: "flex", flexDirection: "column",
     alignItems: "center", gap: 3, width: 76,
   },
-  tokenWithAction: { display: "flex", alignItems: "center", gap: 4 },
-  // Kept smaller than the 44px ideal on purpose: it sits directly beside the
-  // 40px pitch token within a 76px-wide formation slot, and up to 5 of these
-  // pairs share the pitch width — growing it further would start crowding
+  // Just wraps the 40px circle now — position:relative so injuryBtnSide can
+  // anchor to it directly (see below).
+  tokenWithAction: { position: "relative", display: "flex" },
+  // Positioned absolutely relative to tokenWithAction rather than sitting
+  // beside the token as a flex sibling — a flex sibling made the circle
+  // itself off-center within the 76px formation slot whenever the button
+  // was visible, so it no longer lined up with tokenName centered below it.
+  // right:-32 = 28px button width + 4px gap, same spacing as before.
+  // Kept smaller than the 44px ideal on purpose: up to 5 of these overlap
+  // the pitch width side by side — growing it further would start crowding
   // neighboring players. Still a meaningful bump from the original 22px.
   injuryBtnSide: {
+    position: "absolute", right: -32, top: "50%", transform: "translateY(-50%)",
     width: 28, height: 28, borderRadius: "50%", border: "none", background: "rgba(193,80,46,0.9)",
     display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, cursor: "pointer", padding: 0,
   },

@@ -12,6 +12,7 @@ import SummaryModal from "./SummaryModal.jsx";
 import SquadSettingsForm from "./SquadSettingsForm.jsx";
 import MatchView from "./MatchView.jsx";
 import TeamSwitcher from "./TeamSwitcher.jsx";
+import headerMascot from "../assets/header-mascot.jpg";
 
 // Both of these are now read-only, used exactly once each: migrating an
 // existing browser's local data into the signed-in user's Firestore account
@@ -475,7 +476,9 @@ export default function SubRotationPlanner({ user }) {
       <header style={styles.header}>
         <div style={styles.headerInner}>
           <div style={styles.headerLogoGroup}>
-            <div style={styles.logoMark}>⚽</div>
+            <div style={styles.logoMark}>
+              <img src={headerMascot} alt="" style={styles.logoMarkImg} />
+            </div>
             <div style={styles.headerTitle}>BENCH BUDDY</div>
           </div>
           <button style={styles.teamSwitcherTrigger} onClick={() => setShowTeamSwitcher(true)} title="Switch teams">
