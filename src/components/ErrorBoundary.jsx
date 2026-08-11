@@ -16,7 +16,7 @@ export default class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, info) {
     // eslint-disable-next-line no-console
-    console.error("Sub Tracker crashed:", error, info);
+    console.error("Bench Buddy crashed:", error, info);
   }
 
   render() {
@@ -33,7 +33,7 @@ export default class ErrorBoundary extends React.Component {
         >
           <h1 style={{ fontSize: 20, marginBottom: 8 }}>Something went wrong</h1>
           <p style={{ color: "#555", marginBottom: 20 }}>
-            Sub Tracker hit an unexpected error. Your saved squad and settings
+            Bench Buddy hit an unexpected error. Your saved squad and settings
             are safe — reloading the page should get you back to normal.
           </p>
           <button

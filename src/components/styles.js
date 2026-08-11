@@ -1,4 +1,4 @@
-// All visual styling for Sub Tracker, kept as inline-style objects rather
+// All visual styling for Bench Buddy, kept as inline-style objects rather
 // than CSS (this matches how the component was originally built as a
 // self-contained Claude.ai artifact). Pulled into its own file so the
 // component files can focus on structure/behavior — see the architecture

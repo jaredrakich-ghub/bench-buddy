@@ -72,7 +72,7 @@ export default function MatchView({
   return (
     <section>
       <div style={styles.subTrackerHeaderRow}>
-        <h2 style={styles.sectionTitle}>Sub Tracker</h2>
+        <h2 style={styles.sectionTitle}>Bench Buddy</h2>
         <div style={styles.headerBtnGroup}>
           <button style={styles.editSettingsBtn} onClick={onShowSummary} title="View minutes summary">
             <BarChart2 size={14} /> Summary

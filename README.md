@@ -1,4 +1,4 @@
-# Sub Tracker
+# Bench Buddy
 
 A sideline substitution rotation planner for 5-a-side youth football —
 fair playing time, fair goalkeeper time, a live match timer, and manual
@@ -74,7 +74,7 @@ From inside this folder:
 ```bash
 git init
 git add .
-git commit -m "Initial commit: Sub Tracker"
+git commit -m "Initial commit: Bench Buddy"
 ```
 
 Then create an empty repository on GitHub (no README/license, since you
@@ -82,7 +82,7 @@ already have files), and follow GitHub's instructions to push an
 existing repo, which will look like:
 
 ```bash
-git remote add origin https://github.com/<your-username>/sub-tracker.git
+git remote add origin https://github.com/<your-username>/bench-buddy.git
 git branch -M main
 git push -u origin main
 ```

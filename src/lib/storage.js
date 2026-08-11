@@ -21,6 +21,12 @@
  *   list(prefix?, shared?)   -> { keys, prefix, shared }
  */
 
+// Deliberately left as "sub-tracker" even after the product was renamed to
+// "Bench Buddy" — this is the prefix every existing localStorage key
+// (rosters, match state) was already saved under. Changing it would make
+// the app look for data under a new prefix and existing users' saved teams
+// would appear to have vanished. Purely an internal storage detail; never
+// shown to the user.
 const NAMESPACE = "sub-tracker";
 
 function storageKey(key, shared) {

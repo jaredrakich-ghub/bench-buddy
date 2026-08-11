@@ -509,7 +509,7 @@ export default function SubRotationPlanner() {
         <div style={styles.headerInner}>
           <div style={styles.headerLogoGroup}>
             <div style={styles.logoMark}>⚽</div>
-            <div style={styles.headerTitle}>SUB TRACKER</div>
+            <div style={styles.headerTitle}>BENCH BUDDY</div>
           </div>
           <button style={styles.teamSwitcherTrigger} onClick={() => setShowTeamSwitcher(true)} title="Switch teams">
             {teamData.name} ▾
