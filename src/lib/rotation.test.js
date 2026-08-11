@@ -7,6 +7,7 @@ import {
   computeMinutesSummary,
   keeperShiftIntervalsFor,
   lastGkId,
+  benchPriorityCompare,
 } from "./rotation.js";
 
 describe("intervalAtElapsed", () => {
@@ -49,6 +50,27 @@ describe("computeIntervals", () => {
   it("keeps interval length * numIntervals equal to the total game length", () => {
     const { numIntervals, intervalLen } = computeIntervals(50, 7);
     expect(numIntervals * intervalLen).toBeCloseTo(50);
+  });
+});
+
+describe("benchPriorityCompare", () => {
+  it("prefers whoever has the longer current bench streak", () => {
+    const waitedLonger = { fieldMin: 10, gkMin: 0, consecBench: 3 };
+    const justBenched = { fieldMin: 10, gkMin: 0, consecBench: 1 };
+    expect(benchPriorityCompare(waitedLonger, justBenched)).toBeLessThan(0);
+    expect(benchPriorityCompare(justBenched, waitedLonger)).toBeGreaterThan(0);
+  });
+
+  it("breaks a tied bench streak by least field time so far", () => {
+    const playedLess = { fieldMin: 5, gkMin: 0, consecBench: 1 };
+    const playedMore = { fieldMin: 15, gkMin: 0, consecBench: 1 };
+    expect(benchPriorityCompare(playedLess, playedMore)).toBeLessThan(0);
+  });
+
+  it("treats fully tied candidates as equal", () => {
+    const a = { fieldMin: 10, gkMin: 0, consecBench: 2 };
+    const b = { fieldMin: 10, gkMin: 0, consecBench: 2 };
+    expect(benchPriorityCompare(a, b)).toBe(0);
   });
 });
 

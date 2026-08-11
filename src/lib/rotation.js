@@ -24,6 +24,18 @@ export function computeIntervals(gameMinutes, subIntervalMinutes) {
   return { numIntervals, intervalLen };
 }
 
+// Who's more "owed" a turn between two bench candidates — longest current
+// bench streak wins, then whoever has the least field time so far. This is
+// THE definition of "next in line" for the whole app: generatePlan's own
+// outfield selection is built on it below, and the UI layer (bringBack, for
+// promoting a bench player into a field vacancy opened up mid-interval)
+// uses this same function rather than its own copy, so there's never a
+// chance for the two to drift out of sync on what "fair" means.
+export function benchPriorityCompare(statsA, statsB) {
+  if (statsB.consecBench !== statsA.consecBench) return statsB.consecBench - statsA.consecBench;
+  return statsA.fieldMin - statsB.fieldMin;
+}
+
 // Turns a target keeper-shift length (in minutes) into a whole number of
 // sub-intervals, so a keeper's shift always lines up on sub-interval
 // boundaries. Falls back to `subIntervalMinutes` (i.e. one sub-interval per
@@ -113,15 +125,10 @@ export function generatePlan({
       if (a === prevGk) sa += 500;
       if (b === prevGk) sb += 500;
       if (sa !== sb) return sa - sb;
-      if (sim[b].consecBench !== sim[a].consecBench) return sim[b].consecBench - sim[a].consecBench;
-      return sim[a].fieldMin - sim[b].fieldMin;
+      return benchPriorityCompare(sim[a], sim[b]);
     })[0];
 
-  const outfieldSort = (a, b) => {
-    const sa = sim[a], sb = sim[b];
-    if (sb.consecBench !== sa.consecBench) return sb.consecBench - sa.consecBench;
-    return sa.fieldMin - sb.fieldMin;
-  };
+  const outfieldSort = (a, b) => benchPriorityCompare(sim[a], sim[b]);
 
   const intervals = [];
   // Seeded with currentGkId (not null) so a rebuild starting mid-shift knows
