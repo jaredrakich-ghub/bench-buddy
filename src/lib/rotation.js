@@ -36,6 +36,42 @@ export function benchPriorityCompare(statsA, statsB) {
   return statsA.fieldMin - statsB.fieldMin;
 }
 
+// Decides where a returning (no-longer-injured) player lands for whatever's
+// left of the current interval. Pulled out of the bring-back UI handler as
+// its own pure function specifically so this decision can be tested
+// directly and precisely — including scenarios ("bench already has someone
+// waiting AND there's an open field slot") that are hard to force through
+// the UI's own injury/return flow, since in practice the field is always
+// kept filled to capacity whenever there are enough players for it, so
+// that combination is rare. Three cases:
+//   - No open field slot: they just join the bench, nothing else changes.
+//   - An open slot, and someone's already on the bench: that person (the
+//     one benchPriorityCompare ranks highest — longest bench streak, then
+//     least field time) is promoted into the slot, and the returning
+//     player takes the bench spot they leave behind. The returning player
+//     never skips the queue.
+//   - An open slot, but the bench is empty (nobody else to promote — e.g.
+//     the first player back after everyone was hurt): they fill the slot
+//     themselves, since there's no one else it could go to.
+export function resolveBringBack({ playerId, onField, bench, standing, normalFieldSize }) {
+  const hasOpenFieldSlot = onField.length < normalFieldSize;
+
+  if (!hasOpenFieldSlot) {
+    return { onField, bench: [...bench, playerId] };
+  }
+  if (bench.length === 0) {
+    return { onField: [...onField, { id: playerId, isGk: false }], bench };
+  }
+  const emptyStanding = { fieldMin: 0, gkMin: 0, consecBench: 0 };
+  const promoted = [...bench].sort((a, b) =>
+    benchPriorityCompare(standing[a] || emptyStanding, standing[b] || emptyStanding)
+  )[0];
+  return {
+    onField: [...onField, { id: promoted, isGk: false }],
+    bench: bench.filter((id) => id !== promoted).concat(playerId),
+  };
+}
+
 // Turns a target keeper-shift length (in minutes) into a whole number of
 // sub-intervals, so a keeper's shift always lines up on sub-interval
 // boundaries. Falls back to `subIntervalMinutes` (i.e. one sub-interval per

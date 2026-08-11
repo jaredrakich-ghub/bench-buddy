@@ -8,6 +8,7 @@ import {
   keeperShiftIntervalsFor,
   lastGkId,
   benchPriorityCompare,
+  resolveBringBack,
 } from "./rotation.js";
 
 describe("intervalAtElapsed", () => {
@@ -71,6 +72,92 @@ describe("benchPriorityCompare", () => {
     const a = { fieldMin: 10, gkMin: 0, consecBench: 2 };
     const b = { fieldMin: 10, gkMin: 0, consecBench: 2 };
     expect(benchPriorityCompare(a, b)).toBe(0);
+  });
+});
+
+describe("resolveBringBack", () => {
+  // A fixed on-field roster reused across cases below — who exactly is on
+  // it doesn't matter for these tests except its length (the "is the pitch
+  // already full" check), so keep it simple: 5 players, i.e. a full side.
+  const fullOnField = ["f1", "f2", "f3", "f4", "f5"].map((id) => ({ id, isGk: false }));
+
+  it("with no open field slot, the returning player just joins the bench — the field is untouched", () => {
+    const result = resolveBringBack({
+      playerId: "returning",
+      onField: fullOnField,
+      bench: ["b1", "b2"],
+      standing: {},
+      normalFieldSize: 5, // already at capacity
+    });
+    expect(result.onField).toEqual(fullOnField);
+    expect(result.bench).toEqual(["b1", "b2", "returning"]);
+  });
+
+  it("with an open slot and an empty bench, the returning player fills it themselves (nobody else to promote)", () => {
+    const result = resolveBringBack({
+      playerId: "returning",
+      onField: fullOnField.slice(0, 3), // pitch short two players
+      bench: [],
+      standing: {},
+      normalFieldSize: 5,
+    });
+    expect(result.onField.map((p) => p.id)).toEqual([...fullOnField.slice(0, 3).map((p) => p.id), "returning"]);
+    expect(result.onField.find((p) => p.id === "returning").isGk).toBe(false);
+    expect(result.bench).toEqual([]);
+  });
+
+  it("with an open slot and a non-empty bench, promotes whoever's waited longest — not the returning player", () => {
+    const result = resolveBringBack({
+      playerId: "returning",
+      onField: fullOnField.slice(0, 4), // one slot open
+      bench: ["justBenched", "waitedLongest", "alsoWaiting"],
+      standing: {
+        justBenched: { fieldMin: 20, gkMin: 0, consecBench: 1 },
+        waitedLongest: { fieldMin: 20, gkMin: 0, consecBench: 4 },
+        alsoWaiting: { fieldMin: 20, gkMin: 0, consecBench: 2 },
+      },
+      normalFieldSize: 5,
+    });
+    // waitedLongest (consecBench 4, the highest) is promoted onto the field...
+    expect(result.onField.map((p) => p.id)).toContain("waitedLongest");
+    expect(result.onField.find((p) => p.id === "waitedLongest").isGk).toBe(false);
+    // ...the returning player never appears on the field...
+    expect(result.onField.map((p) => p.id)).not.toContain("returning");
+    // ...and lands on the bench, alongside whoever wasn't promoted.
+    expect(new Set(result.bench)).toEqual(new Set(["justBenched", "alsoWaiting", "returning"]));
+    expect(result.bench).not.toContain("waitedLongest");
+  });
+
+  it("breaks a tied bench streak by least field time when choosing who to promote", () => {
+    const result = resolveBringBack({
+      playerId: "returning",
+      onField: fullOnField.slice(0, 4),
+      bench: ["playedALot", "playedLittle"],
+      standing: {
+        playedALot: { fieldMin: 30, gkMin: 0, consecBench: 1 },
+        playedLittle: { fieldMin: 5, gkMin: 0, consecBench: 1 }, // tied on consecBench, less field time
+      },
+      normalFieldSize: 5,
+    });
+    expect(result.onField.map((p) => p.id)).toContain("playedLittle");
+    expect(result.bench).toContain("playedALot");
+  });
+
+  it("treats a bench player missing from standing (e.g. never carried forward) as having played nothing — lowest priority, not highest", () => {
+    const result = resolveBringBack({
+      playerId: "returning",
+      onField: fullOnField.slice(0, 4),
+      bench: ["hasHistory", "noHistory"],
+      standing: {
+        hasHistory: { fieldMin: 0, gkMin: 0, consecBench: 1 }, // has actually waited a turn
+        // noHistory intentionally omitted
+      },
+      normalFieldSize: 5,
+    });
+    // hasHistory has consecBench 1 > noHistory's implied 0, so hasHistory
+    // should still win the promotion despite noHistory's "0 field minutes".
+    expect(result.onField.map((p) => p.id)).toContain("hasHistory");
+    expect(result.bench).toContain("noHistory");
   });
 });
 

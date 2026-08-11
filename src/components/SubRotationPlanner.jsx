@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { X } from "lucide-react";
-import { intervalAtElapsed, computeIntervals, buildCarryState, generatePlan, keeperShiftIntervalsFor, lastGkId, benchPriorityCompare } from "../lib/rotation.js";
+import { intervalAtElapsed, computeIntervals, buildCarryState, generatePlan, keeperShiftIntervalsFor, lastGkId, resolveBringBack } from "../lib/rotation.js";
 import { validateGameSettings } from "../lib/validation.js";
 import { computeLiveElapsedSec } from "../lib/clock.js";
 import { generateId } from "../lib/id.js";
@@ -399,16 +399,10 @@ export default function SubRotationPlanner({ user }) {
   };
 
   // A returning player joins the BACK of the bench queue for whatever's
-  // left of the current interval — they don't skip ahead of anyone who's
-  // already been waiting. If earlier injuries left the pitch short-staffed
-  // (fewer players out there than the squad now supports), the open slot
-  // instead gets filled by promoting whoever's already been waiting longest
-  // on the bench (same benchPriorityCompare fairness order the rotation
-  // algorithm itself uses), so it's the person actually owed a turn who
-  // goes on — not just whoever happened to return from injury most
-  // recently. Only if the bench is also empty (e.g. this is the very first
-  // player back after everyone was hurt, so there's genuinely no one else
-  // to promote) do they fill the vacancy directly themselves.
+  // left of the current interval, or fills a genuine opening on the pitch
+  // by promoting whoever's actually owed it — see resolveBringBack in
+  // rotation.js (pulled out to be independently testable) for exactly how
+  // that's decided.
   //
   // Either way, their own consecutive-bench streak resets to zero once
   // they're on the bench, so they go to the back of the queue rather than
@@ -421,25 +415,11 @@ export default function SubRotationPlanner({ user }) {
     const cur = plan[activeInterval];
     const remainingAvailableThisInterval = availableIds.filter((id) => !newInjuredList.includes(id));
     const normalFieldSize = Math.min(gameSettings.fieldSize, remainingAvailableThisInterval.length);
-    const hasOpenFieldSlot = cur.onField.length < normalFieldSize;
-
-    let frozenCurrent;
-    if (hasOpenFieldSlot && cur.bench.length > 0) {
-      const standing = buildCarryState(availableIds, priorIntervals);
-      const emptyStanding = { fieldMin: 0, gkMin: 0, consecBench: 0 };
-      const promoted = [...cur.bench].sort((a, b) =>
-        benchPriorityCompare(standing[a] || emptyStanding, standing[b] || emptyStanding)
-      )[0];
-      frozenCurrent = {
-        ...cur,
-        onField: [...cur.onField, { id: promoted, isGk: false }],
-        bench: cur.bench.filter((id) => id !== promoted).concat(playerId),
-      };
-    } else if (hasOpenFieldSlot) {
-      frozenCurrent = { ...cur, onField: [...cur.onField, { id: playerId, isGk: false }] };
-    } else {
-      frozenCurrent = { ...cur, bench: [...cur.bench, playerId] };
-    }
+    const standing = buildCarryState(availableIds, priorIntervals);
+    const { onField, bench } = resolveBringBack({
+      playerId, onField: cur.onField, bench: cur.bench, standing, normalFieldSize,
+    });
+    const frozenCurrent = { ...cur, onField, bench };
     const doneIntervals = [...priorIntervals, frozenCurrent];
 
     const carryState = buildCarryState(availableIds, doneIntervals);
