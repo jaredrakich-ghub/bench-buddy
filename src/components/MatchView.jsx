@@ -51,17 +51,39 @@ export default function MatchView({
   // interval, see the auto-follow effect in SubRotationPlanner, naturally
   // hides it, since "coming off/on next" only means something for what's
   // happening right now).
+  //
+  // Two kinds of badge, kept visually distinct on purpose:
+  //   - Regular bench<->field subs get a colored ↓/↑ badge. Off/on players
+  //     are paired up by position in their respective lists and share a
+  //     color per pair (cycling through subPairColors), so "these two
+  //     changes go together" reads at a glance instead of as 2-4 unrelated
+  //     dots. This is a display-only pairing, not something the rotation
+  //     algorithm itself tracks — with the usual 1 (occasionally 2) change
+  //     per interval it lines up naturally.
+  //   - A keeper handover is a role change, not necessarily a substitution
+  //     (the two players involved often stay on the pitch the whole time,
+  //     invisible to a plain bench/field diff) — it gets its own gold 🧤
+  //     badge on whoever's becoming keeper, wherever they currently are,
+  //     instead of a colored arrow, even if they're also physically coming
+  //     on from the bench. That's what makes it read as "keeper's
+  //     changing", not "just another sub".
   const isViewingLiveInterval = activeInterval === cur.index;
-  const comingOffIds = new Set(
-    isViewingLiveInterval && nextIv
-      ? cur.onField.map((p) => p.id).filter((id) => !nextIv.onField.some((p) => p.id === id))
-      : []
-  );
-  const comingOnIds = new Set(
-    isViewingLiveInterval && nextIv
-      ? nextIv.onField.map((p) => p.id).filter((id) => !cur.onField.some((p) => p.id === id))
-      : []
-  );
+  const showNextChangeBadges = isViewingLiveInterval && Boolean(nextIv);
+  const rawComingOff = showNextChangeBadges
+    ? cur.onField.map((p) => p.id).filter((id) => !nextIv.onField.some((p) => p.id === id))
+    : [];
+  const rawComingOn = showNextChangeBadges
+    ? nextIv.onField.map((p) => p.id).filter((id) => !cur.onField.some((p) => p.id === id))
+    : [];
+  const becomingKeeperId = showNextChangeBadges && gkChanging ? nextGk.id : null;
+  const regularComingOn = rawComingOn.filter((id) => id !== becomingKeeperId);
+
+  const subPairColors = ["#3B82F6", "#8B5CF6", "#0D9488"];
+  const offColorFor = (id) => subPairColors[rawComingOff.indexOf(id) % subPairColors.length];
+  const onColorFor = (id) => subPairColors[regularComingOn.indexOf(id) % subPairColors.length];
+
+  const comingOffIds = new Set(rawComingOff);
+  const comingOnIds = new Set(regularComingOn);
 
   // Start resumes from wherever the clock is frozen; Pause freezes it at the
   // correct live value (computed from the timestamp anchor, not just
@@ -85,6 +107,12 @@ export default function MatchView({
     setBaseElapsedSec(0);
     setElapsedSec(0);
     setSubLog({});
+    // Without this, the clock could show 0:00 while the pitch board still
+    // displayed whatever interval the coach last happened to be browsing
+    // (browsing away from live during play is expected now — see the
+    // auto-follow effect in SubRotationPlanner) — the board should match
+    // "0:00" exactly the same way it matches any other elapsed time.
+    setActiveInterval(0);
   };
 
   return (
@@ -196,8 +224,13 @@ export default function MatchView({
                   {isGk ? <span style={styles.gloveIcon}>🧤</span> : <FootballerIcon size={27} />}
                 </button>
                 {comingOffIds.has(id) && (
-                  <span style={styles.nextOffBadge} title="Coming off next interval">
+                  <span style={{ ...styles.nextOffBadge, background: offColorFor(id) }} title="Coming off next interval">
                     ↓
+                  </span>
+                )}
+                {becomingKeeperId === id && (
+                  <span style={styles.nextKeeperBadge} title="Becoming keeper next interval">
+                    🧤
                   </span>
                 )}
                 {!injuredThisGame.includes(id) && !swapPickId && (
@@ -222,8 +255,13 @@ export default function MatchView({
                       <FootballerIcon size={27} />
                     </div>
                     {comingOnIds.has(id) && (
-                      <span style={styles.nextOnBadge} title="Coming on next interval">
+                      <span style={{ ...styles.nextOnBadge, background: onColorFor(id) }} title="Coming on next interval">
                         ↑
+                      </span>
+                    )}
+                    {becomingKeeperId === id && (
+                      <span style={styles.nextKeeperBadge} title="Becoming keeper next interval">
+                        🧤
                       </span>
                     )}
                   </div>

@@ -221,17 +221,30 @@ export const styles = {
   gloveIcon: { fontSize: 25, lineHeight: 1 },
   // Advance notice of the next sub window's changes, shown on top of the
   // relevant token — top-left corner, opposite side from injuryBtnSide
-  // (top-right-ish) so the two never collide. Colors echo where the player
-  // is headed: bench-gray for coming off, field-green for coming on.
+  // (top-right-ish) so the two never collide. `background` is applied
+  // per-instance from MatchView's subPairColors, not fixed here, so an
+  // off/on pair can share a color — see the comment above where these are
+  // computed. A given token only ever shows one badge (this or
+  // nextKeeperBadge below), so they can safely share the same position.
   nextOffBadge: {
     position: "absolute", left: -6, top: -6, width: 18, height: 18, borderRadius: "50%",
-    background: colors.bench, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
+    color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
     fontSize: 11, fontWeight: 900, pointerEvents: "none", boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
   },
   nextOnBadge: {
     position: "absolute", left: -6, top: -6, width: 18, height: 18, borderRadius: "50%",
-    background: colors.field, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
+    color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
     fontSize: 11, fontWeight: 900, pointerEvents: "none", boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
+  },
+  // A keeper handover is a role change, not necessarily a substitution (the
+  // two players involved are often already both on the pitch) — this gets
+  // its own gold-and-glove treatment, distinct from the colored ↓/↑ subs
+  // badges above, so it never reads as "just another sub". Shown on
+  // whoever's becoming keeper, wherever they currently are.
+  nextKeeperBadge: {
+    position: "absolute", left: -6, top: -6, width: 18, height: 18, borderRadius: "50%",
+    background: colors.gk, display: "flex", alignItems: "center", justifyContent: "center",
+    fontSize: 11, lineHeight: 1, pointerEvents: "none", boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
   },
   // Bench tokens don't have their own relative wrapper the way on-pitch
   // tokens get from tokenWithAction — this is that, just for the bench row.
