@@ -137,8 +137,8 @@ export const styles = {
     display: "flex", alignItems: "center", gap: 10, background: colors.ink, borderRadius: 12, padding: "20px 14px", marginBottom: 2,
   },
   clockBlock: { display: "flex", flexDirection: "column", flex: 1 },
-  clockDisplay: { fontSize: 28, fontWeight: 900, color: colors.chalk, fontVariantNumeric: "tabular-nums", lineHeight: 1 },
-  clockSub: { fontSize: 10, color: "rgba(255,255,255,0.5)", fontWeight: 600, marginTop: 2 },
+  clockDisplay: { fontSize: 38, fontWeight: 900, color: colors.chalk, fontVariantNumeric: "tabular-nums", lineHeight: 1 },
+  clockSub: { fontSize: 12, color: "rgba(255,255,255,0.5)", fontWeight: 600, marginTop: 3 },
   timerBtn: {
     display: "flex", alignItems: "center", gap: 6, padding: "13px 18px", borderRadius: 10, border: "none",
     fontWeight: 700, fontSize: 14, cursor: "pointer", minHeight: 44,
@@ -148,7 +148,7 @@ export const styles = {
   timerBtnDone: { background: colors.border, color: colors.bench, cursor: "default" },
   intervalCountdown: {
     display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-    textAlign: "center", fontSize: 12, color: "#5B6B64", fontWeight: 600, margin: "6px 0",
+    textAlign: "center", fontSize: 16, color: "#5B6B64", fontWeight: 600, margin: "8px 0",
   },
   confirmBtnInline: {
     background: colors.field, color: "#fff", border: "none", borderRadius: 8,
