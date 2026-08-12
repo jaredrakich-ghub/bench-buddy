@@ -250,3 +250,56 @@ export function computeMinutesSummary(plan, availableIds) {
     return { id, outfieldMin, gkMin, benchMin, injuredMin };
   });
 }
+
+// While the match timer's running, MatchView's board should follow the live
+// interval — but a coach browsing to a different interval (tabs, ‹ ›)
+// should stick there instead of getting dragged back on the next tick.
+// Pulled out of the auto-follow effect in SubRotationPlanner as its own
+// pure decision so it's directly testable — the effect itself still uses
+// React's functional setState form for correctness (see the comment there),
+// this only decides WHAT the new activeInterval/lastLiveInterval should be.
+//
+// The rule: only act when the live interval has actually crossed to a new
+// one, and even then only follow if the board was already showing the
+// *previous* live interval — i.e. the coach hadn't navigated away. If they
+// had, leave activeInterval alone; it'll pick back up once they navigate
+// back to live themselves (which makes the two match again).
+export function resolveAutoFollowInterval({ liveInterval, lastLiveInterval, currentActiveInterval }) {
+  if (liveInterval === lastLiveInterval) return currentActiveInterval;
+  return currentActiveInterval === lastLiveInterval ? liveInterval : currentActiveInterval;
+}
+
+// Works out which pitch/bench tokens should show a next-sub-window badge in
+// MatchView, and which specific badge (see MatchView for what each state
+// looks like — red "coming off", green "coming on / switching to outfield",
+// or a distinct marker for whoever's becoming keeper). Pulled out as its
+// own pure function both to keep MatchView's JSX simpler and so this
+// (fiddly — several interacting cases) logic can be tested directly without
+// rendering anything.
+//
+// curGk/nextGk/gkChanging are passed in rather than recomputed here because
+// MatchView also needs them for the last-60-seconds warning banner,
+// unconditionally (that warning is about the live interval regardless of
+// what's currently being viewed) — this function only concerns the badges,
+// which are gated on isViewingLiveInterval.
+export function computeNextChangeBadges({ cur, nextIv, curGk, nextGk, gkChanging, isViewingLiveInterval }) {
+  if (!isViewingLiveInterval || !nextIv) {
+    return { comingOffIds: new Set(), comingOnIds: new Set(), becomingKeeperId: null, steppingDownKeeperId: null };
+  }
+  const rawComingOff = cur.onField.map((p) => p.id).filter((id) => !nextIv.onField.some((p) => p.id === id));
+  const rawComingOn = nextIv.onField.map((p) => p.id).filter((id) => !cur.onField.some((p) => p.id === id));
+  const becomingKeeperId = gkChanging ? nextGk.id : null;
+  // "Switching to outfield" covers both a genuine bench arrival AND the
+  // outgoing keeper staying on the pitch — same green badge either way. The
+  // outgoing keeper only needs it when they're NOT also leaving the field
+  // entirely (that's already covered by the red "coming off" badge).
+  const steppingDownKeeperId = gkChanging && curGk && !rawComingOff.includes(curGk.id) ? curGk.id : null;
+  const regularComingOn = rawComingOn.filter((id) => id !== becomingKeeperId);
+
+  return {
+    comingOffIds: new Set(rawComingOff),
+    comingOnIds: new Set(regularComingOn),
+    becomingKeeperId,
+    steppingDownKeeperId,
+  };
+}

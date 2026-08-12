@@ -1,5 +1,5 @@
 import { ChevronRight, ChevronLeft, RotateCcw, Play, Pause, Settings, BarChart2, ArrowDown, ArrowUp } from "lucide-react";
-import { intervalAtElapsed } from "../lib/rotation.js";
+import { intervalAtElapsed, computeNextChangeBadges } from "../lib/rotation.js";
 import { computeLiveElapsedSec, fmtClock } from "../lib/clock.js";
 import { getFormationLayout } from "../lib/formation.js";
 import { styles } from "./styles.js";
@@ -63,25 +63,13 @@ export default function MatchView({
   //   - Gold 🧤 = becoming keeper, wherever they currently are. The one
   //     state that's genuinely distinct from a normal sub, so it's the one
   //     that gets a different badge rather than reusing red/green.
+  // See computeNextChangeBadges in rotation.js for exactly how these get
+  // decided — pulled out so this (fiddly, several interacting cases) logic
+  // is directly unit-testable.
   const isViewingLiveInterval = activeInterval === cur.index;
-  const showNextChangeBadges = isViewingLiveInterval && Boolean(nextIv);
-  const rawComingOff = showNextChangeBadges
-    ? cur.onField.map((p) => p.id).filter((id) => !nextIv.onField.some((p) => p.id === id))
-    : [];
-  const rawComingOn = showNextChangeBadges
-    ? nextIv.onField.map((p) => p.id).filter((id) => !cur.onField.some((p) => p.id === id))
-    : [];
-  const becomingKeeperId = showNextChangeBadges && gkChanging ? nextGk.id : null;
-  // "Switching to outfield" covers both a genuine bench arrival AND the
-  // outgoing keeper staying on the pitch — same green badge either way. The
-  // outgoing keeper only needs it when they're NOT also leaving the field
-  // entirely (that's already covered by the red ↓ below).
-  const steppingDownKeeperId =
-    showNextChangeBadges && gkChanging && curGk && !rawComingOff.includes(curGk.id) ? curGk.id : null;
-  const regularComingOn = rawComingOn.filter((id) => id !== becomingKeeperId);
-
-  const comingOffIds = new Set(rawComingOff);
-  const comingOnIds = new Set(regularComingOn);
+  const { comingOffIds, comingOnIds, becomingKeeperId, steppingDownKeeperId } = computeNextChangeBadges({
+    cur, nextIv, curGk, nextGk, gkChanging, isViewingLiveInterval,
+  });
   // Start resumes from wherever the clock is frozen; Pause freezes it at the
   // correct live value (computed from the timestamp anchor, not just
   // whatever the display last happened to show).

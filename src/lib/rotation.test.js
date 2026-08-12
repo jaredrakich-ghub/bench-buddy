@@ -9,6 +9,8 @@ import {
   lastGkId,
   benchPriorityCompare,
   resolveBringBack,
+  resolveAutoFollowInterval,
+  computeNextChangeBadges,
 } from "./rotation.js";
 
 describe("intervalAtElapsed", () => {
@@ -496,5 +498,109 @@ describe("computeMinutesSummary", () => {
     expect(summary.find((s) => s.id === "p3")).toEqual({
       id: "p3", outfieldMin: 10, gkMin: 0, benchMin: 10, injuredMin: 0,
     });
+  });
+});
+
+describe("resolveAutoFollowInterval", () => {
+  it("does nothing when the live interval hasn't changed", () => {
+    expect(resolveAutoFollowInterval({ liveInterval: 2, lastLiveInterval: 2, currentActiveInterval: 5 })).toBe(5);
+  });
+
+  it("follows to the new live interval when the board was already showing the previous live one", () => {
+    // board was on interval 2 (== lastLiveInterval), live just advanced to 3
+    expect(resolveAutoFollowInterval({ liveInterval: 3, lastLiveInterval: 2, currentActiveInterval: 2 })).toBe(3);
+  });
+
+  it("leaves the board alone when the coach had navigated away from live", () => {
+    // board is on interval 5 (browsing ahead), live advances from 2 to 3 —
+    // this is the exact bug this function fixes: the coach shouldn't get
+    // yanked back to 3 just because live moved on.
+    expect(resolveAutoFollowInterval({ liveInterval: 3, lastLiveInterval: 2, currentActiveInterval: 5 })).toBe(5);
+  });
+
+  it("resumes following once the coach navigates back to match the live interval", () => {
+    // coach manually returns to interval 2 (== lastLiveInterval so far);
+    // next time live advances, following should resume normally.
+    expect(resolveAutoFollowInterval({ liveInterval: 3, lastLiveInterval: 2, currentActiveInterval: 2 })).toBe(3);
+  });
+});
+
+describe("computeNextChangeBadges", () => {
+  const makeIv = (onFieldIds, gkId, bench) => ({
+    onField: onFieldIds.map((id) => ({ id, isGk: id === gkId })),
+    bench,
+  });
+
+  it("shows nothing when not viewing the live interval", () => {
+    const cur = makeIv(["p1", "p2"], "p1", ["p3"]);
+    const nextIv = makeIv(["p1", "p3"], "p1", ["p2"]);
+    const result = computeNextChangeBadges({
+      cur, nextIv, curGk: { id: "p1" }, nextGk: { id: "p1" }, gkChanging: false, isViewingLiveInterval: false,
+    });
+    expect(result).toEqual({ comingOffIds: new Set(), comingOnIds: new Set(), becomingKeeperId: null, steppingDownKeeperId: null });
+  });
+
+  it("shows nothing when there's no next interval (last interval of the game)", () => {
+    const cur = makeIv(["p1", "p2"], "p1", ["p3"]);
+    const result = computeNextChangeBadges({
+      cur, nextIv: undefined, curGk: { id: "p1" }, nextGk: undefined, gkChanging: false, isViewingLiveInterval: true,
+    });
+    expect(result.comingOffIds.size).toBe(0);
+    expect(result.comingOnIds.size).toBe(0);
+  });
+
+  it("flags a regular sub: who's off, who's on, no keeper involved", () => {
+    const cur = makeIv(["p1", "p2"], "p1", ["p3"]);
+    const nextIv = makeIv(["p1", "p3"], "p1", ["p2"]);
+    const result = computeNextChangeBadges({
+      cur, nextIv, curGk: { id: "p1" }, nextGk: { id: "p1" }, gkChanging: false, isViewingLiveInterval: true,
+    });
+    expect(result.comingOffIds).toEqual(new Set(["p2"]));
+    expect(result.comingOnIds).toEqual(new Set(["p3"]));
+    expect(result.becomingKeeperId).toBeNull();
+    expect(result.steppingDownKeeperId).toBeNull();
+  });
+
+  it("flags the incoming keeper distinctly, even though they're also a genuine bench arrival", () => {
+    // p1 (gk) and p2 leave; p3 arrives and becomes the new keeper
+    const cur = makeIv(["p1", "p2"], "p1", ["p3"]);
+    const nextIv = makeIv(["p3", "p4"], "p3", []);
+    const result = computeNextChangeBadges({
+      cur, nextIv, curGk: { id: "p1" }, nextGk: { id: "p3" }, gkChanging: true, isViewingLiveInterval: true,
+    });
+    expect(result.becomingKeeperId).toBe("p3");
+    // p3 must NOT also show up as a regular "coming on" — the keeper badge
+    // replaces it, not adds to it.
+    expect(result.comingOnIds.has("p3")).toBe(false);
+    // p4 is a genuine, unrelated arrival and still gets the regular badge.
+    expect(result.comingOnIds).toEqual(new Set(["p4"]));
+    expect(result.comingOffIds).toEqual(new Set(["p1", "p2"]));
+  });
+
+  it("flags the outgoing keeper as stepping-down when they stay on the pitch", () => {
+    // p1 (gk) stays on the pitch as an outfielder; p3 (bench) becomes the new keeper
+    const cur = makeIv(["p1", "p2"], "p1", ["p3"]);
+    const nextIv = makeIv(["p1", "p3"], "p3", ["p2"]);
+    const result = computeNextChangeBadges({
+      cur, nextIv, curGk: { id: "p1" }, nextGk: { id: "p3" }, gkChanging: true, isViewingLiveInterval: true,
+    });
+    expect(result.becomingKeeperId).toBe("p3");
+    expect(result.steppingDownKeeperId).toBe("p1");
+    // p1 stays on the pitch, so must NOT also show a "coming off" badge.
+    expect(result.comingOffIds.has("p1")).toBe(false);
+    expect(result.comingOffIds).toEqual(new Set(["p2"]));
+  });
+
+  it("does not flag the outgoing keeper as stepping-down when they're also leaving the pitch entirely", () => {
+    // p1 (gk) leaves the pitch outright — the regular "coming off" badge
+    // already covers them, no need for a second badge.
+    const cur = makeIv(["p1", "p2"], "p1", ["p3"]);
+    const nextIv = makeIv(["p2", "p3"], "p3", ["p1"]);
+    const result = computeNextChangeBadges({
+      cur, nextIv, curGk: { id: "p1" }, nextGk: { id: "p3" }, gkChanging: true, isViewingLiveInterval: true,
+    });
+    expect(result.steppingDownKeeperId).toBeNull();
+    expect(result.comingOffIds).toEqual(new Set(["p1"]));
+    expect(result.becomingKeeperId).toBe("p3");
   });
 });

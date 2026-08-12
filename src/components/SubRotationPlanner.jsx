@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { X } from "lucide-react";
-import { intervalAtElapsed, computeIntervals, buildCarryState, generatePlan, keeperShiftIntervalsFor, lastGkId, resolveBringBack } from "../lib/rotation.js";
+import {
+  intervalAtElapsed, computeIntervals, buildCarryState, generatePlan, keeperShiftIntervalsFor, lastGkId,
+  resolveBringBack, resolveAutoFollowInterval,
+} from "../lib/rotation.js";
 import { validateGameSettings } from "../lib/validation.js";
 import { computeLiveElapsedSec } from "../lib/clock.js";
 import { generateId } from "../lib/id.js";
@@ -248,7 +251,15 @@ export default function SubRotationPlanner({ user }) {
     if (!timerRunning || !plan) return;
     const live = intervalAtElapsed(plan, elapsedSec);
     if (live === lastLiveIntervalRef.current) return;
-    setActiveInterval((current) => (current === lastLiveIntervalRef.current ? live : current));
+    // Functional setState form deliberately kept here (rather than passing
+    // activeInterval from the closure) so this is correct even though
+    // activeInterval isn't a dependency of this effect — React guarantees
+    // `current` is the true latest value, not a possibly-stale closed-over
+    // one. resolveAutoFollowInterval only decides WHAT the new value should
+    // be; see rotation.js for the actual "should we follow or not" rule.
+    setActiveInterval((current) =>
+      resolveAutoFollowInterval({ liveInterval: live, lastLiveInterval: lastLiveIntervalRef.current, currentActiveInterval: current })
+    );
     lastLiveIntervalRef.current = live;
   }, [elapsedSec, timerRunning, plan]);
 

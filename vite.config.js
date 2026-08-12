@@ -10,14 +10,16 @@ export default defineConfig({
   base: "/bench-buddy/",
   plugins: [react()],
   test: {
-    // Pure-function tests only for now (no DOM needed) — keeps this fast
-    // and dependency-light. Switch to "jsdom" if/when component tests
-    // (e.g. React Testing Library) are added.
+    // "node" by default keeps the pure-logic tests (the majority) fast and
+    // dependency-light — component tests (*.test.jsx) opt into jsdom
+    // per-file via a `// @vitest-environment jsdom` docblock at the top of
+    // the file instead of paying that cost globally.
     environment: "node",
     // Scoped to src/ so this plain `npm test` run never picks up the
     // Firebase emulator integration tests in firebase-tests/ — those need
     // the emulators running and are run separately via `npm run test:emulator`
-    // (see vitest.emulator.config.js).
-    include: ["src/**/*.{test,spec}.js"],
+    // (see vitest.emulator.config.js). .jsx here is for component tests
+    // (e.g. MatchView.test.jsx) alongside the plain .js pure-logic ones.
+    include: ["src/**/*.{test,spec}.{js,jsx}"],
   },
 });
