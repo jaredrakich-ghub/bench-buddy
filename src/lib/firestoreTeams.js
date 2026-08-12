@@ -17,6 +17,21 @@ import { db } from "./firebaseClient.js";
 const TEAMS_COLLECTION = "teams";
 const MATCH_STATE_DOC = "current";
 
+// A save failing is rare, but worth explaining in plain terms rather than a
+// raw error — the coach can't do anything about a stack trace, but "you're
+// offline" or "you don't have access" is actionable. Shared by every caller
+// that writes here (team CRUD and match-state persistence both use it),
+// hence living next to the calls it's describing errors for.
+export const describeSaveError = (err) => {
+  if (err?.code === "permission-denied") {
+    return "You don't have access to save changes to this team.";
+  }
+  if (err?.code === "unavailable") {
+    return "You're offline — changes will sync once you're back online.";
+  }
+  return "Changes aren't saving right now — don't close this tab until this is resolved.";
+};
+
 export async function fetchTeams(uid) {
   const q = query(collection(db, TEAMS_COLLECTION), where("memberIds", "array-contains", uid));
   const snap = await getDocs(q);
