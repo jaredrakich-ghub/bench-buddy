@@ -75,7 +75,11 @@ export const styles = {
   // on top for the safe-area itself; index.html's viewport-fit=cover is
   // what makes that env() value non-zero.
   main: { padding: "12px 16px", paddingBottom: "calc(96px + env(safe-area-inset-bottom, 0px))", maxWidth: 640, margin: "0 auto" },
-  sectionTitle: { fontSize: 17, fontWeight: 900, marginBottom: 8, color: colors.grass, textTransform: "uppercase", letterSpacing: 0.5 },
+  // marginTop: 0 matters here specifically for subTrackerHeaderRow below —
+  // without it, the browser's default <h2> top margin (not otherwise reset
+  // anywhere in this file) throws off align-items: center against the
+  // Summary/Edit buttons, which have no such margin.
+  sectionTitle: { fontSize: 17, fontWeight: 900, margin: 0, marginBottom: 8, color: colors.grass, textTransform: "uppercase", letterSpacing: 0.5 },
   subTrackerHeaderRow: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 },
   headerBtnGroup: { display: "flex", gap: 6 },
   editSettingsBtn: {
