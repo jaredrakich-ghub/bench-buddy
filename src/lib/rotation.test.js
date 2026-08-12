@@ -531,19 +531,10 @@ describe("computeNextChangeBadges", () => {
     bench,
   });
 
-  it("shows nothing when not viewing the live interval", () => {
-    const cur = makeIv(["p1", "p2"], "p1", ["p3"]);
-    const nextIv = makeIv(["p1", "p3"], "p1", ["p2"]);
-    const result = computeNextChangeBadges({
-      cur, nextIv, curGk: { id: "p1" }, nextGk: { id: "p1" }, gkChanging: false, isViewingLiveInterval: false,
-    });
-    expect(result).toEqual({ comingOffIds: new Set(), comingOnIds: new Set(), becomingKeeperId: null, steppingDownKeeperId: null });
-  });
-
-  it("shows nothing when there's no next interval (last interval of the game)", () => {
+  it("shows nothing when there's no next interval (viewing the last interval of the game)", () => {
     const cur = makeIv(["p1", "p2"], "p1", ["p3"]);
     const result = computeNextChangeBadges({
-      cur, nextIv: undefined, curGk: { id: "p1" }, nextGk: undefined, gkChanging: false, isViewingLiveInterval: true,
+      cur, nextIv: undefined, curGk: { id: "p1" }, nextGk: undefined, gkChanging: false,
     });
     expect(result.comingOffIds.size).toBe(0);
     expect(result.comingOnIds.size).toBe(0);
@@ -553,7 +544,7 @@ describe("computeNextChangeBadges", () => {
     const cur = makeIv(["p1", "p2"], "p1", ["p3"]);
     const nextIv = makeIv(["p1", "p3"], "p1", ["p2"]);
     const result = computeNextChangeBadges({
-      cur, nextIv, curGk: { id: "p1" }, nextGk: { id: "p1" }, gkChanging: false, isViewingLiveInterval: true,
+      cur, nextIv, curGk: { id: "p1" }, nextGk: { id: "p1" }, gkChanging: false,
     });
     expect(result.comingOffIds).toEqual(new Set(["p2"]));
     expect(result.comingOnIds).toEqual(new Set(["p3"]));
@@ -566,7 +557,7 @@ describe("computeNextChangeBadges", () => {
     const cur = makeIv(["p1", "p2"], "p1", ["p3"]);
     const nextIv = makeIv(["p3", "p4"], "p3", []);
     const result = computeNextChangeBadges({
-      cur, nextIv, curGk: { id: "p1" }, nextGk: { id: "p3" }, gkChanging: true, isViewingLiveInterval: true,
+      cur, nextIv, curGk: { id: "p1" }, nextGk: { id: "p3" }, gkChanging: true,
     });
     expect(result.becomingKeeperId).toBe("p3");
     // p3 must NOT also show up as a regular "coming on" — the keeper badge
@@ -582,7 +573,7 @@ describe("computeNextChangeBadges", () => {
     const cur = makeIv(["p1", "p2"], "p1", ["p3"]);
     const nextIv = makeIv(["p1", "p3"], "p3", ["p2"]);
     const result = computeNextChangeBadges({
-      cur, nextIv, curGk: { id: "p1" }, nextGk: { id: "p3" }, gkChanging: true, isViewingLiveInterval: true,
+      cur, nextIv, curGk: { id: "p1" }, nextGk: { id: "p3" }, gkChanging: true,
     });
     expect(result.becomingKeeperId).toBe("p3");
     expect(result.steppingDownKeeperId).toBe("p1");
@@ -597,7 +588,7 @@ describe("computeNextChangeBadges", () => {
     const cur = makeIv(["p1", "p2"], "p1", ["p3"]);
     const nextIv = makeIv(["p2", "p3"], "p3", ["p1"]);
     const result = computeNextChangeBadges({
-      cur, nextIv, curGk: { id: "p1" }, nextGk: { id: "p3" }, gkChanging: true, isViewingLiveInterval: true,
+      cur, nextIv, curGk: { id: "p1" }, nextGk: { id: "p3" }, gkChanging: true,
     });
     expect(result.steppingDownKeeperId).toBeNull();
     expect(result.comingOffIds).toEqual(new Set(["p1"]));

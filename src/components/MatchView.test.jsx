@@ -98,13 +98,15 @@ describe("MatchView — next-sub badges", () => {
     expect(screen.getByTitle("Staying on, switching to outfield next interval")).toBeInTheDocument(); // p1
   });
 
-  it("shows no next-sub badges when browsing away from the live interval", () => {
+  it("still shows next-sub badges when browsing away from the live interval", () => {
     // elapsedSec still puts the live interval at 0, but the board is showing
-    // interval 1 (activeInterval=1) — the coach browsed forward.
-    render(<MatchView {...baseProps({ activeInterval: 1, elapsedSec: 0 })} />);
-    expect(screen.queryByTitle("Coming off next interval")).not.toBeInTheDocument();
-    expect(screen.queryByTitle("Coming on next interval")).not.toBeInTheDocument();
-    expect(screen.queryByTitle("Becoming keeper next interval")).not.toBeInTheDocument();
+    // interval 1 (activeInterval=1) — the coach browsed forward to check an
+    // upcoming sub. Badges now follow whatever's being viewed, not just the
+    // live interval, so they should reflect interval 1 -> 2's transition.
+    const threeIntervalPlan = [...defaultPlan, makeInterval(2, 12, 18, ["p1", "p3", "p5", "p6", "p7"], "p3", ["p2", "p4"])];
+    render(<MatchView {...baseProps({ plan: threeIntervalPlan, activeInterval: 1, elapsedSec: 0 })} />);
+    expect(screen.getByTitle("Coming off next interval")).toBeInTheDocument(); // p2 leaving
+    expect(screen.getByTitle("Coming on next interval")).toBeInTheDocument(); // p7 arriving
   });
 
   it("shows no next-sub badges on the last interval of the game (nothing to sub into)", () => {

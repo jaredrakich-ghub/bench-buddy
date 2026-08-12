@@ -18,6 +18,12 @@ export const colors = {
   field: "#3E8E68",
   bench: "#8A9A93",
   danger: "#C1502E",
+  // A neutral slate, deliberately not red/green/gold — those three are the
+  // established "what's changing next interval" badge vocabulary
+  // (nextOffBadge/nextOnBadge/nextKeeperBadge below), and the injury toggle
+  // button is a different kind of thing (an always-present action control,
+  // not a status badge), so it shouldn't compete with or be mistaken for one.
+  slate: "#5B6B7A",
   cardBg: "#FFFFFF",
   border: "#DDE4E0",
 };
@@ -225,7 +231,7 @@ export const styles = {
   // neighboring players. Still a meaningful bump from the original 22px.
   injuryBtnSide: {
     position: "absolute", right: -32, top: "50%", transform: "translateY(-50%)",
-    width: 28, height: 28, borderRadius: "50%", border: "none", background: "rgba(193,80,46,0.9)",
+    width: 28, height: 28, borderRadius: "50%", border: "none", background: "rgba(91,107,122,0.9)",
     display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, cursor: "pointer", padding: 0,
   },
   gloveIcon: { fontSize: 25, lineHeight: 1 },

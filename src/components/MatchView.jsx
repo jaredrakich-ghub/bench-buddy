@@ -45,12 +45,12 @@ export default function MatchView({
   const inWarningWindow = nextIv && secLeftInInterval <= 60 && (!noBenchToRotate || gkChanging);
   const confirmedAt = subLog[cur.index];
 
-  // Who's actually changing at the next sub window, so the board can flag
-  // it well before the last-minute warning above kicks in — visible only
-  // while looking at the live interval itself (browsing to a past/future
-  // interval, see the auto-follow effect in SubRotationPlanner, naturally
-  // hides it, since "coming off/on next" only means something for what's
-  // happening right now).
+  // Who's changing going into the NEXT interval after whichever one is
+  // currently being viewed (activeInterval) — not necessarily the live one
+  // above. A coach flicking ahead to check a later interval gets the same
+  // "who's coming off/on" preview as watching it happen live; the board
+  // already shows plan[activeInterval] regardless, so the badges now match
+  // that rather than only ever reflecting the live interval.
   //
   // Three states, kept deliberately simple after an earlier per-pair-color
   // version turned out less clear in practice:
@@ -66,9 +66,13 @@ export default function MatchView({
   // See computeNextChangeBadges in rotation.js for exactly how these get
   // decided — pulled out so this (fiddly, several interacting cases) logic
   // is directly unit-testable.
-  const isViewingLiveInterval = activeInterval === cur.index;
+  const viewedIv = plan[activeInterval];
+  const viewedNextIv = plan[activeInterval + 1];
+  const viewedGk = viewedIv.onField.find((p) => p.isGk);
+  const viewedNextGk = viewedNextIv?.onField.find((p) => p.isGk);
+  const viewedGkChanging = viewedNextGk && (!viewedGk || viewedGk.id !== viewedNextGk.id);
   const { comingOffIds, comingOnIds, becomingKeeperId, steppingDownKeeperId } = computeNextChangeBadges({
-    cur, nextIv, curGk, nextGk, gkChanging, isViewingLiveInterval,
+    cur: viewedIv, nextIv: viewedNextIv, curGk: viewedGk, nextGk: viewedNextGk, gkChanging: viewedGkChanging,
   });
   // Start resumes from wherever the clock is frozen; Pause freezes it at the
   // correct live value (computed from the timestamp anchor, not just

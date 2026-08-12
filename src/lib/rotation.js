@@ -277,13 +277,20 @@ export function resolveAutoFollowInterval({ liveInterval, lastLiveInterval, curr
 // (fiddly — several interacting cases) logic can be tested directly without
 // rendering anything.
 //
+// cur/nextIv are whichever interval is currently being viewed and the one
+// after it — not necessarily the live interval. Badges show the transition
+// into "next" relative to whatever's on screen, whether that's actually
+// about to happen or the coach is previewing/reviewing a different part of
+// the game; the only thing that suppresses them is there being no next
+// interval to compare against (i.e. viewing the last one).
+//
 // curGk/nextGk/gkChanging are passed in rather than recomputed here because
-// MatchView also needs them for the last-60-seconds warning banner,
-// unconditionally (that warning is about the live interval regardless of
-// what's currently being viewed) — this function only concerns the badges,
-// which are gated on isViewingLiveInterval.
-export function computeNextChangeBadges({ cur, nextIv, curGk, nextGk, gkChanging, isViewingLiveInterval }) {
-  if (!isViewingLiveInterval || !nextIv) {
+// MatchView also needs its OWN live-interval versions of these for the
+// last-60-seconds warning banner (that warning is genuinely about the real
+// live interval regardless of what's being viewed) — keep those two uses
+// separate rather than conflating "viewed" and "live" here.
+export function computeNextChangeBadges({ cur, nextIv, curGk, nextGk, gkChanging }) {
+  if (!nextIv) {
     return { comingOffIds: new Set(), comingOnIds: new Set(), becomingKeeperId: null, steppingDownKeeperId: null };
   }
   const rawComingOff = cur.onField.map((p) => p.id).filter((id) => !nextIv.onField.some((p) => p.id === id));
