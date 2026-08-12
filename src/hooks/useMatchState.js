@@ -107,12 +107,17 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
 
   const keeperEligibleIds = teamData ? teamData.roster.filter((p) => p.keeperEligible).map((p) => p.id) : [];
 
+  // Returns whether a plan was actually (re)generated, so the caller —
+  // which owns the settings-modal open/close state, not this hook — knows
+  // whether to close it. (It's meant to close on every successful submit;
+  // it was left open by mistake for a while after plan/modal state got
+  // split across hooks, since nothing in here could reach the modal flag.)
   const startPlanning = () => {
     // Defense in depth: SquadSettingsForm already disables the submit
     // button when settings are invalid, but this guard stays here too so
     // startPlanning itself can never run with e.g. subIntervalMinutes <= 0,
     // which would otherwise hang the tab in an infinite loop.
-    if (!validateGameSettings(gameSettings, availableIds.length).valid) return;
+    if (!validateGameSettings(gameSettings, availableIds.length).valid) return false;
     const settings = { ...gameSettings };
     saveTeamData({ ...teamData, settings });
     const { numIntervals } = computeIntervals(settings.gameMinutes, settings.subIntervalMinutes);
@@ -135,6 +140,7 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
     setTimerRunning(false);
     setSubLog({});
     setSwapPickId(null);
+    return true;
   };
 
   // rebuild the remainder of the plan from the current interval onward using

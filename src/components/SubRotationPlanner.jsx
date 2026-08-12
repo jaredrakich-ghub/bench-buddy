@@ -236,6 +236,13 @@ export default function SubRotationPlanner({ user }) {
     }
   };
 
+  // startPlanning reports back whether it actually generated a plan (it
+  // bails out on invalid settings) — only close the modal on success, same
+  // as it always did back when this and the modal flag lived together.
+  const handleGenerate = () => {
+    if (startPlanning()) setShowSettingsModal(false);
+  };
+
   const nameOf = (id) => teamData.roster.find((p) => p.id === id)?.name || "?";
 
   // Shared props for SquadSettingsForm — used both for first-time setup
@@ -281,7 +288,7 @@ export default function SubRotationPlanner({ user }) {
         {!plan && (
           <section>
             <h2 style={styles.sectionTitle}>Set up today's game</h2>
-            <SquadSettingsForm {...squadSettingsProps} onSubmit={startPlanning} submitLabel="Generate Rotation" />
+            <SquadSettingsForm {...squadSettingsProps} onSubmit={handleGenerate} submitLabel="Generate Rotation" />
           </section>
         )}
 
@@ -324,7 +331,7 @@ export default function SubRotationPlanner({ user }) {
             </div>
             <SquadSettingsForm
               {...squadSettingsProps}
-              onSubmit={startPlanning}
+              onSubmit={handleGenerate}
               submitLabel={isMatchComplete ? "Start Game" : "Save & Regenerate"}
             />
           </div>
