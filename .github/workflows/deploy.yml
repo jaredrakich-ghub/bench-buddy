@@ -32,8 +32,29 @@ jobs:
           # sync" even though it wasn't, on a real machine).
           node-version: 22
           cache: npm
+      # Needed for the Firestore emulator, which the emulator test suite
+      # below spins up.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      # Emulator binaries are a one-time ~70MB download per firebase-tools
+      # version — cache them so most runs skip it entirely instead of
+      # re-downloading on every push.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ hashFiles('package-lock.json') }}
       - run: npm ci
       - run: npm test
+      # Runs the security-rules and firestoreTeams.js CRUD suite against the
+      # local Firestore/Auth emulators (a "demo-" project — see .firebaserc —
+      # so this never needs credentials or touches the real Firebase
+      # project). Previously this only ever ran manually in a dev session;
+      # wiring it in here means a rules or data-layer regression fails the
+      # build instead of only being caught if someone happens to run it by
+      # hand before shipping.
+      - run: npm run test:emulator
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
