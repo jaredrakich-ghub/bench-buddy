@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { onAuthChange } from "../lib/auth.js";
-import { colors } from "./styles.js";
 import SignIn from "./SignIn.jsx";
+import LoadingScreen from "./LoadingScreen.jsx";
 
 // Sits in front of the whole app: shows a brief loading state while Firebase
 // checks whether a session already exists, then either the sign-in screen
@@ -17,11 +17,7 @@ export default function AuthGate({ children }) {
   }, []);
 
   if (user === undefined) {
-    return (
-      <div style={styles.loadingWrap}>
-        <div style={styles.loadingText}>Loading…</div>
-      </div>
-    );
+    return <LoadingScreen message="Loading…" />;
   }
 
   if (user === null) {
@@ -30,10 +26,3 @@ export default function AuthGate({ children }) {
 
   return children(user);
 }
-
-const styles = {
-  loadingWrap: {
-    minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: colors.chalk,
-  },
-  loadingText: { color: colors.grass, fontWeight: 700, fontFamily: "system-ui, -apple-system, sans-serif" },
-};

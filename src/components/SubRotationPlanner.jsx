@@ -13,6 +13,7 @@ import SummaryModal from "./SummaryModal.jsx";
 import SquadSettingsForm from "./SquadSettingsForm.jsx";
 import MatchView from "./MatchView.jsx";
 import TeamSwitcher from "./TeamSwitcher.jsx";
+import LoadingScreen from "./LoadingScreen.jsx";
 import headerMascot from "../assets/header-mascot.jpg";
 
 // Both of these are now read-only, used exactly once each: migrating an
@@ -167,11 +168,7 @@ export default function SubRotationPlanner({ user }) {
   }, [user, activateTeam, setTeams, setLoading]);
 
   if (loading || !teamData) {
-    return (
-      <div style={styles.loadingWrap}>
-        <div style={styles.loadingText}>Loading squad…</div>
-      </div>
-    );
+    return <LoadingScreen message="Loading squad…" />;
   }
 
   const addPlayer = () => {

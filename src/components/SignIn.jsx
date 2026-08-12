@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { signInWithGoogle } from "../lib/auth.js";
 import { colors } from "./styles.js";
+import headerMascot from "../assets/header-mascot.jpg";
 
 // The gate shown whenever nobody's signed in. Google-only by design (see
 // the Firebase/account discussion) — no password to create or reset.
@@ -27,7 +28,9 @@ export default function SignIn() {
   return (
     <div style={styles.wrap}>
       <div style={styles.card}>
-        <div style={styles.logoMark}>⚽</div>
+        <div style={styles.logoCrop}>
+          <img src={headerMascot} alt="" style={styles.logoImg} />
+        </div>
         <h1 style={styles.title}>BENCH BUDDY</h1>
         <p style={styles.tagline}>Sign in to save your squads and access them from any device.</p>
         <button style={styles.googleBtn} onClick={handleSignIn} disabled={signingIn}>
@@ -62,7 +65,11 @@ const styles = {
     background: colors.cardBg, borderRadius: 16, padding: "32px 28px", maxWidth: 360, width: "100%",
     textAlign: "center", boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
   },
-  logoMark: { fontSize: 40, marginBottom: 8 },
+  logoCrop: {
+    width: 72, height: 72, borderRadius: "50%", overflow: "hidden", margin: "0 auto 12px",
+    boxShadow: "0 0 0 3px " + colors.border,
+  },
+  logoImg: { width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 46%", transform: "scale(1.7)" },
   title: { fontSize: 20, fontWeight: 900, letterSpacing: 2, color: colors.grass, margin: "0 0 10px" },
   tagline: { fontSize: 13, color: "#5B6B64", lineHeight: 1.5, margin: "0 0 22px" },
   googleBtn: {

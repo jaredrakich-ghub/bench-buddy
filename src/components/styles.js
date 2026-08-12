@@ -24,8 +24,6 @@ export const colors = {
 
 export const styles = {
   app: { fontFamily: "system-ui, -apple-system, sans-serif", background: colors.chalk, minHeight: 500, color: colors.ink },
-  loadingWrap: { display: "flex", alignItems: "center", justifyContent: "center", height: 300, background: colors.chalk },
-  loadingText: { color: colors.grass, fontWeight: 700 },
   header: {
     background: `linear-gradient(135deg, ${colors.grass} 0%, ${colors.grassLight} 100%)`,
     borderBottom: "3px solid " + colors.gk, boxShadow: "0 2px 8px rgba(0,0,0,0.25)", padding: "10px 16px",
