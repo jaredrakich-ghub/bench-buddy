@@ -134,7 +134,7 @@ export const styles = {
   gloveToggleActive: { opacity: 1, background: "#FFF6E4", borderColor: colors.gk },
 
   timerBar: {
-    display: "flex", alignItems: "center", gap: 10, background: colors.ink, borderRadius: 12, padding: "10px 14px", marginBottom: 2,
+    display: "flex", alignItems: "center", gap: 10, background: colors.ink, borderRadius: 12, padding: "20px 14px", marginBottom: 2,
   },
   clockBlock: { display: "flex", flexDirection: "column", flex: 1 },
   clockDisplay: { fontSize: 28, fontWeight: 900, color: colors.chalk, fontVariantNumeric: "tabular-nums", lineHeight: 1 },
