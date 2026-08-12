@@ -18,12 +18,12 @@ export const colors = {
   field: "#3E8E68",
   bench: "#8A9A93",
   danger: "#C1502E",
-  // A neutral slate, deliberately not red/green/gold — those three are the
-  // established "what's changing next interval" badge vocabulary
+  // A neutral light gray, deliberately not red/green/gold — those three are
+  // the established "what's changing next interval" badge vocabulary
   // (nextOffBadge/nextOnBadge/nextKeeperBadge below), and the injury toggle
   // button is a different kind of thing (an always-present action control,
   // not a status badge), so it shouldn't compete with or be mistaken for one.
-  slate: "#5B6B7A",
+  lightGray: "#C9D1D6",
   cardBg: "#FFFFFF",
   border: "#DDE4E0",
 };
@@ -221,18 +221,19 @@ export const styles = {
   // Just wraps the 40px circle now — position:relative so injuryBtnSide can
   // anchor to it directly (see below).
   tokenWithAction: { position: "relative", display: "flex" },
-  // Positioned absolutely relative to tokenWithAction rather than sitting
-  // beside the token as a flex sibling — a flex sibling made the circle
-  // itself off-center within the 76px formation slot whenever the button
-  // was visible, so it no longer lined up with tokenName centered below it.
-  // right:-32 = 28px button width + 4px gap, same spacing as before.
-  // Kept smaller than the 44px ideal on purpose: up to 5 of these overlap
-  // the pitch width side by side — growing it further would start crowding
-  // neighboring players. Still a meaningful bump from the original 22px.
+  // Corner-overlap on the circle (bottom-right), mirroring how the next-sub
+  // badges overlap the top-left corner below — NOT floated fully outside
+  // the circle the way this used to be. Floating it outside (old: right:-32,
+  // vertically centered) put ~2/3 of its footprint past the circle's right
+  // edge with nothing balancing it on the left, so the whole token+button
+  // cluster visually read as shifted right of where tokenName is centered
+  // underneath. Overlapping the corner instead keeps the combined shape
+  // much closer to the circle's actual center.
   injuryBtnSide: {
-    position: "absolute", right: -32, top: "50%", transform: "translateY(-50%)",
-    width: 28, height: 28, borderRadius: "50%", border: "none", background: "rgba(91,107,122,0.9)",
-    display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, cursor: "pointer", padding: 0,
+    position: "absolute", right: -6, bottom: -6,
+    width: 24, height: 24, borderRadius: "50%", border: "none", background: colors.lightGray,
+    display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, cursor: "pointer", padding: 0,
+    boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
   },
   gloveIcon: { fontSize: 25, lineHeight: 1 },
   // Advance notice of the next sub window's changes, shown on top of the
