@@ -18,12 +18,6 @@ export const colors = {
   field: "#3E8E68",
   bench: "#8A9A93",
   danger: "#C1502E",
-  // A neutral light gray, deliberately not red/green/gold — those three are
-  // the established "what's changing next interval" badge vocabulary
-  // (nextOffBadge/nextOnBadge/nextKeeperBadge below), and the injury toggle
-  // button is a different kind of thing (an always-present action control,
-  // not a status badge), so it shouldn't compete with or be mistaken for one.
-  lightGray: "#C9D1D6",
   cardBg: "#FFFFFF",
   border: "#DDE4E0",
 };
@@ -221,18 +215,24 @@ export const styles = {
   // Just wraps the 40px circle now — position:relative so injuryBtnSide can
   // anchor to it directly (see below).
   tokenWithAction: { position: "relative", display: "flex" },
-  // Corner-overlap on the circle (bottom-right), mirroring how the next-sub
-  // badges overlap the top-left corner below — NOT floated fully outside
-  // the circle the way this used to be. Floating it outside (old: right:-32,
-  // vertically centered) put ~2/3 of its footprint past the circle's right
-  // edge with nothing balancing it on the left, so the whole token+button
-  // cluster visually read as shifted right of where tokenName is centered
-  // underneath. Overlapping the corner instead keeps the combined shape
-  // much closer to the circle's actual center.
+  // Tried overlapping this on the circle's corner at one point (to fight a
+  // rightward-skew complaint) but it read as sitting on top of the player
+  // icon, which was worse — reverted to floating beside it. right:-32 =
+  // 28px button width + 4px gap. Kept smaller than the 44px ideal on
+  // purpose: up to 5 of these overlap the pitch width side by side —
+  // growing it further would start crowding neighboring players.
+  //
+  // Off-white (colors.chalk) rather than gray or green: gray read as flat/
+  // non-interactive against the dark pitch, and green risked being
+  // confused with nextOnBadge's green (a genuinely different meaning) even
+  // though the two don't sit in the same spot on a token. White gives the
+  // strongest contrast against colors.pitchDark of anything in the
+  // palette, which is what actually makes something look tappable, and it
+  // sits entirely outside the red/green/gold "next interval" vocabulary.
   injuryBtnSide: {
-    position: "absolute", right: -6, bottom: -6,
-    width: 24, height: 24, borderRadius: "50%", border: "none", background: colors.lightGray,
-    display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, cursor: "pointer", padding: 0,
+    position: "absolute", right: -32, top: "50%", transform: "translateY(-50%)",
+    width: 28, height: 28, borderRadius: "50%", border: "none", background: colors.chalk,
+    display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, cursor: "pointer", padding: 0,
     boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
   },
   gloveIcon: { fontSize: 25, lineHeight: 1 },
