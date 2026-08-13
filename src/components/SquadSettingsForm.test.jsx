@@ -242,12 +242,20 @@ describe("SquadSettingsForm — manual starting keeper", () => {
   });
 
   it("warns, naming the player and the spread, for a starting keeper known to make the game unfair", () => {
+    // 5 min subs (not FAIRNESS_SETTINGS' usual 6) — verified directly: every
+    // starting choice at 42min/5min-subs for this 7-player roster produces a
+    // real 6-minute spread, so this is a genuine, still-unsafe pick after
+    // the pickGkFrom fairness fix (which resolved the 6-min-sub case
+    // entirely, leaving no unsafe candidate left to test the warning against).
     render(
       <SquadSettingsForm
-        {...baseProps({ roster: FAIRNESS_ROSTER, availableIds: FAIRNESS_ROSTER.map((p) => p.id), gameSettings: FAIRNESS_SETTINGS, startingGkId: "p2" })}
+        {...baseProps({
+          roster: FAIRNESS_ROSTER, availableIds: FAIRNESS_ROSTER.map((p) => p.id),
+          gameSettings: { ...FAIRNESS_SETTINGS, subIntervalMinutes: 5 }, startingGkId: "p2",
+        })}
       />
     );
-    expect(screen.getByText("Starting Player 2 in goal means some players could get up to 12 more minutes than others today.")).toBeInTheDocument();
+    expect(screen.getByText("Starting Player 2 in goal means some players could get up to 6 more minutes than others today.")).toBeInTheDocument();
   });
 });
 
@@ -263,11 +271,11 @@ describe("SquadSettingsForm — sub-interval recommendation", () => {
       <SquadSettingsForm {...baseProps({ roster: FAIRNESS_ROSTER, availableIds: FAIRNESS_ROSTER.map((p) => p.id), gameSettings: FAIRNESS_SETTINGS })} />
     );
     expect(screen.getByText(/For today's 7 available players/)).toBeInTheDocument();
-    // Verified scenario: at 42 min / fieldSize 5 / 7 players, 4 and 8 min
-    // subs are the only candidates where even the best starting keeper
-    // can't stay within one interval; 5, 6, and 7 are fine.
+    // Verified scenario: at 42 min / fieldSize 5 / 7 players, 4, 5, and 8
+    // min subs are candidates where even the best starting keeper can't
+    // stay within one interval; 6 and 7 are fine.
     expect(screen.getByText("✗ 4")).toBeInTheDocument();
-    expect(screen.getByText("✓ 5")).toBeInTheDocument();
+    expect(screen.getByText("✗ 5")).toBeInTheDocument();
     expect(screen.getByText("✓ 6")).toBeInTheDocument();
     expect(screen.getByText("✓ 7")).toBeInTheDocument();
     expect(screen.getByText("✗ 8")).toBeInTheDocument();
@@ -281,8 +289,8 @@ describe("SquadSettingsForm — sub-interval recommendation", () => {
         {...baseProps({ roster: FAIRNESS_ROSTER, availableIds: FAIRNESS_ROSTER.map((p) => p.id), gameSettings: FAIRNESS_SETTINGS, setGameSettings })}
       />
     );
-    await user.click(screen.getByText("✓ 5"));
-    expect(setGameSettings).toHaveBeenCalledWith({ ...FAIRNESS_SETTINGS, subIntervalMinutes: 5 });
+    await user.click(screen.getByText("✓ 6"));
+    expect(setGameSettings).toHaveBeenCalledWith({ ...FAIRNESS_SETTINGS, subIntervalMinutes: 6 });
   });
 
   it("re-labels the available count and re-checks fairness when the headcount changes, rather than caching the first answer", () => {

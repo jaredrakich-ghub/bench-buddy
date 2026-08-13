@@ -24,16 +24,34 @@ export function computeIntervals(gameMinutes, subIntervalMinutes) {
   return { numIntervals, intervalLen };
 }
 
+// Keeper minutes count for less than outfield minutes toward "already had a
+// turn" — found via a real live game where two kids who'd done more keeper
+// duty AND more bench time than their teammates ended up with meaningfully
+// less actual running-around time, even though the app's own total-playing-
+// time fairness check said the game was fine. 0.5 is a starting point
+// (keeper time counts "half" toward being caught up) rather than a value
+// derived from anything — tuned against the fairness sweep in
+// rotation.test.js, not by feel. 0 would mean keeper time doesn't count
+// toward being caught up at all, which risks overcorrecting (a keeper-heavy
+// kid could end up with genuinely more total playing time than everyone
+// else just to equalize outfield-only minutes); 1 would be today's old
+// behavior (keeper and outfield minutes fully interchangeable).
+const KEEPER_MINUTES_WEIGHT = 0.5;
+function weightedFieldMin(stats) {
+  return stats.fieldMin - (1 - KEEPER_MINUTES_WEIGHT) * stats.gkMin;
+}
+
 // Who's more "owed" a turn between two bench candidates — longest current
-// bench streak wins, then whoever has the least field time so far. This is
-// THE definition of "next in line" for the whole app: generatePlan's own
-// outfield selection is built on it below, and the UI layer (bringBack, for
-// promoting a bench player into a field vacancy opened up mid-interval)
-// uses this same function rather than its own copy, so there's never a
-// chance for the two to drift out of sync on what "fair" means.
+// bench streak wins, then whoever has the least (keeper-weighted) field time
+// so far. This is THE definition of "next in line" for the whole app:
+// generatePlan's own outfield selection is built on it below, and the UI
+// layer (bringBack, for promoting a bench player into a field vacancy opened
+// up mid-interval) uses this same function rather than its own copy, so
+// there's never a chance for the two to drift out of sync on what "fair"
+// means.
 export function benchPriorityCompare(statsA, statsB) {
   if (statsB.consecBench !== statsA.consecBench) return statsB.consecBench - statsA.consecBench;
-  return statsA.fieldMin - statsB.fieldMin;
+  return weightedFieldMin(statsA) - weightedFieldMin(statsB);
 }
 
 // Decides where a returning (no-longer-injured) player lands for whatever's
@@ -165,30 +183,54 @@ export function generatePlan({
   const eligibleSet = new Set(keeperEligibleIds || []);
   const hasEligibleKeeper = availableIds.some((id) => eligibleSet.has(id));
 
-  // Keeper-minutes fairness comes first (unchanged). Among candidates tied
-  // on that, prefer whoever's already due to rotate onto the field anyway
-  // (longest current bench streak, then least field time — the same order
-  // outfieldSort uses) rather than someone already playing outfield. With
+  // Keeper-minutes fairness decides first (unchanged, load-bearing —
+  // tried making "currently on the bench" the *primary* key instead of a
+  // tiebreak at one point, to guarantee "next bench player becomes keeper"
+  // outright, but the fairness sweep below caught it overriding genuine
+  // gkMin gaps: a benched player already sitting on 7 gk-minutes could
+  // still beat an on-field player sitting on 0, just for being benched at
+  // the right moment, letting keeper duty concentrate unevenly for some
+  // squad sizes. Reverted to a tiebreak for that reason — it only ever
+  // fires on a genuine tie, never overrides a real gkMin difference.
+  //
+  // Among candidates tied on gkMin, prefer whoever's currently on the bench
+  // (consecBench > 0) — found via a real live game where this WASN'T true:
+  // the algorithm picked an already-on-field player as the new keeper (tied
+  // on gkMin, but not on this) while the player actually arriving from the
+  // bench just filled a regular outfield spot instead, breaking the "next
+  // bench player goes to keeper" pattern a coach had come to rely on. With
   // everyone keeper-eligible, most gk changes have everyone tied on gkMin,
-  // so this tiebreak is what makes a keeper change land as a single clean
+  // so this is what makes a keeper change land as a single clean
   // bench<->field swap instead of pulling someone off the pitch who's
   // already out there, which otherwise needs a second, unrelated swap to
   // free up their old outfield spot.
   //
-  // When candidates are tied on *everything* this checks (always true for
-  // every candidate at interval 0 of a brand-new game — nobody's played a
-  // second yet), this falls through to whatever order `pool` happens to be
-  // in. That's deliberate here — see the module-level comment on
-  // generatePlan for why introducing randomness at this level turned out to
-  // be the wrong place to fix "the same kid always starts in goal".
-  const pickGkFrom = (pool, prevGk) =>
-    [...pool].sort((a, b) => {
+  // When candidates are tied on *everything* this checks (common with a
+  // deeper bench — several players can genuinely be tied at zero gkMin for
+  // a while), this falls through to array order. `pool` is rotated by the
+  // interval index first specifically so that fallback doesn't always
+  // favor the same player — without this, whoever's earliest in
+  // availableIds can lose every single tied pick for an entire game and
+  // end up with zero keeper minutes despite being an equally valid
+  // candidate every time. Found by the fairness sweep below, not guessed
+  // at. Rotating is deterministic, not random — see the module-level
+  // comment on generatePlan for why actual randomness at this level turned
+  // out to be the wrong fix for a related problem ("the same kid always
+  // starts in goal").
+  const pickGkFrom = (pool, prevGk, intervalIndex) => {
+    const offset = pool.length ? intervalIndex % pool.length : 0;
+    const rotatedPool = [...pool.slice(offset), ...pool.slice(0, offset)];
+    return rotatedPool.sort((a, b) => {
       let sa = sim[a].gkMin, sb = sim[b].gkMin;
       if (a === prevGk) sa += 500;
       if (b === prevGk) sb += 500;
       if (sa !== sb) return sa - sb;
+      const benchedA = sim[a].consecBench > 0 ? 0 : 1;
+      const benchedB = sim[b].consecBench > 0 ? 0 : 1;
+      if (benchedA !== benchedB) return benchedA - benchedB;
       return benchPriorityCompare(sim[a], sim[b]);
     })[0];
+  };
 
   const outfieldSort = (a, b) => benchPriorityCompare(sim[a], sim[b]);
 
@@ -218,7 +260,7 @@ export function generatePlan({
       // and eligible (e.g. not the one who just got injured); otherwise
       // fall through to a fresh pick even off-boundary.
       const keepGk = !atShiftBoundary && prevGk && eligiblePool.includes(prevGk);
-      gk = useManualStart ? startingGkId : keepGk ? prevGk : pickGkFrom(eligiblePool, prevGk);
+      gk = useManualStart ? startingGkId : keepGk ? prevGk : pickGkFrom(eligiblePool, prevGk, i);
       const outfieldPool = availableIds.filter((id) => id !== gk);
       const sortedOutfield = [...outfieldPool].sort(outfieldSort);
       const outfieldOn = sortedOutfield.slice(0, Math.max(0, size - 1));
@@ -230,7 +272,7 @@ export function generatePlan({
       // state that's already a degraded fallback.
       const pool = [...availableIds].sort(outfieldSort);
       onFieldIds = pool.slice(0, size);
-      gk = pickGkFrom(onFieldIds, prevGk);
+      gk = pickGkFrom(onFieldIds, prevGk, i);
     }
 
     const bench = availableIds.filter((id) => !onFieldIds.includes(id));

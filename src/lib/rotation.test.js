@@ -80,6 +80,25 @@ describe("benchPriorityCompare", () => {
     const b = { fieldMin: 10, gkMin: 0, consecBench: 2 };
     expect(benchPriorityCompare(a, b)).toBe(0);
   });
+
+  it("prefers a kid who's done more keeper duty over one with equal total field time but more outfield running", () => {
+    // Found via a real live game: two players with equal fieldMin (total
+    // playing time) shouldn't be treated as equally "caught up" if one of
+    // them spent more of that time in goal rather than actually running —
+    // keeper minutes count for less toward "already had a turn".
+    const mostlyKeeper = { fieldMin: 20, gkMin: 15, consecBench: 1 }; // only 5 min outfield
+    const mostlyOutfield = { fieldMin: 20, gkMin: 0, consecBench: 1 }; // all 20 min outfield
+    expect(benchPriorityCompare(mostlyKeeper, mostlyOutfield)).toBeLessThan(0); // mostlyKeeper is more "owed" a turn
+  });
+
+  it("still lets a big enough outfield-time gap outweigh a smaller keeper-minutes difference", () => {
+    // Keeper time counts for less, not nothing — someone who's barely
+    // played at all is still more owed than someone who's mostly been in
+    // goal, once the outfield gap is large enough.
+    const barelyPlayed = { fieldMin: 5, gkMin: 0, consecBench: 1 };
+    const mostlyKeeper = { fieldMin: 20, gkMin: 15, consecBench: 1 }; // effectively 12.5 weighted minutes
+    expect(benchPriorityCompare(barelyPlayed, mostlyKeeper)).toBeLessThan(0);
+  });
 });
 
 describe("resolveBringBack", () => {
@@ -366,6 +385,71 @@ describe("generatePlan", () => {
     expect(bench0.has(gk1)).toBe(true);
   });
 
+  it("holds 'bench player becomes next keeper' at every single transition, even for a squad size/settings combo that used to break it", () => {
+    // The exact real live game that exposed this: 6 players, fieldSize 5,
+    // 45-minute game, 5-minute subs (9 intervals), keeper rotating every
+    // interval, starting keeper = Otis. Before the pickGkFrom fix, interval
+    // 3 picked Jack (already on the field, gkMin tied with everyone at 0)
+    // over Otis (arriving from the bench) — Otis ended up on outfield
+    // instead of goal, breaking the pattern a coach was relying on.
+    const squad = ["Jack", "Atu", "Rocco", "George", "Hugo", "Otis"];
+    const { numIntervals } = computeIntervals(45, 5);
+    const { intervals } = generatePlan({
+      availableIds: squad, gameMinutes: 45, numIntervals, fieldSize: 5, keeperEligibleIds: squad, startingGkId: "Otis",
+    });
+    for (let i = 0; i < intervals.length - 1; i++) {
+      const bench = new Set(intervals[i].bench);
+      const nextGk = intervals[i + 1].onField.find((p) => p.isGk).id;
+      expect(bench.has(nextGk)).toBe(true);
+    }
+  });
+
+  it("never lets 'currently on the bench' override a real gkMin gap — it's a tiebreak, not a priority", () => {
+    // A first version of the bench-preference fix made "on the bench" the
+    // primary sort key ahead of gkMin, not just a tiebreak — the fairness
+    // sweep caught it letting a benched player who already had far more
+    // keeper minutes win over an on-field player sitting at zero, which let
+    // keeper duty concentrate unevenly for some squad sizes. p2 is on the
+    // bench but already has 15 gk minutes; p3 is on the field with none —
+    // p3 should still win.
+    const carryState = {
+      p1: { fieldMin: 20, gkMin: 15, consecBench: 0 },
+      p2: { fieldMin: 20, gkMin: 15, consecBench: 1 }, // benched, but already owed plenty of gk time
+      p3: { fieldMin: 20, gkMin: 0, consecBench: 0 }, // on the field, never played keeper
+      p4: { fieldMin: 20, gkMin: 0, consecBench: 0 },
+      p5: { fieldMin: 20, gkMin: 0, consecBench: 0 },
+    };
+    const squad = ["p1", "p2", "p3", "p4", "p5"];
+    const { intervals } = generatePlan({
+      availableIds: squad, gameMinutes: 20, numIntervals: 4, fieldSize: 5, keeperEligibleIds: squad, carryState,
+    });
+    expect(intervals[0].onField.find((p) => p.isGk).id).toBe("p3");
+  });
+
+  it("rotates the tied-candidate pool by interval index, so the same array position doesn't lose every tie for a whole game", () => {
+    // Found via the fairness sweep: with a deep enough bench, several
+    // candidates can be genuinely tied on everything tracked for a while,
+    // and ties fall through to array order — without rotating that order,
+    // whoever's last in availableIds can lose every single tied pick and
+    // end up with zero keeper minutes despite being an equally valid
+    // candidate every time. 10 players, fieldSize 6 (4 bench spots), 10
+    // intervals, everyone keeper-eligible, nobody's played yet — the exact
+    // shape of the scenario that exposed this.
+    const squad = Array.from({ length: 10 }, (_, i) => `p${i + 1}`);
+    const { intervals } = generatePlan({
+      availableIds: squad, gameMinutes: 60, numIntervals: 10, fieldSize: 6, keeperEligibleIds: squad,
+    });
+    const gkMinutes = {};
+    squad.forEach((id) => (gkMinutes[id] = 0));
+    intervals.forEach((iv) => {
+      const len = iv.endMin - iv.startMin;
+      const gk = iv.onField.find((p) => p.isGk);
+      gkMinutes[gk.id] += len;
+    });
+    // Every player should get at least one keeper turn — none starved entirely.
+    squad.forEach((id) => expect(gkMinutes[id]).toBeGreaterThan(0));
+  });
+
   it("respects carryState so a player who already played a lot doesn't get immediately favored again", () => {
     // p1 has already played the whole game so far; everyone else has zero minutes.
     // Keeper eligibility is forced onto p2 alone here so GK selection (which
@@ -507,19 +591,23 @@ describe("computeFairnessSpread / isFairSpread", () => {
 });
 
 describe("pickFairStartingGk", () => {
-  // This is the exact scenario the starting-keeper investigation found:
-  // 7 players, fieldSize 5, a 42-minute/7-interval game, everyone keeper-
-  // eligible. Starting p2 or p3 in goal produces a real 12-minute spread;
-  // every other starting choice comes out perfectly even (spread 0).
-  const ids = ["p1", "p2", "p3", "p4", "p5", "p6", "p7"];
-  const planArgs = { availableIds: ids, gameMinutes: 42, numIntervals: 7, fieldSize: 5, keeperEligibleIds: ids };
+  // 6 players, fieldSize 4, a 36-minute/7-minute-sub game (5 intervals),
+  // everyone keeper-eligible. Starting p4, p5, or p6 in goal produces a real
+  // 8-minute spread; starting p1, p2, or p3 comes out at 6 minutes — right at
+  // the fairness threshold (intervalLen 7.2 + 0.5 = 7.7), so p1/p2/p3 are the
+  // only genuinely safe choices. Verified directly against generatePlan, not
+  // assumed — this replaces an earlier 7-player/42-minute example that a
+  // later fairness fix (see the pickGkFrom comments) completely resolved,
+  // leaving no unsafe candidates left to test against.
+  const ids = ["p1", "p2", "p3", "p4", "p5", "p6"];
+  const planArgs = { availableIds: ids, gameMinutes: 36, numIntervals: 5, fieldSize: 4, keeperEligibleIds: ids };
 
   it("never picks a starting keeper that would make the game measurably less fair", () => {
     // Run it many times with the real random source — across enough runs,
-    // p2 and p3 should never come up if the safety filter is doing its job.
+    // p4/p5/p6 should never come up if the safety filter is doing its job.
     for (let i = 0; i < 50; i++) {
       const { id } = pickFairStartingGk({ candidates: ids, planArgs });
-      expect(["p2", "p3"]).not.toContain(id);
+      expect(["p4", "p5", "p6"]).not.toContain(id);
     }
   });
 
@@ -527,14 +615,13 @@ describe("pickFairStartingGk", () => {
     const { id, intervals, spread } = pickFairStartingGk({ candidates: ids, planArgs, random: () => 0 });
     expect(isFairSpread(spread, planArgs.gameMinutes / planArgs.numIntervals)).toBe(true);
     expect(computeFairnessSpread(intervals, ids)).toBe(spread); // the returned plan matches the reported spread
-    expect(id).not.toBe("p2");
-    expect(id).not.toBe("p3");
+    expect(["p4", "p5", "p6"]).not.toContain(id);
   });
 
   it("falls back to considering every candidate rather than refusing to produce a plan, if none are fair", () => {
-    // Force it by only offering the two known-unfair candidates.
-    const { id } = pickFairStartingGk({ candidates: ["p2", "p3"], planArgs, random: () => 0 });
-    expect(["p2", "p3"]).toContain(id);
+    // Force it by only offering the three known-unfair candidates.
+    const { id } = pickFairStartingGk({ candidates: ["p4", "p5", "p6"], planArgs, random: () => 0 });
+    expect(["p4", "p5", "p6"]).toContain(id);
   });
 
   it("random defaults to Math.random but can be injected for deterministic tests", () => {
@@ -546,9 +633,11 @@ describe("pickFairStartingGk", () => {
 
 describe("recommendSubIntervals", () => {
   // Same 7-player, fieldSize-5, 42-minute game used throughout this file.
-  // Verified against a real run (not hand-computed): 4 and 8 minute subs
-  // both land on a genuinely unfair best case even after trying every
-  // starting keeper; 5, 6, and 7 do not.
+  // Verified against a real run (not hand-computed): 4, 5, and 8 minute subs
+  // all land on a genuinely unfair best case even after trying every
+  // starting keeper; 6 and 7 do not. (5 flipped from fair to unfair — 6 min
+  // -> 5 min — after the pickGkFrom fairness fix below; re-verified, not
+  // just patched to make the test pass.)
   const ids = ["p1", "p2", "p3", "p4", "p5", "p6", "p7"];
   const args = { candidateMinutes: [4, 5, 6, 7, 8], gameMinutes: 42, fieldSize: 5, availableIds: ids, keeperEligibleIds: ids };
 
@@ -556,7 +645,7 @@ describe("recommendSubIntervals", () => {
     const result = recommendSubIntervals(args);
     expect(result.map((r) => [r.subIntervalMinutes, r.fair])).toEqual([
       [4, false],
-      [5, true],
+      [5, false],
       [6, true],
       [7, true],
       [8, false],
@@ -565,6 +654,8 @@ describe("recommendSubIntervals", () => {
 
   it("reports the actual best spread and interval length behind each verdict, not just the pass/fail flag", () => {
     const result = recommendSubIntervals(args);
+    const five = result.find((r) => r.subIntervalMinutes === 5);
+    expect(five).toMatchObject({ numIntervals: 8, bestSpread: 6 });
     const six = result.find((r) => r.subIntervalMinutes === 6);
     expect(six).toMatchObject({ numIntervals: 7, intervalLen: 6, bestSpread: 0 });
     const eight = result.find((r) => r.subIntervalMinutes === 8);
