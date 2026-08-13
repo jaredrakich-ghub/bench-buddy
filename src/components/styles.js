@@ -49,6 +49,14 @@ export const styles = {
     border: "none", borderRadius: 999, padding: "5px 10px", fontWeight: 700, fontSize: 12, cursor: "pointer",
     maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flexShrink: 0,
   },
+  // Same pill treatment as teamSwitcherTrigger (same header, same dark-green
+  // background) so the two read as a matched pair rather than one looking
+  // like an afterthought next to the other.
+  seasonBtn: {
+    display: "flex", alignItems: "center", gap: 4, background: "rgba(255,255,255,0.12)", color: colors.chalk,
+    border: "none", borderRadius: 999, padding: "5px 10px", fontWeight: 700, fontSize: 12, cursor: "pointer",
+    flexShrink: 0,
+  },
   teamList: { display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 },
   teamRow: { display: "flex", alignItems: "center", gap: 6 },
   teamRowBtn: {

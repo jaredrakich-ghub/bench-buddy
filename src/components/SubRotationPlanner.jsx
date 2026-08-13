@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { X } from "lucide-react";
+import { X, History } from "lucide-react";
 import { intervalAtElapsed } from "../lib/rotation.js";
 import { computeLiveElapsedSec } from "../lib/clock.js";
 import { generateId } from "../lib/id.js";
@@ -10,6 +10,7 @@ import { useTeamRegistry } from "../hooks/useTeamRegistry.js";
 import { useMatchState } from "../hooks/useMatchState.js";
 import { fontStyle, styles } from "./styles.js";
 import SummaryModal from "./SummaryModal.jsx";
+import SeasonSummaryModal from "./SeasonSummaryModal.jsx";
 import SquadSettingsForm from "./SquadSettingsForm.jsx";
 import MatchView from "./MatchView.jsx";
 import TeamSwitcher from "./TeamSwitcher.jsx";
@@ -45,6 +46,7 @@ export default function SubRotationPlanner({ user }) {
   const [newPlayerName, setNewPlayerName] = useState("");
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [showSeasonModal, setShowSeasonModal] = useState(false);
   const [showTeamSwitcher, setShowTeamSwitcher] = useState(false);
   // Set when a save fails — either a team-registry save or a match-state
   // save — surfaced as a persistent banner rather than swallowed, so a
@@ -79,6 +81,7 @@ export default function SubRotationPlanner({ user }) {
     setActiveTeamId(team.id);
     setShowSettingsModal(false);
     setShowSummaryModal(false);
+    setShowSeasonModal(false);
     setSwapPickId(null);
     setStartingGkId(null);
 
@@ -295,9 +298,14 @@ export default function SubRotationPlanner({ user }) {
             </div>
             <div style={styles.headerTitle}>BENCH BUDDY</div>
           </div>
-          <button style={styles.teamSwitcherTrigger} onClick={() => setShowTeamSwitcher(true)} title="Switch teams">
-            {teamData.name} ▾
-          </button>
+          <div style={styles.headerBtnGroup}>
+            <button style={styles.seasonBtn} onClick={() => setShowSeasonModal(true)} title="View season history">
+              <History size={14} /> Season
+            </button>
+            <button style={styles.teamSwitcherTrigger} onClick={() => setShowTeamSwitcher(true)} title="Switch teams">
+              {teamData.name} ▾
+            </button>
+          </div>
         </div>
       </header>
 
@@ -359,6 +367,10 @@ export default function SubRotationPlanner({ user }) {
 
       {showSummaryModal && plan && (
         <SummaryModal plan={plan} availableIds={availableIds} nameOf={nameOf} onClose={() => setShowSummaryModal(false)} />
+      )}
+
+      {showSeasonModal && (
+        <SeasonSummaryModal teamId={activeTeamId} onClose={() => setShowSeasonModal(false)} />
       )}
 
       {showTeamSwitcher && (
