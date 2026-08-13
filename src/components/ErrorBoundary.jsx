@@ -1,4 +1,5 @@
 import React from "react";
+import { reportCrash } from "../lib/crashReports.js";
 
 // Catches JS errors anywhere below it in the tree and shows a fallback
 // message instead of an unhandled error leaving the coach with a blank
@@ -17,6 +18,10 @@ export default class ErrorBoundary extends React.Component {
   componentDidCatch(error, info) {
     // eslint-disable-next-line no-console
     console.error("Bench Buddy crashed:", error, info);
+    // console.error alone is invisible in practice — nobody's watching a
+    // coach's browser console mid-match. This is the only way a crash out
+    // in the field actually becomes visible to anyone.
+    reportCrash(error, info);
   }
 
   render() {

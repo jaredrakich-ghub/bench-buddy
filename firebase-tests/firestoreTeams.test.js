@@ -90,14 +90,14 @@ describe("firestoreTeams.js against the Firestore emulator", () => {
 
     expect(await fetchMatchState(created.id)).toBeNull();
 
-    await saveMatchState(created.id, { elapsedSeconds: 300, onFieldIds: ["p1"] });
-    expect(await fetchMatchState(created.id)).toEqual({ elapsedSeconds: 300, onFieldIds: ["p1"] });
+    await saveMatchState(created.id, { plan: [], activeInterval: 0, elapsedSeconds: 300, onFieldIds: ["p1"] });
+    expect(await fetchMatchState(created.id)).toEqual({ plan: [], activeInterval: 0, elapsedSeconds: 300, onFieldIds: ["p1"] });
   });
 
   test("deleteTeamDoc removes the team (and does not throw despite an existing matchState)", async () => {
     const uid = await signInAsNewUser();
     const created = await createTeamDoc(uid, { name: "My Team", roster: [], settings: {} });
-    await saveMatchState(created.id, { elapsedSeconds: 10 });
+    await saveMatchState(created.id, { plan: [], activeInterval: 0, elapsedSeconds: 10 });
 
     // Must not throw — this is exactly what broke before matchState was
     // deleted ahead of the team doc (see the comment in firestoreTeams.js).

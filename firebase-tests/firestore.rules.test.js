@@ -37,52 +37,70 @@ async function seedTeam(teamId, data) {
   });
 }
 
+// A minimal, shape-valid team — most tests below only care about
+// permissions (who can do what), not content, so this is the baseline they
+// build on rather than each hand-rolling every required field.
+const validTeam = (overrides = {}) => ({ name: "Scorpions", roster: [], settings: {}, ownerId: "alice", memberIds: ["alice"], ...overrides });
+
 describe("firestore.rules — teams collection", () => {
   test("a signed-in user can create a team that lists themself as a member", async () => {
     const alice = testEnv.authenticatedContext("alice");
     const ref = doc(alice.firestore(), "teams", "team1");
-    await assertSucceeds(setDoc(ref, { name: "Scorpions", ownerId: "alice", memberIds: ["alice"] }));
+    await assertSucceeds(setDoc(ref, validTeam()));
   });
 
   test("create is rejected if the creator's uid is not in memberIds", async () => {
     const alice = testEnv.authenticatedContext("alice");
     const ref = doc(alice.firestore(), "teams", "team1");
-    await assertFails(setDoc(ref, { name: "Scorpions", ownerId: "alice", memberIds: ["someone-else"] }));
+    await assertFails(setDoc(ref, validTeam({ memberIds: ["someone-else"] })));
   });
 
   test("an unauthenticated user cannot create a team", async () => {
     const anon = testEnv.unauthenticatedContext();
     const ref = doc(anon.firestore(), "teams", "team1");
-    await assertFails(setDoc(ref, { name: "Scorpions", ownerId: "x", memberIds: ["x"] }));
+    await assertFails(setDoc(ref, validTeam({ ownerId: "x", memberIds: ["x"] })));
+  });
+
+  test("create is rejected if roster or settings is missing entirely", async () => {
+    const alice = testEnv.authenticatedContext("alice");
+    const ref = doc(alice.firestore(), "teams", "team1");
+    const { roster, ...noRoster } = validTeam();
+    await assertFails(setDoc(ref, noRoster));
+  });
+
+  test("create is rejected if memberIds is empty", async () => {
+    const alice = testEnv.authenticatedContext("alice");
+    const ref = doc(alice.firestore(), "teams", "team1");
+    await assertFails(setDoc(ref, validTeam({ memberIds: [] })));
   });
 
   test("a member can read their team", async () => {
-    await seedTeam("team1", { name: "Scorpions", ownerId: "alice", memberIds: ["alice"] });
+    await seedTeam("team1", validTeam());
     const alice = testEnv.authenticatedContext("alice");
     await assertSucceeds(getDoc(doc(alice.firestore(), "teams", "team1")));
   });
 
   test("a non-member cannot read the team", async () => {
-    await seedTeam("team1", { name: "Scorpions", ownerId: "alice", memberIds: ["alice"] });
+    await seedTeam("team1", validTeam());
     const bob = testEnv.authenticatedContext("bob");
     await assertFails(getDoc(doc(bob.firestore(), "teams", "team1")));
   });
 
   test("a non-member cannot update the team", async () => {
-    await seedTeam("team1", { name: "Scorpions", ownerId: "alice", memberIds: ["alice"] });
+    await seedTeam("team1", validTeam());
     const bob = testEnv.authenticatedContext("bob");
     await assertFails(updateDoc(doc(bob.firestore(), "teams", "team1"), { name: "Hacked" }));
   });
 
   test("a member can update and delete the team", async () => {
-    await seedTeam("team1", { name: "Scorpions", ownerId: "alice", memberIds: ["alice"] });
+    await seedTeam("team1", validTeam());
     const alice = testEnv.authenticatedContext("alice");
     await assertSucceeds(updateDoc(doc(alice.firestore(), "teams", "team1"), { name: "Scorpions FC" }));
     await assertSucceeds(deleteDoc(doc(alice.firestore(), "teams", "team1")));
   });
 
   test("a second member (future collaborator) added to memberIds can also read/update", async () => {
-    await seedTeam("team1", { name: "Scorpions", ownerId: "alice", memberIds: ["alice", "bob"] });
+    await seedTeam("team1", validTeam({ memberIds: ["alice", "bob"] }));
     const bob = testEnv.authenticatedContext("bob");
     await assertSucceeds(getDoc(doc(bob.firestore(), "teams", "team1")));
     await assertSucceeds(updateDoc(doc(bob.firestore(), "teams", "team1"), { name: "Scorpions FC" }));
@@ -91,25 +109,57 @@ describe("firestore.rules — teams collection", () => {
 
 describe("firestore.rules — matchState subcollection", () => {
   test("a member can read/write matchState", async () => {
-    await seedTeam("team1", { name: "Scorpions", ownerId: "alice", memberIds: ["alice"] });
+    await seedTeam("team1", validTeam());
     const alice = testEnv.authenticatedContext("alice");
     const stateRef = doc(alice.firestore(), "teams", "team1", "matchState", "current");
-    await assertSucceeds(setDoc(stateRef, { elapsedSeconds: 120 }));
+    await assertSucceeds(setDoc(stateRef, { plan: [], activeInterval: 0 }));
     await assertSucceeds(getDoc(stateRef));
   });
 
   test("a non-member cannot read/write matchState", async () => {
-    await seedTeam("team1", { name: "Scorpions", ownerId: "alice", memberIds: ["alice"] });
+    await seedTeam("team1", validTeam());
     const bob = testEnv.authenticatedContext("bob");
     const stateRef = doc(bob.firestore(), "teams", "team1", "matchState", "current");
-    await assertFails(setDoc(stateRef, { elapsedSeconds: 999 }));
+    await assertFails(setDoc(stateRef, { plan: [], activeInterval: 0 }));
     await assertFails(getDoc(stateRef));
   });
 
   test("an unauthenticated user cannot read/write matchState", async () => {
-    await seedTeam("team1", { name: "Scorpions", ownerId: "alice", memberIds: ["alice"] });
+    await seedTeam("team1", validTeam());
     const anon = testEnv.unauthenticatedContext();
     const stateRef = doc(anon.firestore(), "teams", "team1", "matchState", "current");
     await assertFails(getDoc(stateRef));
+  });
+
+  test("a member's write is rejected if plan or activeInterval is missing", async () => {
+    await seedTeam("team1", validTeam());
+    const alice = testEnv.authenticatedContext("alice");
+    const stateRef = doc(alice.firestore(), "teams", "team1", "matchState", "current");
+    await assertFails(setDoc(stateRef, { activeInterval: 0 })); // no plan
+    await assertFails(setDoc(stateRef, { plan: [] })); // no activeInterval
+  });
+});
+
+describe("firestore.rules — crashReports collection", () => {
+  test("a signed-in user can file a crash report", async () => {
+    const alice = testEnv.authenticatedContext("alice");
+    const ref = doc(alice.firestore(), "crashReports", "report1");
+    await assertSucceeds(setDoc(ref, { message: "boom", uid: "alice" }));
+  });
+
+  test("an unauthenticated user can also file a crash report (e.g. a crash before sign-in)", async () => {
+    const anon = testEnv.unauthenticatedContext();
+    const ref = doc(anon.firestore(), "crashReports", "report1");
+    await assertSucceeds(setDoc(ref, { message: "boom", uid: null }));
+  });
+
+  test("nobody can read, update, or delete a crash report through the app — not even its author", async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "crashReports", "report1"), { message: "boom" });
+    });
+    const alice = testEnv.authenticatedContext("alice");
+    await assertFails(getDoc(doc(alice.firestore(), "crashReports", "report1")));
+    await assertFails(updateDoc(doc(alice.firestore(), "crashReports", "report1"), { message: "edited" }));
+    await assertFails(deleteDoc(doc(alice.firestore(), "crashReports", "report1")));
   });
 });
