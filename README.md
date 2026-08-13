@@ -4,49 +4,47 @@ A sideline substitution rotation planner for 5-a-side youth football —
 fair playing time, fair goalkeeper time, a live match timer, and manual
 overrides for injuries and swaps.
 
-This project wraps the original component (built as a Claude.ai
-"artifact") in a standard Vite + React setup so it can live in GitHub,
-run locally, and be deployed anywhere.
+Live at **<https://jaredrakich-ghub.github.io/bench-buddy/>**.
 
-## Project structure
+This started as a single component built as a Claude.ai "artifact." It's
+since grown into a real account-backed app — Google sign-in, Firestore
+sync across devices, multiple teams per account — but the core rotation
+algorithm is still the same idea it started as: a set of plain,
+UI-independent functions that decide who's fair to play, bench, or keep
+next.
+
+## How it's put together
+
+- **The rules** (`src/lib/rotation.js`, plus `clock.js`, `formation.js`,
+  `teams.js`, `validation.js`) — the fairness algorithm and its supporting
+  logic. Plain functions, no React or Firebase involved, each with its own
+  test file.
+- **The screens** (`src/components/`) — React components for sign-in, team
+  setup, and the live match view.
+- **App state** (`src/hooks/`) — two hooks: `useTeamRegistry` (which teams
+  exist, which is active) and `useMatchState` (the plan, clock, and
+  injuries for whichever match is currently running).
+- **Firebase** (`src/lib/firebaseClient.js`, `auth.js`, `firestoreTeams.js`,
+  `crashReports.js`) — Google sign-in and a Firestore database. There's no
+  separate backend server; the browser talks to Firebase directly, and
+  `firestore.rules` is what keeps one account's data private from another.
 
 ```
 sub-tracker/
-├── index.html              Entry HTML page Vite serves
-├── package.json             Dependencies + npm scripts
-├── vite.config.js           Build tool config
+├── firestore.rules          Database security rules (deployed separately — see below)
+├── firebase.json / .firebaserc   Local emulator config
 ├── src/
-│   ├── main.jsx              Boots React, loads the storage shim first
-│   ├── App.jsx                Renders the SubRotationPlanner component
-│   ├── index.css              Minimal global reset (component styles itself inline)
-│   ├── components/
-│   │   └── SubRotationPlanner.jsx   The app itself — unchanged from the original
-│   └── lib/
-│       └── storage.js         Replaces window.storage with a localStorage version
+│   ├── main.jsx               Boots React
+│   ├── App.jsx                 Top-level wiring (sign-in gate → the app)
+│   ├── components/             Screens
+│   ├── hooks/                  App state
+│   └── lib/                    The rules, plus Firebase/storage plumbing
+└── firebase-tests/            Integration tests against the Firestore emulator
 ```
-
-## What actually changed from the original file
-
-**Nothing in the app's logic or UI.** The only adaptation was storage.
-
-The component was written to run inside Claude.ai, which injects a
-`window.storage` object for saving data server-side, tied to your
-account. Outside that environment `window.storage` doesn't exist, so
-`src/lib/storage.js` recreates the same methods (`get`, `set`, `delete`,
-`list`) using the browser's built-in `localStorage` instead, and attaches
-itself to `window.storage` automatically.
-
-**The trade-off:** data now lives in whichever browser you open the app
-in, rather than syncing to an account across devices. On the sideline,
-that means using the same phone/browser each week. If you outgrow that
-later, you could point `src/lib/storage.js` at a real backend (e.g. a
-tiny cloud database) without touching the component at all — the whole
-point of the shim is that the app doesn't know or care where its data
-actually lives.
 
 ## Running it locally
 
-You'll need [Node.js](https://nodejs.org) installed (the LTS version is fine).
+You'll need [Node.js](https://nodejs.org) 22 or later.
 
 ```bash
 npm install     # downloads dependencies into node_modules
@@ -54,7 +52,19 @@ npm run dev     # starts a local dev server, usually at http://localhost:5173
 ```
 
 Open the URL it prints. Changes to any file under `src/` reload the page
-automatically.
+automatically. This talks to the real Firebase project — Google sign-in
+works normally.
+
+## Testing
+
+```bash
+npm test              # pure-logic tests (fast, no dependencies running)
+npm run test:emulator # Firestore rules + data-layer tests, against a local emulator
+```
+
+The emulator suite spins up a temporary, local-only Firestore + Auth
+instance (a `demo-` prefixed project — see `.firebaserc`) and never touches
+the real database. Both suites run automatically in CI on every push.
 
 ## Building for real deployment
 
@@ -63,45 +73,23 @@ npm run build     # outputs a production-ready static site into dist/
 npm run preview   # lets you check the production build locally
 ```
 
-The `dist/` folder is a plain static site — it can be hosted on Vercel,
-Netlify, GitHub Pages, or any static host, since there's no server-side
-code involved.
+The `dist/` folder is a plain static site — no server-side code involved.
 
-## Putting this in GitHub
+## Deployment
 
-From inside this folder:
+Pushing to `main` automatically builds and deploys the app to GitHub Pages
+(see `.github/workflows/deploy.yml`) — both test suites have to pass first.
 
-```bash
-git init
-git add .
-git commit -m "Initial commit: Bench Buddy"
-```
-
-Then create an empty repository on GitHub (no README/license, since you
-already have files), and follow GitHub's instructions to push an
-existing repo, which will look like:
+**`firestore.rules` is not part of that automated deploy.** Database
+security rules are deployed separately, by hand, whenever they change:
 
 ```bash
-git remote add origin https://github.com/<your-username>/bench-buddy.git
-git branch -M main
-git push -u origin main
+npx firebase login
+npx firebase deploy --only firestore:rules --project bench-buddy-ada85
 ```
 
-## Working on it with Claude Code
-
-Open this folder in Claude Code (or point it at the cloned repo). Since
-this is now a normal Vite project, you can ask Claude Code for things
-like:
-
-- "Run the dev server and take a screenshot"
-- "Add a new field to the game settings form"
-- "Set up GitHub Actions to deploy this to GitHub Pages on every push"
-- "Add automated tests for the rotation algorithm"
-
-The rotation logic itself lives near the top of
-`src/components/SubRotationPlanner.jsx` (the `generatePlan` function) —
-that's the core algorithm if you ever want Claude Code to explain or
-extend it.
+The `--project` flag matters — `.firebaserc`'s default project is the
+emulator-only `demo-bench-buddy-test`, not the real one.
 
 ## Credits
 
