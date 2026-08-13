@@ -103,6 +103,29 @@ export const styles = {
   settingLabelText: { minHeight: 28, display: "flex", alignItems: "flex-end", marginBottom: 4, lineHeight: 1.2 },
   intervalPreview: { fontSize: 12, color: colors.field, fontWeight: 700, marginTop: 8 },
 
+  // The sub-interval fairness chips (SquadSettingsForm) — live, recomputed
+  // against whoever's currently ticked "available", same visual family as
+  // intervalTab/intervalTabActive (MatchView's interval nav) but with an
+  // extra fair/unfair distinction baked into the resting (non-selected)
+  // state, since that's the whole point of showing them.
+  subIntervalHint: { fontSize: 12, color: "#5B6B64", marginTop: 10, marginBottom: 6, lineHeight: 1.4 },
+  subIntervalChipRow: { display: "flex", gap: 6, flexWrap: "wrap" },
+  // borderWidth/borderStyle/borderColor kept as separate longhand properties
+  // (not the border shorthand) specifically so fair/unfair/selected below
+  // can each override just borderColor — mixing a shorthand base with a
+  // longhand override is what React's "removing a style property during
+  // rerender" warning is about, and it's not just noise: it can leave a
+  // stale border color behind when this chip flips from one state to
+  // another on the same element (which it does live, as availability changes).
+  subIntervalChip: {
+    flex: "0 0 auto", display: "flex", alignItems: "center", gap: 4, padding: "6px 11px", borderRadius: 999,
+    borderWidth: 1, borderStyle: "solid", borderColor: colors.border, background: colors.cardBg,
+    fontSize: 12, fontWeight: 700, cursor: "pointer",
+  },
+  subIntervalChipFair: { borderColor: colors.field, color: colors.field },
+  subIntervalChipUnfair: { color: "#9AA6A0" },
+  subIntervalChipSelected: { background: colors.grass, borderColor: colors.grass, color: colors.chalk },
+
   modeHint: { fontSize: 11, color: "#7C8983", marginTop: 6, lineHeight: 1.4 },
 
   subTitle: { fontSize: 15, fontWeight: 700, color: colors.ink, margin: 0 },
@@ -119,10 +142,14 @@ export const styles = {
     border: "1px solid " + colors.border, borderRadius: 10, padding: "8px 10px",
   },
   squadName: { flex: 1, fontWeight: 600, fontSize: 14 },
+  // borderWidth/borderStyle/borderColor as separate longhand properties
+  // (not the border shorthand) so numberBadgeActive's borderColor override
+  // applies cleanly across re-renders — see the comment on subIntervalChip
+  // above for why mixing shorthand + longhand here isn't just a lint nit.
   numberBadge: {
-    width: 38, height: 38, borderRadius: "50%", border: "1.5px solid " + colors.border, background: "transparent",
-    color: "#9AA6A0", fontWeight: 800, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-    flexShrink: 0,
+    width: 38, height: 38, borderRadius: "50%", borderWidth: 1.5, borderStyle: "solid", borderColor: colors.border,
+    background: "transparent", color: "#9AA6A0", fontWeight: 800, fontSize: 13, cursor: "pointer",
+    display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
   },
   numberBadgeActive: { background: colors.field, borderColor: colors.field, color: "#fff" },
   gloveToggle: {
@@ -130,6 +157,20 @@ export const styles = {
     fontSize: 17, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: 0.35, flexShrink: 0,
   },
   gloveToggleActive: { opacity: 1, background: "#FFF6E4", borderColor: colors.gk },
+  // The "start this player in goal today" toggle — deliberately its own
+  // color (field green, matching numberBadgeActive's "you're active today"
+  // meaning) rather than reusing gloveToggleActive's gold. It sits directly
+  // next to the glove toggle in the same row, and gold means something
+  // different there (keeper-eligible in general, not "starting today") — two
+  // gold buttons side by side read as duplicates of the same state.
+  // borderWidth/borderStyle/borderColor as separate longhand properties for
+  // the same reason as subIntervalChip/numberBadge above.
+  startGkToggle: {
+    borderWidth: 1, borderStyle: "solid", borderColor: colors.border, background: colors.cardBg, color: "#9AA6A0",
+    borderRadius: 8, padding: 8, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+    minWidth: 40, minHeight: 40,
+  },
+  startGkToggleActive: { background: colors.field, borderColor: colors.field, color: "#fff" },
 
   timerBar: {
     display: "flex", alignItems: "center", gap: 10, background: colors.ink, borderRadius: 12, padding: "20px 14px", marginBottom: 2,

@@ -4,7 +4,12 @@ import {
   computeIntervals,
   buildCarryState,
   generatePlan,
+  computeFairnessSpread,
+  isFairSpread,
+  pickFairStartingGk,
+  recommendSubIntervals,
   computeMinutesSummary,
+  aggregateSeasonSummary,
   keeperShiftIntervalsFor,
   lastGkId,
   benchPriorityCompare,
@@ -476,6 +481,112 @@ describe("generatePlan", () => {
   });
 });
 
+describe("computeFairnessSpread / isFairSpread", () => {
+  it("returns 0 when everyone has exactly the same total on-field time", () => {
+    const intervals = [
+      { startMin: 0, endMin: 6, onField: [{ id: "p1" }, { id: "p2" }] },
+      { startMin: 6, endMin: 12, onField: [{ id: "p1" }, { id: "p2" }] },
+    ];
+    expect(computeFairnessSpread(intervals, ["p1", "p2"])).toBe(0);
+  });
+
+  it("returns the gap between the most and least total time", () => {
+    const intervals = [
+      { startMin: 0, endMin: 6, onField: [{ id: "p1" }] },
+      { startMin: 6, endMin: 12, onField: [{ id: "p1" }] },
+    ];
+    // p1 played both 6-min intervals (12 total), p2 played neither (0 total).
+    expect(computeFairnessSpread(intervals, ["p1", "p2"])).toBe(12);
+  });
+
+  it("isFairSpread allows up to roughly one interval's worth of gap, not more", () => {
+    expect(isFairSpread(6, 6)).toBe(true); // exactly one interval — fine
+    expect(isFairSpread(6.5, 6)).toBe(true); // small rounding buffer — fine
+    expect(isFairSpread(12, 6)).toBe(false); // two intervals' worth — not fine
+  });
+});
+
+describe("pickFairStartingGk", () => {
+  // This is the exact scenario the starting-keeper investigation found:
+  // 7 players, fieldSize 5, a 42-minute/7-interval game, everyone keeper-
+  // eligible. Starting p2 or p3 in goal produces a real 12-minute spread;
+  // every other starting choice comes out perfectly even (spread 0).
+  const ids = ["p1", "p2", "p3", "p4", "p5", "p6", "p7"];
+  const planArgs = { availableIds: ids, gameMinutes: 42, numIntervals: 7, fieldSize: 5, keeperEligibleIds: ids };
+
+  it("never picks a starting keeper that would make the game measurably less fair", () => {
+    // Run it many times with the real random source — across enough runs,
+    // p2 and p3 should never come up if the safety filter is doing its job.
+    for (let i = 0; i < 50; i++) {
+      const { id } = pickFairStartingGk({ candidates: ids, planArgs });
+      expect(["p2", "p3"]).not.toContain(id);
+    }
+  });
+
+  it("only ever offers candidates whose resulting plan is actually fair", () => {
+    const { id, intervals, spread } = pickFairStartingGk({ candidates: ids, planArgs, random: () => 0 });
+    expect(isFairSpread(spread, planArgs.gameMinutes / planArgs.numIntervals)).toBe(true);
+    expect(computeFairnessSpread(intervals, ids)).toBe(spread); // the returned plan matches the reported spread
+    expect(id).not.toBe("p2");
+    expect(id).not.toBe("p3");
+  });
+
+  it("falls back to considering every candidate rather than refusing to produce a plan, if none are fair", () => {
+    // Force it by only offering the two known-unfair candidates.
+    const { id } = pickFairStartingGk({ candidates: ["p2", "p3"], planArgs, random: () => 0 });
+    expect(["p2", "p3"]).toContain(id);
+  });
+
+  it("random defaults to Math.random but can be injected for deterministic tests", () => {
+    const always0 = pickFairStartingGk({ candidates: ids, planArgs, random: () => 0 });
+    const always0Again = pickFairStartingGk({ candidates: ids, planArgs, random: () => 0 });
+    expect(always0.id).toBe(always0Again.id); // same fixed random -> same pick, reproducibly
+  });
+});
+
+describe("recommendSubIntervals", () => {
+  // Same 7-player, fieldSize-5, 42-minute game used throughout this file.
+  // Verified against a real run (not hand-computed): 4 and 8 minute subs
+  // both land on a genuinely unfair best case even after trying every
+  // starting keeper; 5, 6, and 7 do not.
+  const ids = ["p1", "p2", "p3", "p4", "p5", "p6", "p7"];
+  const args = { candidateMinutes: [4, 5, 6, 7, 8], gameMinutes: 42, fieldSize: 5, availableIds: ids, keeperEligibleIds: ids };
+
+  it("flags each candidate interval as fair or not, based on the best achievable spread across every starting keeper", () => {
+    const result = recommendSubIntervals(args);
+    expect(result.map((r) => [r.subIntervalMinutes, r.fair])).toEqual([
+      [4, false],
+      [5, true],
+      [6, true],
+      [7, true],
+      [8, false],
+    ]);
+  });
+
+  it("reports the actual best spread and interval length behind each verdict, not just the pass/fail flag", () => {
+    const result = recommendSubIntervals(args);
+    const six = result.find((r) => r.subIntervalMinutes === 6);
+    expect(six).toMatchObject({ numIntervals: 7, intervalLen: 6, bestSpread: 0 });
+    const eight = result.find((r) => r.subIntervalMinutes === 8);
+    expect(eight).toMatchObject({ numIntervals: 5, bestSpread: 9 });
+  });
+
+  it("changes its verdict when the available headcount changes, even with every other setting identical", () => {
+    // Drop to 6 available (still fieldSize + 1, so still generatable) and
+    // confirm the recommendation is computed fresh for that squad size, not
+    // cached from the 7-player case.
+    const sixPlayers = { ...args, availableIds: ids.slice(0, 6), keeperEligibleIds: ids.slice(0, 6) };
+    const result = recommendSubIntervals(sixPlayers);
+    expect(result).not.toEqual(recommendSubIntervals(args));
+  });
+
+  it("falls back to a single plain plan when nobody available is keeper-eligible, rather than erroring", () => {
+    const result = recommendSubIntervals({ ...args, keeperEligibleIds: [] });
+    expect(result).toHaveLength(5);
+    result.forEach((r) => expect(typeof r.bestSpread).toBe("number"));
+  });
+});
+
 describe("computeMinutesSummary", () => {
   it("returns an empty list when there's no plan yet", () => {
     expect(computeMinutesSummary(null, ["p1"])).toEqual([]);
@@ -593,5 +704,49 @@ describe("computeNextChangeBadges", () => {
     expect(result.steppingDownKeeperId).toBeNull();
     expect(result.comingOffIds).toEqual(new Set(["p1"]));
     expect(result.becomingKeeperId).toBe("p3");
+  });
+});
+
+describe("aggregateSeasonSummary", () => {
+  const player = (id, name, overrides = {}) => ({ id, name, outfieldMin: 0, gkMin: 0, benchMin: 0, injuredMin: 0, ...overrides });
+
+  it("sums minutes across games for a player who played every game", () => {
+    const games = [
+      { date: 2, players: [player("p1", "Alice", { outfieldMin: 30, gkMin: 10 })] },
+      { date: 1, players: [player("p1", "Alice", { outfieldMin: 20, gkMin: 0 })] },
+    ];
+    const [result] = aggregateSeasonSummary(games);
+    expect(result.gamesPlayed).toBe(2);
+    expect(result.outfieldMin).toBe(50);
+    expect(result.gkMin).toBe(10);
+    expect(result.avgOutfieldMin).toBe(25);
+  });
+
+  it("a player absent from a game contributes nothing to their standing — not a bonus, not a penalty", () => {
+    // p2 only appears in one of the two games (wasn't available for the other).
+    const games = [
+      { date: 2, players: [player("p1", "Alice", { outfieldMin: 30 }), player("p2", "Bob", { outfieldMin: 30 })] },
+      { date: 1, players: [player("p1", "Alice", { outfieldMin: 30 })] }, // Bob absent this game
+    ];
+    const result = aggregateSeasonSummary(games);
+    const bob = result.find((r) => r.id === "p2");
+    expect(bob.gamesPlayed).toBe(1); // not 2 — the missed game was never counted at all
+    expect(bob.outfieldMin).toBe(30);
+    expect(bob.avgOutfieldMin).toBe(30); // unaffected by the game he wasn't part of
+  });
+
+  it("keeps the name from the most recent game (games passed newest-first) over an older one", () => {
+    const games = [
+      { date: 2, players: [player("p1", "Alice B.")] }, // most recent
+      { date: 1, players: [player("p1", "Alice")] }, // older, pre-rename
+    ];
+    const [result] = aggregateSeasonSummary(games);
+    expect(result.name).toBe("Alice B.");
+  });
+
+  it("returns an empty array for no games and treats a missing players list as empty", () => {
+    expect(aggregateSeasonSummary([])).toEqual([]);
+    expect(aggregateSeasonSummary(undefined)).toEqual([]);
+    expect(aggregateSeasonSummary([{ date: 1 }])).toEqual([]); // no players field on that game
   });
 });

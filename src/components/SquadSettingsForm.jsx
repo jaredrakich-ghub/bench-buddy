@@ -1,7 +1,15 @@
-import { Plus, Trash2, Shuffle } from "lucide-react";
-import { computeIntervals, keeperShiftIntervalsFor } from "../lib/rotation.js";
+import { useEffect, useMemo } from "react";
+import { Plus, Trash2, Shuffle, Play } from "lucide-react";
+import {
+  computeIntervals, keeperShiftIntervalsFor, generatePlan, computeFairnessSpread, isFairSpread, recommendSubIntervals,
+} from "../lib/rotation.js";
 import { validateGameSettings } from "../lib/validation.js";
 import { styles } from "./styles.js";
+
+// A fixed, small set of realistic choices — matches what a coach would
+// actually consider typing, not an exhaustive search. Kept as a module
+// constant so its identity is stable across renders (it's a useMemo dep).
+const SUB_INTERVAL_CANDIDATES = [4, 5, 6, 7, 8];
 
 // Shared form for both first-time setup (inline) and later edits (modal).
 // This also doubles as squad management — add, remove, mark available, and
@@ -32,8 +40,61 @@ export default function SquadSettingsForm({
   showRestartWarning,
   onSubmit,
   submitLabel,
+  startingGkId,
+  setStartingGkId,
 }) {
   const validation = validateGameSettings(gameSettings, availableIds.length);
+
+  const keeperEligibleIds = useMemo(() => roster.filter((p) => p.keeperEligible).map((p) => p.id), [roster]);
+
+  // If the currently-picked kid stops being available or loses their glove
+  // (unticked mid-setup), the pick would silently go stale until submit —
+  // clear it right away instead so the button state stays honest.
+  useEffect(() => {
+    if (startingGkId && !(availableIds.includes(startingGkId) && keeperEligibleIds.includes(startingGkId))) {
+      setStartingGkId(null);
+    }
+  }, [startingGkId, availableIds, keeperEligibleIds, setStartingGkId]);
+
+  // Only bother simulating once the rest of the form is actually valid —
+  // no point warning about a plan that can't be generated anyway.
+  const fairnessWarning = useMemo(() => {
+    if (!startingGkId || !validation.valid) return null;
+    const { numIntervals, intervalLen } = computeIntervals(gameSettings.gameMinutes, gameSettings.subIntervalMinutes);
+    const shiftIntervals = keeperShiftIntervalsFor(gameSettings.subIntervalMinutes, gameSettings.keeperShiftMinutes);
+    const { intervals } = generatePlan({
+      availableIds,
+      gameMinutes: gameSettings.gameMinutes,
+      numIntervals,
+      fieldSize: gameSettings.fieldSize,
+      keeperEligibleIds,
+      keeperShiftIntervals: shiftIntervals,
+      startingGkId,
+    });
+    const spread = computeFairnessSpread(intervals, availableIds);
+    if (isFairSpread(spread, intervalLen)) return null;
+    const name = roster.find((p) => p.id === startingGkId)?.name ?? "this player";
+    return `Starting ${name} in goal means some players could get up to ${Math.round(spread)} more minutes than others today.`;
+  }, [startingGkId, validation.valid, gameSettings, availableIds, keeperEligibleIds, roster]);
+
+  // Gated on validation.valid, same as fairnessWarning above — deliberately
+  // not shown before there's actually a legitimate, generatable squad for
+  // today (i.e. before "select at least fieldSize+1 available players" is
+  // satisfied), so this never judges an in-progress, not-yet-final headcount
+  // as the coach is still ticking availability. It DOES keep recomputing
+  // live as that count changes after that point, same as everything else on
+  // this screen — the "For today's N available players" label makes that
+  // obviously intentional rather than a flicker.
+  const subIntervalRecs = useMemo(() => {
+    if (!validation.valid) return null;
+    return recommendSubIntervals({
+      candidateMinutes: SUB_INTERVAL_CANDIDATES,
+      gameMinutes: gameSettings.gameMinutes,
+      fieldSize: gameSettings.fieldSize,
+      availableIds,
+      keeperEligibleIds,
+    });
+  }, [validation.valid, gameSettings.gameMinutes, gameSettings.fieldSize, availableIds, keeperEligibleIds]);
 
   return (
     <>
@@ -117,6 +178,37 @@ export default function SquadSettingsForm({
         })()}
       </div>
 
+      {subIntervalRecs && (
+        <>
+          <div style={styles.subIntervalHint}>
+            For today's {availableIds.length} available players — tap a fairer sub interval, or keep what you've got:
+          </div>
+          <div style={styles.subIntervalChipRow}>
+            {subIntervalRecs.map((r) => {
+              const isSelected = Number(gameSettings.subIntervalMinutes) === r.subIntervalMinutes;
+              return (
+                <button
+                  key={r.subIntervalMinutes}
+                  style={{
+                    ...styles.subIntervalChip,
+                    ...(r.fair ? styles.subIntervalChipFair : styles.subIntervalChipUnfair),
+                    ...(isSelected ? styles.subIntervalChipSelected : {}),
+                  }}
+                  onClick={() => setGameSettings({ ...gameSettings, subIntervalMinutes: r.subIntervalMinutes })}
+                  title={
+                    r.fair
+                      ? `${r.subIntervalMinutes} min subs keeps everyone within about one interval of each other today.`
+                      : `${r.subIntervalMinutes} min subs could leave some players up to ${Math.round(r.bestSpread)} min behind others today, even with the fairest possible starting keeper.`
+                  }
+                >
+                  {r.fair ? "✓" : "✗"} {r.subIntervalMinutes}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+
       <div style={styles.subTitleRow}>
         <h3 style={styles.subTitle}>Squad &amp; availability</h3>
         <span style={styles.countBadge}>{availableIds.length} available</span>
@@ -144,7 +236,7 @@ export default function SquadSettingsForm({
       </div>
 
       {roster.length > 0 && (
-        <div style={styles.modeHint}>Tap 🧤 to mark who can play keeper.</div>
+        <div style={styles.modeHint}>Tap 🧤 to mark who can play keeper. Tap ▶ to start that player in goal today.</div>
       )}
 
       <div style={styles.squadList}>
@@ -162,6 +254,15 @@ export default function SquadSettingsForm({
                 {isAvailable ? availIdx + 1 : ""}
               </button>
               <span style={styles.squadName}>{p.name}</span>
+              {isAvailable && p.keeperEligible && (
+                <button
+                  style={{ ...styles.startGkToggle, ...(startingGkId === p.id ? styles.startGkToggleActive : {}) }}
+                  onClick={() => setStartingGkId(startingGkId === p.id ? null : p.id)}
+                  title={startingGkId === p.id ? "Cancel — don't start in goal" : "Start this player in goal"}
+                >
+                  <Play size={14} />
+                </button>
+              )}
               <button
                 style={{ ...styles.gloveToggle, ...(p.keeperEligible ? styles.gloveToggleActive : {}) }}
                 onClick={() => toggleKeeperEligible(p.id)}
@@ -180,6 +281,8 @@ export default function SquadSettingsForm({
       {showRestartWarning && (
         <div style={styles.modalWarning}>This will restart the rotation from 0:00 and clear this game's progress so far.</div>
       )}
+
+      {fairnessWarning && <div style={styles.modalWarning}>{fairnessWarning}</div>}
 
       {!validation.valid && (
         <div style={styles.modalWarning}>

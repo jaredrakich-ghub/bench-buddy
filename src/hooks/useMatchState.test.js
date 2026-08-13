@@ -17,6 +17,11 @@ vi.mock("../lib/firestoreTeams.js", () => ({
 }));
 import { saveMatchState } from "../lib/firestoreTeams.js";
 
+vi.mock("../lib/gameHistory.js", () => ({
+  archiveGame: vi.fn().mockResolvedValue(undefined),
+}));
+import { archiveGame } from "../lib/gameHistory.js";
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
@@ -72,6 +77,107 @@ describe("useMatchState — startPlanning", () => {
     expect(saveTeamData).toHaveBeenCalledWith(
       expect.objectContaining({ settings: { fieldSize: 5, gameMinutes: 12, subIntervalMinutes: 6 } })
     );
+  });
+});
+
+describe("useMatchState — manual starting keeper", () => {
+  it("honors a valid manual pick as the starting keeper, and clears it after use", () => {
+    const { result } = setup();
+    act(() => {
+      result.current.setAvailableIds(ROSTER.map((p) => p.id));
+      result.current.setGameSettings({ fieldSize: 5, gameMinutes: 12, subIntervalMinutes: 6 });
+      result.current.setStartingGkId("p3");
+    });
+    act(() => result.current.startPlanning());
+    expect(result.current.plan[0].onField.find((p) => p.isGk).id).toBe("p3");
+    expect(result.current.startingGkId).toBeNull(); // one-shot, consumed
+  });
+
+  it("falls back to the automatic (safe) pick if the manual choice is stale — no longer available", () => {
+    // 7-player roster here specifically so removing one still leaves 6
+    // available, clearing the fieldSize(5)+1 minimum — this test is about
+    // the stale-pick fallback, not about re-triggering the "not enough
+    // players" validation path (already covered elsewhere).
+    const roster7 = Array.from({ length: 7 }, (_, i) => ({ id: `p${i}`, name: `Player ${i}`, keeperEligible: true }));
+    const teamData7 = { ...TEAM_DATA, roster: roster7 };
+    const { result } = renderHook(() => useMatchState({ activeTeamId: "t1", teamData: teamData7, saveTeamData: vi.fn() }));
+    act(() => {
+      result.current.setAvailableIds(roster7.map((p) => p.id));
+      result.current.setGameSettings({ fieldSize: 5, gameMinutes: 12, subIntervalMinutes: 6 });
+      result.current.setStartingGkId("p3");
+      result.current.setAvailableIds(roster7.filter((p) => p.id !== "p3").map((p) => p.id)); // p3 no longer available
+    });
+    act(() => result.current.startPlanning());
+    // Doesn't throw, still produces a valid plan, just not necessarily with p3 (who isn't even playing).
+    expect(result.current.plan).not.toBeNull();
+    expect(result.current.plan[0].onField.find((p) => p.isGk).id).not.toBe("p3");
+  });
+
+  it("without a manual pick, still produces a valid plan via the automatic safe-pick path", () => {
+    const { result } = setup();
+    act(() => {
+      result.current.setAvailableIds(ROSTER.map((p) => p.id));
+      result.current.setGameSettings({ fieldSize: 5, gameMinutes: 12, subIntervalMinutes: 6 });
+    });
+    act(() => result.current.startPlanning());
+    const gk = result.current.plan[0].onField.find((p) => p.isGk);
+    expect(gk).toBeTruthy();
+    expect(ROSTER.map((p) => p.id)).toContain(gk.id);
+  });
+});
+
+describe("useMatchState — archiving to season history", () => {
+  it("does not archive when starting the very first game (no outgoing plan to archive)", () => {
+    setupWithPlan();
+    expect(archiveGame).not.toHaveBeenCalled();
+  });
+
+  it("does not archive when regenerating mid-game (clock hasn't reached full time)", () => {
+    const { result } = setupWithPlan();
+    // elapsedSec (0) is well short of the 720s cap for this 12-minute game.
+    act(() => result.current.startPlanning());
+    expect(archiveGame).not.toHaveBeenCalled();
+  });
+
+  it("archives the outgoing game when starting a new one after the previous game reached full time", () => {
+    const { result } = setupWithPlan(); // 12-minute game -> 720 sec cap
+    act(() => result.current.setElapsedSec(720));
+    act(() => result.current.startPlanning());
+
+    expect(archiveGame).toHaveBeenCalledTimes(1);
+    const [teamId, game] = archiveGame.mock.calls[0];
+    expect(teamId).toBe("t1");
+    expect(game.settings).toEqual({ fieldSize: 5, gameMinutes: 12, subIntervalMinutes: 6 });
+    expect(game.players).toHaveLength(6); // every available player from the outgoing game
+    expect(game.players[0]).toMatchObject({ id: "p0", name: "Player 0", keeperEligible: true });
+  });
+
+  it("surfaces a friendly error if archiving fails, without blocking the new game from starting", async () => {
+    const { result } = setupWithPlan();
+    act(() => result.current.setElapsedSec(720));
+
+    // Also reject the ordinary match-state persist for this test, so its
+    // success can't race with (and silently clear) the archive failure —
+    // both effects share the same saveError state, and only the archive
+    // failure is what this test is actually about.
+    saveMatchState.mockRejectedValue({ code: "unavailable" });
+    archiveGame.mockRejectedValueOnce({ code: "unavailable" });
+
+    let ok;
+    act(() => {
+      ok = result.current.startPlanning();
+    });
+
+    // The new game starts immediately regardless — archiving is fire-and-
+    // forget, not awaited — and only afterward does the rejection surface.
+    expect(ok).toBe(true);
+    expect(result.current.plan).not.toBeNull();
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(result.current.saveError).toMatch(/offline/);
   });
 });
 

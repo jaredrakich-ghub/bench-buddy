@@ -38,6 +38,7 @@ export default function SubRotationPlanner({ user }) {
     injuredThisGame, setInjuredThisGame, elapsedSec, setElapsedSec,
     baseElapsedSec, setBaseElapsedSec, runStartedAt, setRunStartedAt,
     timerRunning, setTimerRunning, subLog, setSubLog, swapPickId, setSwapPickId,
+    startingGkId, setStartingGkId,
     startPlanning, handleInjury, bringBack, performSwap,
   } = match;
 
@@ -79,6 +80,7 @@ export default function SubRotationPlanner({ user }) {
     setShowSettingsModal(false);
     setShowSummaryModal(false);
     setSwapPickId(null);
+    setStartingGkId(null);
 
     if (resume) {
       const { saved, live, stillRunning } = resume;
@@ -107,7 +109,7 @@ export default function SubRotationPlanner({ user }) {
       setSubLog({});
     }
   }, [
-    setActiveTeamId, setSwapPickId, setAvailableIds, setGameSettings, setPlan, setInjuredThisGame,
+    setActiveTeamId, setSwapPickId, setStartingGkId, setAvailableIds, setGameSettings, setPlan, setInjuredThisGame,
     setSubLog, setBaseElapsedSec, setElapsedSec, setRunStartedAt, setTimerRunning, setActiveInterval, lastLiveIntervalRef,
   ]);
 
@@ -276,6 +278,8 @@ export default function SubRotationPlanner({ user }) {
     toggleAvailable,
     toggleKeeperEligible,
     showRestartWarning: Boolean(plan && (elapsedSec > 0 || Object.keys(subLog).length > 0)),
+    startingGkId,
+    setStartingGkId,
   };
 
   const isMatchComplete = Boolean(plan) && elapsedSec >= plan[plan.length - 1].endMin * 60;

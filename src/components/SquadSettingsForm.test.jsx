@@ -42,9 +42,20 @@ function baseProps(overrides = {}) {
     showRestartWarning: false,
     onSubmit: vi.fn(),
     submitLabel: "Generate Rotation",
+    startingGkId: null,
+    setStartingGkId: vi.fn(),
     ...overrides,
   };
 }
+
+// The exact scenario the starting-keeper investigation found (see
+// pickFairStartingGk's tests in rotation.test.js): 7 players, fieldSize 5,
+// a 42-minute/7-interval game, everyone keeper-eligible. Starting p2 or p3
+// in goal produces a real 12-minute spread; every other choice is perfectly
+// even. Used here to exercise the live warning banner against a real,
+// known-unfair pick rather than a made-up one.
+const FAIRNESS_ROSTER = Array.from({ length: 7 }, (_, i) => ({ id: `p${i + 1}`, name: `Player ${i + 1}`, keeperEligible: true }));
+const FAIRNESS_SETTINGS = { fieldSize: 5, gameMinutes: 42, subIntervalMinutes: 6 };
 
 describe("SquadSettingsForm — rendering", () => {
   it("shows the roster, the available count, and the interval preview", () => {
@@ -184,5 +195,104 @@ describe("SquadSettingsForm — validation and submit", () => {
   it("shows the restart warning when regenerating an in-progress game", () => {
     render(<SquadSettingsForm {...baseProps({ showRestartWarning: true })} />);
     expect(screen.getByText(/This will restart the rotation from 0:00/)).toBeInTheDocument();
+  });
+});
+
+describe("SquadSettingsForm — manual starting keeper", () => {
+  it("only offers the 'start in goal' picker for players who are both available and keeper-eligible", () => {
+    // Alice: available + keeper-eligible -> gets the button. Bob: available
+    // but not keeper-eligible -> no button, same as today's roster/props default.
+    render(<SquadSettingsForm {...baseProps()} />);
+    expect(screen.getAllByTitle("Start this player in goal")).toHaveLength(1);
+  });
+
+  it("does not offer the picker for a keeper-eligible player who isn't available today", () => {
+    render(<SquadSettingsForm {...baseProps({ availableIds: ["p2"] })} />); // only Bob (not keeper-eligible) is available
+    expect(screen.queryByTitle("Start this player in goal")).not.toBeInTheDocument();
+  });
+
+  it("picking a player sets them as the starting keeper", async () => {
+    const setStartingGkId = vi.fn();
+    const user = userEvent.setup();
+    render(<SquadSettingsForm {...baseProps({ setStartingGkId })} />);
+    await user.click(screen.getByTitle("Start this player in goal"));
+    expect(setStartingGkId).toHaveBeenCalledWith("p1");
+  });
+
+  it("clicking the already-picked player again clears the pick", async () => {
+    const setStartingGkId = vi.fn();
+    const user = userEvent.setup();
+    render(<SquadSettingsForm {...baseProps({ startingGkId: "p1", setStartingGkId })} />);
+    await user.click(screen.getByTitle("Cancel — don't start in goal"));
+    expect(setStartingGkId).toHaveBeenCalledWith(null);
+  });
+
+  it("shows no fairness warning when no manual pick is made", () => {
+    render(<SquadSettingsForm {...baseProps({ roster: FAIRNESS_ROSTER, availableIds: FAIRNESS_ROSTER.map((p) => p.id), gameSettings: FAIRNESS_SETTINGS })} />);
+    expect(screen.queryByText(/more minutes than others today/)).not.toBeInTheDocument();
+  });
+
+  it("shows no fairness warning for a starting keeper that keeps the game fair", () => {
+    render(
+      <SquadSettingsForm
+        {...baseProps({ roster: FAIRNESS_ROSTER, availableIds: FAIRNESS_ROSTER.map((p) => p.id), gameSettings: FAIRNESS_SETTINGS, startingGkId: "p1" })}
+      />
+    );
+    expect(screen.queryByText(/more minutes than others today/)).not.toBeInTheDocument();
+  });
+
+  it("warns, naming the player and the spread, for a starting keeper known to make the game unfair", () => {
+    render(
+      <SquadSettingsForm
+        {...baseProps({ roster: FAIRNESS_ROSTER, availableIds: FAIRNESS_ROSTER.map((p) => p.id), gameSettings: FAIRNESS_SETTINGS, startingGkId: "p2" })}
+      />
+    );
+    expect(screen.getByText("Starting Player 2 in goal means some players could get up to 12 more minutes than others today.")).toBeInTheDocument();
+  });
+});
+
+describe("SquadSettingsForm — sub-interval recommendation", () => {
+  it("stays hidden while there aren't enough available players yet — never judges an in-progress headcount", () => {
+    render(<SquadSettingsForm {...baseProps({ availableIds: ["p1"] })} />); // fails the fieldSize+1 minimum
+    expect(screen.queryByText(/For today's .* available players/)).not.toBeInTheDocument();
+    expect(screen.queryByText("✓ 6")).not.toBeInTheDocument();
+  });
+
+  it("shows a chip per candidate interval, labeled with today's actual available count, once the squad is valid", () => {
+    render(
+      <SquadSettingsForm {...baseProps({ roster: FAIRNESS_ROSTER, availableIds: FAIRNESS_ROSTER.map((p) => p.id), gameSettings: FAIRNESS_SETTINGS })} />
+    );
+    expect(screen.getByText(/For today's 7 available players/)).toBeInTheDocument();
+    // Verified scenario: at 42 min / fieldSize 5 / 7 players, 4 and 8 min
+    // subs are the only candidates where even the best starting keeper
+    // can't stay within one interval; 5, 6, and 7 are fine.
+    expect(screen.getByText("✗ 4")).toBeInTheDocument();
+    expect(screen.getByText("✓ 5")).toBeInTheDocument();
+    expect(screen.getByText("✓ 6")).toBeInTheDocument();
+    expect(screen.getByText("✓ 7")).toBeInTheDocument();
+    expect(screen.getByText("✗ 8")).toBeInTheDocument();
+  });
+
+  it("picking a chip applies that sub interval", async () => {
+    const setGameSettings = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <SquadSettingsForm
+        {...baseProps({ roster: FAIRNESS_ROSTER, availableIds: FAIRNESS_ROSTER.map((p) => p.id), gameSettings: FAIRNESS_SETTINGS, setGameSettings })}
+      />
+    );
+    await user.click(screen.getByText("✓ 5"));
+    expect(setGameSettings).toHaveBeenCalledWith({ ...FAIRNESS_SETTINGS, subIntervalMinutes: 5 });
+  });
+
+  it("re-labels the available count and re-checks fairness when the headcount changes, rather than caching the first answer", () => {
+    const { rerender } = render(
+      <SquadSettingsForm {...baseProps({ roster: FAIRNESS_ROSTER, availableIds: FAIRNESS_ROSTER.map((p) => p.id), gameSettings: FAIRNESS_SETTINGS })} />
+    );
+    expect(screen.getByText(/For today's 7 available players/)).toBeInTheDocument();
+
+    const sixAvailable = FAIRNESS_ROSTER.slice(0, 6).map((p) => p.id);
+    rerender(<SquadSettingsForm {...baseProps({ roster: FAIRNESS_ROSTER, availableIds: sixAvailable, gameSettings: FAIRNESS_SETTINGS })} />);
+    expect(screen.getByText(/For today's 6 available players/)).toBeInTheDocument();
   });
 });

@@ -130,9 +130,28 @@ export function buildCarryState(ids, doneIntervals) {
 // bring-back) tell the algorithm someone is already partway through a
 // shift, so the rebuild's start doesn't get treated as a fresh shift
 // boundary — see keeperShiftIntervalsFor/lastGkId above.
+//
+// `startingGkId` is a manual override for who starts in goal at
+// `startInterval` specifically (e.g. a coach honoring "can I start in
+// goal?", or pickFairStartingGk below trying a candidate) — every interval
+// after that still goes through the normal algorithm untouched, including
+// keeper-shift continuation, so the manual pick just becomes the seed the
+// automatic rotation continues from. Ignored (falls through to the normal
+// pick) if the given id isn't actually available and keeper-eligible.
+//
+// Deliberately fully deterministic otherwise — same inputs always produce
+// the same plan, no randomness anywhere in here. An earlier version of this
+// randomized ties in the keeper pick directly, to fix the same kid always
+// starting in goal — reverted because it could occasionally cascade into a
+// real, measurable fairness gap over the rest of the game for some starting
+// choices, with nothing here to catch it. See pickFairStartingGk, which
+// achieves the actual goal (variety in who starts) by trying real
+// candidates through this same deterministic function and only offering
+// ones that come out fair, rather than gambling inside it.
 export function generatePlan({
   availableIds, gameMinutes, numIntervals, fieldSize, keeperEligibleIds,
   startInterval = 0, carryState = null, keeperShiftIntervals = 1, currentGkId = null,
+  startingGkId = null,
 }) {
   const size = Math.min(fieldSize, availableIds.length);
   const intervalLen = gameMinutes / numIntervals;
@@ -155,6 +174,13 @@ export function generatePlan({
   // bench<->field swap instead of pulling someone off the pitch who's
   // already out there, which otherwise needs a second, unrelated swap to
   // free up their old outfield spot.
+  //
+  // When candidates are tied on *everything* this checks (always true for
+  // every candidate at interval 0 of a brand-new game — nobody's played a
+  // second yet), this falls through to whatever order `pool` happens to be
+  // in. That's deliberate here — see the module-level comment on
+  // generatePlan for why introducing randomness at this level turned out to
+  // be the wrong place to fix "the same kid always starts in goal".
   const pickGkFrom = (pool, prevGk) =>
     [...pool].sort((a, b) => {
       let sa = sim[a].gkMin, sb = sim[b].gkMin;
@@ -180,11 +206,19 @@ export function generatePlan({
 
     if (hasEligibleKeeper) {
       const eligiblePool = availableIds.filter((id) => eligibleSet.has(id));
+      // A manual starting-keeper override only ever applies to the very
+      // first interval being generated in this call — every interval after
+      // that goes through the exact same logic as always, so the override
+      // is really just seeding prevGk with a specific choice rather than an
+      // automatic one, not a separate code path the rest of the game has to
+      // know about. Falls through to the normal pick if the given id isn't
+      // actually in the eligible pool (stale/invalid — see useMatchState).
+      const useManualStart = i === startInterval && startingGkId && eligiblePool.includes(startingGkId);
       // Keep the same keeper mid-shift as long as they're still available
       // and eligible (e.g. not the one who just got injured); otherwise
       // fall through to a fresh pick even off-boundary.
       const keepGk = !atShiftBoundary && prevGk && eligiblePool.includes(prevGk);
-      gk = keepGk ? prevGk : pickGkFrom(eligiblePool, prevGk);
+      gk = useManualStart ? startingGkId : keepGk ? prevGk : pickGkFrom(eligiblePool, prevGk);
       const outfieldPool = availableIds.filter((id) => id !== gk);
       const sortedOutfield = [...outfieldPool].sort(outfieldSort);
       const outfieldOn = sortedOutfield.slice(0, Math.max(0, size - 1));
@@ -223,6 +257,86 @@ export function generatePlan({
   return { intervals };
 }
 
+// The gap between whoever ended up with the most total on-field time (gk +
+// outfield combined) and whoever ended up with the least, across a whole
+// plan. The same measurement the "distributes outfield minutes fairly"
+// test already checks, pulled out as real, reusable code rather than only
+// living inside a test — see pickFairStartingGk below for why.
+export function computeFairnessSpread(intervals, availableIds) {
+  const totals = {};
+  availableIds.forEach((id) => (totals[id] = 0));
+  intervals.forEach((iv) => {
+    const len = iv.endMin - iv.startMin;
+    iv.onField.forEach((p) => {
+      if (totals[p.id] !== undefined) totals[p.id] += len;
+    });
+  });
+  const values = Object.values(totals);
+  return values.length === 0 ? 0 : Math.max(...values) - Math.min(...values);
+}
+
+// One interval's worth of minutes, plus a small rounding buffer, is the
+// threshold generatePlan's own fairness test already treats as "normal,
+// expected spread" for a plan generated the usual way. Reused here as the
+// actual production definition of "fair enough", so a starting-keeper
+// choice gets judged by the same bar the algorithm is already expected to
+// clear on its own.
+export function isFairSpread(spread, intervalLen) {
+  return spread <= intervalLen + 0.5;
+}
+
+// Some starting-keeper choices can, through no fault of any single
+// decision, cascade into a genuinely less balanced game than others — see
+// the "starting keeper" investigation this was built from. Rather than
+// gambling on a candidate, or trying to predict in advance which ones are
+// safe (no reliable rule for that was found), this tries every candidate
+// for real, keeps only the ones whose resulting full game comes out
+// acceptably fair, and picks randomly among just those.
+//
+// `planArgs` is whatever generatePlan itself expects (minus startingGkId,
+// which this sets per candidate). Falls back to considering every
+// candidate if literally none of them come out fair — better to produce
+// *a* plan than none, and this is not expected to happen for a typical
+// squad. Returns the winning candidate's id alongside the actual plan
+// already generated for it, so the caller doesn't need to regenerate it.
+export function pickFairStartingGk({ candidates, planArgs, random = Math.random }) {
+  const intervalLen = planArgs.gameMinutes / planArgs.numIntervals;
+  const attempts = candidates.map((id) => {
+    const { intervals } = generatePlan({ ...planArgs, startingGkId: id });
+    return { id, intervals, spread: computeFairnessSpread(intervals, planArgs.availableIds) };
+  });
+  const fair = attempts.filter((a) => isFairSpread(a.spread, intervalLen));
+  const pool = fair.length > 0 ? fair : attempts;
+  return pool[Math.floor(random() * pool.length)];
+}
+
+// A coach picks the sub interval somewhat arbitrarily — a nice round number
+// like 5 or 6 minutes — with no way to know whether that number actually
+// suits today's specific squad. This checks each of a handful of candidate
+// interval lengths against today's actual game length, field size, and
+// (crucially) exactly who's marked available right now, so the answer
+// genuinely reflects today's headcount, not just the roster in general.
+//
+// For each candidate, it tries every possible starting keeper (same
+// approach as pickFairStartingGk, reusing the exact same fairness check) and
+// keeps the best result — that answers "could the app actually deliver a
+// fair game at this interval", not just "does today's specific default
+// happen to". If nobody available is keeper-eligible, falls back to a
+// single plain generatePlan (nothing to vary the starting keeper across).
+export function recommendSubIntervals({ candidateMinutes, gameMinutes, fieldSize, availableIds, keeperEligibleIds }) {
+  const startingCandidates = availableIds.filter((id) => keeperEligibleIds.includes(id));
+  return candidateMinutes.map((subIntervalMinutes) => {
+    const { numIntervals, intervalLen } = computeIntervals(gameMinutes, subIntervalMinutes);
+    const planArgs = { availableIds, gameMinutes, numIntervals, fieldSize, keeperEligibleIds };
+    const spreads = (startingCandidates.length > 0 ? startingCandidates : [null]).map((startingGkId) => {
+      const { intervals } = generatePlan(startingGkId ? { ...planArgs, startingGkId } : planArgs);
+      return computeFairnessSpread(intervals, availableIds);
+    });
+    const bestSpread = Math.min(...spreads);
+    return { subIntervalMinutes, numIntervals, intervalLen, bestSpread, fair: isFairSpread(bestSpread, intervalLen) };
+  });
+}
+
 // Totals each player's time across the whole plan, split into outfield,
 // keeper, bench, and (if it happened) injured/sidelined minutes. Since the
 // full game is generated up front, this works whether or not the timer's
@@ -249,6 +363,48 @@ export function computeMinutesSummary(plan, availableIds) {
     });
     return { id, outfieldMin, gkMin, benchMin, injuredMin };
   });
+}
+
+// Rolls up several archived games (see gameHistory.js — each one's
+// `players` array is a computeMinutesSummary-shaped record per player who
+// was actually part of that game) into season-long totals and per-game
+// averages.
+//
+// A player who wasn't available for a given game simply doesn't appear in
+// that game's `players` list at all — never a zero-filled entry — so
+// missing a game contributes nothing to their standing either way: not a
+// bonus for being absent, and not a penalty that drags their average down
+// either. gamesPlayed only ever counts games they were actually part of.
+// This is a deliberate fairness decision, not an incidental one: the whole
+// point of tracking this is to compensate players for bench time they
+// actually endured, never to react to attendance itself.
+export function aggregateSeasonSummary(games) {
+  const totals = {};
+  (games || []).forEach((game) => {
+    (game.players || []).forEach((p) => {
+      if (!totals[p.id]) {
+        totals[p.id] = { id: p.id, name: p.name, gamesPlayed: 0, outfieldMin: 0, gkMin: 0, benchMin: 0, injuredMin: 0 };
+      }
+      const t = totals[p.id];
+      t.gamesPlayed += 1;
+      t.outfieldMin += p.outfieldMin || 0;
+      t.gkMin += p.gkMin || 0;
+      t.benchMin += p.benchMin || 0;
+      t.injuredMin += p.injuredMin || 0;
+      // Keep the name from the first game we see this player in, not the
+      // last — games are passed newest-first (see fetchGameHistory), so
+      // "first seen" is their most recent game, and this way a past rename
+      // shows up as their current name rather than getting overwritten back
+      // to an older one by the time the loop reaches their earliest game.
+      if (p.name && !t.name) t.name = p.name;
+    });
+  });
+  return Object.values(totals).map((t) => ({
+    ...t,
+    avgOutfieldMin: t.gamesPlayed ? t.outfieldMin / t.gamesPlayed : 0,
+    avgGkMin: t.gamesPlayed ? t.gkMin / t.gamesPlayed : 0,
+    avgBenchMin: t.gamesPlayed ? t.benchMin / t.gamesPlayed : 0,
+  }));
 }
 
 // While the match timer's running, MatchView's board should follow the live

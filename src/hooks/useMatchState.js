@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import {
   intervalAtElapsed, computeIntervals, buildCarryState, generatePlan, keeperShiftIntervalsFor, lastGkId,
-  resolveBringBack, resolveAutoFollowInterval,
+  resolveBringBack, resolveAutoFollowInterval, computeMinutesSummary, pickFairStartingGk,
 } from "../lib/rotation.js";
 import { validateGameSettings } from "../lib/validation.js";
 import { computeLiveElapsedSec } from "../lib/clock.js";
 import { defaultSettings } from "../lib/teams.js";
 import { saveMatchState, describeSaveError } from "../lib/firestoreTeams.js";
+import { archiveGame } from "../lib/gameHistory.js";
 
 // Owns everything about the match currently being run for whichever team is
 // active: today's squad availability/settings, the generated rotation plan,
@@ -36,6 +37,10 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
   const [subLog, setSubLog] = useState({}); // intervalIndex -> elapsedSec when sub was confirmed made
   const [swapPickId, setSwapPickId] = useState(null); // bench player id awaiting a pitch target to swap with
   const [saveError, setSaveError] = useState(null);
+  // A coach's manual pick for who starts in goal on the next game (e.g.
+  // honoring "can I start in goal?"), set from the squad setup screen.
+  // One-shot, like swapPickId — consumed and cleared by startPlanning.
+  const [startingGkId, setStartingGkId] = useState(null);
 
   // Persist the in-progress match so a refresh, a backgrounded tab getting
   // reloaded, or closing the browser doesn't lose it. This deliberately does
@@ -118,18 +123,60 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
     // startPlanning itself can never run with e.g. subIntervalMinutes <= 0,
     // which would otherwise hang the tab in an infinite loop.
     if (!validateGameSettings(gameSettings, availableIds.length).valid) return false;
+
+    // Archive the just-finished game to season history before regenerating.
+    // Fire-and-forget (not awaited) so the coach isn't stuck waiting on a
+    // network write just to set up the next game — a failure here surfaces
+    // through the same saveError banner as everything else, but never blocks
+    // starting the new game. Only archives a game that actually reached full
+    // time: editing settings mid-game (the "Save & Regenerate" flow, same
+    // button/function, different moment) already warns it restarts the
+    // rotation, and archiving there too would flood history with abandoned
+    // partial games rather than real completed ones.
+    if (plan && activeTeamId && elapsedSec >= plan[plan.length - 1].endMin * 60) {
+      const summary = computeMinutesSummary(plan, availableIds);
+      const players = summary.map((s) => ({ ...(teamData?.roster.find((p) => p.id === s.id) || {}), ...s }));
+      archiveGame(activeTeamId, { date: Date.now(), settings: gameSettings, players }).catch((err) => {
+        setSaveError(describeSaveError(err));
+      });
+    }
+
     const settings = { ...gameSettings };
     saveTeamData({ ...teamData, settings });
     const { numIntervals } = computeIntervals(settings.gameMinutes, settings.subIntervalMinutes);
     const keeperShiftIntervals = keeperShiftIntervalsFor(settings.subIntervalMinutes, settings.keeperShiftMinutes);
-    const { intervals } = generatePlan({
+    const planArgs = {
       availableIds,
       gameMinutes: settings.gameMinutes,
       numIntervals,
       fieldSize: settings.fieldSize,
       keeperEligibleIds,
       keeperShiftIntervals,
-    });
+    };
+
+    // Who's actually eligible to start in goal at all — a stale manual pick
+    // (the player toggled unavailable/keeper-ineligible after being picked,
+    // in the rare case the squad setup screen's own reactive clear didn't
+    // already catch it) is silently ignored here rather than trusted, and
+    // falls through to the automatic path below.
+    const eligibleAndAvailable = availableIds.filter((id) => keeperEligibleIds.includes(id));
+    let intervals;
+    if (startingGkId && eligibleAndAvailable.includes(startingGkId)) {
+      // Manual pick — honored directly, regardless of fairness. The coach
+      // already saw a live warning in the squad setup screen if this choice
+      // wasn't a fair one (see SquadSettingsForm), so this is an informed
+      // decision, not a silent one — nothing to re-check here.
+      ({ intervals } = generatePlan({ ...planArgs, startingGkId }));
+    } else if (eligibleAndAvailable.length > 0) {
+      // No manual pick — vary who starts, but only among choices verified
+      // not to unbalance the rest of the game. See pickFairStartingGk.
+      ({ intervals } = pickFairStartingGk({ candidates: eligibleAndAvailable, planArgs }));
+    } else {
+      // Nobody keeper-eligible at all — generatePlan's own degraded
+      // fallback handles this; there's no keeper choice to make either way.
+      ({ intervals } = generatePlan(planArgs));
+    }
+
     setPlan(intervals);
     lastLiveIntervalRef.current = 0;
     setActiveInterval(0);
@@ -140,6 +187,7 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
     setTimerRunning(false);
     setSubLog({});
     setSwapPickId(null);
+    setStartingGkId(null);
     return true;
   };
 
@@ -270,6 +318,7 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
     timerRunning, setTimerRunning,
     subLog, setSubLog,
     swapPickId, setSwapPickId,
+    startingGkId, setStartingGkId,
     saveError, setSaveError,
     startPlanning, handleInjury, bringBack, performSwap,
   };
