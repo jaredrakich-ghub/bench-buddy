@@ -5,7 +5,7 @@ import { computeLiveElapsedSec } from "../lib/clock.js";
 import { generateId } from "../lib/id.js";
 import { normalizeTeam, migrateLegacyTeam, createTeam, findTeam, addTeam, removeTeam } from "../lib/teams.js";
 import { fetchTeams, createTeamDoc, deleteTeamDoc, fetchMatchState, describeSaveError } from "../lib/firestoreTeams.js";
-import { signOutUser } from "../lib/auth.js";
+import { signOutUser, deleteAccount } from "../lib/auth.js";
 import { useTeamRegistry } from "../hooks/useTeamRegistry.js";
 import { useMatchState } from "../hooks/useMatchState.js";
 import { fontStyle, styles } from "./styles.js";
@@ -233,6 +233,24 @@ export default function SubRotationPlanner({ user }) {
     }
   };
 
+  // Deletes every one of the signed-in user's teams (and everything under
+  // them), then the Firebase Auth account itself. Team deletion happens
+  // sequentially and is allowed to throw: if any one team fails to delete,
+  // this stops there rather than going on to delete the account anyway —
+  // deleting the account is the irreversible step, and it's safer to leave
+  // the user with "an account, minus whatever teams did get removed" (still
+  // recoverable) than to delete the account while some team data is
+  // orphaned in Firestore with no signed-in owner left to remove it.
+  const deleteMyAccount = async () => {
+    for (const team of teams) {
+      await deleteTeamDoc(team.id);
+    }
+    await deleteAccount();
+    // No further state to update here on success — deleteAccount() firing
+    // triggers onAuthChange(null) up in AuthGate, which swaps this whole
+    // component out for the sign-in screen.
+  };
+
   // startPlanning reports back whether it actually generated a plan (it
   // bails out on invalid settings) — only close the modal on success, same
   // as it always did back when this and the modal flag lived together.
@@ -350,6 +368,7 @@ export default function SubRotationPlanner({ user }) {
           onClose={() => setShowTeamSwitcher(false)}
           userEmail={user.email}
           onSignOut={signOutUser}
+          onDeleteAccount={deleteMyAccount}
         />
       )}
     </div>

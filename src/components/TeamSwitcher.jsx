@@ -1,17 +1,40 @@
 import { useState } from "react";
 import { Plus, Trash2, Pencil, X } from "lucide-react";
-import { styles } from "./styles.js";
+import { styles, colors } from "./styles.js";
 
 // "My Teams" modal: switch between teams, rename or delete one, or add a
 // new one. Mirrors the app's existing modal/confirm-row patterns (same
 // styles used for the backup-restore confirmation) rather than introducing
 // a new interaction style.
-export default function TeamSwitcher({ teams, activeTeamId, onSwitch, onAdd, onRename, onDelete, onClose, userEmail, onSignOut }) {
+export default function TeamSwitcher({
+  teams, activeTeamId, onSwitch, onAdd, onRename, onDelete, onClose, userEmail, onSignOut, onDeleteAccount,
+}) {
   const [showAddInput, setShowAddInput] = useState(false);
   const [addName, setAddName] = useState("");
   const [renamingId, setRenamingId] = useState(null);
   const [renameValue, setRenameValue] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState("");
+
+  const handleDeleteAccount = async () => {
+    setDeletingAccount(true);
+    setDeleteAccountError("");
+    try {
+      await onDeleteAccount();
+      // No further UI to update on success — deleting the Firebase Auth
+      // user fires onAuthChange(null), which AuthGate picks up and swaps
+      // straight to the sign-in screen, unmounting this modal along with it.
+    } catch (err) {
+      setDeletingAccount(false);
+      setDeleteAccountError(
+        err?.code === "auth/popup-closed-by-user"
+          ? "Sign-in was cancelled — your account was not deleted."
+          : "Couldn't delete your account — check your connection and try again."
+      );
+    }
+  };
 
   const startRename = (team) => {
     setConfirmDeleteId(null);
@@ -133,6 +156,27 @@ export default function TeamSwitcher({ teams, activeTeamId, onSwitch, onAdd, onR
         <button style={styles.backupToggle} onClick={onSignOut}>
           Sign out {userEmail ? `(${userEmail})` : ""}
         </button>
+
+        {confirmDeleteAccount ? (
+          <div style={{ ...styles.backupConfirmRow, marginTop: 10 }}>
+            <span style={styles.backupHint}>
+              Delete your account? This permanently removes{" "}
+              {teams.length === 1 ? "your team" : `all ${teams.length} of your teams`}, every squad, and all game
+              history. This can't be undone.
+            </span>
+            <button style={styles.backupConfirmBtn} onClick={handleDeleteAccount} disabled={deletingAccount}>
+              {deletingAccount ? "Deleting…" : "Yes, delete everything"}
+            </button>
+            <button style={styles.backupCancelBtn} onClick={() => setConfirmDeleteAccount(false)} disabled={deletingAccount}>
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button style={{ ...styles.backupToggle, color: colors.danger, marginTop: 4 }} onClick={() => setConfirmDeleteAccount(true)}>
+            Delete my account
+          </button>
+        )}
+        {deleteAccountError && <div style={styles.modalWarning}>{deleteAccountError}</div>}
       </div>
     </div>
   );
