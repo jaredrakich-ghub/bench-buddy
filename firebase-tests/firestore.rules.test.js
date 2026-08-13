@@ -140,6 +140,32 @@ describe("firestore.rules — matchState subcollection", () => {
   });
 });
 
+describe("firestore.rules — games subcollection (season history)", () => {
+  test("a member can read/write an archived game", async () => {
+    await seedTeam("team1", validTeam());
+    const alice = testEnv.authenticatedContext("alice");
+    const gameRef = doc(alice.firestore(), "teams", "team1", "games", "game1");
+    await assertSucceeds(setDoc(gameRef, { date: Date.now(), players: [{ id: "p1", outfieldMin: 30 }] }));
+    await assertSucceeds(getDoc(gameRef));
+  });
+
+  test("a non-member cannot read or write an archived game", async () => {
+    await seedTeam("team1", validTeam());
+    const bob = testEnv.authenticatedContext("bob");
+    const gameRef = doc(bob.firestore(), "teams", "team1", "games", "game1");
+    await assertFails(setDoc(gameRef, { date: Date.now(), players: [] }));
+    await assertFails(getDoc(gameRef));
+  });
+
+  test("content shape is not enforced — deliberately permissive so new per-player fields don't need a rules change", async () => {
+    await seedTeam("team1", validTeam());
+    const alice = testEnv.authenticatedContext("alice");
+    const gameRef = doc(alice.firestore(), "teams", "team1", "games", "game1");
+    // No "date" or "players" at all — still succeeds, since only membership is checked here.
+    await assertSucceeds(setDoc(gameRef, { anything: "goes" }));
+  });
+});
+
 describe("firestore.rules — crashReports collection", () => {
   test("a signed-in user can file a crash report", async () => {
     const alice = testEnv.authenticatedContext("alice");

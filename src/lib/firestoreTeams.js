@@ -13,6 +13,7 @@
 // lives in a `matchState/current` subdocument underneath it.
 import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, where } from "firebase/firestore";
 import { db } from "./firebaseClient.js";
+import { deleteAllGames } from "./gameHistory.js";
 
 const TEAMS_COLLECTION = "teams";
 const MATCH_STATE_DOC = "current";
@@ -50,16 +51,22 @@ export async function updateTeamDoc(teamId, updates) {
 }
 
 export async function deleteTeamDoc(teamId) {
-  // Delete the matchState subdoc BEFORE the team doc, not after. The
-  // matchState security rule checks membership via get() on the parent team
-  // doc — if the team doc is already gone, that get() returns null and the
-  // rule evaluation errors out (denying the delete), silently orphaning the
-  // matchState/current subdocument forever. Caught the hard way via the
-  // Firestore emulator integration tests in firebase-tests/.
+  // Delete matchState and every archived game BEFORE the team doc, not
+  // after. Both subcollections' rules prove membership via get() on the
+  // parent team doc — if the team doc is already gone, that get() returns
+  // null and the rule evaluation errors out (denying the delete), silently
+  // orphaning whatever's left underneath forever. Caught the hard way (for
+  // matchState) via the Firestore emulator integration tests in
+  // firebase-tests/ — same fix applies to games now that it exists too.
   try {
     await deleteDoc(doc(db, TEAMS_COLLECTION, teamId, "matchState", MATCH_STATE_DOC));
   } catch {
     // fine if there wasn't one to delete
+  }
+  try {
+    await deleteAllGames(teamId);
+  } catch {
+    // fine if there was no history to delete
   }
   await deleteDoc(doc(db, TEAMS_COLLECTION, teamId));
 }
