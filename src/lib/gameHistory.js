@@ -31,6 +31,15 @@ export async function fetchGameHistory(teamId) {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
+// Deletes one archived game — e.g. a coach clearing out a mis-recorded or
+// test entry from Season Summary. Unlike deleteAllGames below, this doesn't
+// need to worry about the parent team doc being deleted first (the team
+// obviously still exists if a coach is looking at its history), so it's a
+// plain single-document delete.
+export async function deleteGame(teamId, gameId) {
+  await deleteDoc(doc(db, TEAMS_COLLECTION, teamId, GAMES_SUBCOLLECTION, gameId));
+}
+
 // Deletes every archived game under a team — used by deleteTeamDoc (see
 // firestoreTeams.js) before the team doc itself is removed, for the same
 // reason matchState has to go first: the games rule proves membership via

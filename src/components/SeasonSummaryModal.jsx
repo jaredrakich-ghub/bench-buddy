@@ -1,35 +1,50 @@
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
-import { fetchGameHistory } from "../lib/gameHistory.js";
+import { X, Trash2 } from "lucide-react";
+import { fetchGameHistory, deleteGame } from "../lib/gameHistory.js";
 import { aggregateSeasonSummary } from "../lib/rotation.js";
 import { styles } from "./styles.js";
 
-// Read-only rollup of every archived game for this team — see gameHistory.js
-// for where those records come from (one per completed game, written
+// Rollup of every archived game for this team — see gameHistory.js for
+// where those records come from (one per completed game, written
 // automatically when a new game starts after a previous one finished) and
 // aggregateSeasonSummary in rotation.js for how they're combined. Fetches
 // fresh every time it's opened rather than caching, since this is meant to
 // be checked occasionally, not kept live on screen.
 //
-// Deliberately summary-only: totals and per-game averages, nothing that
-// feeds back into how future games are generated. Season-to-season fairness
-// carryover was explicitly scoped out when this was designed — see the
-// architecture notes — so this is purely a "how has it balanced out so far"
-// view, not a second fairness engine.
+// The averages table is summary-only: totals and per-game averages, nothing
+// that feeds back into how future games are generated. Season-to-season
+// fairness carryover was explicitly scoped out when this was designed — see
+// the architecture notes — so this is purely a "how has it balanced out so
+// far" view, not a second fairness engine. The per-game list below it is the
+// one write path this modal has — deleting a mis-recorded or test game — and
+// deletes locally from state on success rather than re-fetching, since a
+// coach removing one entry has no reason to wait on a second round trip to
+// see it gone.
 function describeLoadError(err) {
   if (err?.code === "permission-denied") return "You don't have access to this team's season history.";
   if (err?.code === "unavailable") return "You're offline — season history isn't available right now.";
   return "Couldn't load season history right now.";
 }
 
+function describeDeleteError(err) {
+  if (err?.code === "permission-denied") return "You don't have permission to delete this game.";
+  if (err?.code === "unavailable") return "You're offline — try deleting this game again once you're back online.";
+  return "Couldn't delete that game — try again.";
+}
+
 export default function SeasonSummaryModal({ teamId, onClose }) {
   const [games, setGames] = useState(null); // null = still loading
   const [error, setError] = useState(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
+  const [deleteError, setDeleteError] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
     setGames(null);
     setError(null);
+    setConfirmDeleteId(null);
+    setDeleteError(null);
     fetchGameHistory(teamId)
       .then((result) => {
         if (!cancelled) setGames(result);
@@ -41,6 +56,20 @@ export default function SeasonSummaryModal({ teamId, onClose }) {
       cancelled = true;
     };
   }, [teamId]);
+
+  const handleDelete = async (gameId) => {
+    setDeletingId(gameId);
+    setDeleteError(null);
+    try {
+      await deleteGame(teamId, gameId);
+      setGames((prev) => prev.filter((g) => g.id !== gameId));
+    } catch (err) {
+      setDeleteError(describeDeleteError(err));
+    } finally {
+      setDeletingId(null);
+      setConfirmDeleteId(null);
+    }
+  };
 
   const summary = games ? aggregateSeasonSummary(games) : [];
   const anyInjured = summary.some((r) => r.injuredMin > 0);
@@ -91,6 +120,44 @@ export default function SeasonSummaryModal({ teamId, onClose }) {
                     {anyInjured && <span>{Math.round(r.injuredMin / r.gamesPlayed)}</span>}
                   </div>
                 ))}
+            </div>
+
+            <p style={{ ...styles.backupHint, marginTop: 14 }}>
+              Individual games — newest first. Removing one only affects the averages above.
+            </p>
+            {deleteError && <div style={styles.modalWarning}>{deleteError}</div>}
+            <div>
+              {games.map((g) => {
+                const dateLabel = g.date ? new Date(g.date).toLocaleDateString() : "Unknown date";
+                const playerCount = g.players?.length ?? 0;
+
+                if (confirmDeleteId === g.id) {
+                  return (
+                    <div key={g.id} style={styles.backupConfirmRow}>
+                      <span style={styles.backupHint}>
+                        Delete the {dateLabel} game? This can't be undone.
+                      </span>
+                      <button style={styles.backupConfirmBtn} onClick={() => handleDelete(g.id)} disabled={deletingId === g.id}>
+                        {deletingId === g.id ? "Deleting…" : "Yes, delete"}
+                      </button>
+                      <button style={styles.backupCancelBtn} onClick={() => setConfirmDeleteId(null)} disabled={deletingId === g.id}>
+                        Cancel
+                      </button>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div key={g.id} style={styles.teamRow}>
+                    <span style={{ flex: 1 }}>
+                      {dateLabel} <span style={styles.teamRowMeta}>{playerCount} player{playerCount === 1 ? "" : "s"}</span>
+                    </span>
+                    <button style={styles.iconBtn} onClick={() => setConfirmDeleteId(g.id)} title="Delete this game">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </>
         )}

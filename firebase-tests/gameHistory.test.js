@@ -6,7 +6,7 @@ import { connectAuthEmulator, signInAnonymously, signOut } from "firebase/auth";
 import { connectFirestoreEmulator } from "firebase/firestore";
 import { auth, db } from "../src/lib/firebaseClient.js";
 import { createTeamDoc, deleteTeamDoc } from "../src/lib/firestoreTeams.js";
-import { archiveGame, fetchGameHistory, deleteAllGames } from "../src/lib/gameHistory.js";
+import { archiveGame, fetchGameHistory, deleteGame, deleteAllGames } from "../src/lib/gameHistory.js";
 
 beforeAll(() => {
   connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
@@ -56,6 +56,19 @@ describe("gameHistory.js against the Firestore emulator", () => {
     const uid = await signInAsNewUser();
     const team = await createTeamDoc(uid, { name: "Scorpions", roster: [], settings: {} });
     expect(await fetchGameHistory(team.id)).toEqual([]);
+  });
+
+  test("deleteGame removes just the one game, leaving the rest of the history intact", async () => {
+    const uid = await signInAsNewUser();
+    const team = await createTeamDoc(uid, { name: "Scorpions", roster: [], settings: {} });
+    const keep1 = await archiveGame(team.id, { date: 1000, players: [] });
+    const toDelete = await archiveGame(team.id, { date: 2000, players: [] });
+    const keep2 = await archiveGame(team.id, { date: 3000, players: [] });
+
+    await deleteGame(team.id, toDelete.id);
+
+    const history = await fetchGameHistory(team.id);
+    expect(history.map((g) => g.id).sort()).toEqual([keep1.id, keep2.id].sort());
   });
 
   test("deleteAllGames removes every archived game for a team", async () => {

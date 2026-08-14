@@ -6,8 +6,9 @@ import userEvent from "@testing-library/user-event";
 
 vi.mock("../lib/gameHistory.js", () => ({
   fetchGameHistory: vi.fn(),
+  deleteGame: vi.fn(),
 }));
-import { fetchGameHistory } from "../lib/gameHistory.js";
+import { fetchGameHistory, deleteGame } from "../lib/gameHistory.js";
 import SeasonSummaryModal from "./SeasonSummaryModal.jsx";
 
 afterEach(() => {
@@ -98,6 +99,55 @@ describe("SeasonSummaryModal", () => {
     rerender(<SeasonSummaryModal teamId="t2" onClose={vi.fn()} />);
     await waitFor(() => expect(fetchGameHistory).toHaveBeenCalledWith("t2"));
     expect(await screen.findByText(/No games recorded yet/)).toBeInTheDocument();
+  });
+
+  it("lists each individual game, newest first, with a delete option", async () => {
+    fetchGameHistory.mockResolvedValue(GAMES);
+    render(<SeasonSummaryModal teamId="t1" onClose={vi.fn()} />);
+    await screen.findByText("Alice");
+    expect(screen.getAllByTitle("Delete this game")).toHaveLength(2);
+  });
+
+  it("asks for confirmation before deleting, and cancel backs out without calling deleteGame", async () => {
+    fetchGameHistory.mockResolvedValue(GAMES);
+    const user = userEvent.setup();
+    render(<SeasonSummaryModal teamId="t1" onClose={vi.fn()} />);
+    await screen.findByText("Alice");
+
+    await user.click(screen.getAllByTitle("Delete this game")[0]);
+    expect(screen.getByText(/can't be undone/)).toBeInTheDocument();
+    await user.click(screen.getByText("Cancel"));
+    expect(deleteGame).not.toHaveBeenCalled();
+    expect(screen.getAllByTitle("Delete this game")).toHaveLength(2); // both rows still there
+  });
+
+  it("deletes the game and removes it from the list on confirm, without needing a re-fetch", async () => {
+    fetchGameHistory.mockResolvedValue(GAMES);
+    deleteGame.mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(<SeasonSummaryModal teamId="t1" onClose={vi.fn()} />);
+    await screen.findByText("Alice");
+
+    await user.click(screen.getAllByTitle("Delete this game")[0]); // the newer game, g2
+    await user.click(screen.getByText("Yes, delete"));
+
+    await waitFor(() => expect(deleteGame).toHaveBeenCalledWith("t1", "g2"));
+    expect(fetchGameHistory).toHaveBeenCalledTimes(1); // no re-fetch triggered
+    await waitFor(() => expect(screen.getAllByTitle("Delete this game")).toHaveLength(1));
+  });
+
+  it("shows a friendly error and keeps the game listed if the delete fails", async () => {
+    fetchGameHistory.mockResolvedValue(GAMES);
+    deleteGame.mockRejectedValue({ code: "unavailable" });
+    const user = userEvent.setup();
+    render(<SeasonSummaryModal teamId="t1" onClose={vi.fn()} />);
+    await screen.findByText("Alice");
+
+    await user.click(screen.getAllByTitle("Delete this game")[0]);
+    await user.click(screen.getByText("Yes, delete"));
+
+    expect(await screen.findByText(/You're offline/)).toBeInTheDocument();
+    expect(screen.getAllByTitle("Delete this game")).toHaveLength(2); // still there, nothing lost
   });
 
   it("calls onClose when the close button is clicked", async () => {
