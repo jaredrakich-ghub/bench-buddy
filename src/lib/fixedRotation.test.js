@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { buildBenchSchedule, assignKeepers, buildFixedPlan, generateFixedPlan, countDoubleStacked, computeOutfieldSpread } from "./fixedRotation.js";
+import {
+  buildBenchSchedule, assignKeepers, buildFixedPlan, generateFixedPlan, continueFixedPlan, countDoubleStacked, computeOutfieldSpread,
+} from "./fixedRotation.js";
+import { buildCarryState, lastGkId } from "./rotation.js";
 
 // Bench turns follow generatePlan's own final total-minutes across the
 // whole game, not "each transition holds" — checked here instead directly
@@ -186,5 +189,81 @@ describe("computeOutfieldSpread", () => {
     ];
     // p1: 10 outfield (interval 2 only, was gk in interval 1). p2: 10 outfield (interval 1 only).
     expect(computeOutfieldSpread(intervals, ["p1", "p2"])).toBe(0);
+  });
+});
+
+describe("continueFixedPlan — mid-game rebuild (not yet wired into the app)", () => {
+  // 7 players, 45-min game, 5-min subs (9 intervals) — same shape as the
+  // real live game that motivated this whole engine. Build a full plan,
+  // pretend 3 intervals have already happened, then rebuild the remainder
+  // as if Jack got injured right then — the exact scenario handleInjury
+  // (useMatchState.js) would need this for, once wired in.
+  const ids = ["Jack", "Atu", "Rocco", "George", "Hugo", "Otis", "Eli"];
+  const gameMinutes = 45, fieldSize = 5, numIntervals = 9;
+
+  function rebuildAfterInjury(injuredId, activeInterval, seedRandom) {
+    const { intervals: fullPlan } = generateFixedPlan({
+      availableIds: ids, gameMinutes, numIntervals, fieldSize, keeperEligibleIds: ids, random: seedRandom,
+    });
+    const priorIntervals = fullPlan.slice(0, activeInterval);
+    const remainingAvailable = ids.filter((id) => id !== injuredId);
+    const carryState = buildCarryState(ids, priorIntervals);
+    const { intervals: rebuilt } = continueFixedPlan({
+      availableIds: remainingAvailable, gameMinutes, numIntervals, startInterval: activeInterval, fieldSize,
+      keeperEligibleIds: remainingAvailable, carryState, currentGkId: lastGkId(priorIntervals),
+      previousOnFieldIds: priorIntervals[priorIntervals.length - 1].onField.map((p) => p.id),
+    });
+    return { priorIntervals, rebuilt, combined: [...priorIntervals, ...rebuilt] };
+  }
+
+  it("holds bench->keeper across the seam between the completed part and the rebuilt remainder, not just within the remainder itself", () => {
+    for (const seed of [0.1, 0.3, 0.5, 0.7, 0.9]) {
+      const { combined } = rebuildAfterInjury("Jack", 3, () => seed);
+      for (let i = 0; i < combined.length - 1; i++) {
+        const bench = new Set(combined[i].bench);
+        const nextGk = combined[i + 1].onField.find((p) => p.isGk);
+        expect(nextGk && bench.has(nextGk.id)).toBe(true);
+      }
+    }
+  });
+
+  it("removes the injured player entirely from the rebuilt remainder", () => {
+    const { rebuilt } = rebuildAfterInjury("Jack", 3, () => 0.3);
+    rebuilt.forEach((iv) => {
+      expect(iv.onField.some((p) => p.id === "Jack")).toBe(false);
+      expect(iv.bench.includes("Jack")).toBe(false);
+    });
+  });
+
+  it("continues the current keeper's shift instead of picking a new one off-boundary, when the shift spans the rebuild point", () => {
+    // keeperShiftIntervals: 3 means the keeper set at interval 0 should
+    // still be in goal at interval 1 (off-boundary) even after a rebuild
+    // lands exactly there.
+    const carryState = buildCarryState(["p1", "p2", "p3", "p4"], [
+      { startMin: 0, endMin: 5, onField: [{ id: "p1", isGk: true }, { id: "p2", isGk: false }, { id: "p3", isGk: false }], bench: ["p4"] },
+    ]);
+    const { intervals } = continueFixedPlan({
+      availableIds: ["p1", "p2", "p3", "p4"], gameMinutes: 20, numIntervals: 4, startInterval: 1, fieldSize: 3,
+      keeperEligibleIds: ["p1", "p2", "p3", "p4"], keeperShiftIntervals: 3, carryState, currentGkId: "p1",
+      previousOnFieldIds: ["p1", "p2", "p3"],
+    });
+    expect(intervals[0].onField.find((p) => p.isGk).id).toBe("p1"); // interval 1 (absolute) — still mid-shift
+  });
+
+  it("orders the rebuilt remainder so whoever's had the least bench time so far gets priority, not an arbitrary shuffle", () => {
+    // p4 has never been benched (longest current streak of playing);
+    // p1/p2/p3 have each already had a turn. A fresh continuation should
+    // send p4 to the bench first, not treat everyone as equally due.
+    const carryState = {
+      p1: { fieldMin: 10, gkMin: 0, consecBench: 0 },
+      p2: { fieldMin: 10, gkMin: 0, consecBench: 0 },
+      p3: { fieldMin: 10, gkMin: 0, consecBench: 0 },
+      p4: { fieldMin: 15, gkMin: 0, consecBench: 0 }, // played every interval so far, most field time
+    };
+    const { intervals } = continueFixedPlan({
+      availableIds: ["p1", "p2", "p3", "p4"], gameMinutes: 20, numIntervals: 4, startInterval: 3, fieldSize: 3,
+      keeperEligibleIds: ["p1", "p2", "p3", "p4"], carryState, previousOnFieldIds: ["p1", "p2", "p3"],
+    });
+    expect(intervals[0].bench).toEqual(["p4"]);
   });
 });

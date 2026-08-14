@@ -28,7 +28,15 @@
  * The three real live games that motivated this (see conversation/commit
  * history around this file's introduction) are the actual regression
  * fixtures for this engine — see fixedRotation.test.js.
+ *
+ * Mid-game continuation (continueFixedPlan, added later): reuses
+ * buildCarryState/benchPriorityCompare/lastGkId from rotation.js rather
+ * than reinventing "who's owed a turn" — those are already the app's one
+ * definition of fairness for a rebuild, and reusing them means this can
+ * never quietly drift from what generatePlan's own carryState-based
+ * rebuild already does for injuries/swaps.
  */
+import { benchPriorityCompare } from "./rotation.js";
 
 // Interval i's bench is the next `benchSpots` players from `rotationOrder`,
 // read cyclically starting at position `i * benchSpots`. Consecutive
@@ -69,7 +77,10 @@ export function buildBenchSchedule({ rotationOrder, numIntervals, benchSpots }) 
 //      broken — and only when there's truly no eligible alternative, not
 //      as a routine tradeoff the way generatePlan's tie-break-only rule
 //      could be.
-export function assignKeepers({ rotationOrder, benchSchedule, keeperEligibleIds, keeperShiftIntervals = 1, startingGkId = null }) {
+export function assignKeepers({
+  rotationOrder, benchSchedule, keeperEligibleIds, keeperShiftIntervals = 1, startingGkId = null,
+  startIndex = 0, currentGkId = null, previousOnFieldIds = null, initialGkMinutes = null, intervalLen = 1,
+}) {
   const numIntervals = benchSchedule.length;
   const eligibleSet = new Set(keeperEligibleIds || []);
   const shiftLen = Math.max(1, keeperShiftIntervals);
@@ -124,8 +135,12 @@ export function assignKeepers({ rotationOrder, benchSchedule, keeperEligibleIds,
   rotationOrder.forEach((id) => (totalBenchTurns[id] = 0));
   benchSchedule.forEach((bench) => bench.forEach((id) => (totalBenchTurns[id] += 1)));
 
+  // Seeded from a prior part of the game when this is a mid-game
+  // continuation (see continueFixedPlan below) — real minutes, not turn
+  // counts, so they stay comparable with what gets added below. Defaults
+  // to everyone at zero for a fresh game, same as before.
   const gkMinutesSoFar = {};
-  rotationOrder.forEach((id) => (gkMinutesSoFar[id] = 0));
+  rotationOrder.forEach((id) => (gkMinutesSoFar[id] = (initialGkMinutes && initialGkMinutes[id]) || 0));
   const orderIndex = {};
   rotationOrder.forEach((id, i) => (orderIndex[id] = i));
 
@@ -147,19 +162,33 @@ export function assignKeepers({ rotationOrder, benchSchedule, keeperEligibleIds,
     })[0];
 
   const gkPerInterval = [];
-  let prevGk = null;
-  let prevOnFieldSet = new Set();
+  // Seeded from the actual game state for a continuation (who's currently
+  // in goal, who was actually on the field the moment before this call's
+  // first interval) instead of always starting blank — see
+  // continueFixedPlan. Left at their fresh-game defaults (null / empty),
+  // `previousOnFieldIds` staying unset is exactly what makes
+  // `isGenuineStart` below true only for an actual fresh game, never a
+  // continuation.
+  let prevGk = currentGkId;
+  let prevOnFieldSet = new Set(previousOnFieldIds || []);
 
   for (let i = 0; i < numIntervals; i++) {
+    const absoluteIndex = startIndex + i;
     const onField = onFieldSets[i];
     const onFieldSet = new Set(onField);
-    const atShiftBoundary = i % shiftLen === 0;
+    const atShiftBoundary = absoluteIndex % shiftLen === 0;
     const eligibleOnField = onField.filter((id) => eligibleSet.has(id));
+    // True only for interval 0 of an actual fresh game (no prior on-field
+    // state to compare against) — a continuation always seeds
+    // prevOnFieldSet with the real state just before it, so this is false
+    // for every interval of a rebuild, including its first, and "arriving"
+    // correctly means "actually arriving from the bench" throughout.
+    const isGenuineStart = i === 0 && prevOnFieldSet.size === 0;
 
     let gk;
     if (i === 0 && startingGkId && onFieldSet.has(startingGkId) && eligibleSet.has(startingGkId)) {
       gk = startingGkId;
-    } else if (i === 0) {
+    } else if (isGenuineStart) {
       // The one truly free pick in the whole game — nobody "arrived" yet,
       // so there's no bench-arrival claim to honor, only a choice to make
       // well. See the guaranteedKeeperTurns comment above.
@@ -178,7 +207,7 @@ export function assignKeepers({ rotationOrder, benchSchedule, keeperEligibleIds,
     }
 
     gkPerInterval.push(gk);
-    if (gk) gkMinutesSoFar[gk] += 1; // relative units are fine here — only used to compare within this run
+    if (gk) gkMinutesSoFar[gk] += intervalLen;
     prevGk = gk;
     prevOnFieldSet = onFieldSet;
   }
@@ -190,24 +219,38 @@ export function assignKeepers({ rotationOrder, benchSchedule, keeperEligibleIds,
 // produces, so this can be swapped in wherever generatePlan is used without
 // the caller (or SummaryModal, computeMinutesSummary, etc.) needing to
 // change at all.
+//
+// `numIntervals` is always the *whole* game's interval count (needed to
+// compute each interval's real start/end minute correctly) — `startIndex`
+// says where this particular call's bench schedule should pick up from,
+// so a continuation only builds the intervals it's actually responsible
+// for (see continueFixedPlan) while still landing on the correct absolute
+// timestamps and shift-boundary alignment. Defaults reproduce a fresh
+// whole-game build exactly as before.
 export function buildFixedPlan({
   rotationOrder, gameMinutes, numIntervals, fieldSize, keeperEligibleIds, keeperShiftIntervals = 1, startingGkId = null,
+  startIndex = 0, currentGkId = null, previousOnFieldIds = null, initialGkMinutes = null,
 }) {
   const size = Math.min(fieldSize, rotationOrder.length);
   const benchSpots = rotationOrder.length - size;
   const intervalLen = gameMinutes / numIntervals;
+  const intervalsToBuild = numIntervals - startIndex;
 
-  const benchSchedule = buildBenchSchedule({ rotationOrder, numIntervals, benchSpots });
-  const gkPerInterval = assignKeepers({ rotationOrder, benchSchedule, keeperEligibleIds, keeperShiftIntervals, startingGkId });
+  const benchSchedule = buildBenchSchedule({ rotationOrder, numIntervals: intervalsToBuild, benchSpots });
+  const gkPerInterval = assignKeepers({
+    rotationOrder, benchSchedule, keeperEligibleIds, keeperShiftIntervals, startingGkId,
+    startIndex, currentGkId, previousOnFieldIds, initialGkMinutes, intervalLen,
+  });
 
   const intervals = benchSchedule.map((bench, i) => {
     const benchSet = new Set(bench);
     const onField = rotationOrder.filter((id) => !benchSet.has(id));
     const gk = gkPerInterval[i];
+    const absoluteIndex = startIndex + i;
     return {
-      index: i,
-      startMin: Math.round(i * intervalLen),
-      endMin: Math.round((i + 1) * intervalLen),
+      index: absoluteIndex,
+      startMin: Math.round(absoluteIndex * intervalLen),
+      endMin: Math.round((absoluteIndex + 1) * intervalLen),
       onField: onField.map((id) => ({ id, isGk: id === gk })),
       bench,
     };
@@ -308,6 +351,57 @@ export function generateFixedPlan({
   }
 
   return buildFixedPlan({ rotationOrder, gameMinutes, numIntervals, fieldSize, keeperEligibleIds, keeperShiftIntervals, startingGkId });
+}
+
+// Rebuilds the *remainder* of an in-progress game from `startInterval`
+// onward — the mid-game equivalent of generateFixedPlan, for when the
+// roster changes partway through (an injury, a bring-back, a manual swap).
+// Not yet wired into the app — useMatchState's handleInjury/bringBack/
+// performSwap still use generatePlan with carryState (rotation.js) for
+// this, deliberately left untouched; see this function's own commit
+// message for why.
+//
+// The core idea: a fresh game's rotation order can be an arbitrary shuffle,
+// because everyone starts at zero, so any order is equally fair. A
+// continuation can't do that — some players are already ahead or behind on
+// bench/keeper time, so the order has to reflect that instead. `carryState`
+// (buildCarryState in rotation.js — already computed by every caller that
+// currently rebuilds a plan) gives exactly the numbers needed:
+// benchPriorityCompare (rotation.js's own "who's more owed a turn"
+// definition, reused rather than re-derived) sorts the remaining players
+// so whoever's had the least bench time so far leads the new schedule, and
+// carryState's gkMin seeds keeper-minutes tracking so the "fewest keeper
+// minutes so far" comparisons account for the whole game, not just the
+// remainder.
+//
+// `currentGkId` and `previousOnFieldIds` carry the moment-of-rebuild state
+// forward so the very first interval of the remainder is treated as a
+// genuine continuation, not a second "fresh start" — see assignKeepers'
+// isGenuineStart. Passing lastGkId(priorIntervals) and priorIntervals's
+// final onField list (both rotation.js, already computed by every current
+// caller of a rebuild) is exactly right for these.
+export function continueFixedPlan({
+  availableIds, gameMinutes, numIntervals, startInterval, fieldSize, keeperEligibleIds, keeperShiftIntervals = 1,
+  carryState, currentGkId = null, previousOnFieldIds = null,
+}) {
+  // benchPriorityCompare sorts ascending by "most owed to be *playing*"
+  // (rotation.js's resolveBringBack uses it exactly that way, to pick who
+  // gets promoted onto an open field slot). buildBenchSchedule's position 0
+  // is the opposite question — who gets *benched* first — so this needs
+  // the reverse: whoever's played the most already (least owed to keep
+  // playing) leads the new order, so they're first to sit. Caught by
+  // testing directly rather than trusted by eye: an unreversed version
+  // benched whoever had played the *least* first, which is backwards.
+  const stats = (id) => carryState?.[id] || { fieldMin: 0, gkMin: 0, consecBench: 0 };
+  const rotationOrder = [...availableIds].sort((a, b) => benchPriorityCompare(stats(b), stats(a)));
+
+  const initialGkMinutes = {};
+  availableIds.forEach((id) => (initialGkMinutes[id] = stats(id).gkMin));
+
+  return buildFixedPlan({
+    rotationOrder, gameMinutes, numIntervals, fieldSize, keeperEligibleIds, keeperShiftIntervals,
+    startIndex: startInterval, currentGkId, previousOnFieldIds, initialGkMinutes,
+  });
 }
 
 function shuffle(array, random) {
