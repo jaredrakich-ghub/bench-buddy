@@ -205,6 +205,51 @@ describe("useMatchState — guard clauses", () => {
   });
 });
 
+describe("useMatchState — swapping on a browsed (not-necessarily-live) interval", () => {
+  // performSwap always reads plan[activeInterval] — there's no separate
+  // "live interval" concept it enforces. A coach can tap ahead to a later
+  // interval tab (MatchView lets this regardless of the clock) and swap
+  // there, without touching anything currently live. This documents and
+  // locks in that this already works, since it directly answers "can I
+  // make a correction to an upcoming interval, not just right now" —
+  // nothing new needed in useMatchState for that question.
+  const BIG_ROSTER = Array.from({ length: 7 }, (_, i) => ({ id: `p${i}`, name: `Player ${i}`, keeperEligible: true }));
+  const BIG_TEAM = { id: "t1", name: "Scorpions", roster: BIG_ROSTER, settings: { fieldSize: 5, gameMinutes: 24, subIntervalMinutes: 6 } };
+
+  function setupBigPlan() {
+    const saveTeamData = vi.fn();
+    const { result } = renderHook(() => useMatchState({ activeTeamId: "t1", teamData: BIG_TEAM, saveTeamData }));
+    act(() => {
+      result.current.setAvailableIds(BIG_ROSTER.map((p) => p.id));
+      result.current.setGameSettings({ fieldSize: 5, gameMinutes: 24, subIntervalMinutes: 6 });
+    });
+    act(() => result.current.startPlanning());
+    return { result, saveTeamData };
+  }
+
+  it("swapping on a future interval (clock still at 0, browsed ahead) leaves earlier intervals untouched and rebuilds only what follows", () => {
+    const { result } = setupBigPlan();
+    expect(result.current.plan.length).toBeGreaterThan(2); // needs room to browse ahead
+    const intervalBefore1 = result.current.plan[1];
+
+    act(() => result.current.setActiveInterval(2)); // browse ahead — clock/elapsedSec is still 0, nothing "live" yet
+    const targetIv = result.current.plan[2];
+    const fieldId = targetIv.onField[0].id;
+    const benchId = targetIv.bench[0];
+
+    act(() => result.current.performSwap(benchId, fieldId));
+
+    // Interval 1 (before the edit) is exactly as it was — unmodified.
+    expect(result.current.plan[1]).toBe(intervalBefore1);
+    // Interval 2 (the edited one) now has the swapped-in player on the field.
+    expect(result.current.plan[2].onField.some((p) => p.id === benchId)).toBe(true);
+    expect(result.current.plan[2].onField.some((p) => p.id === fieldId)).toBe(false);
+    // Everything after interval 2 was rebuilt (still a valid, full plan).
+    expect(result.current.plan.length).toBe(targetIv ? result.current.plan.length : 0);
+    expect(result.current.plan.every((iv) => iv.onField.length === 5)).toBe(true);
+  });
+});
+
 describe("useMatchState — persisting to Firestore", () => {
   it("does not save while there's no plan yet", async () => {
     setup();
