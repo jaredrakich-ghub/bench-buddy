@@ -44,6 +44,14 @@ export default function MatchView({
   const noBenchToRotate = cur.bench.length === 0;
   const inWarningWindow = nextIv && secLeftInInterval <= 60 && (!noBenchToRotate || gkChanging);
   const confirmedAt = subLog[cur.index];
+  // Who's actually changing at the real, live upcoming transition — always
+  // tied to elapsedSec, never to whatever interval the coach happens to be
+  // browsing (see viewedIv/viewedGk etc. below, which is the separate
+  // "what am I looking at" version used for the pitch board's badges). The
+  // warning box needs the live one specifically: it's telling the coach
+  // what to physically do right now, so it can't follow them if they've
+  // tapped ahead to check a later interval.
+  const liveChanges = computeNextChangeBadges({ cur, nextIv, curGk, nextGk, gkChanging });
 
   // Who's changing going into the NEXT interval after whichever one is
   // currently being viewed (activeInterval) — not necessarily the live one
@@ -163,26 +171,41 @@ export default function MatchView({
           </button>
         </div>
       ) : (
-        <div style={styles.intervalCountdown}>
-          Sub window ends in <strong>{fmtClock(Math.max(0, secLeftInInterval))}</strong>
-          {nextIv && confirmedAt === undefined && !inWarningWindow && (
-            <button style={styles.confirmBtnInline} onClick={() => setSubLog((prev) => ({ ...prev, [cur.index]: elapsedSec }))}>
-              ✓ Sub made early
-            </button>
-          )}
-        </div>
+        // Hidden once the warning box below takes over (last minute,
+        // unconfirmed) — it shows this same countdown, larger, alongside
+        // who's actually changing, so repeating it here would just be
+        // clutter on a small screen.
+        !(inWarningWindow && confirmedAt === undefined) && (
+          <div style={styles.intervalCountdown}>
+            Sub window ends in <strong>{fmtClock(Math.max(0, secLeftInInterval))}</strong>
+            {nextIv && confirmedAt === undefined && (
+              <button style={styles.confirmBtnInline} onClick={() => setSubLog((prev) => ({ ...prev, [cur.index]: elapsedSec }))}>
+                ✓ Sub made early
+              </button>
+            )}
+          </div>
+        )
       )}
 
       {inWarningWindow && confirmedAt === undefined && (
         <div style={styles.gkWarmup}>
           <div style={styles.warmupText}>
-            <div>
-              {secLeftInInterval > 0
-                ? noBenchToRotate
-                  ? `Keeper swap coming up — window closes in ${fmtClock(secLeftInInterval)}`
-                  : `Start looking for the next sub — window closes in ${fmtClock(secLeftInInterval)}`
-                : "Sub window is up — make the change now"}
-            </div>
+            <div style={styles.warmupCountdown}>{secLeftInInterval > 0 ? fmtClock(secLeftInInterval) : "Now"}</div>
+            {(liveChanges.comingOffIds.size > 0 || liveChanges.comingOnIds.size > 0) && (
+              <div>
+                {liveChanges.comingOffIds.size > 0 && (
+                  <>
+                    OFF: <strong>{[...liveChanges.comingOffIds].map(nameOf).join(", ")}</strong>
+                    {liveChanges.comingOnIds.size > 0 ? "   " : ""}
+                  </>
+                )}
+                {liveChanges.comingOnIds.size > 0 && (
+                  <>
+                    ON: <strong>{[...liveChanges.comingOnIds].map(nameOf).join(", ")}</strong>
+                  </>
+                )}
+              </div>
+            )}
             {gkChanging && (
               <div>
                 <span style={{ marginRight: 4 }}>🧤</span>

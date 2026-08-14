@@ -212,6 +212,10 @@ export const styles = {
     fontWeight: 700, fontSize: 13, padding: "10px 12px", borderRadius: 10, marginBottom: 8,
   },
   warmupText: { display: "flex", flexDirection: "column", gap: 3, lineHeight: 1.3 },
+  // Deliberately the biggest, boldest thing in the box — a coach glancing
+  // at their phone from a few feet away on the sideline needs the
+  // countdown to be readable at a glance, not buried mid-sentence.
+  warmupCountdown: { fontSize: 20, fontWeight: 800, fontVariantNumeric: "tabular-nums" },
   confirmBtn: {
     flex: "0 0 auto", background: "rgba(255,255,255,0.9)", color: colors.ink, border: "none", borderRadius: 8,
     padding: "7px 11px", fontWeight: 800, fontSize: 11, cursor: "pointer", whiteSpace: "nowrap",

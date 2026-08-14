@@ -148,6 +148,42 @@ describe("MatchView — interval navigation", () => {
   });
 });
 
+describe("MatchView — sub-window warning box", () => {
+  // Regular subs used to only ever say "Start looking for the next sub" —
+  // no names. This shows exactly who's coming off and on, plus a large
+  // countdown, so a coach glancing at their phone can act without reading
+  // closely. Tied to the live interval (elapsedSec), not whatever's being
+  // browsed — see liveChanges in MatchView.
+  it("names who's coming off and on, and shows the keeper handover, inside the last-minute warning window", () => {
+    // interval 0 (0-6min) -> interval 1: p4 off, p6 on, keeper handover p1->p3.
+    // 340s elapsed leaves 20s in interval 0 (6*60=360), inside the 60s window.
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 340 })} />);
+    expect(screen.getByText("0:20")).toBeInTheDocument(); // the header countdown is hidden while this box shows
+    // Names appear elsewhere too (pitch/bench labels), so scope into the
+    // OFF/ON line's own text rather than matching bare names page-wide.
+    const offOnLine = screen.getByText(/OFF:/).closest("div");
+    expect(offOnLine.textContent).toContain("Dan"); // p4, coming off
+    expect(offOnLine.textContent).toContain("Finn"); // p6, coming on
+    const keeperLine = screen.getByText(/warm up in goal/).closest("div");
+    expect(keeperLine.textContent).toContain("Cara"); // p3, becoming keeper
+  });
+
+  it("keeps showing the live upcoming change even while browsing a different interval", () => {
+    const threeIntervalPlan = [...defaultPlan, makeInterval(2, 12, 18, ["p1", "p3", "p5", "p6", "p7"], "p3", ["p2", "p4"])];
+    // Live is still interval 0 (elapsedSec=340), but the board is showing interval 2.
+    render(<MatchView {...baseProps({ plan: threeIntervalPlan, activeInterval: 2, elapsedSec: 340 })} />);
+    expect(screen.getByText("0:20")).toBeInTheDocument();
+    const offOnLine = screen.getByText(/OFF:/).closest("div");
+    expect(offOnLine.textContent).toContain("Dan"); // still the live transition's names (p4), not interval 2's (p2/p4 bench)
+  });
+
+  it("disappears once the interval it warned about actually ends", () => {
+    // elapsedSec now well into interval 1 - the interval-0 warning is gone.
+    render(<MatchView {...baseProps({ activeInterval: 1, elapsedSec: 400 })} />);
+    expect(screen.queryByText(/OFF:/)).not.toBeInTheDocument();
+  });
+});
+
 describe("MatchView — past-interval guard", () => {
   // Swap/injury/bring-back all act on plan[activeInterval] with no separate
   // "live interval" concept enforced in useMatchState — browsing ahead to
