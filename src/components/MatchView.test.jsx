@@ -158,7 +158,9 @@ describe("MatchView — sub-window warning box", () => {
     // interval 0 (0-6min) -> interval 1: p4 off, p6 on, keeper handover p1->p3.
     // 340s elapsed leaves 20s in interval 0 (6*60=360), inside the 60s window.
     render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 340 })} />);
-    expect(screen.getByText("0:20")).toBeInTheDocument(); // the header countdown is hidden while this box shows
+    // "0:20" appears twice — the header row stays put the whole game (see
+    // MatchView) and the warning box shows the same value again, larger.
+    expect(screen.getAllByText("0:20").length).toBe(2);
     // Names appear elsewhere too (pitch/bench labels), so scope into the
     // OFF/ON line's own text rather than matching bare names page-wide.
     const offOnLine = screen.getByText(/OFF:/).closest("div");
@@ -172,7 +174,7 @@ describe("MatchView — sub-window warning box", () => {
     const threeIntervalPlan = [...defaultPlan, makeInterval(2, 12, 18, ["p1", "p3", "p5", "p6", "p7"], "p3", ["p2", "p4"])];
     // Live is still interval 0 (elapsedSec=340), but the board is showing interval 2.
     render(<MatchView {...baseProps({ plan: threeIntervalPlan, activeInterval: 2, elapsedSec: 340 })} />);
-    expect(screen.getByText("0:20")).toBeInTheDocument();
+    expect(screen.getAllByText("0:20").length).toBe(2);
     const offOnLine = screen.getByText(/OFF:/).closest("div");
     expect(offOnLine.textContent).toContain("Dan"); // still the live transition's names (p4), not interval 2's (p2/p4 bench)
   });
@@ -181,6 +183,23 @@ describe("MatchView — sub-window warning box", () => {
     // elapsedSec now well into interval 1 - the interval-0 warning is gone.
     render(<MatchView {...baseProps({ activeInterval: 1, elapsedSec: 400 })} />);
     expect(screen.queryByText(/OFF:/)).not.toBeInTheDocument();
+  });
+
+  it("keeps the header countdown row's own height stable when the warning box appears — only its button toggles", () => {
+    // Regression test: an earlier version hid the whole header row once the
+    // warning box appeared, which collapsed its height at the exact moment
+    // the (taller) box appeared below it — looked like the "Sub made early"
+    // button had jumped or the two were overlapping. The row itself must
+    // never disappear; only the button inside it should.
+    const { rerender } = render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 295 })} />); // 65s left - not yet in the window (window opens at <=60s)
+    expect(screen.getByText(/Sub window ends in/)).toBeInTheDocument();
+    expect(screen.getByText("✓ Sub made early")).toBeInTheDocument();
+    expect(screen.queryByText(/OFF:/)).not.toBeInTheDocument();
+
+    rerender(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 340 })} />); // 20s left - inside the window
+    expect(screen.getByText(/Sub window ends in/)).toBeInTheDocument(); // row still there
+    expect(screen.queryByText("✓ Sub made early")).not.toBeInTheDocument(); // only the button is gone
+    expect(screen.getByText(/OFF:/)).toBeInTheDocument(); // warning box now also showing
   });
 });
 

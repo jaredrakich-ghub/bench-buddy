@@ -171,20 +171,24 @@ export default function MatchView({
           </button>
         </div>
       ) : (
-        // Hidden once the warning box below takes over (last minute,
-        // unconfirmed) — it shows this same countdown, larger, alongside
-        // who's actually changing, so repeating it here would just be
-        // clutter on a small screen.
-        !(inWarningWindow && confirmedAt === undefined) && (
-          <div style={styles.intervalCountdown}>
-            Sub window ends in <strong>{fmtClock(Math.max(0, secLeftInInterval))}</strong>
-            {nextIv && confirmedAt === undefined && (
-              <button style={styles.confirmBtnInline} onClick={() => setSubLog((prev) => ({ ...prev, [cur.index]: elapsedSec }))}>
-                ✓ Sub made early
-              </button>
-            )}
-          </div>
-        )
+        // Stays put across the whole interval — only the button inside it
+        // comes and goes (see below), never the row itself. An earlier
+        // version hid this whole row once the warning box appeared, to
+        // avoid showing the same countdown twice, but that meant the row's
+        // full height collapsed at the exact instant the (taller) warning
+        // box appeared below it — a jarring jump that looked like the "Sub
+        // made early" button had moved or the two were overlapping. Keeping
+        // this row's presence constant and only ever toggling the one
+        // button inside it keeps the layout stable; a duplicated countdown
+        // value for the last 60 seconds is a much smaller cost than that.
+        <div style={styles.intervalCountdown}>
+          Sub window ends in <strong>{fmtClock(Math.max(0, secLeftInInterval))}</strong>
+          {nextIv && confirmedAt === undefined && !inWarningWindow && (
+            <button style={styles.confirmBtnInline} onClick={() => setSubLog((prev) => ({ ...prev, [cur.index]: elapsedSec }))}>
+              ✓ Sub made early
+            </button>
+          )}
+        </div>
       )}
 
       {inWarningWindow && confirmedAt === undefined && (

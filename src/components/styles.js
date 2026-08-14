@@ -196,6 +196,16 @@ export const styles = {
   intervalCountdown: {
     display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
     textAlign: "center", fontSize: 16, color: "#5B6B64", fontWeight: 600, margin: "8px 0",
+    // Without this, a "1" is narrower than an "8" in most fonts, so the
+    // clock text's total width shifts slightly every second — and since
+    // this row is centered (justifyContent: center) with a button next to
+    // it, that width change visibly nudges the whole row, button included,
+    // left and right as the seconds tick. Locks every digit to the same
+    // width so the row's total width — and its centered position — never
+    // moves. Found by testing on a real phone: reported as "the countdown
+    // moves the button a pixel every 2-3 seconds", which is exactly the
+    // rhythm of hitting narrower digits like "1".
+    fontVariantNumeric: "tabular-nums",
   },
   confirmBtnInline: {
     background: colors.field, color: "#fff", border: "none", borderRadius: 8,
