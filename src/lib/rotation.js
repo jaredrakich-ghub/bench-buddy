@@ -299,6 +299,106 @@ export function generatePlan({
   return { intervals };
 }
 
+// generatePlan above picks the keeper purely by least keeper-minutes-so-far
+// (with "currently on the bench" only a tiebreak on exact ties, not a hard
+// rule — see its own comment for why that's deliberate for keeper-minutes
+// fairness). That means a mid-game rebuild can occasionally hand keeper
+// duty to someone who was already out on the field, not someone actually
+// arriving from the bench — found via a real coach report: an unrelated
+// outfield swap (nothing keeper-related) changed who was flagged to become
+// keeper next, and the new pick wasn't even the player involved in the
+// swap. Fresh games (fixedRotation.js's buildFairSchedule) already
+// guarantee "new keeper always arrives from the bench" structurally; this
+// gives generatePlan's rebuilds the same guarantee, as a separate,
+// additive repair pass rather than changing generatePlan's own picking
+// logic — keeps every one of generatePlan's existing, tested properties
+// (keeper-minutes fairness, shift continuity, starting-keeper override,
+// the tied-candidate rotation) completely intact, since this only ever
+// fires on an actual violation, never on a plan that was already fine.
+//
+// Mutates `intervals` in place via safe outfield<->keeper role swaps only
+// — never changes who's on the bench, so nothing about outfield or bench
+// fairness is disturbed to fix this. Whenever the keeper actually changes
+// (not gated on being at a shift boundary specifically — see the loop's own
+// comment for why): if the new keeper was already on the field the
+// interval before (jumped from outfield, not the bench), swap them for a
+// keeper-eligible player who genuinely wasn't on the field last interval —
+// applied across however many following intervals that same (invalid)
+// keeper would otherwise have continued into, so shift continuity still
+// holds, mirroring fixedRotation.js's repairKeeperBalance/
+// repairOutfieldBalance (no separate keeperShiftIntervals input needed
+// here — "how long the block runs" is derived directly by watching how far
+// the same keeper id continues in `intervals`, not recomputed from shift
+// length). Among multiple genuinely-arriving candidates, prefers least
+// keeper-minutes so far (optionally seeded from `carryState`, the same
+// value the caller already computed for generatePlan itself), keeping the
+// swap's own fairness intent close to what generatePlan was already trying
+// to do.
+//
+// If nobody eligible genuinely arrived that interval, the violation is
+// left as-is — the one deliberate fallback, exactly matching Path B's own
+// documented exception for when there's truly no alternative.
+export function repairBenchToKeeper({
+  intervals, keeperEligibleIds, currentGkId = null, previousOnFieldIds = null, carryState = null,
+}) {
+  const eligibleSet = new Set(keeperEligibleIds || []);
+  if (eligibleSet.size === 0) return;
+
+  const gkMinSoFar = {};
+  const trackedGkMin = (id) => {
+    if (gkMinSoFar[id] === undefined) gkMinSoFar[id] = carryState?.[id]?.gkMin || 0;
+    return gkMinSoFar[id];
+  };
+
+  let prevOnFieldSet = new Set(previousOnFieldIds || []);
+  let prevGk = currentGkId;
+
+  for (let idx = 0; idx < intervals.length; idx++) {
+    const iv = intervals[idx];
+    const gk = iv.onField.find((p) => p.isGk);
+    const isGenuineStart = prevGk === null && prevOnFieldSet.size === 0;
+
+    // Deliberately not gated on being at a shift boundary — generatePlan
+    // can also force a keeper change off-boundary (e.g. the previous
+    // keeper became unavailable), and that new pick deserves the exact
+    // same "did they actually arrive from the bench" check.
+    if (gk && gk.id !== prevGk && !isGenuineStart && prevOnFieldSet.has(gk.id)) {
+      // Violation: gk was already on the field last interval, not arriving
+      // from the bench. Find who genuinely just arrived instead.
+      const arrivingEligible = iv.onField
+        .filter((p) => !p.isGk && eligibleSet.has(p.id) && !prevOnFieldSet.has(p.id))
+        .map((p) => p.id);
+
+      if (arrivingEligible.length > 0) {
+        const replacement = arrivingEligible.reduce((best, id) => (trackedGkMin(id) < trackedGkMin(best) ? id : best));
+        const invalidGkId = gk.id;
+
+        let blockEnd = idx;
+        while (blockEnd + 1 < intervals.length) {
+          const nextGk = intervals[blockEnd + 1].onField.find((p) => p.isGk);
+          if (!nextGk || nextGk.id !== invalidGkId) break;
+          blockEnd++;
+        }
+
+        for (let k = idx; k <= blockEnd; k++) {
+          intervals[k].onField = intervals[k].onField.map((p) => {
+            if (p.id === invalidGkId) return { id: invalidGkId, isGk: false };
+            if (p.id === replacement) return { id: replacement, isGk: true };
+            return p;
+          });
+        }
+      }
+    }
+
+    const intervalLen = iv.endMin - iv.startMin;
+    const actualGk = iv.onField.find((p) => p.isGk);
+    if (actualGk) gkMinSoFar[actualGk.id] = trackedGkMin(actualGk.id) + intervalLen;
+
+    prevGk = actualGk ? actualGk.id : null;
+    prevOnFieldSet = new Set(iv.onField.map((p) => p.id));
+  }
+}
+
 // The gap between whoever ended up with the most total on-field time (gk +
 // outfield combined) and whoever ended up with the least, across a whole
 // plan. The same measurement the "distributes outfield minutes fairly"

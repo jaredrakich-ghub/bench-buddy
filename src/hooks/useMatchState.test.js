@@ -248,6 +248,30 @@ describe("useMatchState — swapping on a browsed (not-necessarily-live) interva
     expect(result.current.plan.length).toBe(targetIv ? result.current.plan.length : 0);
     expect(result.current.plan.every((iv) => iv.onField.length === 5)).toBe(true);
   });
+
+  // Regression test for a real report: an outfield-only swap (nothing
+  // keeper-related) could hand the very next keeper slot to a player who
+  // wasn't even part of the swap, just because generatePlan's rebuild picks
+  // keeper by fairness alone with no "must actually arrive from the bench"
+  // rule. repairBenchToKeeper (rotation.js), wired into performSwap, closes
+  // that gap.
+  it("swapping an outfield player (not the keeper) never hands the next keeper slot to someone who was already on the field", () => {
+    const { result } = setupBigPlan();
+    act(() => result.current.setActiveInterval(2)); // leave room for the swap to affect later intervals
+    const cur = result.current.plan[2];
+    const outgoing = cur.onField.find((p) => !p.isGk); // deliberately not the keeper
+    const benchId = cur.bench[0];
+
+    act(() => result.current.performSwap(benchId, outgoing.id));
+
+    const plan = result.current.plan;
+    for (let i = 0; i < plan.length - 1; i++) {
+      const gkNow = plan[i].onField.find((p) => p.isGk)?.id;
+      const gkNext = plan[i + 1].onField.find((p) => p.isGk)?.id;
+      if (!gkNext || gkNext === gkNow) continue; // same keeper continuing - fine
+      expect(plan[i].bench).toContain(gkNext); // a new keeper must have been benched the interval before
+    }
+  });
 });
 
 describe("useMatchState — persisting to Firestore", () => {

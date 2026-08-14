@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import {
   intervalAtElapsed, computeIntervals, buildCarryState, generatePlan, keeperShiftIntervalsFor, lastGkId,
-  resolveBringBack, computeMinutesSummary,
+  resolveBringBack, computeMinutesSummary, repairBenchToKeeper,
 } from "../lib/rotation.js";
 import { generateFixedPlan } from "../lib/fixedRotation.js";
 import { validateGameSettings } from "../lib/validation.js";
@@ -193,6 +193,7 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
 
     const { numIntervals } = computeIntervals(gameSettings.gameMinutes, gameSettings.subIntervalMinutes);
     const keeperShiftIntervals = keeperShiftIntervalsFor(gameSettings.subIntervalMinutes, gameSettings.keeperShiftMinutes);
+    const currentGkId = lastGkId(priorIntervals);
     const { intervals: rebuiltRemainder } = generatePlan({
       availableIds: remainingAvailable,
       gameMinutes: gameSettings.gameMinutes,
@@ -202,7 +203,14 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
       startInterval: activeInterval,
       carryState,
       keeperShiftIntervals,
-      currentGkId: lastGkId(priorIntervals),
+      currentGkId,
+    });
+    // Guarantees the rebuild's new keeper (if it changes here) actually
+    // arrives from the bench, same as a fresh game — see the function's
+    // own comment for why generatePlan alone doesn't always ensure this.
+    repairBenchToKeeper({
+      intervals: rebuiltRemainder, keeperEligibleIds, currentGkId, carryState,
+      previousOnFieldIds: priorIntervals[priorIntervals.length - 1]?.onField.map((p) => p.id),
     });
 
     setPlan([...priorIntervals, ...rebuiltRemainder]);
@@ -244,6 +252,7 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
     const remainingAvailable = availableIds.filter((id) => !newInjuredList.includes(id));
     const { numIntervals } = computeIntervals(gameSettings.gameMinutes, gameSettings.subIntervalMinutes);
     const keeperShiftIntervals = keeperShiftIntervalsFor(gameSettings.subIntervalMinutes, gameSettings.keeperShiftMinutes);
+    const currentGkId = lastGkId(doneIntervals);
     const { intervals: rebuiltRemainder } = generatePlan({
       availableIds: remainingAvailable,
       gameMinutes: gameSettings.gameMinutes,
@@ -253,7 +262,13 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
       startInterval: activeInterval + 1,
       carryState,
       keeperShiftIntervals,
-      currentGkId: lastGkId(doneIntervals),
+      currentGkId,
+    });
+    // See handleInjury's identical call for why — guarantees a keeper
+    // change here actually arrives from the bench.
+    repairBenchToKeeper({
+      intervals: rebuiltRemainder, keeperEligibleIds, currentGkId, carryState,
+      previousOnFieldIds: frozenCurrent.onField.map((p) => p.id),
     });
 
     setPlan([...priorIntervals, frozenCurrent, ...rebuiltRemainder]);
@@ -282,6 +297,7 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
     const remainingAvailable = availableIds.filter((id) => !injuredThisGame.includes(id));
     const { numIntervals } = computeIntervals(gameSettings.gameMinutes, gameSettings.subIntervalMinutes);
     const keeperShiftIntervals = keeperShiftIntervalsFor(gameSettings.subIntervalMinutes, gameSettings.keeperShiftMinutes);
+    const currentGkId = lastGkId(doneIntervals);
     const { intervals: rebuiltRemainder } = generatePlan({
       availableIds: remainingAvailable,
       gameMinutes: gameSettings.gameMinutes,
@@ -291,7 +307,15 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
       startInterval: activeInterval + 1,
       carryState,
       keeperShiftIntervals,
-      currentGkId: lastGkId(doneIntervals),
+      currentGkId,
+    });
+    // See handleInjury's identical call for why — guarantees a keeper
+    // change here actually arrives from the bench. This is the exact
+    // scenario reported: an outfield-only swap shouldn't be able to hand
+    // keeper duty to someone who was already on the field.
+    repairBenchToKeeper({
+      intervals: rebuiltRemainder, keeperEligibleIds, currentGkId, carryState,
+      previousOnFieldIds: frozenCurrent.onField.map((p) => p.id),
     });
 
     setPlan([...priorIntervals, frozenCurrent, ...rebuiltRemainder]);

@@ -15,6 +15,7 @@ import {
   benchPriorityCompare,
   resolveBringBack,
   computeNextChangeBadges,
+  repairBenchToKeeper,
 } from "./rotation.js";
 
 describe("intervalAtElapsed", () => {
@@ -561,6 +562,137 @@ describe("generatePlan", () => {
       // p1 is gone, so p2 (the only other eligible keeper) must take over right away.
       expect(intervals[0].onField.find((p) => p.isGk).id).toBe("p2");
     });
+  });
+});
+
+describe("repairBenchToKeeper", () => {
+  const ALL6 = ["p1", "p2", "p3", "p4", "p5", "p6"];
+
+  it("fixes a genuine violation: swaps the invalid keeper (who was already on the field) for whoever actually arrived from the bench", () => {
+    const intervals = [
+      { index: 0, startMin: 0, endMin: 5, onField: [{ id: "p1", isGk: true }, { id: "p2", isGk: false }, { id: "p3", isGk: false }, { id: "p4", isGk: false }, { id: "p5", isGk: false }], bench: ["p6"] },
+      // p2 becomes keeper here but was already outfield at interval 0, not benched — a violation. p6 genuinely arrived (was benched at 0).
+      { index: 1, startMin: 5, endMin: 10, onField: [{ id: "p2", isGk: true }, { id: "p3", isGk: false }, { id: "p4", isGk: false }, { id: "p5", isGk: false }, { id: "p6", isGk: false }], bench: ["p1"] },
+    ];
+    repairBenchToKeeper({ intervals, keeperEligibleIds: ALL6, currentGkId: null, previousOnFieldIds: null });
+
+    expect(intervals[1].onField.find((p) => p.id === "p6").isGk).toBe(true);
+    expect(intervals[1].onField.find((p) => p.id === "p2").isGk).toBe(false);
+    expect(intervals[1].bench).toEqual(["p1"]); // bench composition is never touched
+  });
+
+  it("leaves a genuine continuation (same keeper) and a genuine arrival (new keeper actually came from the bench) untouched", () => {
+    const continuationIntervals = [
+      { index: 0, startMin: 0, endMin: 5, onField: [{ id: "p1", isGk: true }, { id: "p2", isGk: false }], bench: ["p3"] },
+      { index: 1, startMin: 5, endMin: 10, onField: [{ id: "p1", isGk: true }, { id: "p3", isGk: false }], bench: ["p2"] },
+    ];
+    repairBenchToKeeper({ intervals: continuationIntervals, keeperEligibleIds: ["p1", "p2", "p3"], currentGkId: null, previousOnFieldIds: null });
+    expect(continuationIntervals[1].onField.find((p) => p.id === "p1").isGk).toBe(true);
+
+    const genuineArrivalIntervals = [
+      { index: 0, startMin: 0, endMin: 5, onField: [{ id: "p1", isGk: true }, { id: "p2", isGk: false }], bench: ["p3"] },
+      // p3 genuinely arrived from the bench and becomes keeper — valid, nothing to fix.
+      { index: 1, startMin: 5, endMin: 10, onField: [{ id: "p1", isGk: false }, { id: "p3", isGk: true }], bench: ["p2"] },
+    ];
+    repairBenchToKeeper({ intervals: genuineArrivalIntervals, keeperEligibleIds: ["p1", "p2", "p3"], currentGkId: null, previousOnFieldIds: null });
+    expect(genuineArrivalIntervals[1].onField.find((p) => p.id === "p3").isGk).toBe(true);
+  });
+
+  it("never touches the very first interval when there's no prior state to validate against (a genuine start)", () => {
+    const intervals = [
+      { index: 0, startMin: 0, endMin: 5, onField: [{ id: "p1", isGk: true }, { id: "p2", isGk: false }], bench: ["p3"] },
+    ];
+    repairBenchToKeeper({ intervals, keeperEligibleIds: ["p1", "p2", "p3"], currentGkId: null, previousOnFieldIds: null });
+    expect(intervals[0].onField.find((p) => p.id === "p1").isGk).toBe(true);
+  });
+
+  it("validates the FIRST interval of a rebuild too, when previousOnFieldIds/currentGkId describe real prior state (the actual mid-game rebuild case)", () => {
+    // p2 becomes keeper in the very first interval of this array, but per
+    // the passed-in prior state they were already on the field, not benched.
+    const intervals = [
+      { index: 3, startMin: 15, endMin: 20, onField: [{ id: "p2", isGk: true }, { id: "p3", isGk: false }, { id: "p4", isGk: false }, { id: "p5", isGk: false }, { id: "p6", isGk: false }], bench: ["p1"] },
+    ];
+    repairBenchToKeeper({
+      intervals, keeperEligibleIds: ALL6, currentGkId: "p1", previousOnFieldIds: ["p1", "p2", "p3", "p4", "p5"],
+    });
+    expect(intervals[0].onField.find((p) => p.id === "p6").isGk).toBe(true); // p6 genuinely arrived
+    expect(intervals[0].onField.find((p) => p.id === "p2").isGk).toBe(false);
+  });
+
+  it("applies the fix across the whole shift block, not just the interval where the violation was first found", () => {
+    const intervals = [
+      { index: 0, startMin: 0, endMin: 5, onField: [{ id: "p1", isGk: true }, { id: "p2", isGk: false }, { id: "p3", isGk: false }, { id: "p4", isGk: false }, { id: "p5", isGk: false }], bench: ["p6"] },
+      { index: 1, startMin: 5, endMin: 10, onField: [{ id: "p2", isGk: true }, { id: "p3", isGk: false }, { id: "p4", isGk: false }, { id: "p5", isGk: false }, { id: "p6", isGk: false }], bench: ["p1"] },
+      // Same (invalid) keeper continues into a second interval — a 2-interval shift.
+      { index: 2, startMin: 10, endMin: 15, onField: [{ id: "p2", isGk: true }, { id: "p1", isGk: false }, { id: "p4", isGk: false }, { id: "p5", isGk: false }, { id: "p6", isGk: false }], bench: ["p3"] },
+    ];
+    repairBenchToKeeper({ intervals, keeperEligibleIds: ALL6, currentGkId: null, previousOnFieldIds: null });
+
+    expect(intervals[1].onField.find((p) => p.id === "p6").isGk).toBe(true);
+    expect(intervals[2].onField.find((p) => p.id === "p6").isGk).toBe(true); // the fix carried through
+    expect(intervals[2].onField.find((p) => p.id === "p2").isGk).toBe(false);
+    expect(intervals[2].onField.find((p) => p.id === "p1").isGk).toBe(false); // untouched bystander
+  });
+
+  it("leaves the violation as-is when nobody eligible genuinely arrived — the one documented fallback", () => {
+    const intervals = [
+      { index: 0, startMin: 0, endMin: 5, onField: [{ id: "p1", isGk: true }, { id: "p2", isGk: false }, { id: "p3", isGk: false }, { id: "p4", isGk: false }, { id: "p5", isGk: false }], bench: ["p6"] },
+      // p2 is invalid, and the only arrival (p6) isn't keeper-eligible.
+      { index: 1, startMin: 5, endMin: 10, onField: [{ id: "p2", isGk: true }, { id: "p3", isGk: false }, { id: "p4", isGk: false }, { id: "p5", isGk: false }, { id: "p6", isGk: false }], bench: ["p1"] },
+    ];
+    repairBenchToKeeper({ intervals, keeperEligibleIds: ["p1", "p2"], currentGkId: null, previousOnFieldIds: null });
+    expect(intervals[1].onField.find((p) => p.id === "p2").isGk).toBe(true); // left alone, not crashed
+  });
+
+  it("among multiple genuinely-arriving eligible candidates, prefers whoever has the least keeper minutes so far", () => {
+    const intervals = [
+      { index: 0, startMin: 0, endMin: 5, onField: [{ id: "p1", isGk: true }, { id: "p2", isGk: false }, { id: "p3", isGk: false }, { id: "p4", isGk: false }, { id: "p5", isGk: false }], bench: ["p6", "p7"] },
+      // p1 and p3 go to the bench; p6 and p7 both genuinely arrive; p2 (invalid) continues as keeper.
+      { index: 1, startMin: 5, endMin: 10, onField: [{ id: "p2", isGk: true }, { id: "p4", isGk: false }, { id: "p5", isGk: false }, { id: "p6", isGk: false }, { id: "p7", isGk: false }], bench: ["p1", "p3"] },
+    ];
+    const carryState = { p6: { gkMin: 10 }, p7: { gkMin: 2 } };
+    repairBenchToKeeper({ intervals, keeperEligibleIds: [...ALL6, "p7"], currentGkId: null, previousOnFieldIds: null, carryState });
+
+    expect(intervals[1].onField.find((p) => p.id === "p7").isGk).toBe(true); // fewer keeper minutes so far
+    expect(intervals[1].onField.find((p) => p.id === "p6").isGk).toBe(false);
+  });
+
+  it("end to end: a real generatePlan rebuild after an unrelated outfield swap no longer hands keeper duty to someone who was already on the field", () => {
+    const availableIds = ["Jack", "Atu", "Rocco", "George", "Hugo", "Otis", "Eli"];
+    const keeperEligibleIds = availableIds;
+    const gameMinutes = 45, fieldSize = 5, numIntervals = 9, keeperShiftIntervals = 1;
+    const { intervals: fullPlan } = generatePlan({ availableIds, gameMinutes, numIntervals, fieldSize, keeperEligibleIds, keeperShiftIntervals });
+
+    const activeInterval = 3;
+    const cur = fullPlan[activeInterval];
+    const priorIntervals = fullPlan.slice(0, activeInterval);
+    const outgoingOutfield = cur.onField.find((p) => !p.isGk); // deliberately NOT the keeper
+    const benchId = cur.bench[0];
+    const frozenCurrent = {
+      ...cur,
+      onField: cur.onField.map((p) => (p.id === outgoingOutfield.id ? { id: benchId, isGk: false } : p)),
+      bench: cur.bench.filter((id) => id !== benchId).concat(outgoingOutfield.id),
+    };
+    const doneIntervals = [...priorIntervals, frozenCurrent];
+    const carryState = buildCarryState(availableIds, doneIntervals);
+    const currentGkId = lastGkId(doneIntervals);
+
+    const { intervals: rebuiltRemainder } = generatePlan({
+      availableIds, gameMinutes, numIntervals, fieldSize, keeperEligibleIds, keeperShiftIntervals,
+      startInterval: activeInterval + 1, carryState, currentGkId,
+    });
+    repairBenchToKeeper({
+      intervals: rebuiltRemainder, keeperEligibleIds, currentGkId, carryState,
+      previousOnFieldIds: frozenCurrent.onField.map((p) => p.id),
+    });
+
+    const combined = [...priorIntervals, frozenCurrent, ...rebuiltRemainder];
+    for (let i = 0; i < combined.length - 1; i++) {
+      const gkNow = combined[i].onField.find((p) => p.isGk)?.id;
+      const gkNext = combined[i + 1].onField.find((p) => p.isGk)?.id;
+      if (!gkNext || gkNext === gkNow) continue; // same keeper continuing - fine
+      expect(combined[i].bench).toContain(gkNext); // a new keeper must have been benched the interval before
+    }
   });
 });
 
