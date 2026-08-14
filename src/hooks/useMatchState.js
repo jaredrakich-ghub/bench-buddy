@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import {
   intervalAtElapsed, computeIntervals, buildCarryState, generatePlan, keeperShiftIntervalsFor, lastGkId,
-  resolveBringBack, resolveAutoFollowInterval, computeMinutesSummary, pickFairStartingGk,
+  resolveBringBack, resolveAutoFollowInterval, computeMinutesSummary,
 } from "../lib/rotation.js";
+import { generateFixedPlan } from "../lib/fixedRotation.js";
 import { validateGameSettings } from "../lib/validation.js";
 import { computeLiveElapsedSec } from "../lib/clock.js";
 import { defaultSettings } from "../lib/teams.js";
@@ -154,28 +155,26 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
       keeperShiftIntervals,
     };
 
-    // Who's actually eligible to start in goal at all — a stale manual pick
-    // (the player toggled unavailable/keeper-ineligible after being picked,
-    // in the rare case the squad setup screen's own reactive clear didn't
-    // already catch it) is silently ignored here rather than trusted, and
-    // falls through to the automatic path below.
-    const eligibleAndAvailable = availableIds.filter((id) => keeperEligibleIds.includes(id));
-    let intervals;
-    if (startingGkId && eligibleAndAvailable.includes(startingGkId)) {
-      // Manual pick — honored directly, regardless of fairness. The coach
-      // already saw a live warning in the squad setup screen if this choice
-      // wasn't a fair one (see SquadSettingsForm), so this is an informed
-      // decision, not a silent one — nothing to re-check here.
-      ({ intervals } = generatePlan({ ...planArgs, startingGkId }));
-    } else if (eligibleAndAvailable.length > 0) {
-      // No manual pick — vary who starts, but only among choices verified
-      // not to unbalance the rest of the game. See pickFairStartingGk.
-      ({ intervals } = pickFairStartingGk({ candidates: eligibleAndAvailable, planArgs }));
-    } else {
-      // Nobody keeper-eligible at all — generatePlan's own degraded
-      // fallback handles this; there's no keeper choice to make either way.
-      ({ intervals } = generatePlan(planArgs));
-    }
+    // A fresh game (no carryState) uses the new fixed-rotation engine —
+    // Path B, see fixedRotation.js — which guarantees bench->keeper always
+    // and fair bench/keeper turn counts by construction, not by a
+    // simulated-and-checked heuristic. A stale manual pick (the player
+    // toggled unavailable/keeper-ineligible after being picked, in the rare
+    // case the squad setup screen's own reactive clear didn't already catch
+    // it) is silently ignored by generateFixedPlan itself, same contract as
+    // before. Honored directly when valid, regardless of fairness — the
+    // coach already saw a live warning in the squad setup screen if this
+    // choice wasn't a fair one (see SquadSettingsForm), so this is an
+    // informed decision, not a silent one.
+    //
+    // Mid-game rebuilds (handleInjury/bringBack/performSwap below) still use
+    // generatePlan with carryState — Path B doesn't yet have a way to
+    // continue an in-progress schedule from a modified roster, only to
+    // build a fresh one from interval 0. Deliberately scoped this way
+    // rather than rushed: the existing carryState path already works and
+    // is well-tested, and it's better to ship the fresh-game improvement
+    // now than delay it waiting on a mid-game-continuation design.
+    const { intervals } = generateFixedPlan({ ...planArgs, startingGkId });
 
     setPlan(intervals);
     lastLiveIntervalRef.current = 0;
