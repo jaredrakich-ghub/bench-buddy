@@ -166,7 +166,7 @@ describe("MatchView — sub-window warning box", () => {
     const offOnLine = screen.getByText(/OFF:/).closest("div");
     expect(offOnLine.textContent).toContain("Dan"); // p4, coming off
     expect(offOnLine.textContent).toContain("Finn"); // p6, coming on
-    const keeperLine = screen.getByText(/warm up in goal/).closest("div");
+    const keeperLine = screen.getByText(/to goal for the swap/).closest("div");
     expect(keeperLine.textContent).toContain("Cara"); // p3, becoming keeper
   });
 
@@ -215,7 +215,7 @@ describe("MatchView — past-interval guard", () => {
     // Live interval is 1 (elapsedSec=400s falls in interval 1's 360-720s
     // window); activeInterval=0 means the coach browsed back to the past.
     render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 400, injuredThisGame: ["p7"] })} />);
-    expect(screen.getByText(/Already played/)).toBeInTheDocument();
+    expect(screen.getByText(/Interval Complete/)).toBeInTheDocument();
     expect(screen.queryByText("Swap in")).not.toBeInTheDocument();
     expect(screen.queryByTitle("Mark injured / off")).not.toBeInTheDocument();
     expect(screen.queryByText("Back in")).not.toBeInTheDocument();
@@ -223,7 +223,7 @@ describe("MatchView — past-interval guard", () => {
 
   it("still shows Swap in and the injury button when viewing the live interval or a future one", () => {
     render(<MatchView {...baseProps({ activeInterval: 1, elapsedSec: 400 })} />);
-    expect(screen.queryByText(/Already played/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Interval Complete/)).not.toBeInTheDocument();
     expect(screen.getAllByText("Swap in").length).toBeGreaterThan(0);
     expect(screen.getAllByTitle("Mark injured / off").length).toBeGreaterThan(0);
   });

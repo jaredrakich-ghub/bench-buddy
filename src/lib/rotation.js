@@ -449,23 +449,6 @@ export function aggregateSeasonSummary(games) {
   }));
 }
 
-// While the match timer's running, MatchView's board should follow the live
-// interval — but a coach browsing to a different interval (tabs, ‹ ›)
-// should stick there instead of getting dragged back on the next tick.
-// Pulled out of the auto-follow effect in SubRotationPlanner as its own
-// pure decision so it's directly testable — the effect itself still uses
-// React's functional setState form for correctness (see the comment there),
-// this only decides WHAT the new activeInterval/lastLiveInterval should be.
-//
-// The rule: only act when the live interval has actually crossed to a new
-// one, and even then only follow if the board was already showing the
-// *previous* live interval — i.e. the coach hadn't navigated away. If they
-// had, leave activeInterval alone; it'll pick back up once they navigate
-// back to live themselves (which makes the two match again).
-export function resolveAutoFollowInterval({ liveInterval, lastLiveInterval, currentActiveInterval }) {
-  if (liveInterval === lastLiveInterval) return currentActiveInterval;
-  return currentActiveInterval === lastLiveInterval ? liveInterval : currentActiveInterval;
-}
 
 // Works out which pitch/bench tokens should show a next-sub-window badge in
 // MatchView, and which specific badge (see MatchView for what each state

@@ -297,4 +297,33 @@ describe("useMatchState — clock tick", () => {
     expect(result.current.elapsedSec).toBe(720);
     expect(result.current.timerRunning).toBe(false);
   });
+
+  it("snaps the board back to the live interval at a boundary crossing, even if the coach had browsed elsewhere", () => {
+    // An earlier version left activeInterval alone in this situation (to
+    // avoid yanking a coach off an interval they were checking) — real use
+    // showed coaches actually want to land back on live automatically once
+    // play moves on, not stay stranded on whatever they last browsed to.
+    const roster7 = Array.from({ length: 7 }, (_, i) => ({ id: `p${i}`, name: `Player ${i}`, keeperEligible: true }));
+    const team7 = { id: "t1", name: "Scorpions", roster: roster7, settings: { fieldSize: 5, gameMinutes: 24, subIntervalMinutes: 6 } };
+    const { result } = renderHook(() => useMatchState({ activeTeamId: "t1", teamData: team7, saveTeamData: vi.fn() }));
+    act(() => {
+      result.current.setAvailableIds(roster7.map((p) => p.id));
+      result.current.setGameSettings({ fieldSize: 5, gameMinutes: 24, subIntervalMinutes: 6 });
+    });
+    act(() => result.current.startPlanning()); // 4 intervals of 6 min (360s) each
+    expect(result.current.plan.length).toBe(4);
+
+    act(() => {
+      result.current.setRunStartedAt(Date.now());
+      result.current.setTimerRunning(true);
+    });
+    act(() => vi.advanceTimersByTime(100_000)); // 100s in - still interval 0 live
+
+    act(() => result.current.setActiveInterval(2)); // coach browses ahead to check interval 2
+    expect(result.current.activeInterval).toBe(2);
+
+    // Advance past the interval 0 -> 1 boundary (360s) without confirming a sub.
+    act(() => vi.advanceTimersByTime(300_000)); // total ~400s -> live is now interval 1
+    expect(result.current.activeInterval).toBe(1); // snapped to the new live interval, not left at 2
+  });
 });

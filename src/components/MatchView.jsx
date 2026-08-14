@@ -213,7 +213,7 @@ export default function MatchView({
             {gkChanging && (
               <div>
                 <span style={{ marginRight: 4 }}>🧤</span>
-                Send <strong>{nameOf(nextGk.id)}</strong> down to warm up in goal
+                Send <strong>{nameOf(nextGk.id)}</strong> to goal for the swap
               </div>
             )}
           </div>
@@ -240,7 +240,7 @@ export default function MatchView({
 
       <div style={styles.pitchBoard}>
         {isPastInterval ? (
-          <div style={styles.swapBanner}>Already played — showing what happened. Browse to the live interval or later to make changes.</div>
+          <div style={styles.swapBanner}>Interval Complete. Navigate to the active Interval for live updates.</div>
         ) : (
           swapPickId && (
             <div style={styles.swapBanner}>

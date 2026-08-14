@@ -14,7 +14,6 @@ import {
   lastGkId,
   benchPriorityCompare,
   resolveBringBack,
-  resolveAutoFollowInterval,
   computeNextChangeBadges,
 } from "./rotation.js";
 
@@ -700,30 +699,6 @@ describe("computeMinutesSummary", () => {
     expect(summary.find((s) => s.id === "p3")).toEqual({
       id: "p3", outfieldMin: 10, gkMin: 0, benchMin: 10, injuredMin: 0,
     });
-  });
-});
-
-describe("resolveAutoFollowInterval", () => {
-  it("does nothing when the live interval hasn't changed", () => {
-    expect(resolveAutoFollowInterval({ liveInterval: 2, lastLiveInterval: 2, currentActiveInterval: 5 })).toBe(5);
-  });
-
-  it("follows to the new live interval when the board was already showing the previous live one", () => {
-    // board was on interval 2 (== lastLiveInterval), live just advanced to 3
-    expect(resolveAutoFollowInterval({ liveInterval: 3, lastLiveInterval: 2, currentActiveInterval: 2 })).toBe(3);
-  });
-
-  it("leaves the board alone when the coach had navigated away from live", () => {
-    // board is on interval 5 (browsing ahead), live advances from 2 to 3 —
-    // this is the exact bug this function fixes: the coach shouldn't get
-    // yanked back to 3 just because live moved on.
-    expect(resolveAutoFollowInterval({ liveInterval: 3, lastLiveInterval: 2, currentActiveInterval: 5 })).toBe(5);
-  });
-
-  it("resumes following once the coach navigates back to match the live interval", () => {
-    // coach manually returns to interval 2 (== lastLiveInterval so far);
-    // next time live advances, following should resume normally.
-    expect(resolveAutoFollowInterval({ liveInterval: 3, lastLiveInterval: 2, currentActiveInterval: 2 })).toBe(3);
   });
 });
 

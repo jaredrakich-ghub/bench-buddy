@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import {
   intervalAtElapsed, computeIntervals, buildCarryState, generatePlan, keeperShiftIntervalsFor, lastGkId,
-  resolveBringBack, resolveAutoFollowInterval, computeMinutesSummary,
+  resolveBringBack, computeMinutesSummary,
 } from "../lib/rotation.js";
 import { generateFixedPlan } from "../lib/fixedRotation.js";
 import { validateGameSettings } from "../lib/validation.js";
@@ -86,28 +86,22 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
     return () => clearInterval(id);
   }, [timerRunning, runStartedAt, baseElapsedSec, plan]);
 
-  // While the timer's running, follow the live interval — but only across
-  // an actual boundary crossing (the live interval changing to a new one),
-  // and only if the board was already showing the previous live interval.
-  // That second condition is what lets a coach tap ahead/back to check
-  // another interval without instantly getting dragged back to the live
-  // one on the next tick: the moment they navigate away, activeInterval no
-  // longer matches lastLiveIntervalRef, so this stops touching it until
-  // they navigate back to live themselves (which re-syncs the two and lets
-  // auto-follow resume from there).
+  // While the timer's running, jump the board to the live interval on every
+  // boundary crossing — no exception for a coach having browsed elsewhere.
+  // An earlier version left the board alone if it wasn't already showing
+  // the previous live interval, meaning to let a coach check ahead without
+  // getting yanked back mid-check — but real use showed that's the wrong
+  // default: a coach who steps away to fix an upcoming interval (or just
+  // taps around) wants to land back on live automatically once play
+  // actually moves on, not stay stranded wherever they last looked while
+  // the game continues without them noticing. Browsing mid-interval still
+  // works exactly the same as before; this only fires at an actual
+  // boundary crossing.
   useEffect(() => {
     if (!timerRunning || !plan) return;
     const live = intervalAtElapsed(plan, elapsedSec);
     if (live === lastLiveIntervalRef.current) return;
-    // Functional setState form deliberately kept here (rather than passing
-    // activeInterval from the closure) so this is correct even though
-    // activeInterval isn't a dependency of this effect — React guarantees
-    // `current` is the true latest value, not a possibly-stale closed-over
-    // one. resolveAutoFollowInterval only decides WHAT the new value should
-    // be; see rotation.js for the actual "should we follow or not" rule.
-    setActiveInterval((current) =>
-      resolveAutoFollowInterval({ liveInterval: live, lastLiveInterval: lastLiveIntervalRef.current, currentActiveInterval: current })
-    );
+    setActiveInterval(live);
     lastLiveIntervalRef.current = live;
   }, [elapsedSec, timerRunning, plan]);
 
