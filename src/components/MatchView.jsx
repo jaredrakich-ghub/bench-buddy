@@ -66,6 +66,18 @@ export default function MatchView({
   // See computeNextChangeBadges in rotation.js for exactly how these get
   // decided — pulled out so this (fiddly, several interacting cases) logic
   // is directly unit-testable.
+  // Swap/injury/bring-back all act on plan[activeInterval] (see
+  // useMatchState) with no separate "live interval" concept of their own —
+  // freely browsing ahead to pre-correct an upcoming interval is the whole
+  // point (see the interval tabs below). But editing an interval *before*
+  // the live one would rebuild everything from there forward, silently
+  // overwriting intervals that already actually happened on the sideline —
+  // confusing, since the app would then show a rewritten history that
+  // doesn't match what was really played. Gated off here rather than in
+  // useMatchState so a coach can still freely browse back to review a past
+  // interval, just not edit it.
+  const isPastInterval = activeInterval < cur.index;
+
   const viewedIv = plan[activeInterval];
   const viewedNextIv = plan[activeInterval + 1];
   const viewedGk = viewedIv.onField.find((p) => p.isGk);
@@ -200,13 +212,17 @@ export default function MatchView({
       </div>
 
       <div style={styles.pitchBoard}>
-        {swapPickId && (
-          <div style={styles.swapBanner}>
-            Tap a player on the pitch to bring on <strong>{nameOf(swapPickId)}</strong>
-            <button style={styles.swapCancelBtn} onClick={() => setSwapPickId(null)}>
-              Cancel
-            </button>
-          </div>
+        {isPastInterval ? (
+          <div style={styles.swapBanner}>Already played — showing what happened. Browse to the live interval or later to make changes.</div>
+        ) : (
+          swapPickId && (
+            <div style={styles.swapBanner}>
+              Tap a player on the pitch to bring on <strong>{nameOf(swapPickId)}</strong>
+              <button style={styles.swapCancelBtn} onClick={() => setSwapPickId(null)}>
+                Cancel
+              </button>
+            </div>
+          )
         )}
         <div style={styles.pitchInner}>
           <div style={styles.pitchCenterCircle} />
@@ -219,10 +235,10 @@ export default function MatchView({
                   style={{
                     ...styles.token,
                     ...(isGk ? styles.tokenGk : styles.tokenField),
-                    ...(swapPickId ? styles.tokenSwapTarget : {}),
+                    ...(swapPickId && !isPastInterval ? styles.tokenSwapTarget : {}),
                   }}
-                  onClick={() => swapPickId && onSwap(swapPickId, id)}
-                  disabled={!swapPickId}
+                  onClick={() => swapPickId && !isPastInterval && onSwap(swapPickId, id)}
+                  disabled={!swapPickId || isPastInterval}
                 >
                   {isGk ? <span style={styles.gloveIcon}>🧤</span> : <FootballerIcon size={27} />}
                 </button>
@@ -241,7 +257,7 @@ export default function MatchView({
                     <ArrowUp size={11} strokeWidth={3.5} />
                   </span>
                 )}
-                {!injuredThisGame.includes(id) && !swapPickId && (
+                {!injuredThisGame.includes(id) && !swapPickId && !isPastInterval && (
                   <button style={styles.injuryBtnSide} onClick={() => onInjury(id)} title="Mark injured / off">
                     🤕
                   </button>
@@ -274,12 +290,14 @@ export default function MatchView({
                     )}
                   </div>
                   <span style={styles.tokenName}>{nameOf(id)}</span>
-                  <button
-                    style={{ ...styles.swapBtn, ...(swapPickId === id ? styles.swapBtnActive : {}) }}
-                    onClick={() => setSwapPickId(swapPickId === id ? null : id)}
-                  >
-                    {swapPickId === id ? "Cancel" : "Swap in"}
-                  </button>
+                  {!isPastInterval && (
+                    <button
+                      style={{ ...styles.swapBtn, ...(swapPickId === id ? styles.swapBtnActive : {}) }}
+                      onClick={() => setSwapPickId(swapPickId === id ? null : id)}
+                    >
+                      {swapPickId === id ? "Cancel" : "Swap in"}
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -292,9 +310,11 @@ export default function MatchView({
                   <div key={id} style={styles.tokenCol}>
                     <div style={{ ...styles.token, ...styles.tokenInjured }}>🤕</div>
                     <span style={styles.tokenName}>{nameOf(id)}</span>
-                    <button style={styles.backInBtn} onClick={() => onBringBack(id)}>
-                      Back in
-                    </button>
+                    {!isPastInterval && (
+                      <button style={styles.backInBtn} onClick={() => onBringBack(id)}>
+                        Back in
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>

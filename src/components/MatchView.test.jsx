@@ -148,6 +148,32 @@ describe("MatchView — interval navigation", () => {
   });
 });
 
+describe("MatchView — past-interval guard", () => {
+  // Swap/injury/bring-back all act on plan[activeInterval] with no separate
+  // "live interval" concept enforced in useMatchState — browsing ahead to
+  // pre-correct an upcoming interval is the whole point. But editing an
+  // interval *before* the live one would rebuild everything from there
+  // forward, silently overwriting intervals that already actually happened.
+  // These controls are hidden (not just disabled) once a coach browses back
+  // to a past interval, so there's nothing to tap by mistake.
+  it("hides Swap in, the injury button, and Back in when viewing a past interval, and shows a note instead", () => {
+    // Live interval is 1 (elapsedSec=400s falls in interval 1's 360-720s
+    // window); activeInterval=0 means the coach browsed back to the past.
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 400, injuredThisGame: ["p7"] })} />);
+    expect(screen.getByText(/Already played/)).toBeInTheDocument();
+    expect(screen.queryByText("Swap in")).not.toBeInTheDocument();
+    expect(screen.queryByTitle("Mark injured / off")).not.toBeInTheDocument();
+    expect(screen.queryByText("Back in")).not.toBeInTheDocument();
+  });
+
+  it("still shows Swap in and the injury button when viewing the live interval or a future one", () => {
+    render(<MatchView {...baseProps({ activeInterval: 1, elapsedSec: 400 })} />);
+    expect(screen.queryByText(/Already played/)).not.toBeInTheDocument();
+    expect(screen.getAllByText("Swap in").length).toBeGreaterThan(0);
+    expect(screen.getAllByTitle("Mark injured / off").length).toBeGreaterThan(0);
+  });
+});
+
 describe("MatchView — match complete", () => {
   it("shows the match-complete banner with a working Start new game action once the clock reaches the end", async () => {
     const onShowSettings = vi.fn();
