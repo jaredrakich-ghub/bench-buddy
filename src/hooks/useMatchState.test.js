@@ -203,6 +203,21 @@ describe("useMatchState — guard clauses", () => {
     act(() => result.current.performSwap("some-bench-id", "not-a-real-field-id"));
     expect(result.current.plan).toBe(planBefore);
   });
+
+  it("performKeeperSwap does nothing if the target isn't actually on the field this interval", () => {
+    const { result } = setupWithPlan();
+    const planBefore = result.current.plan;
+    act(() => result.current.performKeeperSwap("not-a-real-field-id"));
+    expect(result.current.plan).toBe(planBefore);
+  });
+
+  it("performKeeperSwap does nothing if the target is already the keeper", () => {
+    const { result } = setupWithPlan();
+    const planBefore = result.current.plan;
+    const currentKeeper = result.current.plan[0].onField.find((p) => p.isGk).id;
+    act(() => result.current.performKeeperSwap(currentKeeper));
+    expect(result.current.plan).toBe(planBefore);
+  });
 });
 
 describe("useMatchState — swapping on a browsed (not-necessarily-live) interval", () => {
@@ -270,6 +285,67 @@ describe("useMatchState — swapping on a browsed (not-necessarily-live) interva
       const gkNext = plan[i + 1].onField.find((p) => p.isGk)?.id;
       if (!gkNext || gkNext === gkNow) continue; // same keeper continuing - fine
       expect(plan[i].bench).toContain(gkNext); // a new keeper must have been benched the interval before
+    }
+  });
+});
+
+describe("useMatchState — performKeeperSwap (manual outfield<->keeper role swap)", () => {
+  const ROSTER7 = Array.from({ length: 7 }, (_, i) => ({ id: `p${i}`, name: `Player ${i}`, keeperEligible: i !== 6 })); // p6 not keeper-eligible
+  const TEAM7 = { id: "t1", name: "Scorpions", roster: ROSTER7, settings: { fieldSize: 5, gameMinutes: 45, subIntervalMinutes: 5 } };
+
+  function setupPlan() {
+    const saveTeamData = vi.fn();
+    const { result } = renderHook(() => useMatchState({ activeTeamId: "t1", teamData: TEAM7, saveTeamData }));
+    act(() => {
+      result.current.setAvailableIds(ROSTER7.map((p) => p.id));
+      result.current.setGameSettings({ fieldSize: 5, gameMinutes: 45, subIntervalMinutes: 5 });
+    });
+    act(() => result.current.startPlanning());
+    return { result, saveTeamData };
+  }
+
+  it("does nothing if the target isn't keeper-eligible", () => {
+    const { result } = setupPlan();
+    const cur = result.current.plan[0];
+    // Only attempt if p6 (not eligible) actually happens to be on the field this interval.
+    const target = cur.onField.find((p) => p.id === "p6" && !p.isGk);
+    if (!target) return; // shuffled off the field this run — nothing to test
+    const planBefore = result.current.plan;
+    act(() => result.current.performKeeperSwap("p6"));
+    expect(result.current.plan).toBe(planBefore);
+  });
+
+  it("swaps roles between the current keeper and the target — no bench change at all — and rebuilds the remainder", () => {
+    const { result } = setupPlan();
+    const cur = result.current.plan[0];
+    const currentKeeper = cur.onField.find((p) => p.isGk).id;
+    const target = cur.onField.find((p) => !p.isGk && p.id !== currentKeeper && p.id !== "p6"); // p6 isn't keeper-eligible
+    const benchBefore = [...cur.bench];
+
+    act(() => result.current.performKeeperSwap(target.id));
+
+    const newCur = result.current.plan[0];
+    expect(newCur.onField.find((p) => p.id === target.id).isGk).toBe(true);
+    expect(newCur.onField.find((p) => p.id === currentKeeper).isGk).toBe(false);
+    expect(newCur.bench).toEqual(benchBefore); // bench completely untouched
+    expect(result.current.plan.every((iv) => iv.onField.length === 5)).toBe(true); // still a valid, full plan
+  });
+
+  it("the manual swap never breaks bench->keeper for anything that follows it", () => {
+    const { result } = setupPlan();
+    act(() => result.current.setActiveInterval(2));
+    const cur = result.current.plan[2];
+    const currentKeeper = cur.onField.find((p) => p.isGk).id;
+    const target = cur.onField.find((p) => !p.isGk && p.id !== currentKeeper && p.id !== "p6"); // p6 isn't keeper-eligible
+
+    act(() => result.current.performKeeperSwap(target.id));
+
+    const plan = result.current.plan;
+    for (let i = 0; i < plan.length - 1; i++) {
+      const gkNow = plan[i].onField.find((p) => p.isGk)?.id;
+      const gkNext = plan[i + 1].onField.find((p) => p.isGk)?.id;
+      if (!gkNext || gkNext === gkNow) continue;
+      expect(plan[i].bench).toContain(gkNext);
     }
   });
 });

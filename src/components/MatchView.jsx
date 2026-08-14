@@ -26,10 +26,12 @@ export default function MatchView({
   swapPickId,
   setSwapPickId,
   injuredThisGame,
+  keeperEligibleIds,
   nameOf,
   onInjury,
   onBringBack,
   onSwap,
+  onSwapKeeper,
   onShowSummary,
   onShowSettings,
 }) {
@@ -287,6 +289,11 @@ export default function MatchView({
                 {!injuredThisGame.includes(id) && !swapPickId && !isPastInterval && (
                   <button style={styles.injuryBtnSide} onClick={() => onInjury(id)} title="Mark injured / off">
                     🤕
+                  </button>
+                )}
+                {!isGk && !swapPickId && !isPastInterval && keeperEligibleIds.includes(id) && (
+                  <button style={styles.makeKeeperBtnSide} onClick={() => onSwapKeeper(id)} title="Make keeper now">
+                    🧤
                   </button>
                 )}
               </div>

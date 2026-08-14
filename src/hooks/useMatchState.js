@@ -322,6 +322,58 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
     setSwapPickId(null);
   };
 
+  // Manual override: swap keeper duty directly between two players who are
+  // BOTH already on the pitch — the current keeper steps out to outfield,
+  // `newKeeperId` steps in — without touching the bench at all. Distinct
+  // from performSwap (which always brings someone on FROM the bench): this
+  // is for "I want a different keeper right now" without needing a bench
+  // rotation to justify it — a coach course-correcting at a natural break
+  // in play, not waiting for whoever happens to be arriving next. Future
+  // intervals rebuild normally from this new state and go through the same
+  // repairBenchToKeeper guarantee as every other rebuild, so this one
+  // deliberate exception doesn't cascade into more of them — the very next
+  // *automatic* keeper change still has to come from the bench as usual.
+  const performKeeperSwap = (newKeeperId) => {
+    const cur = plan[activeInterval];
+    const currentKeeper = cur.onField.find((p) => p.isGk);
+    const target = cur.onField.find((p) => p.id === newKeeperId);
+    if (!currentKeeper || !target || target.isGk || !keeperEligibleIds.includes(newKeeperId)) return;
+
+    const priorIntervals = plan.slice(0, activeInterval);
+    const frozenCurrent = {
+      ...cur,
+      onField: cur.onField.map((p) => {
+        if (p.id === newKeeperId) return { id: p.id, isGk: true };
+        if (p.id === currentKeeper.id) return { id: p.id, isGk: false };
+        return p;
+      }),
+    };
+    const doneIntervals = [...priorIntervals, frozenCurrent];
+    const carryState = buildCarryState(availableIds, doneIntervals);
+
+    const remainingAvailable = availableIds.filter((id) => !injuredThisGame.includes(id));
+    const { numIntervals } = computeIntervals(gameSettings.gameMinutes, gameSettings.subIntervalMinutes);
+    const keeperShiftIntervals = keeperShiftIntervalsFor(gameSettings.subIntervalMinutes, gameSettings.keeperShiftMinutes);
+    const currentGkId = lastGkId(doneIntervals);
+    const { intervals: rebuiltRemainder } = generatePlan({
+      availableIds: remainingAvailable,
+      gameMinutes: gameSettings.gameMinutes,
+      numIntervals,
+      fieldSize: gameSettings.fieldSize,
+      keeperEligibleIds,
+      startInterval: activeInterval + 1,
+      carryState,
+      keeperShiftIntervals,
+      currentGkId,
+    });
+    repairBenchToKeeper({
+      intervals: rebuiltRemainder, keeperEligibleIds, currentGkId, carryState,
+      previousOnFieldIds: frozenCurrent.onField.map((p) => p.id),
+    });
+
+    setPlan([...priorIntervals, frozenCurrent, ...rebuiltRemainder]);
+  };
+
   return {
     availableIds, setAvailableIds,
     gameSettings, setGameSettings,
@@ -337,6 +389,7 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
     swapPickId, setSwapPickId,
     startingGkId, setStartingGkId,
     saveError, setSaveError,
-    startPlanning, handleInjury, bringBack, performSwap,
+    keeperEligibleIds,
+    startPlanning, handleInjury, bringBack, performSwap, performKeeperSwap,
   };
 }

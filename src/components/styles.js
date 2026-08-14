@@ -296,6 +296,17 @@ export const styles = {
     display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, cursor: "pointer", padding: 0,
     boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
   },
+  // Mirror of injuryBtnSide on the opposite side (left, not right) so the
+  // two never collide on the same token — a manual "make this outfield
+  // player the keeper right now" action, distinct from the bench "Swap in"
+  // flow (this never touches the bench at all, just swaps roles between
+  // two players already on the pitch).
+  makeKeeperBtnSide: {
+    position: "absolute", left: -32, top: "50%", transform: "translateY(-50%)",
+    width: 28, height: 28, borderRadius: "50%", border: "none", background: colors.chalk,
+    display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, cursor: "pointer", padding: 0,
+    boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
+  },
   gloveIcon: { fontSize: 25, lineHeight: 1 },
   // Advance notice of the next sub window's changes, shown on top of the
   // relevant token — top-left corner, opposite side from injuryBtnSide

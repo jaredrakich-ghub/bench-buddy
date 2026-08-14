@@ -56,10 +56,12 @@ function baseProps(overrides = {}) {
     swapPickId: null,
     setSwapPickId: vi.fn(),
     injuredThisGame: [],
+    keeperEligibleIds: Object.keys(NAMES),
     nameOf,
     onInjury: vi.fn(),
     onBringBack: vi.fn(),
     onSwap: vi.fn(),
+    onSwapKeeper: vi.fn(),
     onShowSummary: vi.fn(),
     onShowSettings: vi.fn(),
     ...overrides,
@@ -226,6 +228,39 @@ describe("MatchView — past-interval guard", () => {
     expect(screen.queryByText(/Interval Complete/)).not.toBeInTheDocument();
     expect(screen.getAllByText("Swap in").length).toBeGreaterThan(0);
     expect(screen.getAllByTitle("Mark injured / off").length).toBeGreaterThan(0);
+  });
+
+  it("hides Make keeper now on a past interval too", () => {
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 400 })} />);
+    expect(screen.queryByTitle("Make keeper now")).not.toBeInTheDocument();
+  });
+});
+
+describe("MatchView — manual keeper swap (Make keeper now)", () => {
+  // interval 0: onField = p1(gk), p2, p3, p4, p5; bench = p6, p7.
+  it("shows the action on every keeper-eligible outfield player, but not on the current keeper", () => {
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0 })} />);
+    // p2,p3,p4,p5 are eligible outfield players -> 4 buttons. p1 (keeper) gets none.
+    expect(screen.getAllByTitle("Make keeper now")).toHaveLength(4);
+  });
+
+  it("hides the action for a player who isn't keeper-eligible", () => {
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0, keeperEligibleIds: ["p1", "p3", "p4", "p5"] })} />); // p2 not eligible
+    expect(screen.getAllByTitle("Make keeper now")).toHaveLength(3);
+  });
+
+  it("hides the action while a bench swap is in progress, to avoid two conflicting actions at once", () => {
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0, swapPickId: "p6" })} />);
+    expect(screen.queryByTitle("Make keeper now")).not.toBeInTheDocument();
+  });
+
+  it("calls onSwapKeeper with the tapped player's id", async () => {
+    const onSwapKeeper = vi.fn();
+    const user = userEvent.setup();
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0, onSwapKeeper })} />);
+    await user.click(screen.getAllByTitle("Make keeper now")[0]);
+    expect(onSwapKeeper).toHaveBeenCalledTimes(1);
+    expect(onSwapKeeper).toHaveBeenCalledWith(expect.stringMatching(/^p[2-5]$/));
   });
 });
 
