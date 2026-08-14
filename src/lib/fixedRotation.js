@@ -8,28 +8,54 @@
  * why (sub-tracker-rotation-redesign-roadmap.md) and AI-DEVELOPMENT-RULES.md
  * for why big changes get built this way here.
  *
- * The core idea: line every available player up in a fixed order once.
- * Bench assignment for interval i is just "the next `benchSpots` players in
- * that order, cyclically" — nobody's minutes are tracked or compared to
- * decide it, so bench-turn counts are guaranteed to differ by at most 1
- * across everyone, by construction, not by a heuristic converging well.
- * Keeper duty is assigned only to someone actually arriving onto the field
- * that interval (if eligible) — a structural guarantee, not a tiebreak —
- * with a genuine fallback for when nobody arriving is eligible.
+ * buildBenchSchedule/assignKeepers/buildFixedPlan (below) are the ORIGINAL
+ * fresh-game engine: line every player up in a fixed order once, slice
+ * bench turns cyclically from it, assign keepers off the resulting
+ * schedule. That guarantees bench-turn fairness (±1, by construction) and
+ * bench->keeper always — but outfield minutes were only ever an emergent
+ * side effect of the bench arithmetic, never a directly targeted outcome.
+ * Real games showed that can leave outfield minutes uneven even when bench
+ * counts look perfectly balanced, especially once keeper shifts span
+ * several intervals (extra keeper time silently eats into outfield time
+ * unless something deliberately compensates via bench).
  *
- * Deliberately narrow about what this promises: bench-turn fairness,
- * keeper-turn fairness (both ±1, provably), and bench->keeper always. It
- * does NOT try to independently smooth outfield-only minutes — that
- * turned out to be a different problem this design can't win (see
- * generateFixedPlan's comment) that recommendSubIntervals (rotation.js)
- * already solves better, by steering a coach toward settings that divide
- * evenly rather than compensating after the fact for ones that don't.
+ * generateFixedPlan (the only one of these actually called by the live
+ * app) now builds on buildFairSchedule instead — which reuses the
+ * ORIGINAL engine unchanged as its base (so every existing keeper rule
+ * stays exactly as it was — arriving-eligible preferred, least keeper-
+ * so-far, keeperShiftIntervals, startingGkId, existing fallback), then
+ * runs two targeted repair passes on top: repairKeeperBalance evens out
+ * keeper duty specifically among keeper-eligible players (pure role
+ * swaps, never touching bench), then repairOutfieldBalance closes any
+ * remaining outfield gap via safe outfield<->bench swaps. Neither pass
+ * ever changes who's actually keeper in a way that breaks bench->keeper.
+ * An earlier version tried to PRE-COMPUTE a fair keeper split (via
+ * computeIntervalTargets) and build outfield/bench around it directly —
+ * abandoned because keeper duty is bounded by how many bench-to-field
+ * arrivals a player gets, which a pre-plan can't always honor once the
+ * real bench schedule is built; see buildFairSchedule's own comment for
+ * the specific failure this caused. computeIntervalTargets is kept as an
+ * independent "theoretical best" reference for tests (see
+ * fixedRotation.fairness.test.js) — it deliberately does NOT model the
+ * arriving-constraint's coupling, so it's an optimistic upper bound, not
+ * a guarantee; a real configuration (single bench spot, full eligibility)
+ * was found where its target is provably unachievable, documented in that
+ * test file. calculateFairness measures what a plan actually achieved
+ * (ideal: range ≤1 interval; acceptable: ≤2).
  *
- * The three real live games that motivated this (see conversation/commit
- * history around this file's introduction) are the actual regression
- * fixtures for this engine — see fixedRotation.test.js.
+ * buildBenchSchedule/assignKeepers/buildFixedPlan are kept exactly as they
+ * were — continueFixedPlan (mid-game continuation, still dormant/unwired)
+ * keeps using them unchanged. This rewrite is deliberately scoped to fresh
+ * games only; Path A (rotation.js, injuries/bring-backs/manual swaps)
+ * isn't touched by any of this.
  *
- * Mid-game continuation (continueFixedPlan, added later): reuses
+ * The three real live games that motivated the original engine (see
+ * conversation/commit history around this file's introduction) are still
+ * the regression fixtures for buildFixedPlan — see fixedRotation.test.js.
+ * The outfield-fairness rewrite has its own regression suite —
+ * fixedRotation.fairness.test.js.
+ *
+ * Mid-game continuation (continueFixedPlan): reuses
  * buildCarryState/benchPriorityCompare/lastGkId from rotation.js rather
  * than reinventing "who's owed a turn" — those are already the app's one
  * definition of fairness for a rebuild, and reusing them means this can
@@ -265,9 +291,11 @@ export function buildFixedPlan({
 // (reduced running time, with neither extra keeper duty nor extra bench
 // time softening it, both landing on the same kid instead of spreading
 // out). 0 when the numbers divide evenly (nobody's above average) or when
-// the two "extra lap" groups don't overlap at all. Useful for tests and
-// for explaining a specific game's outcome; see generateFixedPlan's
-// comment for why this isn't something worth searching over.
+// the two "extra lap" groups don't overlap at all. Predates
+// calculateFairness (below) — kept for buildFixedPlan/continueFixedPlan's
+// existing tests, which still exercise the original bench-schedule-first
+// engine unchanged. For the fresh-game path (buildFairSchedule), use
+// calculateFairness instead.
 export function countDoubleStacked(intervals, keeperEligibleIds) {
   const eligibleSet = new Set(keeperEligibleIds || []);
   const benchCounts = {};
@@ -293,15 +321,16 @@ export function countDoubleStacked(intervals, keeperEligibleIds) {
   return [...highBench].filter((id) => highGk.has(id)).length;
 }
 
-// Diagnostic only — not used to make any decision below (see
-// generateFixedPlan's comment for why). The gap between whoever's run
-// around outfield the most and the least — the actual thing a kid and a
-// parent notice, and blind to by computeFairnessSpread (rotation.js),
-// which treats a keeper minute as equal to an outfield minute. Turn-count
-// fairness on bench and keeper turns separately (which the schedule
-// already guarantees, each to within ±1) does not by itself guarantee
-// this is small — found by sweeping this engine against real games and
-// comparing it directly, not assumed.
+// Diagnostic only — not used to make any decision below. The gap between
+// whoever's run around outfield the most and the least — the actual thing
+// a kid and a parent notice, and blind to by computeFairnessSpread
+// (rotation.js), which treats a keeper minute as equal to an outfield
+// minute. Turn-count fairness on bench and keeper turns separately does
+// not by itself guarantee this is small — the exact gap this file's
+// outfield-fairness rewrite exists to close directly (see the module
+// comment and calculateFairness) rather than leaving to bench arithmetic.
+// Predates calculateFairness — kept for buildFixedPlan/continueFixedPlan's
+// existing tests; for the fresh-game path use calculateFairness instead.
 export function computeOutfieldSpread(intervals, availableIds) {
   const totals = {};
   availableIds.forEach((id) => (totals[id] = 0));
@@ -315,42 +344,440 @@ export function computeOutfieldSpread(intervals, availableIds) {
   return values.length === 0 ? 0 : Math.max(...values) - Math.min(...values);
 }
 
+// Splits `totalUnits` as evenly as possible across `orderedIds` — everyone
+// gets floor(totalUnits/n), except the first `totalUnits % n` ids in the
+// given order, who get one more. The CALLER controls who's "first" by the
+// order it passes in — computeIntervalTargets uses this to make sure the
+// scarce "+1" slots go to whoever has the least room to spare, not an
+// arbitrary or position-based bias.
+function distributeEvenly(totalUnits, orderedIds) {
+  const n = orderedIds.length;
+  const result = {};
+  if (n === 0) return result;
+  const base = Math.floor(totalUnits / n);
+  const remainder = totalUnits - base * n;
+  orderedIds.forEach((id, i) => {
+    result[id] = base + (i < remainder ? 1 : 0);
+  });
+  return result;
+}
+
+// Stage 1 of the outfield-fairness rewrite: work out each player's target
+// outfield/keeper/bench interval counts BEFORE building anything, so the
+// schedule can be constructed *toward* a known-fair final distribution
+// instead of hoping one emerges from bench arithmetic. See the module
+// comment for the overall design; this is the piece that makes the
+// required relationship (outfield = total - bench - keeper) explicit
+// rather than accidental.
+//
+// Keeper targets come first: numIntervals is split into keeperShiftIntervals
+// -sized blocks (the last one shorter if it doesn't divide evenly), block 0
+// going to startingGkId if given and eligible — mirroring exactly how
+// assignKeepers already behaves (they hold the whole first shift as long as
+// they stay on the field) — and the rest distributed round robin,
+// least-loaded-so-far first, among eligible players. If nobody's eligible,
+// every keeper target is 0 and every on-field slot counts as outfield
+// instead (matches assignKeepers' existing null-keeper fallback).
+//
+// Outfield targets are then split evenly across ALL players — but the
+// scarce "+1" remainder slots go to whoever has the LOWEST keeper target
+// first, not an arbitrary order. That's the actual compensation mechanism:
+// a player already carrying more keeper duty has less room left before
+// their bench target would go negative, so they shouldn't also get first
+// claim on the extra outfield slots.
+//
+// Bench targets are DERIVED, never independently targeted:
+// targetBench = numIntervals - targetOutfield - targetKeeper. This is
+// where "more keeper time means less bench time, not less outfield time"
+// actually gets enforced. A defensive repair pass (rare in practice —
+// needs a keeper shift long enough relative to numIntervals and squad size
+// that a single player's keeper block alone would overflow their whole
+// game) claws back a player's outfield bonus if the derived bench target
+// would otherwise go negative, and hands the reclaimed slots to whoever
+// has room — see the "sole keeper for the whole game" test for exactly
+// when this fires.
+export function computeIntervalTargets({
+  rotationOrder, numIntervals, fieldSize, keeperEligibleIds, keeperShiftIntervals = 1, startingGkId = null,
+}) {
+  const n = rotationOrder.length;
+  const onFieldSize = Math.min(fieldSize, n);
+  const eligibleSet = new Set(keeperEligibleIds || []);
+  const eligibleInOrder = rotationOrder.filter((id) => eligibleSet.has(id));
+  const hasEligibleKeeper = eligibleInOrder.length > 0;
+  const shiftLen = Math.max(1, keeperShiftIntervals);
+
+  const targetKeeper = {};
+  rotationOrder.forEach((id) => (targetKeeper[id] = 0));
+  if (hasEligibleKeeper) {
+    const blocks = [];
+    let remaining = numIntervals;
+    while (remaining > 0) {
+      const len = Math.min(shiftLen, remaining);
+      blocks.push(len);
+      remaining -= len;
+    }
+    let blockIdx = 0;
+    if (startingGkId && eligibleSet.has(startingGkId)) {
+      targetKeeper[startingGkId] += blocks[0];
+      blockIdx = 1;
+    }
+    for (; blockIdx < blocks.length; blockIdx++) {
+      const pick = eligibleInOrder.reduce((best, id) => (targetKeeper[id] < targetKeeper[best] ? id : best), eligibleInOrder[0]);
+      targetKeeper[pick] += blocks[blockIdx];
+    }
+  }
+
+  const outfieldSlotsPerInterval = hasEligibleKeeper ? onFieldSize - 1 : onFieldSize;
+  const outfieldTotal = numIntervals * outfieldSlotsPerInterval;
+  const priorityOrder = [...rotationOrder].sort((a, b) => {
+    if (targetKeeper[a] !== targetKeeper[b]) return targetKeeper[a] - targetKeeper[b];
+    return rotationOrder.indexOf(a) - rotationOrder.indexOf(b);
+  });
+  const targetOutfield = distributeEvenly(outfieldTotal, priorityOrder);
+
+  const targetBench = {};
+  rotationOrder.forEach((id) => (targetBench[id] = numIntervals - targetOutfield[id] - targetKeeper[id]));
+
+  for (const id of rotationOrder) {
+    if (targetBench[id] >= 0) continue;
+    const deficit = -targetBench[id];
+    targetOutfield[id] -= deficit;
+    targetBench[id] = 0;
+    let toPlace = deficit;
+    for (const candidate of priorityOrder) {
+      if (toPlace <= 0) break;
+      if (candidate === id || targetBench[candidate] <= 0) continue;
+      const give = Math.min(targetBench[candidate], toPlace);
+      targetOutfield[candidate] += give;
+      targetBench[candidate] -= give;
+      toPlace -= give;
+    }
+    // If toPlace > 0 here, keeper commitments alone exceed what the game
+    // can support even after redistribution — genuinely degenerate (more
+    // total keeper-eligible demand than the squad/shift settings can
+    // sanely produce). Left as a smaller-than-ideal outfieldTotal rather
+    // than forcing an invalid (negative) target on someone else.
+  }
+
+  return { targetOutfield, targetKeeper, targetBench };
+}
+
+// Stage 2: build the schedule using the ORIGINAL, already-correct,
+// unchanged engine (buildFixedPlan/assignKeepers/buildBenchSchedule) —
+// bench turns ±1 by construction, bench->keeper always, every existing
+// keeper rule (arriving-eligible preferred, least keeper-so-far,
+// keeperShiftIntervals, startingGkId, existing fallback) exactly as it was
+// — then run a targeted repair pass that closes any remaining outfield gap
+// directly.
+//
+// An earlier version of this tried to predict a fair keeper split up
+// front (via computeIntervalTargets) and build outfield/bench around it
+// directly. That ran into a real structural problem: keeper duty requires
+// arriving from the bench, so how much keeper time a player can actually
+// get is bounded by how many bench-to-field transitions they get — which
+// is itself controlled by their bench target. With a single bench spot
+// (a common case), each player gets at most roughly one "free" keeper
+// turn per bench turn, so a pre-planned keeper split that assumes more
+// than that isn't achievable no matter how the rest of the scheduling
+// logic is tuned — the mismatch leaked straight into outfield unevenness.
+// Reusing the original engine sidesteps this entirely, since it never
+// tries to predict keeper allocation ahead of time — it just lets the
+// existing, already-correct arriving-based rule produce whatever keeper
+// split naturally happens, exactly as before this whole rewrite.
+//
+// repairOutfieldBalance (below) then fixes outfield specifically, without
+// touching keeper assignment at all — see its own comment.
+export function buildFairSchedule({
+  rotationOrder, gameMinutes, numIntervals, fieldSize, keeperEligibleIds, keeperShiftIntervals = 1, startingGkId = null,
+}) {
+  // Same "swap startingGkId into an on-field slot" step buildBenchSchedule
+  // needs — buildFixedPlan/assignKeepers only honor a starting pick who's
+  // actually on the field for interval 0.
+  const orderedRotation = [...rotationOrder];
+  if (startingGkId && orderedRotation.includes(startingGkId)) {
+    const benchSpots = orderedRotation.length - Math.min(fieldSize, orderedRotation.length);
+    const idx = orderedRotation.indexOf(startingGkId);
+    if (idx < benchSpots) {
+      [orderedRotation[idx], orderedRotation[benchSpots]] = [orderedRotation[benchSpots], orderedRotation[idx]];
+    }
+  }
+
+  const { intervals } = buildFixedPlan({
+    rotationOrder: orderedRotation, gameMinutes, numIntervals, fieldSize, keeperEligibleIds, keeperShiftIntervals, startingGkId,
+  });
+  repairKeeperBalance(intervals, keeperEligibleIds);
+  repairOutfieldBalance(intervals, rotationOrder, keeperEligibleIds);
+  return { intervals };
+}
+
+// Runs BEFORE repairOutfieldBalance, and for a real reason: when only a
+// subset of the squad is keeper-eligible, all of that subset's keeper
+// duty is competing for the same small pool of arriving opportunities,
+// and the existing engine's "least keeper-so-far" tiebreak doesn't
+// guarantee an even split within that subset — found via a real
+// configuration (9 players, only 3 eligible) where one eligible player
+// ended up with keeper=4 while another had keeper=2, and since outfield =
+// total - bench - keeper, that unevenness among just the eligible players
+// leaked straight into a much bigger outfield gap than repairOutfieldBalance
+// alone (an outfield<->bench repair) could ever fix — the excess keeper
+// duty isn't sitting on the bench, it's sitting on ANOTHER eligible
+// player's shoulders.
+//
+// Directly rebalances keeper duty between the most- and least-loaded
+// eligible players via a pure role swap: find a boundary interval where
+// the most-loaded player is keeper and the least-loaded player is already
+// playing outfield there (and, critically, actually arrived there the
+// same way the most-loaded one did — same bench-turn origin — so this
+// never fabricates an invalid bench->keeper claim), and swap their roles
+// for that whole shift block. Neither player's bench time changes at all;
+// this is purely "who holds the gloves," which is exactly the dial the
+// spec says is fine to turn to protect outfield fairness.
+function repairKeeperBalance(intervals, keeperEligibleIds) {
+  const eligible = [...new Set(keeperEligibleIds || [])];
+  if (eligible.length < 2) return;
+  const keeperCount = {};
+  eligible.forEach((id) => (keeperCount[id] = 0));
+  intervals.forEach((iv) => {
+    const gk = iv.onField.find((p) => p.isGk);
+    if (gk && keeperCount[gk.id] !== undefined) keeperCount[gk.id] += 1;
+  });
+
+  function tryMove(most, least) {
+    for (let i = 0; i < intervals.length; i++) {
+      const gk = intervals[i].onField.find((p) => p.isGk);
+      if (!gk || gk.id !== most) continue;
+      if (!intervals[i].onField.some((p) => p.id === least && !p.isGk)) continue;
+
+      const prevGk = intervals[i - 1]?.onField.find((p) => p.isGk)?.id;
+      const isBoundaryForMost = i === 0 || prevGk !== most;
+      if (!isBoundaryForMost) continue;
+      const leastWasBenchedBefore = i === 0 || intervals[i - 1].bench.includes(least);
+      if (!leastWasBenchedBefore) continue;
+
+      let blockEnd = i;
+      while (intervals[blockEnd + 1]?.onField.find((p) => p.isGk)?.id === most) blockEnd++;
+      let leastOutfieldWholeBlock = true;
+      for (let k = i; k <= blockEnd; k++) {
+        if (!intervals[k].onField.some((p) => p.id === least && !p.isGk)) { leastOutfieldWholeBlock = false; break; }
+      }
+      if (!leastOutfieldWholeBlock) continue;
+
+      for (let k = i; k <= blockEnd; k++) {
+        intervals[k].onField = intervals[k].onField.map((p) => {
+          if (p.id === most) return { id: most, isGk: false };
+          if (p.id === least) return { id: least, isGk: true };
+          return p;
+        });
+      }
+      const blockLen = blockEnd - i + 1;
+      keeperCount[most] -= blockLen;
+      keeperCount[least] += blockLen;
+      return true;
+    }
+    return false;
+  }
+
+  const maxIterations = intervals.length * eligible.length * 2;
+  for (let iter = 0; iter < maxIterations; iter++) {
+    const vals = eligible.map((id) => keeperCount[id]);
+    const maxVal = Math.max(...vals);
+    const minVal = Math.min(...vals);
+    if (maxVal - minVal <= 1) break;
+
+    const mostCandidates = eligible.filter((id) => keeperCount[id] === maxVal);
+    const leastCandidates = eligible.filter((id) => keeperCount[id] === minVal);
+
+    let swapped = false;
+    for (const most of mostCandidates) {
+      for (const least of leastCandidates) {
+        if (tryMove(most, least)) { swapped = true; break; }
+      }
+      if (swapped) break;
+    }
+    if (!swapped) break;
+  }
+}
+
+// Repeatedly finds whoever has the MOST outfield time and whoever has the
+// LEAST, and swaps them for one interval where the first is playing
+// outfield and the second is on the bench — a pure outfield<->bench swap,
+// mutating `intervals` in place. Never touches who's actually keeper
+// anywhere except in the one deliberate "handoff" case below, so
+// bench->keeper and every existing keeper rule stay effectively
+// unaffected — outfield fairness is fixed on top of whatever keeper
+// allocation the existing engine already produced, never by overriding it
+// wholesale.
+//
+// The straightforward swap is skipped whenever the player being pulled
+// off the bench (`least`) is the one who becomes keeper the very next
+// interval — that bench turn is load-bearing for the transition. With a
+// single bench spot (the common case), EVERY bench turn is load-bearing
+// like this, since the "arriving" pool is always a forced singleton — so
+// skipping outright would mean this repair pass could never do anything
+// at all for the most common squad shapes, found directly via the sweep
+// test rather than assumed. Instead, in that case, a self-contained
+// "handoff" is tried: if `most` is keeper-eligible and is already playing
+// outfield for the WHOLE upcoming shift block `least` was about to hold,
+// hand that whole block's gloves to `most` instead. `most`'s bench turn
+// at the swap interval (`least`'s former slot) is exactly what makes them
+// arriving-eligible for it; `least` takes over the outfield role `most`
+// vacates across the block — which is what we actually want for `least`,
+// unlike the plain swap this replaces. No other interval's bench
+// composition changes at all, and keeper-shift continuity for anyone else
+// is untouched.
+//
+// Stops as soon as outfield range is ideal (<=1) or no further safe,
+// improving move exists for ANY pair tied at the current extremes — the
+// latter is a genuine mathematical limit for that configuration, not a
+// shortfall (cross-checked against computeIntervalTargets' independently-
+// computed theoretical best in the test suite). A capped iteration count
+// is defensive only.
+//
+// Tries every player tied at the current max against every player tied at
+// the current min, not just the first pair found — a real configuration
+// (partial keeper eligibility) showed the very first pair tried can be
+// the one unlucky combination with no safe move available (their only
+// overlapping interval happened to be keeper-transition-blocked), even
+// though other tied candidates had a perfectly good move sitting right
+// there. Giving up after just one pair meant this repair pass did nothing
+// at all for that configuration despite real headroom existing.
+function repairOutfieldBalance(intervals, availableIds, keeperEligibleIds) {
+  const eligibleSet = new Set(keeperEligibleIds || []);
+  const outfieldCount = {};
+  availableIds.forEach((id) => (outfieldCount[id] = 0));
+  intervals.forEach((iv) => iv.onField.forEach((p) => { if (!p.isGk) outfieldCount[p.id] += 1; }));
+
+  function tryMove(most, least) {
+    for (let i = 0; i < intervals.length; i++) {
+      const iv = intervals[i];
+      const mostIsOutfield = iv.onField.some((p) => p.id === most && !p.isGk);
+      const leastIsBench = iv.bench.includes(least);
+      if (!mostIsOutfield || !leastIsBench) continue;
+
+      const nextGk = intervals[i + 1]?.onField.find((p) => p.isGk);
+      if (!nextGk || nextGk.id !== least) {
+        iv.onField = iv.onField.map((p) => (p.id === most ? { id: least, isGk: false } : p));
+        iv.bench = iv.bench.map((id) => (id === least ? most : id));
+        outfieldCount[most] -= 1;
+        outfieldCount[least] += 1;
+        return true;
+      }
+
+      // Blocked — try the handoff instead.
+      if (!eligibleSet.has(most)) continue;
+      let blockEnd = i + 1;
+      while (intervals[blockEnd + 1]?.onField.find((p) => p.isGk)?.id === least) blockEnd++;
+      let mostPlaysOutfieldWholeBlock = true;
+      for (let k = i + 1; k <= blockEnd; k++) {
+        if (!intervals[k].onField.some((p) => p.id === most && !p.isGk)) { mostPlaysOutfieldWholeBlock = false; break; }
+      }
+      if (!mostPlaysOutfieldWholeBlock) continue;
+
+      iv.onField = iv.onField.map((p) => (p.id === most ? { id: least, isGk: false } : p));
+      iv.bench = iv.bench.map((id) => (id === least ? most : id));
+      for (let k = i + 1; k <= blockEnd; k++) {
+        intervals[k].onField = intervals[k].onField.map((p) => {
+          if (p.id === least) return { id: least, isGk: false };
+          if (p.id === most) return { id: most, isGk: true };
+          return p;
+        });
+      }
+      const blockLen = blockEnd - i; // number of intervals in [i+1, blockEnd]
+      outfieldCount[most] -= 1 + blockLen;
+      outfieldCount[least] += 1 + blockLen;
+      return true;
+    }
+    return false;
+  }
+
+  const maxIterations = intervals.length * availableIds.length * 3;
+  for (let iter = 0; iter < maxIterations; iter++) {
+    const vals = availableIds.map((id) => outfieldCount[id]);
+    const maxVal = Math.max(...vals);
+    const minVal = Math.min(...vals);
+    if (maxVal - minVal <= 1) break;
+
+    const mostCandidates = availableIds.filter((id) => outfieldCount[id] === maxVal);
+    const leastCandidates = availableIds.filter((id) => outfieldCount[id] === minVal);
+
+    let didSomething = false;
+    for (const most of mostCandidates) {
+      for (const least of leastCandidates) {
+        if (tryMove(most, least)) { didSomething = true; break; }
+      }
+      if (didSomething) break;
+    }
+    if (!didSomething) break; // no safe improving move left for any tied pair — a genuine limit
+  }
+}
+
+// Reports how fair a plan actually turned out, in INTERVAL counts (not
+// minutes — the thresholds below are defined in "substitution intervals",
+// and every fresh-game interval is the same length, so counts and minutes
+// agree up to that constant factor). Pure and read-only: safe to reuse
+// anywhere (tests, future dev/debug output, potentially Path A someday),
+// since it only ever reports on a plan that's already been built — it
+// never makes or influences a scheduling decision itself.
+//
+// "ideal" = range <=1 interval, "acceptable" = range <=2, "poor" = worse.
+// Keeper range is reported but never rated — keeper duty is allowed to be
+// uneven by design (see the module comment).
+export function calculateFairness(intervals, availableIds, keeperEligibleIds) {
+  const eligibleSet = new Set(keeperEligibleIds || []);
+  const totals = {};
+  availableIds.forEach((id) => (totals[id] = { outfield: 0, keeper: 0, bench: 0 }));
+  intervals.forEach((iv) => {
+    iv.onField.forEach((p) => {
+      if (!totals[p.id]) return;
+      if (p.isGk) totals[p.id].keeper += 1;
+      else totals[p.id].outfield += 1;
+    });
+    iv.bench.forEach((id) => {
+      if (totals[id]) totals[id].bench += 1;
+    });
+  });
+
+  const range = (vals) => (vals.length === 0 ? 0 : Math.max(...vals) - Math.min(...vals));
+  const rate = (r) => (r <= 1 ? "ideal" : r <= 2 ? "acceptable" : "poor");
+
+  const outfieldVals = availableIds.map((id) => totals[id].outfield);
+  const benchVals = availableIds.map((id) => totals[id].bench);
+  const keeperVals = availableIds.filter((id) => eligibleSet.has(id)).map((id) => totals[id].keeper);
+  const outfieldRange = range(outfieldVals);
+  const benchRange = range(benchVals);
+
+  return {
+    totals,
+    outfieldMin: outfieldVals.length ? Math.min(...outfieldVals) : 0,
+    outfieldMax: outfieldVals.length ? Math.max(...outfieldVals) : 0,
+    outfieldRange,
+    benchMin: benchVals.length ? Math.min(...benchVals) : 0,
+    benchMax: benchVals.length ? Math.max(...benchVals) : 0,
+    benchRange,
+    keeperMin: keeperVals.length ? Math.min(...keeperVals) : 0,
+    keeperMax: keeperVals.length ? Math.max(...keeperVals) : 0,
+    keeperRange: range(keeperVals),
+    outfieldRating: rate(outfieldRange),
+    benchRating: rate(benchRange),
+  };
+}
+
 // The actual entry point a coach's "Generate" hits. Shuffles the rotation
-// order (real week-to-week variety — a different player experiences
-// whatever the "extra lap" is each time) and builds the plan once.
+// order once (real week-to-week variety — a different player experiences
+// whatever the schedule's "extra lap" is each time, and ties in the
+// target-based ranking above resolve differently too) and builds the plan
+// against that order via buildFairSchedule.
 //
-// An earlier version tried every possible rotation phase and kept whichever
-// measured best on outfield spread and double-stacking, the same
-// "simulate real candidates, keep the best" pattern pickFairStartingGk
-// uses in rotation.js. It was pure wasted work: proven directly by trying
-// all of them against a real scenario, every single phase of this
-// schedule produces *identical* bench-turn counts, keeper-turn counts, and
-// outfield-minute spread — rotating only changes *who* gets which outcome,
-// never how good the outcome is, because the schedule's fairness comes
-// entirely from buildBenchSchedule's arithmetic and assignKeepers' one
-// deliberate tiebreak (see its comment), neither of which cares which
-// player holds which position. There was nothing left to search for, so
-// this just builds the one schedule the arithmetic already guarantees.
-//
-// `startingGkId` gets one piece of special handling: the shuffle could
-// happen to land them in the bench block for interval 0, which would
-// silently ignore the request (assignKeepers only honors a starting pick
-// who's actually on the field). Swapping them into an on-field position
-// first keeps the request honored without needing a re-shuffle.
+// No pre-shuffle "swap startingGkId into an on-field slot" step needed
+// here (an earlier version needed one, since buildBenchSchedule's cyclic
+// slicing could otherwise silently bench them for interval 0) —
+// buildFairSchedule forces their presence into the group directly, so
+// whatever slot the shuffle happened to land them in doesn't matter.
 export function generateFixedPlan({
   availableIds, gameMinutes, numIntervals, fieldSize, keeperEligibleIds, keeperShiftIntervals = 1, startingGkId = null, random = Math.random,
 }) {
   const rotationOrder = shuffle(availableIds, random);
-
-  if (startingGkId && rotationOrder.includes(startingGkId)) {
-    const benchSpots = rotationOrder.length - Math.min(fieldSize, rotationOrder.length);
-    const idx = rotationOrder.indexOf(startingGkId);
-    if (idx < benchSpots) {
-      [rotationOrder[idx], rotationOrder[benchSpots]] = [rotationOrder[benchSpots], rotationOrder[idx]];
-    }
-  }
-
-  return buildFixedPlan({ rotationOrder, gameMinutes, numIntervals, fieldSize, keeperEligibleIds, keeperShiftIntervals, startingGkId });
+  return buildFairSchedule({ rotationOrder, gameMinutes, numIntervals, fieldSize, keeperEligibleIds, keeperShiftIntervals, startingGkId });
 }
 
 // Rebuilds the *remainder* of an in-progress game from `startInterval`
