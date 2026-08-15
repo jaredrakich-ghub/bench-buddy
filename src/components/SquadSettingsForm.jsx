@@ -11,6 +11,18 @@ import { styles } from "./styles.js";
 // constant so its identity is stable across renders (it's a useMemo dep).
 const SUB_INTERVAL_CANDIDATES = [4, 5, 6, 7, 8];
 
+// How many groups the match-screen interval tabs get visually split into —
+// "breakSegments" is the group count (2 = halves = 1 divider, 3 = thirds =
+// 2 dividers, and so on), not the divider count directly. See
+// computeBreakBoundaries (rotation.js) for the actual math and why that
+// framing was chosen.
+const BREAK_OPTIONS = [
+  { segments: 1, label: "None" },
+  { segments: 2, label: "Halves" },
+  { segments: 3, label: "Thirds" },
+  { segments: 4, label: "Quarters" },
+];
+
 // Shared form for both first-time setup (inline) and later edits (modal).
 // This also doubles as squad management — add, remove, mark available, and
 // mark keeper-eligible — all in one place, since in practice a coach
@@ -166,6 +178,28 @@ export default function SquadSettingsForm({
         />
       </label>
       <div style={styles.modeHint}>Leave blank to rotate keepers every sub window.</div>
+
+      <label style={{ ...styles.settingLabel, marginTop: 12 }}>
+        <span style={styles.settingLabelText}>Breaks</span>
+      </label>
+      <div style={styles.subIntervalChipRow}>
+        {BREAK_OPTIONS.map((opt) => {
+          const isSelected = (gameSettings.breakSegments || 1) === opt.segments;
+          return (
+            <button
+              key={opt.segments}
+              style={{ ...styles.subIntervalChip, ...(isSelected ? styles.subIntervalChipSelected : {}) }}
+              onClick={() => setGameSettings({ ...gameSettings, breakSegments: opt.segments })}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+      <div style={styles.modeHint}>
+        Just a visual grouping on the match screen for your own planning — doesn't change how the rotation itself is
+        worked out.
+      </div>
 
       <div style={styles.intervalPreview}>
         {(() => {

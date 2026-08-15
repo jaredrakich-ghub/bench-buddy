@@ -251,12 +251,27 @@ export const styles = {
     WebkitMaskImage: "linear-gradient(to right, black calc(100% - 40px), transparent 100%)",
     maskImage: "linear-gradient(to right, black calc(100% - 40px), transparent 100%)",
   },
+  // Border kept as separate longhand properties (not the border shorthand)
+  // specifically so intervalTabBreakStart below can override just
+  // borderLeftColor/borderLeftWidth — same reasoning as subIntervalChip
+  // above: mixing a shorthand base with a longhand override on the same
+  // element is what React's "removing a style property during rerender"
+  // warning is about, and it's not just noise here — breakBoundaries can
+  // toggle a given tab in or out of this style across renders (settings
+  // change, browsing a different game), which is exactly the "flips
+  // between states live" case that bites.
   intervalTab: {
-    flex: "0 0 auto", padding: "9px 12px", borderRadius: 8, border: "1px solid " + colors.border,
+    flex: "0 0 auto", padding: "9px 12px", borderRadius: 8,
+    borderWidth: 1, borderStyle: "solid", borderColor: colors.border,
     background: colors.cardBg, fontSize: 12, fontWeight: 700, cursor: "pointer", color: colors.ink,
     scrollSnapAlign: "start",
   },
-  intervalTabActive: { background: colors.grass, color: colors.chalk, border: "1px solid " + colors.grass },
+  intervalTabActive: { background: colors.grass, color: colors.chalk, borderColor: colors.grass },
+  // Purely visual grouping for a half-time/third-time/quarter-time break
+  // (see computeBreakBoundaries, rotation.js) — extra gap plus a colored
+  // left edge reads as "a new section starts here" without needing a
+  // separate divider element between flex children.
+  intervalTabBreakStart: { marginLeft: 12, borderLeftWidth: 2, borderLeftColor: colors.field },
 
   pitchBoard: { background: colors.pitchDark, borderRadius: 14, padding: 12 },
   pitchInner: { position: "relative", width: "100%", height: 220, marginBottom: 4 },

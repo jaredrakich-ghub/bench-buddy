@@ -339,6 +339,7 @@ export default function SubRotationPlanner({ user }) {
             setSwapPickId={setSwapPickId}
             injuredThisGame={injuredThisGame}
             keeperEligibleIds={keeperEligibleIds}
+            breakSegments={gameSettings.breakSegments || 1}
             nameOf={nameOf}
             onInjury={handleInjury}
             onBringBack={bringBack}

@@ -24,6 +24,26 @@ export function computeIntervals(gameMinutes, subIntervalMinutes) {
   return { numIntervals, intervalLen };
 }
 
+// Purely a display helper for the match screen's interval tabs — shows a
+// coach where a half-time/third-time/quarter-time break would visually
+// group the intervals together. `breakSegments` is how many groups the
+// game is split into (2 = halves, 3 = thirds, 4 = quarters), so it always
+// produces breakSegments-1 dividers, evenly spaced by game time and rounded
+// to the nearest actual interval boundary (breaks don't have to land on a
+// clean interval edge — e.g. a 45-min game with 7-min subs doesn't divide
+// evenly into thirds either). Deliberately has zero effect on anything the
+// rotation engine decides — no scheduling function reads this — it only
+// ever feeds which interval tabs get a visual gap before them.
+export function computeBreakBoundaries(numIntervals, breakSegments) {
+  const boundaries = new Set();
+  if (!breakSegments || breakSegments <= 1) return boundaries;
+  for (let k = 1; k < breakSegments; k++) {
+    const idx = Math.round((numIntervals * k) / breakSegments);
+    if (idx > 0 && idx < numIntervals) boundaries.add(idx);
+  }
+  return boundaries;
+}
+
 // Keeper minutes count for less than outfield minutes toward "already had a
 // turn" — found via a real live game where two kids who'd done more keeper
 // duty AND more bench time than their teammates ended up with meaningfully

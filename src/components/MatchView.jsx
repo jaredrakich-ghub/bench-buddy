@@ -1,5 +1,5 @@
 import { ChevronRight, ChevronLeft, RotateCcw, Play, Pause, Settings, BarChart2, ArrowDown, ArrowUp } from "lucide-react";
-import { intervalAtElapsed, computeNextChangeBadges } from "../lib/rotation.js";
+import { intervalAtElapsed, computeNextChangeBadges, computeBreakBoundaries } from "../lib/rotation.js";
 import { computeLiveElapsedSec, fmtClock } from "../lib/clock.js";
 import { getFormationLayout } from "../lib/formation.js";
 import { styles } from "./styles.js";
@@ -27,6 +27,7 @@ export default function MatchView({
   setSwapPickId,
   injuredThisGame,
   keeperEligibleIds,
+  breakSegments,
   nameOf,
   onInjury,
   onBringBack,
@@ -37,6 +38,10 @@ export default function MatchView({
 }) {
   const totalGameSec = plan[plan.length - 1].endMin * 60;
   const isMatchComplete = elapsedSec >= totalGameSec;
+  // Purely visual — which interval tabs get a grouping gap before them for
+  // a half-time/third-time/quarter-time break. See computeBreakBoundaries's
+  // own comment: this has no effect on the plan itself, only this row.
+  const breakBoundaries = computeBreakBoundaries(plan.length, breakSegments);
   const cur = plan[intervalAtElapsed(plan, elapsedSec)];
   const secLeftInInterval = cur.endMin * 60 - elapsedSec;
   const nextIv = plan[cur.index + 1];
@@ -232,7 +237,12 @@ export default function MatchView({
             <button
               key={iv.index}
               onClick={() => setActiveInterval(iv.index)}
-              style={{ ...styles.intervalTab, ...(activeInterval === iv.index ? styles.intervalTabActive : {}) }}
+              style={{
+                ...styles.intervalTab,
+                ...(activeInterval === iv.index ? styles.intervalTabActive : {}),
+                ...(breakBoundaries.has(iv.index) ? styles.intervalTabBreakStart : {}),
+              }}
+              title={breakBoundaries.has(iv.index) ? "Break" : undefined}
             >
               {iv.startMin}–{iv.endMin}′
             </button>

@@ -264,6 +264,34 @@ describe("MatchView — manual keeper swap (Make keeper now)", () => {
   });
 });
 
+describe("MatchView — break markers (purely visual, no effect on the plan itself)", () => {
+  // 4 intervals, so computeBreakBoundaries gives clean, predictable results:
+  // halves -> divider before index 2; quarters -> dividers before 1, 2, 3.
+  const fourIntervalPlan = [
+    makeInterval(0, 0, 6, ["p1", "p2", "p3", "p4", "p5"], "p1", ["p6", "p7"]),
+    makeInterval(1, 6, 12, ["p1", "p2", "p3", "p5", "p6"], "p3", ["p4", "p7"]),
+    makeInterval(2, 12, 18, ["p1", "p3", "p5", "p6", "p7"], "p3", ["p2", "p4"]),
+    makeInterval(3, 18, 24, ["p1", "p3", "p5", "p6", "p7"], "p6", ["p2", "p4"]),
+  ];
+
+  it("shows no marker at all when breaks are off (the default)", () => {
+    render(<MatchView {...baseProps({ plan: fourIntervalPlan })} />);
+    expect(screen.queryByTitle("Break")).not.toBeInTheDocument();
+  });
+
+  it("shows exactly one marker at the halfway point for halves", () => {
+    render(<MatchView {...baseProps({ plan: fourIntervalPlan, breakSegments: 2 })} />);
+    const markers = screen.getAllByTitle("Break");
+    expect(markers).toHaveLength(1);
+    expect(markers[0]).toHaveTextContent("12–18′"); // interval index 2 (the third tab)
+  });
+
+  it("shows more, closer-together markers for quarters than for halves", () => {
+    render(<MatchView {...baseProps({ plan: fourIntervalPlan, breakSegments: 4 })} />);
+    expect(screen.getAllByTitle("Break")).toHaveLength(3);
+  });
+});
+
 describe("MatchView — match complete", () => {
   it("shows the match-complete banner with a working Start new game action once the clock reaches the end", async () => {
     const onShowSettings = vi.fn();

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   intervalAtElapsed,
   computeIntervals,
+  computeBreakBoundaries,
   buildCarryState,
   generatePlan,
   computeFairnessSpread,
@@ -58,6 +59,38 @@ describe("computeIntervals", () => {
   it("keeps interval length * numIntervals equal to the total game length", () => {
     const { numIntervals, intervalLen } = computeIntervals(50, 7);
     expect(numIntervals * intervalLen).toBeCloseTo(50);
+  });
+});
+
+describe("computeBreakBoundaries", () => {
+  it("returns nothing for no breaks (1 segment) or an unset value", () => {
+    expect(computeBreakBoundaries(9, 1)).toEqual(new Set());
+    expect(computeBreakBoundaries(9, null)).toEqual(new Set());
+    expect(computeBreakBoundaries(9, undefined)).toEqual(new Set());
+    expect(computeBreakBoundaries(9, 0)).toEqual(new Set());
+  });
+
+  it("halves (2 segments): a single divider at the halfway point", () => {
+    // 9 intervals -> round(9/2) = round(4.5) = 5
+    expect(computeBreakBoundaries(9, 2)).toEqual(new Set([5]));
+  });
+
+  it("thirds (3 segments): two evenly-spaced dividers", () => {
+    // 9 divides cleanly into thirds: dividers at 3 and 6.
+    expect(computeBreakBoundaries(9, 3)).toEqual(new Set([3, 6]));
+  });
+
+  it("quarters (4 segments): three dividers, rounded to the nearest interval when it doesn't divide evenly", () => {
+    // 9 intervals / 4 -> round(2.25)=2, round(4.5)=5, round(6.75)=7
+    expect(computeBreakBoundaries(9, 4)).toEqual(new Set([2, 5, 7]));
+  });
+
+  it("never produces a divider before the first interval or after the last", () => {
+    const boundaries = computeBreakBoundaries(4, 4); // more segments than there's real room for
+    boundaries.forEach((idx) => {
+      expect(idx).toBeGreaterThan(0);
+      expect(idx).toBeLessThan(4);
+    });
   });
 });
 
