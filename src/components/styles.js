@@ -407,23 +407,22 @@ export const styles = {
   },
   tokenActionMenuItemDanger: { color: colors.danger },
 
-  // Restyled to match the reference mockup: a dark full-width bar (same
-  // colors.ink treatment as timerBar above, not a new color) instead of a
-  // plain row of light-gray icon buttons on the page background, with a
-  // decorative scroll/swipe indicator track underneath the label — purely
-  // visual, doesn't represent real scroll position, just reads as "this
-  // is where you page through intervals" the way the mockup's did.
+  // Dark bar (same colors.ink treatment as timerBar above, not a new
+  // color) instead of a plain row of light-gray icon buttons on the page
+  // background — matches the reference mockup's nav bar. The mockup's
+  // swipe-indicator track underneath the label was tried and dropped: it
+  // read as a drag/pulldown handle rather than decoration, which this
+  // isn't. Kept slim (small padding, no extra row) for the same reason —
+  // a plain prev/next bar shouldn't look like it hides more content.
   planNav: {
-    display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
-    marginTop: 16, background: colors.ink, borderRadius: 14, padding: "6px 6px 12px",
+    display: "flex", alignItems: "center", justifyContent: "space-between",
+    marginTop: 16, background: colors.ink, borderRadius: 12, padding: "4px 6px",
   },
-  planNavRow: { display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" },
   planNavBtn: {
-    border: "none", background: "transparent", borderRadius: 8, padding: 8, cursor: "pointer", color: colors.chalk,
-    display: "flex", alignItems: "center", justifyContent: "center", minWidth: 40, minHeight: 40,
+    border: "none", background: "transparent", borderRadius: 8, padding: 6, cursor: "pointer", color: colors.chalk,
+    display: "flex", alignItems: "center", justifyContent: "center", minWidth: 36, minHeight: 36,
   },
   planNavLabel: { fontSize: 14, fontWeight: 700, color: colors.chalk },
-  planNavTrack: { width: 56, height: 4, borderRadius: 2, background: "rgba(244,247,242,0.25)" },
 
   modalOverlay: {
     position: "fixed", inset: 0, background: "rgba(15,36,26,0.55)", display: "flex", alignItems: "center",

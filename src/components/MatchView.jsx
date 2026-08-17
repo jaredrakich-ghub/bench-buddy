@@ -495,22 +495,19 @@ export default function MatchView({
       )}
 
       <div style={styles.planNav}>
-        <div style={styles.planNavRow}>
-          <button style={styles.planNavBtn} disabled={activeInterval === 0} onClick={() => setActiveInterval((i) => Math.max(0, i - 1))}>
-            <ChevronLeft size={20} />
-          </button>
-          <span style={styles.planNavLabel}>
-            Interval {activeInterval + 1} of {plan.length}
-          </span>
-          <button
-            style={styles.planNavBtn}
-            disabled={activeInterval === plan.length - 1}
-            onClick={() => setActiveInterval((i) => Math.min(plan.length - 1, i + 1))}
-          >
-            <ChevronRight size={20} />
-          </button>
-        </div>
-        <div style={styles.planNavTrack} />
+        <button style={styles.planNavBtn} disabled={activeInterval === 0} onClick={() => setActiveInterval((i) => Math.max(0, i - 1))}>
+          <ChevronLeft size={20} />
+        </button>
+        <span style={styles.planNavLabel}>
+          Interval {activeInterval + 1} of {plan.length}
+        </span>
+        <button
+          style={styles.planNavBtn}
+          disabled={activeInterval === plan.length - 1}
+          onClick={() => setActiveInterval((i) => Math.min(plan.length - 1, i + 1))}
+        >
+          <ChevronRight size={20} />
+        </button>
       </div>
     </section>
   );

@@ -6,20 +6,20 @@
 // even visual spread, same as before, just generalized to more than 2 rows.
 //
 // Row 0 (first slice of `outfielders`) always lands nearest the goal, the
-// last row furthest away — matches the pre-existing back/front convention,
-// so a 2-row game (the common 5-a-side case) produces byte-for-byte the
-// same topPct values as before (62/30), not just a visually similar result.
+// last row furthest away — matches the pre-existing back/front convention.
+//
 // Row-to-row vertical spread. The back row (nearest goal) sits at
 // BACK_ROW_TOP_PCT, the front row (furthest from goal) at
-// FRONT_ROW_TOP_PCT, with any middle row(s) evenly between. Nudged 5
-// points further apart each way (was 62/30) after real use showed the
-// front row's name label sitting on top of the halfway line — moving
-// both endpoints out by the same amount keeps a 3-row formation's
-// middle row exactly where it was (its midpoint is unchanged) while
-// giving the top and bottom rows more clearance from the halfway line
-// and goal box respectively.
-const BACK_ROW_TOP_PCT = 67;
-const FRONT_ROW_TOP_PCT = 25;
+// FRONT_ROW_TOP_PCT, with any middle row(s) evenly between. Both moved up
+// (was 67/25) per real-use feedback showing the whole formation sitting
+// too low, leaving the top of the pitch empty above the front row while
+// crowding the halfway line — shifting both up uses that empty space
+// instead. Not shifted by an equal amount this time: the back row had a
+// lot of slack before the goal box and could move up more than the front
+// row needed to. A 3-row formation's middle row still lands at the
+// midpoint of the two, same as before.
+const BACK_ROW_TOP_PCT = 56;
+const FRONT_ROW_TOP_PCT = 18;
 
 export function getFormationLayout(onField) {
   const gk = onField.find((p) => p.isGk);
