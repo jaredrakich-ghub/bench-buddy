@@ -9,6 +9,18 @@
 // last row furthest away — matches the pre-existing back/front convention,
 // so a 2-row game (the common 5-a-side case) produces byte-for-byte the
 // same topPct values as before (62/30), not just a visually similar result.
+// Row-to-row vertical spread. The back row (nearest goal) sits at
+// BACK_ROW_TOP_PCT, the front row (furthest from goal) at
+// FRONT_ROW_TOP_PCT, with any middle row(s) evenly between. Nudged 5
+// points further apart each way (was 62/30) after real use showed the
+// front row's name label sitting on top of the halfway line — moving
+// both endpoints out by the same amount keeps a 3-row formation's
+// middle row exactly where it was (its midpoint is unchanged) while
+// giving the top and bottom rows more clearance from the halfway line
+// and goal box respectively.
+const BACK_ROW_TOP_PCT = 67;
+const FRONT_ROW_TOP_PCT = 25;
+
 export function getFormationLayout(onField) {
   const gk = onField.find((p) => p.isGk);
   const outfielders = onField.filter((p) => !p.isGk);
@@ -34,12 +46,12 @@ export function getFormationLayout(onField) {
       return { ...p, topPct, leftPct };
     });
 
-  // Evenly spaced from 62 (nearest goal) down to 30 (furthest forward) —
-  // the same two endpoints the original 2-row layout used, just with
-  // however many rows actually exist spaced between them. A single row
-  // (e.g. a genuinely tiny game) falls back to sitting at the midpoint.
-  const gap = rows.length > 1 ? 32 / (rows.length - 1) : 0;
-  const laidOut = rows.flatMap((row, i) => spread(row, 62 - i * gap));
+  // Evenly spaced from BACK_ROW_TOP_PCT (nearest goal) down to
+  // FRONT_ROW_TOP_PCT (furthest forward), however many rows actually
+  // exist spaced between them. A single row (e.g. a genuinely tiny game)
+  // falls back to sitting at the midpoint.
+  const gap = rows.length > 1 ? (BACK_ROW_TOP_PCT - FRONT_ROW_TOP_PCT) / (rows.length - 1) : 0;
+  const laidOut = rows.flatMap((row, i) => spread(row, BACK_ROW_TOP_PCT - i * gap));
 
   return [...(gk ? [{ ...gk, topPct: 88, leftPct: 50 }] : []), ...laidOut];
 }

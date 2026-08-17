@@ -407,8 +407,23 @@ export const styles = {
   },
   tokenActionMenuItemDanger: { color: colors.danger },
 
-  planNav: { display: "flex", alignItems: "center", justifyContent: "center", gap: 16, marginTop: 16 },
-  planNavLabel: { fontSize: 13, fontWeight: 700, color: "#5B6B64" },
+  // Restyled to match the reference mockup: a dark full-width bar (same
+  // colors.ink treatment as timerBar above, not a new color) instead of a
+  // plain row of light-gray icon buttons on the page background, with a
+  // decorative scroll/swipe indicator track underneath the label — purely
+  // visual, doesn't represent real scroll position, just reads as "this
+  // is where you page through intervals" the way the mockup's did.
+  planNav: {
+    display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
+    marginTop: 16, background: colors.ink, borderRadius: 14, padding: "6px 6px 12px",
+  },
+  planNavRow: { display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" },
+  planNavBtn: {
+    border: "none", background: "transparent", borderRadius: 8, padding: 8, cursor: "pointer", color: colors.chalk,
+    display: "flex", alignItems: "center", justifyContent: "center", minWidth: 40, minHeight: 40,
+  },
+  planNavLabel: { fontSize: 14, fontWeight: 700, color: colors.chalk },
+  planNavTrack: { width: 56, height: 4, borderRadius: 2, background: "rgba(244,247,242,0.25)" },
 
   modalOverlay: {
     position: "fixed", inset: 0, background: "rgba(15,36,26,0.55)", display: "flex", alignItems: "center",

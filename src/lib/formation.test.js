@@ -23,10 +23,10 @@ describe("getFormationLayout", () => {
       { id: "p4", isGk: false },
     ];
     const layout = getFormationLayout(onField);
-    // 4 outfielders -> ceil(4/2) = 2 in back row (topPct 62), 2 in front row (topPct 30)
+    // 4 outfielders -> ceil(4/2) = 2 in back row (topPct 67), 2 in front row (topPct 25)
     const rows = layout.filter((p) => p.id !== "gk1").map((p) => p.topPct);
-    expect(rows.filter((t) => t === 62).length).toBe(2);
-    expect(rows.filter((t) => t === 30).length).toBe(2);
+    expect(rows.filter((t) => t === 67).length).toBe(2);
+    expect(rows.filter((t) => t === 25).length).toBe(2);
   });
 
   it("spreads a row's players evenly across the width", () => {
@@ -52,7 +52,7 @@ describe("getFormationLayout", () => {
     // genuine row of 2, unlike 2 outfielders total (which lands one per row).
     const onField = Array.from({ length: 4 }, (_, i) => ({ id: `p${i}`, isGk: false }));
     const layout = getFormationLayout(onField);
-    const backRowLefts = layout.filter((p) => p.topPct === 62).map((p) => p.leftPct).sort((a, b) => a - b);
+    const backRowLefts = layout.filter((p) => p.topPct === 67).map((p) => p.leftPct).sort((a, b) => a - b);
     // Naive even split would be 33.3/66.7 — stretched, they should sit
     // further out than that on both sides.
     expect(backRowLefts[0]).toBeLessThan(33.3);
@@ -83,7 +83,7 @@ describe("getFormationLayout", () => {
     ];
     const layout = getFormationLayout(onField);
     const rowValues = [...new Set(layout.filter((p) => p.id !== "gk1").map((p) => p.topPct))];
-    expect(rowValues.sort((a, b) => a - b)).toEqual([30, 46, 62]);
+    expect(rowValues.sort((a, b) => a - b)).toEqual([25, 46, 67]);
     // 6 outfielders split evenly across 3 rows of 2.
     const counts = rowValues.map((t) => layout.filter((p) => p.topPct === t).length);
     expect(counts).toEqual([2, 2, 2]);
@@ -93,7 +93,7 @@ describe("getFormationLayout", () => {
     const onField = Array.from({ length: 4 }, (_, i) => ({ id: `p${i}`, isGk: false }));
     const layout = getFormationLayout(onField);
     const rowValues = [...new Set(layout.map((p) => p.topPct))];
-    expect(rowValues.sort((a, b) => a - b)).toEqual([30, 62]);
+    expect(rowValues.sort((a, b) => a - b)).toEqual([25, 67]);
   });
 
   it("keeps every player on the pitch when rows split unevenly (7 outfielders across 3 rows)", () => {
