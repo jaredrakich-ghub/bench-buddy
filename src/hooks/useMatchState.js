@@ -275,22 +275,60 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
     setInjuredThisGame(newInjuredList);
   };
 
-  // Manual override: swap a specific bench player on for a specific player
-  // currently on the pitch, effective for the rest of the current interval.
-  // The swapped-in player takes over whatever role (GK or outfield) the
-  // player they replaced had. Future intervals then rebuild normally from
-  // this new state, so the swap feeds fairly into ongoing rotation.
-  const performSwap = (benchId, fieldId) => {
+  // Manual override: swap any two players — either could currently be on
+  // the bench or already on the pitch (including the keeper), effective for
+  // the rest of the current interval. Covers what used to be two separate
+  // functions:
+  //   - one on the bench, one on the pitch: the bench player takes over
+  //     whatever role (GK or outfield) the pitch player had, exactly like
+  //     the original bench "Swap in" flow.
+  //   - both already on the pitch: they simply trade roles in place, bench
+  //     untouched — this is what a separate performKeeperSwap used to do.
+  //     Swapping with whoever's currently in goal *is* "make yourself
+  //     keeper," so a coach doing that through this one generic action gets
+  //     the same result "Make keeper" used to give as a special case —
+  //     there's no separate code path needed for it.
+  //   - both on the bench: nothing meaningful to do, no-op.
+  // Guards against putting a non-keeper-eligible player into the keeper
+  // role either way — the original bench-swap path never actually checked
+  // this (a coach could swap a non-eligible player straight onto the pitch
+  // in place of the keeper), which is a real gap this closes now that the
+  // check lives in one shared place instead of only performKeeperSwap.
+  // Future intervals rebuild normally from this new state and go through
+  // the same repairBenchToKeeper guarantee as every other rebuild, so this
+  // one deliberate exception doesn't cascade into more of them — the very
+  // next *automatic* keeper change still has to come from the bench as usual.
+  const performSwap = (playerAId, playerBId) => {
+    if (playerAId === playerBId) return; // nothing to swap with themselves
     const cur = plan[activeInterval];
-    const outgoing = cur.onField.find((p) => p.id === fieldId);
-    if (!outgoing) return;
+    const aOnField = cur.onField.find((p) => p.id === playerAId);
+    const bOnField = cur.onField.find((p) => p.id === playerBId);
+    const aOnBench = cur.bench.includes(playerAId);
+    const bOnBench = cur.bench.includes(playerBId);
+    if ((!aOnField && !aOnBench) || (!bOnField && !bOnBench)) return; // one of them isn't actually here this interval
+    if (aOnBench && bOnBench) return; // both on the bench — nothing to swap
+
+    let newOnField, newBench;
+    if (aOnField && bOnField) {
+      if (aOnField.isGk && !keeperEligibleIds.includes(playerBId)) return;
+      if (bOnField.isGk && !keeperEligibleIds.includes(playerAId)) return;
+      newOnField = cur.onField.map((p) => {
+        if (p.id === playerAId) return { id: playerAId, isGk: bOnField.isGk };
+        if (p.id === playerBId) return { id: playerBId, isGk: aOnField.isGk };
+        return p;
+      });
+      newBench = cur.bench;
+    } else {
+      const outgoing = aOnField || bOnField;
+      const fieldId = aOnField ? playerAId : playerBId;
+      const benchId = aOnField ? playerBId : playerAId;
+      if (outgoing.isGk && !keeperEligibleIds.includes(benchId)) return;
+      newOnField = cur.onField.map((p) => (p.id === fieldId ? { id: benchId, isGk: outgoing.isGk } : p));
+      newBench = cur.bench.filter((id) => id !== benchId).concat(fieldId);
+    }
 
     const priorIntervals = plan.slice(0, activeInterval);
-    const frozenCurrent = {
-      ...cur,
-      onField: cur.onField.map((p) => (p.id === fieldId ? { id: benchId, isGk: outgoing.isGk } : p)),
-      bench: cur.bench.filter((id) => id !== benchId).concat(fieldId),
-    };
+    const frozenCurrent = { ...cur, onField: newOnField, bench: newBench };
     const doneIntervals = [...priorIntervals, frozenCurrent];
     const carryState = buildCarryState(availableIds, doneIntervals);
 
@@ -322,58 +360,6 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
     setSwapPickId(null);
   };
 
-  // Manual override: swap keeper duty directly between two players who are
-  // BOTH already on the pitch — the current keeper steps out to outfield,
-  // `newKeeperId` steps in — without touching the bench at all. Distinct
-  // from performSwap (which always brings someone on FROM the bench): this
-  // is for "I want a different keeper right now" without needing a bench
-  // rotation to justify it — a coach course-correcting at a natural break
-  // in play, not waiting for whoever happens to be arriving next. Future
-  // intervals rebuild normally from this new state and go through the same
-  // repairBenchToKeeper guarantee as every other rebuild, so this one
-  // deliberate exception doesn't cascade into more of them — the very next
-  // *automatic* keeper change still has to come from the bench as usual.
-  const performKeeperSwap = (newKeeperId) => {
-    const cur = plan[activeInterval];
-    const currentKeeper = cur.onField.find((p) => p.isGk);
-    const target = cur.onField.find((p) => p.id === newKeeperId);
-    if (!currentKeeper || !target || target.isGk || !keeperEligibleIds.includes(newKeeperId)) return;
-
-    const priorIntervals = plan.slice(0, activeInterval);
-    const frozenCurrent = {
-      ...cur,
-      onField: cur.onField.map((p) => {
-        if (p.id === newKeeperId) return { id: p.id, isGk: true };
-        if (p.id === currentKeeper.id) return { id: p.id, isGk: false };
-        return p;
-      }),
-    };
-    const doneIntervals = [...priorIntervals, frozenCurrent];
-    const carryState = buildCarryState(availableIds, doneIntervals);
-
-    const remainingAvailable = availableIds.filter((id) => !injuredThisGame.includes(id));
-    const { numIntervals } = computeIntervals(gameSettings.gameMinutes, gameSettings.subIntervalMinutes);
-    const keeperShiftIntervals = keeperShiftIntervalsFor(gameSettings.subIntervalMinutes, gameSettings.keeperShiftMinutes);
-    const currentGkId = lastGkId(doneIntervals);
-    const { intervals: rebuiltRemainder } = generatePlan({
-      availableIds: remainingAvailable,
-      gameMinutes: gameSettings.gameMinutes,
-      numIntervals,
-      fieldSize: gameSettings.fieldSize,
-      keeperEligibleIds,
-      startInterval: activeInterval + 1,
-      carryState,
-      keeperShiftIntervals,
-      currentGkId,
-    });
-    repairBenchToKeeper({
-      intervals: rebuiltRemainder, keeperEligibleIds, currentGkId, carryState,
-      previousOnFieldIds: frozenCurrent.onField.map((p) => p.id),
-    });
-
-    setPlan([...priorIntervals, frozenCurrent, ...rebuiltRemainder]);
-  };
-
   return {
     availableIds, setAvailableIds,
     gameSettings, setGameSettings,
@@ -390,6 +376,6 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
     startingGkId, setStartingGkId,
     saveError, setSaveError,
     keeperEligibleIds,
-    startPlanning, handleInjury, bringBack, performSwap, performKeeperSwap,
+    startPlanning, handleInjury, bringBack, performSwap,
   };
 }

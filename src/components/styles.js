@@ -288,41 +288,13 @@ export const styles = {
     position: "absolute", transform: "translate(-50%, -50%)", display: "flex", flexDirection: "column",
     alignItems: "center", gap: 3, width: 76,
   },
-  // Just wraps the 40px circle now — position:relative so injuryBtnSide can
-  // anchor to it directly (see below).
+  // Wraps the jersey badge — position:relative so the next-sub badges below
+  // can anchor to it directly. Used to also anchor two always-visible side
+  // buttons (injury, make-keeper); both are gone now, replaced by a single
+  // tap-to-open action menu (see tokenActionMenu below) shared by every
+  // token — pitch, bench, and injured alike — so nothing sits on a token
+  // unless you've actually tapped it.
   tokenWithAction: { position: "relative", display: "flex" },
-  // Tried overlapping this on the circle's corner at one point (to fight a
-  // rightward-skew complaint) but it read as sitting on top of the player
-  // icon, which was worse — reverted to floating beside it. right:-32 =
-  // 28px button width + 4px gap. Kept smaller than the 44px ideal on
-  // purpose: up to 5 of these overlap the pitch width side by side —
-  // growing it further would start crowding neighboring players.
-  //
-  // Off-white (colors.chalk) rather than gray or green: gray read as flat/
-  // non-interactive against the dark pitch, and green risked being
-  // confused with nextOnBadge's green (a genuinely different meaning) even
-  // though the two don't sit in the same spot on a token. White gives the
-  // strongest contrast against colors.pitchDark of anything in the
-  // palette, which is what actually makes something look tappable, and it
-  // sits entirely outside the red/green/gold "next interval" vocabulary.
-  injuryBtnSide: {
-    position: "absolute", right: -32, top: "50%", transform: "translateY(-50%)",
-    width: 28, height: 28, borderRadius: "50%", border: "none", background: colors.chalk,
-    display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, cursor: "pointer", padding: 0,
-    boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
-  },
-  // Mirror of injuryBtnSide on the opposite side (left, not right) so the
-  // two never collide on the same token — a manual "make this outfield
-  // player the keeper right now" action, distinct from the bench "Swap in"
-  // flow (this never touches the bench at all, just swaps roles between
-  // two players already on the pitch).
-  makeKeeperBtnSide: {
-    position: "absolute", left: -32, top: "50%", transform: "translateY(-50%)",
-    width: 28, height: 28, borderRadius: "50%", border: "none", background: colors.chalk,
-    display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, cursor: "pointer", padding: 0,
-    boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
-  },
-  gloveIcon: { fontSize: 25, lineHeight: 1 },
   // Advance notice of the next sub window's changes, shown on top of the
   // relevant token — top-left corner, opposite side from injuryBtnSide
   // (top-right-ish) so the two never collide. Deliberately simple, fixed
@@ -353,30 +325,49 @@ export const styles = {
     fontSize: 11, lineHeight: 1, pointerEvents: "none", boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
   },
   // Bench tokens don't have their own relative wrapper the way on-pitch
-  // tokens get from tokenWithAction — this is that, just for the bench row.
+  // tokens get from tokenWithAction — this is that, just for the bench row
+  // (the name predates the jersey-badge shape; still just a relative
+  // positioning wrapper, badge shape doesn't change what this does).
   tokenCircleWrap: { position: "relative", display: "inline-flex" },
   pitchLabel: { color: "rgba(255,255,255,0.7)", fontSize: 10, fontWeight: 800, letterSpacing: 1.2, marginBottom: 6, marginTop: 8 },
+  // A second-tier label under pitchLabel — e.g. "Outfield (waiting)" /
+  // "Keeper (waiting)" splitting the bench into two columns.
+  pitchSubLabel: { color: "rgba(255,255,255,0.55)", fontSize: 10, fontWeight: 700, marginBottom: 6 },
   tokenRow: { display: "flex", flexWrap: "wrap", gap: 10 },
   tokenCol: { display: "flex", flexDirection: "column", alignItems: "center", gap: 3, width: 62 },
+  // Rounded square "jersey badge" — one consistent shape and treatment for
+  // every player everywhere (pitch, bench, injured alike), width/height
+  // deliberately left as just a fallback here since the real size is
+  // dynamic (see computeTokenSize, formation.js) and passed inline per
+  // token based on how many are actually sharing the pitch right now.
   token: {
-    width: 40, height: 40, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+    width: 40, height: 40, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center",
     color: "#fff", boxShadow: "0 2px 6px rgba(0,0,0,0.25)", border: "none", padding: 0, font: "inherit",
   },
   tokenSwapTarget: { cursor: "pointer", boxShadow: "0 0 0 3px rgba(255,255,255,0.85), 0 2px 6px rgba(0,0,0,0.25)" },
   tokenField: { background: colors.field },
-  tokenGk: { background: colors.gk },
-  tokenBench: { background: "transparent", border: "2px dashed rgba(255,255,255,0.5)", color: "rgba(255,255,255,0.8)" },
-  tokenInjured: { background: "transparent", border: "2px dashed " + colors.danger, fontSize: 16 },
+  // Same green jersey as everyone else — a solid gold fill read as a
+  // different *kind* of token rather than the same player just holding a
+  // different job this interval. A ring keeps one consistent badge language
+  // (ring = a status worth noticing) that tokenInjured below reuses too.
+  tokenGk: { background: colors.field, boxShadow: "0 0 0 3px " + colors.gk + ", 0 2px 6px rgba(0,0,0,0.25)" },
+  // Bench tokens now look exactly like an on-field one — the BENCH/
+  // "Outfield (waiting)"/"Keeper (waiting)" section labels already say
+  // what they are, so a separate dashed-circle treatment was just another
+  // shape to learn rather than useful information.
+  tokenBench: { background: colors.field },
+  tokenInjured: { background: colors.field, boxShadow: "0 0 0 3px " + colors.danger + ", 0 2px 6px rgba(0,0,0,0.25)" },
   tokenName: { color: "#fff", fontSize: 11, fontWeight: 700, textAlign: "center" },
   noneText: { color: "rgba(255,255,255,0.6)", fontSize: 13 },
 
   benchInjuredRow: { display: "flex", gap: 14 },
   benchCol: { flex: 1, minWidth: 0 },
+  benchSplitGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 },
   injuredCol: { flex: 1, minWidth: 0, borderLeft: "1px dashed rgba(255,255,255,0.25)", paddingLeft: 12 },
-  backInBtn: {
-    marginTop: 2, background: colors.field, color: "#fff", border: "none", borderRadius: 999,
-    padding: "3px 9px", fontWeight: 700, fontSize: 10, cursor: "pointer",
-  },
+  // Shown while a swap is mid-pick (Swap chosen from a token's action menu,
+  // waiting for the second tap) — same fixed-position-below-the-pitch spot
+  // the action menu itself uses, never a floating popover anchored to a
+  // specific token, so it can never clip off-screen near a pitch edge.
   swapBanner: {
     display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, background: colors.field,
     color: "#fff", fontWeight: 700, fontSize: 12, padding: "8px 12px", borderRadius: 10, marginBottom: 10,
@@ -385,15 +376,22 @@ export const styles = {
     background: "rgba(255,255,255,0.9)", color: colors.ink, border: "none", borderRadius: 8,
     padding: "5px 10px", fontWeight: 800, fontSize: 11, cursor: "pointer", whiteSpace: "nowrap",
   },
-  // width:100% (of the 62px tokenCol) rather than content-driven horizontal
-  // padding — the original fix (bumping padding) risked the button growing
-  // wider than its column, since text width varies by font rendering. This
-  // way it's always exactly as wide as the column, however tall we make it.
-  swapBtn: {
-    marginTop: 4, background: "transparent", color: "#fff", border: "1px solid rgba(255,255,255,0.5)", borderRadius: 999,
-    padding: "9px 4px", fontWeight: 700, fontSize: 12, cursor: "pointer", minHeight: 36, width: "100%",
+  // The tap-to-open action menu shared by every token (pitch, bench,
+  // injured) — replaces the old always-visible per-token side buttons.
+  // Lives in the same fixed spot below the pitch as swapBanner (never a
+  // floating popover — see that comment), light card against the dark
+  // pitch so multiple stacked text rows stay legible.
+  tokenActionMenu: {
+    background: colors.cardBg, borderRadius: 12, padding: 6, marginBottom: 10,
+    boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
   },
-  swapBtnActive: { background: colors.danger, borderColor: colors.danger },
+  tokenActionMenuHeader: { fontSize: 11, fontWeight: 700, color: colors.bench, padding: "5px 10px 7px" },
+  tokenActionMenuItem: {
+    display: "flex", alignItems: "center", gap: 8, padding: "10px 10px", borderRadius: 8,
+    border: "none", background: "none", width: "100%", textAlign: "left", cursor: "pointer",
+    fontSize: 13, fontWeight: 700, color: colors.ink, font: "inherit",
+  },
+  tokenActionMenuItemDanger: { color: colors.danger },
 
   planNav: { display: "flex", alignItems: "center", justifyContent: "center", gap: 16, marginTop: 16 },
   planNavLabel: { fontSize: 13, fontWeight: 700, color: "#5B6B64" },

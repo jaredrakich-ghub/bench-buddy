@@ -38,6 +38,18 @@ const defaultPlan = [
   makeInterval(1, 6, 12, ["p1", "p2", "p3", "p5", "p6"], "p3", ["p4", "p7"]),
 ];
 
+// A real rebuild after an injury removes that player from onField/bench
+// entirely (see rebuildFromInterval, useMatchState.js) — defaultPlan is a
+// static fixture that doesn't reflect that, so any test combining
+// injuredThisGame with defaultPlan would show the same player twice (once
+// still listed on the bench, once in the injured row). Tests that need an
+// actually-injured player use this variant instead, with p7 removed from
+// interval 0's bench to match what a real rebuild would produce.
+const planWithP7Injured = [
+  makeInterval(0, 0, 6, ["p1", "p2", "p3", "p4", "p5"], "p1", ["p6"]),
+  makeInterval(1, 6, 12, ["p1", "p2", "p3", "p5", "p6"], "p3", ["p4"]),
+];
+
 function baseProps(overrides = {}) {
   return {
     plan: defaultPlan,
@@ -61,11 +73,18 @@ function baseProps(overrides = {}) {
     onInjury: vi.fn(),
     onBringBack: vi.fn(),
     onSwap: vi.fn(),
-    onSwapKeeper: vi.fn(),
     onShowSummary: vi.fn(),
     onShowSettings: vi.fn(),
     ...overrides,
   };
+}
+
+// Every token (pitch, bench, injured) renders its name as a sibling span
+// next to its tap button, inside a shared wrapper div — this finds that
+// button from the visible name text, the same way a coach actually finds
+// a player on screen.
+function tokenButtonFor(name) {
+  return screen.getByText(name).closest("div").querySelector("button");
 }
 
 describe("MatchView — basic rendering", () => {
@@ -211,56 +230,125 @@ describe("MatchView — past-interval guard", () => {
   // pre-correct an upcoming interval is the whole point. But editing an
   // interval *before* the live one would rebuild everything from there
   // forward, silently overwriting intervals that already actually happened.
-  // These controls are hidden (not just disabled) once a coach browses back
-  // to a past interval, so there's nothing to tap by mistake.
-  it("hides Swap in, the injury button, and Back in when viewing a past interval, and shows a note instead", () => {
+  // Every token's tap button is disabled (not just hidden) once a coach
+  // browses back to a past interval, so there's nothing to act on by mistake.
+  it("shows a note and disables every token on a past interval", () => {
     // Live interval is 1 (elapsedSec=400s falls in interval 1's 360-720s
     // window); activeInterval=0 means the coach browsed back to the past.
-    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 400, injuredThisGame: ["p7"] })} />);
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 400, plan: planWithP7Injured, injuredThisGame: ["p7"] })} />);
     expect(screen.getByText(/Interval Complete/)).toBeInTheDocument();
-    expect(screen.queryByText("Swap in")).not.toBeInTheDocument();
-    expect(screen.queryByTitle("Mark injured / off")).not.toBeInTheDocument();
-    expect(screen.queryByText("Back in")).not.toBeInTheDocument();
+    expect(tokenButtonFor("Alice")).toBeDisabled(); // on-field
+    expect(tokenButtonFor("Finn")).toBeDisabled(); // bench
+    expect(tokenButtonFor("Gus")).toBeDisabled(); // injured
   });
 
-  it("still shows Swap in and the injury button when viewing the live interval or a future one", () => {
+  it("tapping a token on a past interval does not open its action menu", async () => {
+    const user = userEvent.setup();
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 400 })} />);
+    await user.click(tokenButtonFor("Alice"));
+    expect(screen.queryByText("Swap")).not.toBeInTheDocument();
+  });
+
+  it("tapping a token on the live interval opens its action menu instead", async () => {
+    const user = userEvent.setup();
     render(<MatchView {...baseProps({ activeInterval: 1, elapsedSec: 400 })} />);
     expect(screen.queryByText(/Interval Complete/)).not.toBeInTheDocument();
-    expect(screen.getAllByText("Swap in").length).toBeGreaterThan(0);
-    expect(screen.getAllByTitle("Mark injured / off").length).toBeGreaterThan(0);
-  });
-
-  it("hides Make keeper now on a past interval too", () => {
-    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 400 })} />);
-    expect(screen.queryByTitle("Make keeper now")).not.toBeInTheDocument();
+    await user.click(tokenButtonFor("Bob"));
+    expect(screen.getByText("Swap")).toBeInTheDocument();
   });
 });
 
-describe("MatchView — manual keeper swap (Make keeper now)", () => {
-  // interval 0: onField = p1(gk), p2, p3, p4, p5; bench = p6, p7.
-  it("shows the action on every keeper-eligible outfield player, but not on the current keeper", () => {
-    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0 })} />);
-    // p2,p3,p4,p5 are eligible outfield players -> 4 buttons. p1 (keeper) gets none.
-    expect(screen.getAllByTitle("Make keeper now")).toHaveLength(4);
-  });
-
-  it("hides the action for a player who isn't keeper-eligible", () => {
-    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0, keeperEligibleIds: ["p1", "p3", "p4", "p5"] })} />); // p2 not eligible
-    expect(screen.getAllByTitle("Make keeper now")).toHaveLength(3);
-  });
-
-  it("hides the action while a bench swap is in progress, to avoid two conflicting actions at once", () => {
-    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0, swapPickId: "p6" })} />);
-    expect(screen.queryByTitle("Make keeper now")).not.toBeInTheDocument();
-  });
-
-  it("calls onSwapKeeper with the tapped player's id", async () => {
-    const onSwapKeeper = vi.fn();
+describe("MatchView — tap-to-act token menu", () => {
+  // interval 0: onField = p1/Alice(gk), p2/Bob, p3/Cara, p4/Dan, p5/Eve; bench = p6/Finn, p7/Gus.
+  it("tapping an on-field player offers Swap, Make keeper, and Mark injured", async () => {
     const user = userEvent.setup();
-    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0, onSwapKeeper })} />);
-    await user.click(screen.getAllByTitle("Make keeper now")[0]);
-    expect(onSwapKeeper).toHaveBeenCalledTimes(1);
-    expect(onSwapKeeper).toHaveBeenCalledWith(expect.stringMatching(/^p[2-5]$/));
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0 })} />);
+    await user.click(tokenButtonFor("Bob")); // p2, outfield
+    expect(screen.getByText("Swap")).toBeInTheDocument();
+    expect(screen.getByText("Make keeper")).toBeInTheDocument();
+    expect(screen.getByText(/Mark injured/)).toBeInTheDocument();
+  });
+
+  it("does not offer Make keeper on the current keeper themselves", async () => {
+    const user = userEvent.setup();
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0 })} />);
+    await user.click(tokenButtonFor("Alice")); // p1, keeper
+    expect(screen.getByText("Swap")).toBeInTheDocument();
+    expect(screen.queryByText("Make keeper")).not.toBeInTheDocument();
+  });
+
+  it("does not offer Make keeper for a player who isn't keeper-eligible", async () => {
+    const user = userEvent.setup();
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0, keeperEligibleIds: ["p1", "p3", "p4", "p5"] })} />); // p2 not eligible
+    await user.click(tokenButtonFor("Bob"));
+    expect(screen.queryByText("Make keeper")).not.toBeInTheDocument();
+  });
+
+  it("offers only Back in for an injured player", async () => {
+    const user = userEvent.setup();
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0, plan: planWithP7Injured, injuredThisGame: ["p7"] })} />);
+    await user.click(tokenButtonFor("Gus")); // p7, injured
+    expect(screen.getByText("Back in")).toBeInTheDocument();
+    expect(screen.queryByText("Swap")).not.toBeInTheDocument();
+    expect(screen.queryByText("Make keeper")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Mark injured/)).not.toBeInTheDocument();
+  });
+
+  it("choosing Swap enters swap-picking mode rather than immediately calling onSwap", async () => {
+    const setSwapPickId = vi.fn();
+    const onSwap = vi.fn();
+    const user = userEvent.setup();
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0, setSwapPickId, onSwap })} />);
+    await user.click(tokenButtonFor("Bob"));
+    await user.click(screen.getByText("Swap"));
+    expect(setSwapPickId).toHaveBeenCalledWith("p2");
+    expect(onSwap).not.toHaveBeenCalled();
+  });
+
+  it("choosing Make keeper calls onSwap with the target and the current keeper", async () => {
+    const onSwap = vi.fn();
+    const user = userEvent.setup();
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0, onSwap })} />);
+    await user.click(tokenButtonFor("Bob")); // p2
+    await user.click(screen.getByText("Make keeper"));
+    expect(onSwap).toHaveBeenCalledWith("p2", "p1"); // p1 is the current keeper
+  });
+
+  it("choosing Mark injured calls onInjury and closes the menu", async () => {
+    const onInjury = vi.fn();
+    const user = userEvent.setup();
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0, onInjury })} />);
+    await user.click(tokenButtonFor("Bob"));
+    await user.click(screen.getByText(/Mark injured/));
+    expect(onInjury).toHaveBeenCalledWith("p2");
+    expect(screen.queryByText(/Mark injured/)).not.toBeInTheDocument();
+  });
+
+  it("choosing Back in calls onBringBack", async () => {
+    const onBringBack = vi.fn();
+    const user = userEvent.setup();
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0, plan: planWithP7Injured, injuredThisGame: ["p7"], onBringBack })} />);
+    await user.click(tokenButtonFor("Gus"));
+    await user.click(screen.getByText("Back in"));
+    expect(onBringBack).toHaveBeenCalledWith("p7");
+  });
+
+  it("tapping a bench player while mid-swap completes the swap with the pending swap source — no separate 'Swap in' button needed", async () => {
+    const onSwap = vi.fn();
+    const user = userEvent.setup();
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0, swapPickId: "p2", onSwap })} />);
+    await user.click(tokenButtonFor("Finn")); // p6, bench
+    expect(onSwap).toHaveBeenCalledWith("p2", "p6");
+  });
+
+  it("tapping the same player again toggles their menu closed", async () => {
+    const user = userEvent.setup();
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0 })} />);
+    const bobToken = tokenButtonFor("Bob");
+    await user.click(bobToken);
+    expect(screen.getByText("Swap")).toBeInTheDocument();
+    await user.click(bobToken);
+    expect(screen.queryByText("Swap")).not.toBeInTheDocument();
   });
 });
 

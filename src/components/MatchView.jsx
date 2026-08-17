@@ -1,9 +1,17 @@
-import { ChevronRight, ChevronLeft, RotateCcw, Play, Pause, Settings, BarChart2, ArrowDown, ArrowUp } from "lucide-react";
+import { useState } from "react";
+import {
+  ChevronRight, ChevronLeft, RotateCcw, Play, Pause, Settings, BarChart2, ArrowDown, ArrowUp, Shirt, Shield, ArrowLeftRight,
+} from "lucide-react";
 import { intervalAtElapsed, computeNextChangeBadges, computeBreakBoundaries } from "../lib/rotation.js";
 import { computeLiveElapsedSec, fmtClock } from "../lib/clock.js";
-import { getFormationLayout } from "../lib/formation.js";
+import { getFormationLayout, computeTokenSize } from "../lib/formation.js";
 import { styles } from "./styles.js";
-import FootballerIcon from "./FootballerIcon.jsx";
+
+// Bench/injured tokens are deliberately smaller and fixed-size — a visual
+// hierarchy where the pitch (whose token size already scales with headcount,
+// see computeTokenSize) stays the primary focus and the bench a secondary,
+// consistently-sized queue underneath it.
+const BENCH_TOKEN_SIZE = 32;
 
 // The live match screen: clock, current sub-window status, interval tabs,
 // pitch board (formation + bench + injured), and interval navigation.
@@ -32,7 +40,6 @@ export default function MatchView({
   onInjury,
   onBringBack,
   onSwap,
-  onSwapKeeper,
   onShowSummary,
   onShowSettings,
 }) {
@@ -101,6 +108,66 @@ export default function MatchView({
   const { comingOffIds, comingOnIds, becomingKeeperId, steppingDownKeeperId } = computeNextChangeBadges({
     cur: viewedIv, nextIv: viewedNextIv, curGk: viewedGk, nextGk: viewedNextGk, gkChanging: viewedGkChanging,
   });
+
+  // Which token's tap-to-open action menu is currently showing — purely
+  // transient UI state, doesn't need to live in useMatchState the way
+  // swapPickId does (that one has to survive being read by performSwap).
+  const [menuPlayerId, setMenuPlayerId] = useState(null);
+  const menuOnFieldRecord = menuPlayerId ? viewedIv.onField.find((p) => p.id === menuPlayerId) : null;
+  const menuCanMakeKeeper = menuOnFieldRecord && !menuOnFieldRecord.isGk && keeperEligibleIds.includes(menuPlayerId);
+
+  // Shared by every token everywhere (pitch, bench, injured) — mid-swap
+  // (swapPickId set), any tap completes the swap with whoever was just
+  // tapped; performSwap's own guards safely no-op an invalid target (e.g.
+  // accidentally tapping an injured player, or the swap source itself), so
+  // nothing extra needs to be checked here. Otherwise a tap opens (or
+  // closes, if already open) that player's own action menu.
+  const handleTokenTap = (id) => {
+    if (isPastInterval) return;
+    if (swapPickId) {
+      onSwap(swapPickId, id);
+      return;
+    }
+    setMenuPlayerId((current) => (current === id ? null : id));
+  };
+
+  const outfielders = viewedIv.onField.filter((p) => !p.isGk);
+  const tokenSize = computeTokenSize(outfielders.length);
+  // 3-row formations (5+ outfielders) need more vertical room than the
+  // original fixed 2-row height ever had to allow for.
+  const pitchInnerHeight = outfielders.length > 4 ? 280 : 220;
+
+  // Bench tokens look and behave identically wherever they're rendered
+  // (the Outfield-waiting and Keeper-waiting columns both use this) — kept
+  // as one render function rather than a separate component since it just
+  // closes over this render's own state/handlers, no lifecycle of its own.
+  const renderBenchToken = (id) => (
+    <div key={id} style={styles.tokenCol}>
+      <div style={styles.tokenCircleWrap}>
+        <button
+          style={{
+            ...styles.token, width: BENCH_TOKEN_SIZE, height: BENCH_TOKEN_SIZE, ...styles.tokenBench,
+            ...(swapPickId && swapPickId !== id && !isPastInterval ? styles.tokenSwapTarget : {}),
+          }}
+          onClick={() => handleTokenTap(id)}
+          disabled={isPastInterval}
+        >
+          <Shirt size={18} color="#fff" />
+        </button>
+        {comingOnIds.has(id) && (
+          <span style={styles.nextOnBadge} title="Coming on next interval">
+            <ArrowUp size={11} strokeWidth={3.5} />
+          </span>
+        )}
+        {becomingKeeperId === id && (
+          <span style={styles.nextKeeperBadge} title="Becoming keeper next interval">
+            🧤
+          </span>
+        )}
+      </div>
+      <span style={styles.tokenName}>{nameOf(id)}</span>
+    </div>
+  );
   // Start resumes from wherever the clock is frozen; Pause freezes it at the
   // correct live value (computed from the timestamp anchor, not just
   // whatever the display last happened to show).
@@ -253,33 +320,81 @@ export default function MatchView({
       <div style={styles.pitchBoard}>
         {isPastInterval ? (
           <div style={styles.swapBanner}>Interval Complete. Navigate to the active Interval for live updates.</div>
+        ) : swapPickId ? (
+          <div style={styles.swapBanner}>
+            Tap another player to swap with <strong>{nameOf(swapPickId)}</strong>
+            <button style={styles.swapCancelBtn} onClick={() => setSwapPickId(null)}>
+              Cancel
+            </button>
+          </div>
         ) : (
-          swapPickId && (
-            <div style={styles.swapBanner}>
-              Tap a player on the pitch to bring on <strong>{nameOf(swapPickId)}</strong>
-              <button style={styles.swapCancelBtn} onClick={() => setSwapPickId(null)}>
-                Cancel
-              </button>
+          menuPlayerId && (
+            <div style={styles.tokenActionMenu}>
+              <div style={styles.tokenActionMenuHeader}>{nameOf(menuPlayerId)}</div>
+              {injuredThisGame.includes(menuPlayerId) ? (
+                <button
+                  style={styles.tokenActionMenuItem}
+                  onClick={() => {
+                    onBringBack(menuPlayerId);
+                    setMenuPlayerId(null);
+                  }}
+                >
+                  <ArrowLeftRight size={15} /> Back in
+                </button>
+              ) : (
+                <>
+                  <button
+                    style={styles.tokenActionMenuItem}
+                    onClick={() => {
+                      setSwapPickId(menuPlayerId);
+                      setMenuPlayerId(null);
+                    }}
+                  >
+                    <ArrowLeftRight size={15} /> Swap
+                  </button>
+                  {menuCanMakeKeeper && (
+                    <button
+                      style={styles.tokenActionMenuItem}
+                      onClick={() => {
+                        onSwap(menuPlayerId, viewedGk.id);
+                        setMenuPlayerId(null);
+                      }}
+                    >
+                      <Shield size={15} /> Make keeper
+                    </button>
+                  )}
+                  <button
+                    style={{ ...styles.tokenActionMenuItem, ...styles.tokenActionMenuItemDanger }}
+                    onClick={() => {
+                      onInjury(menuPlayerId);
+                      setMenuPlayerId(null);
+                    }}
+                  >
+                    🤕 Mark injured
+                  </button>
+                </>
+              )}
             </div>
           )
         )}
-        <div style={styles.pitchInner}>
+        <div style={{ ...styles.pitchInner, height: pitchInnerHeight }}>
           <div style={styles.pitchCenterCircle} />
           <div style={styles.pitchHalfwayLine} />
           <div style={styles.pitchGoalBox} />
-          {getFormationLayout(plan[activeInterval].onField).map(({ id, isGk, topPct, leftPct }) => (
+          {getFormationLayout(viewedIv.onField).map(({ id, isGk, topPct, leftPct }) => (
             <div key={id} style={{ ...styles.formationToken, top: `${topPct}%`, left: `${leftPct}%` }}>
               <div style={styles.tokenWithAction}>
                 <button
                   style={{
                     ...styles.token,
+                    width: tokenSize, height: tokenSize,
                     ...(isGk ? styles.tokenGk : styles.tokenField),
-                    ...(swapPickId && !isPastInterval ? styles.tokenSwapTarget : {}),
+                    ...(swapPickId && swapPickId !== id && !isPastInterval ? styles.tokenSwapTarget : {}),
                   }}
-                  onClick={() => swapPickId && !isPastInterval && onSwap(swapPickId, id)}
-                  disabled={!swapPickId || isPastInterval}
+                  onClick={() => handleTokenTap(id)}
+                  disabled={isPastInterval}
                 >
-                  {isGk ? <span style={styles.gloveIcon}>🧤</span> : <FootballerIcon size={27} />}
+                  <Shirt size={Math.round(tokenSize * 0.55)} color="#fff" />
                 </button>
                 {comingOffIds.has(id) && (
                   <span style={styles.nextOffBadge} title="Coming off next interval">
@@ -296,16 +411,6 @@ export default function MatchView({
                     <ArrowUp size={11} strokeWidth={3.5} />
                   </span>
                 )}
-                {!injuredThisGame.includes(id) && !swapPickId && !isPastInterval && (
-                  <button style={styles.injuryBtnSide} onClick={() => onInjury(id)} title="Mark injured / off">
-                    🤕
-                  </button>
-                )}
-                {!isGk && !swapPickId && !isPastInterval && keeperEligibleIds.includes(id) && (
-                  <button style={styles.makeKeeperBtnSide} onClick={() => onSwapKeeper(id)} title="Make keeper now">
-                    🧤
-                  </button>
-                )}
               </div>
               <span style={styles.tokenName}>{nameOf(id)}</span>
             </div>
@@ -314,37 +419,28 @@ export default function MatchView({
         <div style={styles.benchInjuredRow}>
           <div style={styles.benchCol}>
             <div style={styles.pitchLabel}>BENCH</div>
-            <div style={styles.tokenRow}>
-              {plan[activeInterval].bench.length === 0 && <span style={styles.noneText}>Full squad on field</span>}
-              {plan[activeInterval].bench.map((id) => (
-                <div key={id} style={styles.tokenCol}>
-                  <div style={styles.tokenCircleWrap}>
-                    <div style={{ ...styles.token, ...styles.tokenBench }}>
-                      <FootballerIcon size={27} />
-                    </div>
-                    {comingOnIds.has(id) && (
-                      <span style={styles.nextOnBadge} title="Coming on next interval">
-                        <ArrowUp size={11} strokeWidth={3.5} />
-                      </span>
-                    )}
-                    {becomingKeeperId === id && (
-                      <span style={styles.nextKeeperBadge} title="Becoming keeper next interval">
-                        🧤
-                      </span>
+            {viewedIv.bench.length === 0 ? (
+              <span style={styles.noneText}>Full squad on field</span>
+            ) : (
+              <div style={styles.benchSplitGrid}>
+                <div>
+                  <div style={styles.pitchSubLabel}>Outfield (waiting)</div>
+                  <div style={styles.tokenRow}>
+                    {viewedIv.bench.filter((id) => id !== becomingKeeperId).map(renderBenchToken)}
+                  </div>
+                </div>
+                <div>
+                  <div style={styles.pitchSubLabel}>Keeper (waiting)</div>
+                  <div style={styles.tokenRow}>
+                    {viewedIv.bench.includes(becomingKeeperId) ? (
+                      renderBenchToken(becomingKeeperId)
+                    ) : (
+                      <span style={styles.noneText}>—</span>
                     )}
                   </div>
-                  <span style={styles.tokenName}>{nameOf(id)}</span>
-                  {!isPastInterval && (
-                    <button
-                      style={{ ...styles.swapBtn, ...(swapPickId === id ? styles.swapBtnActive : {}) }}
-                      onClick={() => setSwapPickId(swapPickId === id ? null : id)}
-                    >
-                      {swapPickId === id ? "Cancel" : "Swap in"}
-                    </button>
-                  )}
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
           </div>
           {injuredThisGame.length > 0 && (
             <div style={styles.injuredCol}>
@@ -352,13 +448,14 @@ export default function MatchView({
               <div style={styles.tokenRow}>
                 {injuredThisGame.map((id) => (
                   <div key={id} style={styles.tokenCol}>
-                    <div style={{ ...styles.token, ...styles.tokenInjured }}>🤕</div>
+                    <button
+                      style={{ ...styles.token, width: BENCH_TOKEN_SIZE, height: BENCH_TOKEN_SIZE, ...styles.tokenInjured }}
+                      onClick={() => handleTokenTap(id)}
+                      disabled={isPastInterval}
+                    >
+                      <Shirt size={18} color="#fff" />
+                    </button>
                     <span style={styles.tokenName}>{nameOf(id)}</span>
-                    {!isPastInterval && (
-                      <button style={styles.backInBtn} onClick={() => onBringBack(id)}>
-                        Back in
-                      </button>
-                    )}
                   </div>
                 ))}
               </div>

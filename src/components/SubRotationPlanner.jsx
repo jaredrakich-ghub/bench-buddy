@@ -41,7 +41,7 @@ export default function SubRotationPlanner({ user }) {
     timerRunning, setTimerRunning, subLog, setSubLog, swapPickId, setSwapPickId,
     startingGkId, setStartingGkId,
     keeperEligibleIds,
-    startPlanning, handleInjury, bringBack, performSwap, performKeeperSwap,
+    startPlanning, handleInjury, bringBack, performSwap,
   } = match;
 
   const [newPlayerName, setNewPlayerName] = useState("");
@@ -344,7 +344,6 @@ export default function SubRotationPlanner({ user }) {
             onInjury={handleInjury}
             onBringBack={bringBack}
             onSwap={performSwap}
-            onSwapKeeper={performKeeperSwap}
             onShowSummary={() => setShowSummaryModal(true)}
             onShowSettings={() => setShowSettingsModal(true)}
           />
