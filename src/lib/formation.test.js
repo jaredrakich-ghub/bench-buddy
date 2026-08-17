@@ -47,6 +47,24 @@ describe("getFormationLayout", () => {
     });
   });
 
+  it("stretches a row of 2 further from the center circle than a naive even split would", () => {
+    // 4 outfielders, no GK -> 2 rows of 2 (perRow = ceil(4/2) = 2) — a
+    // genuine row of 2, unlike 2 outfielders total (which lands one per row).
+    const onField = Array.from({ length: 4 }, (_, i) => ({ id: `p${i}`, isGk: false }));
+    const layout = getFormationLayout(onField);
+    const backRowLefts = layout.filter((p) => p.topPct === 62).map((p) => p.leftPct).sort((a, b) => a - b);
+    // Naive even split would be 33.3/66.7 — stretched, they should sit
+    // further out than that on both sides.
+    expect(backRowLefts[0]).toBeLessThan(33.3);
+    expect(backRowLefts[1]).toBeGreaterThan(66.7);
+  });
+
+  it("leaves a lone player in a row centered — nothing to stretch away from", () => {
+    const onField = [{ id: "p1", isGk: false }];
+    const layout = getFormationLayout(onField);
+    expect(layout[0].leftPct).toBe(50);
+  });
+
   it("handles no goalkeeper on field gracefully", () => {
     const onField = [{ id: "p1", isGk: false }];
     const layout = getFormationLayout(onField);

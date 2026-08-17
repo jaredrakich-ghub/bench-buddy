@@ -21,8 +21,18 @@ export function getFormationLayout(onField) {
     if (row.length > 0) rows.push(row);
   }
 
+  // The evenly-divided position (e.g. 33%/67% for a row of 2) sits closer
+  // to the center circle than looks right on a real pitch — stretched
+  // 1.35x further from center (50%) so players read as spread out
+  // diagonally away from it, not clustered around it. A lone player in a
+  // row (raw position already 50) is unaffected — nothing to stretch away
+  // from when there's only one of them.
   const spread = (row, topPct) =>
-    row.map((p, i) => ({ ...p, topPct, leftPct: ((i + 1) / (row.length + 1)) * 100 }));
+    row.map((p, i) => {
+      const raw = ((i + 1) / (row.length + 1)) * 100;
+      const leftPct = Math.max(6, Math.min(94, 50 + (raw - 50) * 1.35));
+      return { ...p, topPct, leftPct };
+    });
 
   // Evenly spaced from 62 (nearest goal) down to 30 (furthest forward) —
   // the same two endpoints the original 2-row layout used, just with

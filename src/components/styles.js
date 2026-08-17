@@ -332,7 +332,7 @@ export const styles = {
   pitchLabel: { color: "rgba(255,255,255,0.7)", fontSize: 10, fontWeight: 800, letterSpacing: 1.2, marginBottom: 6, marginTop: 8 },
   // A second-tier label under pitchLabel — e.g. "Outfield (waiting)" /
   // "Keeper (waiting)" splitting the bench into two columns.
-  pitchSubLabel: { color: "rgba(255,255,255,0.55)", fontSize: 10, fontWeight: 700, marginBottom: 6 },
+  pitchSubLabel: { color: "rgba(255,255,255,0.55)", fontSize: 10, fontWeight: 700, marginBottom: 10 },
   tokenRow: { display: "flex", flexWrap: "wrap", gap: 10 },
   tokenCol: { display: "flex", flexDirection: "column", alignItems: "center", gap: 3, width: 62 },
   // Rounded square "jersey badge" — one consistent shape and treatment for
@@ -364,10 +364,9 @@ export const styles = {
   benchCol: { flex: 1, minWidth: 0 },
   benchSplitGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 },
   injuredCol: { flex: 1, minWidth: 0, borderLeft: "1px dashed rgba(255,255,255,0.25)", paddingLeft: 12 },
-  // Shown while a swap is mid-pick (Swap chosen from a token's action menu,
-  // waiting for the second tap) — same fixed-position-below-the-pitch spot
-  // the action menu itself uses, never a floating popover anchored to a
-  // specific token, so it can never clip off-screen near a pitch edge.
+  // Persistent inline note (not the fixed action sheet below) — shown
+  // while browsing a past interval, which stays true the whole time a
+  // coach is reviewing it, not just for a moment after a tap.
   swapBanner: {
     display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, background: colors.field,
     color: "#fff", fontWeight: 700, fontSize: 12, padding: "8px 12px", borderRadius: 10, marginBottom: 10,
@@ -376,18 +375,33 @@ export const styles = {
     background: "rgba(255,255,255,0.9)", color: colors.ink, border: "none", borderRadius: 8,
     padding: "5px 10px", fontWeight: 800, fontSize: 11, cursor: "pointer", whiteSpace: "nowrap",
   },
+  // Fixed to the bottom of the screen — not anchored to whichever token
+  // was tapped or wherever the coach happens to be scrolled — so tapping a
+  // forward at the top of the pitch or a bench player at the bottom always
+  // gets a response in the exact same thumb-reachable spot. Holds the
+  // action menu, the "pick a swap target" hint, and the post-swap
+  // confirmation toast — only ever one of the three at a time, one shared
+  // container so they don't jump around independently.
+  actionSheet: {
+    position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 40,
+    background: colors.cardBg, borderRadius: "16px 16px 0 0", boxShadow: "0 -6px 24px rgba(0,0,0,0.3)",
+    padding: "12px 16px calc(12px + env(safe-area-inset-bottom, 0px))",
+    maxWidth: 640, margin: "0 auto",
+  },
+  actionSheetSwapRow: {
+    display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
+    fontSize: 13, fontWeight: 700, color: colors.ink,
+  },
+  // Auto-dismisses itself after a couple of seconds (see the timeout in
+  // MatchView) rather than needing its own Cancel/dismiss action — it's
+  // confirming something that already happened, not asking for a decision.
+  actionSheetConfirm: { fontSize: 13, fontWeight: 700, color: colors.field, textAlign: "center", padding: "4px 0" },
   // The tap-to-open action menu shared by every token (pitch, bench,
   // injured) — replaces the old always-visible per-token side buttons.
-  // Lives in the same fixed spot below the pitch as swapBanner (never a
-  // floating popover — see that comment), light card against the dark
-  // pitch so multiple stacked text rows stay legible.
-  tokenActionMenu: {
-    background: colors.cardBg, borderRadius: 12, padding: 6, marginBottom: 10,
-    boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
-  },
-  tokenActionMenuHeader: { fontSize: 11, fontWeight: 700, color: colors.bench, padding: "5px 10px 7px" },
+  // Lives inside actionSheet, which already supplies the card chrome.
+  tokenActionMenuHeader: { fontSize: 11, fontWeight: 700, color: colors.bench, padding: "2px 4px 7px" },
   tokenActionMenuItem: {
-    display: "flex", alignItems: "center", gap: 8, padding: "10px 10px", borderRadius: 8,
+    display: "flex", alignItems: "center", gap: 8, padding: "10px 4px", borderRadius: 8,
     border: "none", background: "none", width: "100%", textAlign: "left", cursor: "pointer",
     fontSize: 13, fontWeight: 700, color: colors.ink, font: "inherit",
   },

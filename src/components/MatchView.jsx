@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ChevronRight, ChevronLeft, RotateCcw, Play, Pause, Settings, BarChart2, ArrowDown, ArrowUp, Shirt, Shield, ArrowLeftRight,
 } from "lucide-react";
@@ -116,16 +116,39 @@ export default function MatchView({
   const menuOnFieldRecord = menuPlayerId ? viewedIv.onField.find((p) => p.id === menuPlayerId) : null;
   const menuCanMakeKeeper = menuOnFieldRecord && !menuOnFieldRecord.isGk && keeperEligibleIds.includes(menuPlayerId);
 
+  // A brief "✓ X swapped with Y" note shown in the action sheet right after
+  // a swap/make-keeper action completes — found from real use that a swap
+  // could otherwise feel like it silently happened with nothing confirming
+  // it, especially once the sheet's own content (the "pick a target" hint)
+  // disappears the instant the second tap lands. Set optimistically at the
+  // moment of the tap rather than waiting to verify against the rebuilt
+  // plan — the pitch board itself is the real source of truth and updates
+  // immediately either way; this is just narrating what the coach did, not
+  // a correctness signal.
+  const [confirmMessage, setConfirmMessage] = useState(null);
+  useEffect(() => {
+    if (!confirmMessage) return undefined;
+    const timer = setTimeout(() => setConfirmMessage(null), 2500);
+    return () => clearTimeout(timer);
+  }, [confirmMessage]);
+
   // Shared by every token everywhere (pitch, bench, injured) — mid-swap
   // (swapPickId set), any tap completes the swap with whoever was just
   // tapped; performSwap's own guards safely no-op an invalid target (e.g.
-  // accidentally tapping an injured player, or the swap source itself), so
-  // nothing extra needs to be checked here. Otherwise a tap opens (or
-  // closes, if already open) that player's own action menu.
+  // accidentally tapping an injured player), so nothing extra needs to be
+  // checked here for those. Tapping the swap source again is treated as an
+  // implicit cancel rather than a (meaningless) self-swap. Otherwise a tap
+  // opens (or closes, if already open) that player's own action menu.
   const handleTokenTap = (id) => {
     if (isPastInterval) return;
     if (swapPickId) {
+      if (id === swapPickId) {
+        setSwapPickId(null);
+        return;
+      }
+      setConfirmMessage(`${nameOf(swapPickId)} swapped with ${nameOf(id)}`);
       onSwap(swapPickId, id);
+      setSwapPickId(null);
       return;
     }
     setMenuPlayerId((current) => (current === id ? null : id));
@@ -318,64 +341,8 @@ export default function MatchView({
       </div>
 
       <div style={styles.pitchBoard}>
-        {isPastInterval ? (
+        {isPastInterval && (
           <div style={styles.swapBanner}>Interval Complete. Navigate to the active Interval for live updates.</div>
-        ) : swapPickId ? (
-          <div style={styles.swapBanner}>
-            Tap another player to swap with <strong>{nameOf(swapPickId)}</strong>
-            <button style={styles.swapCancelBtn} onClick={() => setSwapPickId(null)}>
-              Cancel
-            </button>
-          </div>
-        ) : (
-          menuPlayerId && (
-            <div style={styles.tokenActionMenu}>
-              <div style={styles.tokenActionMenuHeader}>{nameOf(menuPlayerId)}</div>
-              {injuredThisGame.includes(menuPlayerId) ? (
-                <button
-                  style={styles.tokenActionMenuItem}
-                  onClick={() => {
-                    onBringBack(menuPlayerId);
-                    setMenuPlayerId(null);
-                  }}
-                >
-                  <ArrowLeftRight size={15} /> Back in
-                </button>
-              ) : (
-                <>
-                  <button
-                    style={styles.tokenActionMenuItem}
-                    onClick={() => {
-                      setSwapPickId(menuPlayerId);
-                      setMenuPlayerId(null);
-                    }}
-                  >
-                    <ArrowLeftRight size={15} /> Swap
-                  </button>
-                  {menuCanMakeKeeper && (
-                    <button
-                      style={styles.tokenActionMenuItem}
-                      onClick={() => {
-                        onSwap(menuPlayerId, viewedGk.id);
-                        setMenuPlayerId(null);
-                      }}
-                    >
-                      <Shield size={15} /> Make keeper
-                    </button>
-                  )}
-                  <button
-                    style={{ ...styles.tokenActionMenuItem, ...styles.tokenActionMenuItemDanger }}
-                    onClick={() => {
-                      onInjury(menuPlayerId);
-                      setMenuPlayerId(null);
-                    }}
-                  >
-                    🤕 Mark injured
-                  </button>
-                </>
-              )}
-            </div>
-          )
         )}
         <div style={{ ...styles.pitchInner, height: pitchInnerHeight }}>
           <div style={styles.pitchCenterCircle} />
@@ -463,6 +430,69 @@ export default function MatchView({
           )}
         </div>
       </div>
+
+      {!isPastInterval && (confirmMessage || swapPickId || menuPlayerId) && (
+        <div style={styles.actionSheet}>
+          {confirmMessage ? (
+            <div style={styles.actionSheetConfirm}>✓ {confirmMessage}</div>
+          ) : swapPickId ? (
+            <div style={styles.actionSheetSwapRow}>
+              Tap another player to swap with <strong>{nameOf(swapPickId)}</strong>
+              <button style={styles.swapCancelBtn} onClick={() => setSwapPickId(null)}>
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <>
+              <div style={styles.tokenActionMenuHeader}>{nameOf(menuPlayerId)}</div>
+              {injuredThisGame.includes(menuPlayerId) ? (
+                <button
+                  style={styles.tokenActionMenuItem}
+                  onClick={() => {
+                    onBringBack(menuPlayerId);
+                    setMenuPlayerId(null);
+                  }}
+                >
+                  <ArrowLeftRight size={15} /> Back in
+                </button>
+              ) : (
+                <>
+                  <button
+                    style={styles.tokenActionMenuItem}
+                    onClick={() => {
+                      setSwapPickId(menuPlayerId);
+                      setMenuPlayerId(null);
+                    }}
+                  >
+                    <ArrowLeftRight size={15} /> Swap
+                  </button>
+                  {menuCanMakeKeeper && (
+                    <button
+                      style={styles.tokenActionMenuItem}
+                      onClick={() => {
+                        setConfirmMessage(`${nameOf(menuPlayerId)} is now keeper`);
+                        onSwap(menuPlayerId, viewedGk.id);
+                        setMenuPlayerId(null);
+                      }}
+                    >
+                      <Shield size={15} /> Make keeper
+                    </button>
+                  )}
+                  <button
+                    style={{ ...styles.tokenActionMenuItem, ...styles.tokenActionMenuItemDanger }}
+                    onClick={() => {
+                      onInjury(menuPlayerId);
+                      setMenuPlayerId(null);
+                    }}
+                  >
+                    🤕 Mark injured
+                  </button>
+                </>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       <div style={styles.planNav}>
         <button style={styles.iconBtn} disabled={activeInterval === 0} onClick={() => setActiveInterval((i) => Math.max(0, i - 1))}>

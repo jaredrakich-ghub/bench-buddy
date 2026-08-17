@@ -8,7 +8,7 @@
 // MatchView renders and wires that correctly — actual DOM, actual clicks.
 import { describe, it, expect, vi, afterEach } from "vitest";
 import "@testing-library/jest-dom/vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import MatchView from "./MatchView.jsx";
 
@@ -17,6 +17,12 @@ import MatchView from "./MatchView.jsx";
 // that on project-wide (it'd apply to every test file, not just this one),
 // so each component test file that renders needs this itself.
 afterEach(cleanup);
+// A safety net independent of any individual test's own cleanup line — if
+// a fake-timers test fails before reaching its own vi.useRealTimers() call,
+// real timers never come back and every subsequent test in this file hangs
+// on its own real userEvent.click awaits. This runs regardless of whether
+// the test passed or threw.
+afterEach(() => vi.useRealTimers());
 
 const NAMES = { p1: "Alice", p2: "Bob", p3: "Cara", p4: "Dan", p5: "Eve", p6: "Finn", p7: "Gus" };
 const nameOf = (id) => NAMES[id] || id;
@@ -82,9 +88,15 @@ function baseProps(overrides = {}) {
 // Every token (pitch, bench, injured) renders its name as a sibling span
 // next to its tap button, inside a shared wrapper div — this finds that
 // button from the visible name text, the same way a coach actually finds
-// a player on screen.
+// a player on screen. Uses getAllByText + a tag filter (not plain
+// getByText) because a player's name can legitimately appear a second time
+// elsewhere on screen at once — e.g. the swap-picking banner's own "swap
+// with <strong>Name</strong>" text — and only the token's own name is a
+// bare <span>, so filtering by tag disambiguates without depending on
+// which one happens to render first in the DOM.
 function tokenButtonFor(name) {
-  return screen.getByText(name).closest("div").querySelector("button");
+  const nameSpan = screen.getAllByText(name).find((el) => el.tagName === "SPAN");
+  return nameSpan.closest("div").querySelector("button");
 }
 
 describe("MatchView — basic rendering", () => {
@@ -349,6 +361,56 @@ describe("MatchView — tap-to-act token menu", () => {
     expect(screen.getByText("Swap")).toBeInTheDocument();
     await user.click(bobToken);
     expect(screen.queryByText("Swap")).not.toBeInTheDocument();
+  });
+
+  it("tapping the pending swap source again cancels instead of swapping them with themselves", async () => {
+    const onSwap = vi.fn();
+    const setSwapPickId = vi.fn();
+    const user = userEvent.setup();
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0, swapPickId: "p2", onSwap, setSwapPickId })} />);
+    await user.click(tokenButtonFor("Bob")); // p2, the swap source itself
+    expect(onSwap).not.toHaveBeenCalled();
+    expect(setSwapPickId).toHaveBeenCalledWith(null);
+  });
+});
+
+describe("MatchView — post-action confirmation toast", () => {
+  it("shows a confirmation after completing a swap, and it replaces the 'pick a target' hint", async () => {
+    const user = userEvent.setup();
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0, swapPickId: "p2" })} />);
+    await user.click(tokenButtonFor("Finn")); // p6, bench
+    expect(screen.getByText("✓ Bob swapped with Finn")).toBeInTheDocument();
+    expect(screen.queryByText(/Tap another player/)).not.toBeInTheDocument();
+  });
+
+  it("shows a confirmation after choosing Make keeper", async () => {
+    const user = userEvent.setup();
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0 })} />);
+    await user.click(tokenButtonFor("Bob")); // p2
+    await user.click(screen.getByText("Make keeper"));
+    expect(screen.getByText("✓ Bob is now keeper")).toBeInTheDocument();
+  });
+
+  it("auto-dismisses the confirmation after a short delay", () => {
+    // fireEvent (synchronous) rather than userEvent here — userEvent's own
+    // internal async waits don't coordinate cleanly with fake timers, and
+    // this click needs no real user-interaction simulation (typing, focus
+    // order) to matter for what's being tested.
+    vi.useFakeTimers();
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0, swapPickId: "p2" })} />);
+    fireEvent.click(tokenButtonFor("Finn"));
+    expect(screen.getByText("✓ Bob swapped with Finn")).toBeInTheDocument();
+    // act() so React flushes the setTimeout callback's state update
+    // synchronously — outside a real user event, nothing else prompts it to.
+    act(() => {
+      vi.advanceTimersByTime(2600);
+    });
+    expect(screen.queryByText("✓ Bob swapped with Finn")).not.toBeInTheDocument();
+  });
+
+  it("does not show a confirmation when viewing a past interval", () => {
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 400 })} />);
+    expect(screen.queryByText(/^✓/)).not.toBeInTheDocument();
   });
 });
 
