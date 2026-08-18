@@ -181,18 +181,12 @@ export const styles = {
   // on top for the safe-area itself; index.html's viewport-fit=cover is
   // what makes that env() value non-zero.
   main: { padding: "12px 16px", paddingBottom: "calc(96px + env(safe-area-inset-bottom, 0px))", maxWidth: 640, margin: "0 auto" },
-  // marginTop: 0 matters here specifically for subTrackerHeaderRow below —
-  // without it, the browser's default <h2> top margin (not otherwise reset
-  // anywhere in this file) throws off align-items: center against the
-  // Summary/Edit buttons, which have no such margin.
+  // marginTop: 0 matters here — without it, the browser's default <h2> top
+  // margin (not otherwise reset anywhere in this file) throws off
+  // align-items: center wherever this sits alongside something else in a
+  // flex row with no margin of its own.
   sectionTitle: { fontSize: 17, fontWeight: 900, margin: 0, marginBottom: 8, color: colors.grass, textTransform: "uppercase", letterSpacing: 0.5 },
-  subTrackerHeaderRow: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 },
   headerBtnGroup: { display: "flex", gap: 6 },
-  editSettingsBtn: {
-    display: "flex", alignItems: "center", gap: 5, background: "transparent", color: colors.grass,
-    border: "1px solid " + colors.border, borderRadius: 8, padding: "5px 10px", fontWeight: 700, fontSize: 12,
-    cursor: "pointer", marginBottom: 8,
-  },
   addRow: { display: "flex", gap: 8, marginBottom: 12 },
   input: { flex: 1, padding: "10px 12px", borderRadius: 10, border: "1px solid " + colors.border, fontSize: 14 },
   numInput: { width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid " + colors.border, fontSize: 14 },
@@ -280,59 +274,17 @@ export const styles = {
   },
   startGkToggleActive: { background: colors.field, borderColor: colors.field, color: "#fff" },
 
-  timerBar: {
-    display: "flex", alignItems: "center", gap: 10, background: colors.ink, borderRadius: 12, padding: "20px 14px", marginBottom: 2,
-  },
-  clockBlock: { display: "flex", flexDirection: "column", flex: 1 },
-  clockDisplay: { fontSize: 38, fontWeight: 900, color: colors.chalk, fontVariantNumeric: "tabular-nums", lineHeight: 1 },
-  clockSub: { fontSize: 12, color: "rgba(255,255,255,0.5)", fontWeight: 600, marginTop: 3 },
-  timerBtn: {
-    display: "flex", alignItems: "center", gap: 6, padding: "13px 18px", borderRadius: 10, border: "none",
-    fontWeight: 700, fontSize: 14, cursor: "pointer", minHeight: 44,
-  },
-  timerBtnPlay: { background: colors.field, color: "#fff" },
-  timerBtnPause: { background: colors.gk, color: "#fff" },
-  timerBtnDone: { background: colors.border, color: colors.bench, cursor: "default" },
-  intervalCountdown: {
-    display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-    textAlign: "center", fontSize: 16, color: "#5B6B64", fontWeight: 600, margin: "8px 0",
-    // Without this, a "1" is narrower than an "8" in most fonts, so the
-    // clock text's total width shifts slightly every second — and since
-    // this row is centered (justifyContent: center) with a button next to
-    // it, that width change visibly nudges the whole row, button included,
-    // left and right as the seconds tick. Locks every digit to the same
-    // width so the row's total width — and its centered position — never
-    // moves. Found by testing on a real phone: reported as "the countdown
-    // moves the button a pixel every 2-3 seconds", which is exactly the
-    // rhythm of hitting narrower digits like "1".
-    fontVariantNumeric: "tabular-nums",
-  },
-  confirmBtnInline: {
-    background: colors.field, color: "#fff", border: "none", borderRadius: 8,
-    padding: "5px 10px", fontWeight: 800, fontSize: 11, cursor: "pointer",
-  },
-  gkWarmup: {
-    display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: colors.gk, color: "#fff",
-    fontWeight: 700, fontSize: 12, padding: "8px 12px", borderRadius: 10, marginBottom: 8,
-  },
-  // Same shape as gkWarmup but field-green rather than gk-gold — this is a
-  // "you're done, here's what's next" moment, not a warning.
+  // Kept for the match-complete banner only now (see matchCompleteBanner
+  // below) — the running timer's own countdown/warning UI was replaced by
+  // the match-day redesign's action bar (see the tokens/mdXxx styles
+  // further down).
   matchCompleteBanner: {
     display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: colors.field, color: "#fff",
     fontWeight: 700, fontSize: 13, padding: "10px 12px", borderRadius: 10, marginBottom: 8,
   },
-  warmupText: { display: "flex", flexDirection: "column", gap: 3, lineHeight: 1.3 },
-  // Deliberately the biggest, boldest thing in the box — a coach glancing
-  // at their phone from a few feet away on the sideline needs the
-  // countdown to be readable at a glance, not buried mid-sentence.
-  warmupCountdown: { fontSize: 20, fontWeight: 800, fontVariantNumeric: "tabular-nums" },
   confirmBtn: {
     flex: "0 0 auto", background: "rgba(255,255,255,0.9)", color: colors.ink, border: "none", borderRadius: 8,
     padding: "7px 11px", fontWeight: 800, fontSize: 11, cursor: "pointer", whiteSpace: "nowrap",
-  },
-  confirmedNote: {
-    textAlign: "center", fontSize: 11, fontWeight: 700, color: colors.field, background: "#E9F5EE",
-    padding: "6px 10px", borderRadius: 8, marginBottom: 8,
   },
   intervalTabsWrap: { position: "relative", marginBottom: 8 },
   // Once a game has enough intervals to overflow a phone-width screen, this
@@ -360,110 +312,104 @@ export const styles = {
   // toggle a given tab in or out of this style across renders (settings
   // change, browsing a different game), which is exactly the "flips
   // between states live" case that bites.
+  // Sub-window chip row — match-day redesign styling (pill shape, no
+  // border; see tokens above). Active/inactive read purely from fill color
+  // now rather than border + fill, since flat pills with no border
+  // anywhere else in this row is the design's whole visual language here.
   intervalTab: {
-    flex: "0 0 auto", padding: "9px 12px", borderRadius: 8,
-    borderWidth: 1, borderStyle: "solid", borderColor: colors.border,
-    background: colors.cardBg, fontSize: 12, fontWeight: 700, cursor: "pointer", color: colors.ink,
+    flex: "0 0 auto", padding: "8px 14px", borderRadius: tokens.radius.chip, border: "none",
+    background: tokens.color.creamDeep, color: tokens.color.mutedText,
+    fontFamily: tokens.font.body, fontWeight: 800, fontSize: 14, cursor: "pointer",
     scrollSnapAlign: "start",
   },
-  intervalTabActive: { background: colors.grass, color: colors.chalk, borderColor: colors.grass },
+  intervalTabActive: { background: tokens.color.deepGreen, color: tokens.color.creamPaper },
   // Purely visual grouping for a half-time/third-time/quarter-time break
-  // (see computeBreakBoundaries, rotation.js) — extra gap plus a colored
-  // left edge reads as "a new section starts here" without needing a
-  // separate divider element between flex children.
-  intervalTabBreakStart: { marginLeft: 12, borderLeftWidth: 2, borderLeftColor: colors.field },
+  // (see computeBreakBoundaries, rotation.js) — just extra gap now (no
+  // accent border) since the redesign's pills don't use borders anywhere
+  // else in this row; the gap alone still reads as "a new section starts
+  // here".
+  intervalTabBreakStart: { marginLeft: 12 },
 
-  pitchBoard: { background: colors.pitchDark, borderRadius: 14, padding: 12 },
-  pitchInner: { position: "relative", width: "100%", height: 220, marginBottom: 4 },
-  pitchCenterCircle: {
-    position: "absolute", top: "40%", left: "50%", transform: "translate(-50%, -50%)",
-    width: 80, height: 80, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.2)",
-  },
-  pitchHalfwayLine: { position: "absolute", top: "40%", left: 0, right: 0, height: 2, background: "rgba(255,255,255,0.2)" },
-  pitchGoalBox: {
-    position: "absolute", bottom: 0, left: "30%", right: "30%", height: 40,
-    border: "2px solid rgba(255,255,255,0.25)", borderBottom: "none", borderRadius: "4px 4px 0 0",
+  // ---- Match-day redesign (Direction A) — pitch, shirts, bench, action
+  // bar. See design_handoff_bench_buddy_match_day/README.md and the
+  // `tokens` export above. Header styles for this same screen live further
+  // down (mdHeader onward), grouped with the action bar rather than here,
+  // since they were added later — token names throughout are prefixed
+  // `md` to keep them unambiguous next to the unprefixed styles other,
+  // not-yet-redesigned screens still use.
+  pitchInner: {
+    position: "relative", width: "100%", background: tokens.color.pitchGreen, borderRadius: tokens.radius.card,
+    backgroundImage: "repeating-linear-gradient(180deg, rgba(255,255,255,.05) 0 34px, rgba(0,0,0,.05) 34px 68px)",
+    marginBottom: tokens.spacing.rhythm, overflow: "hidden",
   },
   formationToken: {
     position: "absolute", transform: "translate(-50%, -50%)", display: "flex", flexDirection: "column",
     alignItems: "center", gap: 3, width: 76,
   },
-  // Wraps the jersey badge — position:relative so the next-sub badges below
-  // can anchor to it directly. Used to also anchor two always-visible side
-  // buttons (injury, make-keeper); both are gone now, replaced by a single
-  // tap-to-open action menu (see tokenActionMenu below) shared by every
-  // token — pitch, bench, and injured alike — so nothing sits on a token
-  // unless you've actually tapped it.
-  tokenWithAction: { position: "relative", display: "flex" },
-  // Advance notice of the next sub window's changes, shown on top of the
-  // relevant token — top-left corner, opposite side from injuryBtnSide
-  // (top-right-ish) so the two never collide. Deliberately simple, fixed
-  // colors: red = off the pitch, green = playing outfield next (whether
-  // arriving from the bench or staying on but losing keeper duty — same
-  // badge either way, see steppingDownKeeperId in MatchView). A given token
-  // only ever shows one badge (this or nextKeeperBadge below), so they can
-  // safely share the same position.
-  nextOffBadge: {
-    position: "absolute", left: -6, top: -6, width: 18, height: 18, borderRadius: "50%",
-    background: colors.danger, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
+  mdShirtBtn: { border: "none", background: "transparent", padding: 0, cursor: "pointer", display: "flex" },
+  mdShirtBtnSwapTarget: { filter: "drop-shadow(0 0 0 3px rgba(255,255,255,.85))" },
+  // Absolutely positioned over the shirt SVG (see matchDayIcons.jsx) — top
+  // offset and font size are both computed inline from the shirt's actual
+  // rendered size (24/58 and 24/62 of the design's own 62x58 reference
+  // shirt), so the number stays correctly placed as the shirt scales down
+  // for busier games (see computeTokenSize, formation.js).
+  mdShirtNumber: {
+    position: "absolute", left: "50%", transform: "translateX(-50%)",
+    fontFamily: tokens.font.display, fontWeight: 800, color: tokens.color.deepGreen, pointerEvents: "none",
+  },
+  mdGkTag: {
+    position: "absolute", bottom: 2, left: -2, background: tokens.color.deepGreen, color: tokens.color.yellow,
+    fontFamily: tokens.font.body, fontWeight: 800, fontSize: 11, padding: "1px 6px", borderRadius: tokens.radius.chip,
+    pointerEvents: "none",
+  },
+  mdShirtPlayerName: { color: "#fff", fontFamily: tokens.font.body, fontSize: 12, fontWeight: 800, textAlign: "center" },
+  // The one badge shape the design spells out explicitly (a pill, not a
+  // circle) — everyone leaving the pitch next interval, regardless of
+  // whether it's a regular sub or a keeper stepping down.
+  mdOutgoingBadge: {
+    position: "absolute", top: 0, right: -2, width: 26, height: 22, borderRadius: tokens.radius.chip,
+    background: tokens.color.alertRed, display: "flex", alignItems: "center", justifyContent: "center",
     pointerEvents: "none", boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
   },
+  // Becoming-keeper and staying-on-as-outfield aren't covered by the
+  // handoff's own badge spec — kept as the small circle badges the app
+  // already had, just recolored to the new palette (gold for keeper, green
+  // for "arriving/staying outfield") and moved to the opposite corner from
+  // mdOutgoingBadge so a token showing both never has them collide.
   nextOnBadge: {
     position: "absolute", left: -6, top: -6, width: 18, height: 18, borderRadius: "50%",
-    background: colors.field, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
+    background: tokens.color.pitchGreen, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
     pointerEvents: "none", boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
   },
-  // A keeper handover is a role change, not necessarily a substitution (the
-  // two players involved are often already both on the pitch) — this gets
-  // its own gold-and-glove treatment, distinct from the red/green subs
-  // badges above, so it never reads as "just another sub". Shown only on
-  // whoever's becoming keeper, wherever they currently are — the outgoing
-  // keeper just gets the regular green "switching to outfield" badge.
   nextKeeperBadge: {
     position: "absolute", left: -6, top: -6, width: 18, height: 18, borderRadius: "50%",
-    background: colors.gk, display: "flex", alignItems: "center", justifyContent: "center",
+    background: tokens.color.yellow, display: "flex", alignItems: "center", justifyContent: "center",
     fontSize: 11, lineHeight: 1, pointerEvents: "none", boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
   },
-  // Bench tokens don't have their own relative wrapper the way on-pitch
-  // tokens get from tokenWithAction — this is that, just for the bench row
-  // (the name predates the jersey-badge shape; still just a relative
-  // positioning wrapper, badge shape doesn't change what this does).
-  tokenCircleWrap: { position: "relative", display: "inline-flex" },
-  pitchLabel: { color: "rgba(255,255,255,0.7)", fontSize: 10, fontWeight: 800, letterSpacing: 1.2, marginBottom: 6, marginTop: 8 },
-  // A second-tier label under pitchLabel — e.g. "Outfield (waiting)" /
-  // "Keeper (waiting)" splitting the bench into two columns.
-  pitchSubLabel: { color: "rgba(255,255,255,0.55)", fontSize: 10, fontWeight: 700, marginBottom: 10 },
-  tokenRow: { display: "flex", flexWrap: "wrap", gap: 10 },
-  tokenCol: { display: "flex", flexDirection: "column", alignItems: "center", gap: 3, width: 62 },
-  // Rounded square "jersey badge" — one consistent shape and treatment for
-  // every player everywhere (pitch, bench, injured alike), width/height
-  // deliberately left as just a fallback here since the real size is
-  // dynamic (see computeTokenSize, formation.js) and passed inline per
-  // token based on how many are actually sharing the pitch right now.
-  token: {
-    width: 40, height: 40, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center",
-    color: "#fff", boxShadow: "0 2px 6px rgba(0,0,0,0.25)", border: "none", padding: 0, font: "inherit",
+  mdBenchStrip: {
+    background: tokens.color.creamDeep, borderRadius: tokens.radius.benchStrip, padding: "12px 14px",
+    marginBottom: tokens.spacing.rhythm,
   },
-  tokenSwapTarget: { cursor: "pointer", boxShadow: "0 0 0 3px rgba(255,255,255,0.85), 0 2px 6px rgba(0,0,0,0.25)" },
-  tokenField: { background: colors.field },
-  // Same green jersey as everyone else — a solid gold fill read as a
-  // different *kind* of token rather than the same player just holding a
-  // different job this interval. A ring keeps one consistent badge language
-  // (ring = a status worth noticing) that tokenInjured below reuses too.
-  tokenGk: { background: colors.field, boxShadow: "0 0 0 3px " + colors.gk + ", 0 2px 6px rgba(0,0,0,0.25)" },
-  // Bench tokens now look exactly like an on-field one — the BENCH/
-  // "Outfield (waiting)"/"Keeper (waiting)" section labels already say
-  // what they are, so a separate dashed-circle treatment was just another
-  // shape to learn rather than useful information.
-  tokenBench: { background: colors.field },
-  tokenInjured: { background: colors.field, boxShadow: "0 0 0 3px " + colors.danger + ", 0 2px 6px rgba(0,0,0,0.25)" },
-  tokenName: { color: "#fff", fontSize: 11, fontWeight: 700, textAlign: "center" },
-  noneText: { color: "rgba(255,255,255,0.6)", fontSize: 13 },
-
-  benchInjuredRow: { display: "flex", gap: 14 },
-  benchCol: { flex: 1, minWidth: 0 },
-  benchSplitGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 },
-  injuredCol: { flex: 1, minWidth: 0, borderLeft: "1px dashed rgba(255,255,255,0.25)", paddingLeft: 12 },
+  mdBenchLabel: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 15, color: tokens.color.mutedText, marginBottom: 8 },
+  mdBenchSubLabel: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 12, color: tokens.color.mutedText, marginBottom: 6 },
+  mdBenchChipRow: { display: "flex", flexWrap: "wrap", gap: 8 },
+  mdBenchChip: {
+    display: "flex", alignItems: "center", gap: 6, background: "#fff", borderRadius: tokens.radius.chip,
+    padding: "4px 12px 4px 4px", border: "none", cursor: "pointer", font: "inherit",
+  },
+  mdBenchChipSwapTarget: { boxShadow: "0 0 0 2px " + tokens.color.pitchGreen },
+  mdBenchChipNumber: {
+    width: 30, height: 30, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 13, flexShrink: 0,
+    background: tokens.color.pitchGreen, color: "#fff",
+  },
+  // A keeper-eligible bench player's number disc flips to gold — matches
+  // the on-pitch keeper's gold shirt, so "this player can go in goal"
+  // reads the same color wherever they're shown.
+  mdBenchChipNumberGk: { background: tokens.color.yellow, color: tokens.color.deepGreen },
+  mdBenchChipName: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 15, color: tokens.color.deepGreen },
+  mdBenchChipUpArrow: { color: tokens.color.pitchGreen, display: "flex", alignItems: "center" },
+  mdBenchEmpty: { color: tokens.color.mutedText, fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13 },
   // Persistent inline note (not the fixed action sheet below) — shown
   // while browsing a past interval, which stays true the whole time a
   // coach is reviewing it, not just for a moment after a tap.
@@ -507,22 +453,51 @@ export const styles = {
   },
   tokenActionMenuItemDanger: { color: colors.danger },
 
-  // Dark bar (same colors.ink treatment as timerBar above, not a new
-  // color) instead of a plain row of light-gray icon buttons on the page
-  // background — matches the reference mockup's nav bar. The mockup's
-  // swipe-indicator track underneath the label was tried and dropped: it
-  // read as a drag/pulldown handle rather than decoration, which this
-  // isn't. Kept slim (small padding, no extra row) for the same reason —
-  // a plain prev/next bar shouldn't look like it hides more content.
-  planNav: {
-    display: "flex", alignItems: "center", justifyContent: "space-between",
-    marginTop: 16, background: colors.ink, borderRadius: 12, padding: "4px 6px",
+  // ---- Match-day redesign (Direction A) — header + action bar. See the
+  // `tokens` export above and the pitch/shirt/bench styles further up.
+  mdHeader: { background: tokens.color.headerYellow, padding: "18px 20px 20px", borderRadius: "0 0 30px 30px", marginBottom: 12 },
+  mdHeaderTopRow: { display: "flex", alignItems: "center", gap: 10 },
+  mdCrestOuter: {
+    width: 62, height: 62, borderRadius: "50%", flexShrink: 0, overflow: "hidden",
+    border: "4px solid " + tokens.color.pitchGreen, background: "#fff",
+    display: "flex", alignItems: "center", justifyContent: "center",
   },
-  planNavBtn: {
-    border: "none", background: "transparent", borderRadius: 8, padding: 6, cursor: "pointer", color: colors.chalk,
-    display: "flex", alignItems: "center", justifyContent: "center", minWidth: 36, minHeight: 36,
+  mdCrestImg: { width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 46%", transform: "scale(1.7)" },
+  mdTeamName: {
+    flex: 1, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 21, color: tokens.color.deepGreen,
+    minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
   },
-  planNavLabel: { fontSize: 14, fontWeight: 700, color: colors.chalk },
+  mdCogBtn: {
+    width: 38, height: 38, borderRadius: tokens.radius.iconButton, border: "none", background: "#fff",
+    display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0,
+  },
+  mdTimerRow: { display: "flex", alignItems: "baseline", gap: 8, marginTop: 10 },
+  mdTimerDisplay: {
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 66, lineHeight: 0.95, color: tokens.color.deepGreen,
+    fontVariantNumeric: "tabular-nums",
+  },
+  mdTimerCaption: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 14, color: tokens.color.goldText },
+  mdBlockBar: { display: "flex", gap: 5, marginTop: 10 },
+  mdBlockSegment: { flex: 1, height: 9, borderRadius: tokens.radius.chip, background: "rgba(28,58,46,.15)" },
+  mdBlockSegmentElapsed: { background: tokens.color.deepGreen },
+  // Base ("running") state — see the comment in MatchView.jsx on why the
+  // pre-kickoff/paused variants of this same bar aren't built yet.
+  mdActionBar: { background: tokens.color.actionBar, borderRadius: tokens.radius.actionBarTop, padding: "14px 16px", marginTop: tokens.spacing.rhythm },
+  mdActionBarStatusRow: { display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 },
+  mdActionBarCountdown: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 24, color: tokens.color.yellow },
+  mdActionBarStatus: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 14, color: tokens.color.mutedOnDark },
+  mdActionBarBtnRow: { display: "flex", gap: 10 },
+  mdActionBarBtnPause: {
+    flex: 1, height: 66, borderRadius: tokens.radius.buttonMd, border: "none", background: tokens.color.creamDeep,
+    color: tokens.color.deepGreen, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 18,
+    display: "flex", alignItems: "center", justifyContent: "center", gap: 8, cursor: "pointer",
+  },
+  mdActionBarBtnPrimary: {
+    flex: 1.25, height: 66, borderRadius: tokens.radius.buttonMd, border: "none", background: tokens.color.yellow,
+    color: tokens.color.deepGreen, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 18,
+    boxShadow: tokens.shadow.solid(5, tokens.color.yellowShadow),
+    display: "flex", alignItems: "center", justifyContent: "center", gap: 8, cursor: "pointer",
+  },
 
   modalOverlay: {
     position: "fixed", inset: 0, background: "rgba(15,36,26,0.55)", display: "flex", alignItems: "center",

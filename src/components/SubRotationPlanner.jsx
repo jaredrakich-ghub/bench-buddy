@@ -3,6 +3,7 @@ import { X, History } from "lucide-react";
 import { intervalAtElapsed } from "../lib/rotation.js";
 import { computeLiveElapsedSec } from "../lib/clock.js";
 import { generateId } from "../lib/id.js";
+import { getSquadNumber } from "../lib/squadNumber.js";
 import { normalizeTeam, migrateLegacyTeam, createTeam, findTeam, addTeam, removeTeam } from "../lib/teams.js";
 import { fetchTeams, createTeamDoc, deleteTeamDoc, fetchMatchState, describeSaveError } from "../lib/firestoreTeams.js";
 import { signOutUser, deleteAccount } from "../lib/auth.js";
@@ -265,6 +266,10 @@ export default function SubRotationPlanner({ user }) {
   };
 
   const nameOf = (id) => teamData.roster.find((p) => p.id === id)?.name || "?";
+  // Squad numbers are new (match-day redesign) — see getSquadNumber's own
+  // comment in src/lib/squadNumber.js for the fallback this leans on until
+  // SquadSettingsForm lets a coach actually assign one.
+  const numberOf = (id) => getSquadNumber(teamData.roster.find((p) => p.id === id) || { id }, teamData.roster);
 
   // Shared props for SquadSettingsForm — used both for first-time setup
   // (inline) and later edits (modal), so this is built once and reused
@@ -291,24 +296,33 @@ export default function SubRotationPlanner({ user }) {
   return (
     <div style={styles.app}>
       <style>{fontStyle}</style>
-      <header style={styles.header}>
-        <div style={styles.headerInner}>
-          <div style={styles.headerLogoGroup}>
-            <div style={styles.logoMark}>
-              <img src={headerMascot} alt="" style={styles.logoMarkImg} />
+      {/* MatchView supplies its own team-identity header (crest, name, cog
+          menu) once a match is underway — this app-level header is only
+          for the pre-match/setup screen, so it hides rather than stacking
+          a second header on top of MatchView's. The cog menu's "Switch
+          team"/"Season data" rows (see MatchView.jsx) reach the same
+          setShowSeasonModal/setShowTeamSwitcher this header's own buttons
+          call, so nothing here becomes unreachable once a match starts. */}
+      {!plan && (
+        <header style={styles.header}>
+          <div style={styles.headerInner}>
+            <div style={styles.headerLogoGroup}>
+              <div style={styles.logoMark}>
+                <img src={headerMascot} alt="" style={styles.logoMarkImg} />
+              </div>
+              <div style={styles.headerTitle}>BENCH BUDDY</div>
             </div>
-            <div style={styles.headerTitle}>BENCH BUDDY</div>
+            <div style={styles.headerBtnGroup}>
+              <button style={styles.seasonBtn} onClick={() => setShowSeasonModal(true)} title="View season history">
+                <History size={14} /> Season
+              </button>
+              <button style={styles.teamSwitcherTrigger} onClick={() => setShowTeamSwitcher(true)} title="Switch teams">
+                {teamData.name} ▾
+              </button>
+            </div>
           </div>
-          <div style={styles.headerBtnGroup}>
-            <button style={styles.seasonBtn} onClick={() => setShowSeasonModal(true)} title="View season history">
-              <History size={14} /> Season
-            </button>
-            <button style={styles.teamSwitcherTrigger} onClick={() => setShowTeamSwitcher(true)} title="Switch teams">
-              {teamData.name} ▾
-            </button>
-          </div>
-        </div>
-      </header>
+        </header>
+      )}
 
       {saveError && <div style={styles.saveErrorBanner}>⚠️ {saveError}</div>}
 
@@ -333,7 +347,6 @@ export default function SubRotationPlanner({ user }) {
             setRunStartedAt={setRunStartedAt}
             timerRunning={timerRunning}
             setTimerRunning={setTimerRunning}
-            subLog={subLog}
             setSubLog={setSubLog}
             swapPickId={swapPickId}
             setSwapPickId={setSwapPickId}
@@ -341,11 +354,16 @@ export default function SubRotationPlanner({ user }) {
             keeperEligibleIds={keeperEligibleIds}
             breakSegments={gameSettings.breakSegments || 1}
             nameOf={nameOf}
+            numberOf={numberOf}
+            teamName={teamData.name}
+            crestSrc={headerMascot}
             onInjury={handleInjury}
             onBringBack={bringBack}
             onSwap={performSwap}
             onShowSummary={() => setShowSummaryModal(true)}
             onShowSettings={() => setShowSettingsModal(true)}
+            onShowSeason={() => setShowSeasonModal(true)}
+            onShowTeamSwitcher={() => setShowTeamSwitcher(true)}
           />
         )}
       </main>

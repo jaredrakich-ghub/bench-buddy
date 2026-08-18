@@ -6,6 +6,17 @@
 // (computeNextChangeBadges, resolveAutoFollowInterval) already has its own
 // thorough unit tests in rotation.test.js; these tests are about whether
 // MatchView renders and wires that correctly — actual DOM, actual clicks.
+//
+// Rewritten for the match-day redesign (Direction A) — step 3 of
+// design_handoff_bench_buddy_match_day/README.md's implementation plan.
+// The swap/keeper/injury action-sheet mechanism and the last-60s warning
+// concept are untouched *behaviorally* (still their own later steps to
+// restyle), so those tests carry over close to unchanged. What's genuinely
+// gone: the old intervalCountdown/gkWarmup boxes (replaced by the new
+// action bar's always-visible countdown+status), the "Full Time" header
+// button and the standalone Reset-clock button (moved into the cog's
+// interim quick menu), and the separate "Interval X of Y ◀ ▶" nav (dropped
+// — the sub-window chips are now the only interval navigation).
 import { describe, it, expect, vi, afterEach } from "vitest";
 import "@testing-library/jest-dom/vitest";
 import { render, screen, cleanup, fireEvent, act } from "@testing-library/react";
@@ -25,7 +36,9 @@ afterEach(cleanup);
 afterEach(() => vi.useRealTimers());
 
 const NAMES = { p1: "Alice", p2: "Bob", p3: "Cara", p4: "Dan", p5: "Eve", p6: "Finn", p7: "Gus" };
+const NUMBERS = { p1: 1, p2: 2, p3: 3, p4: 4, p5: 5, p6: 6, p7: 7 };
 const nameOf = (id) => NAMES[id] || id;
+const numberOf = (id) => NUMBERS[id] ?? "?";
 
 function makeInterval(index, startMin, endMin, onFieldIds, gkId, bench) {
   return {
@@ -69,47 +82,66 @@ function baseProps(overrides = {}) {
     setRunStartedAt: vi.fn(),
     timerRunning: false,
     setTimerRunning: vi.fn(),
-    subLog: {},
     setSubLog: vi.fn(),
     swapPickId: null,
     setSwapPickId: vi.fn(),
     injuredThisGame: [],
     keeperEligibleIds: Object.keys(NAMES),
     nameOf,
+    numberOf,
+    teamName: "Scorpions",
+    crestSrc: undefined,
     onInjury: vi.fn(),
     onBringBack: vi.fn(),
     onSwap: vi.fn(),
     onShowSummary: vi.fn(),
     onShowSettings: vi.fn(),
+    onShowSeason: vi.fn(),
+    onShowTeamSwitcher: vi.fn(),
     ...overrides,
   };
 }
 
-// Every token (pitch, bench, injured) renders its name as a sibling span
-// next to its tap button, inside a shared wrapper div — this finds that
-// button from the visible name text, the same way a coach actually finds
-// a player on screen. Uses getAllByText + a tag filter (not plain
-// getByText) because a player's name can legitimately appear a second time
-// elsewhere on screen at once — e.g. the swap-picking banner's own "swap
-// with <strong>Name</strong>" text — and only the token's own name is a
-// bare <span>, so filtering by tag disambiguates without depending on
-// which one happens to render first in the DOM.
+// Every token (pitch shirt, bench chip, injured chip) renders its name
+// somewhere inside — a pitch shirt's name is a sibling <span> *after* its
+// tap button (button+name share a wrapper div), while a bench/injured
+// chip's name is a <span> *inside* the button itself (the whole chip is
+// the button). closest("button") covers the chip case directly; the div
+// fallback covers the pitch-shirt case where the name isn't inside a
+// button at all. Uses getAllByText + a tag filter (not plain getByText)
+// because a player's name can legitimately appear a second time elsewhere
+// on screen at once — e.g. the swap-picking banner's own "swap with
+// <strong>Name</strong>" text — and only the token's own name is a bare
+// <span>, so filtering by tag disambiguates without depending on which one
+// happens to render first in the DOM.
 function tokenButtonFor(name) {
   const nameSpan = screen.getAllByText(name).find((el) => el.tagName === "SPAN");
-  return nameSpan.closest("div").querySelector("button");
+  return nameSpan.closest("button") || nameSpan.closest("div").querySelector("button");
 }
 
 describe("MatchView — basic rendering", () => {
-  it("shows the clock, total game time, and on-field/bench player names", () => {
+  it("shows the clock, total game time, team name, and on-field/bench player names", () => {
     render(<MatchView {...baseProps()} />);
     expect(screen.getByText("0:00")).toBeInTheDocument();
-    expect(screen.getByText("of 12:00")).toBeInTheDocument();
+    // Deliberate copy change (design spec): "of 45 min" style caption,
+    // not the old "of 12:00" mm:ss format.
+    expect(screen.getByText("of 12 min")).toBeInTheDocument();
+    expect(screen.getByText("Scorpions")).toBeInTheDocument();
     // on field
     expect(screen.getByText("Alice")).toBeInTheDocument();
     expect(screen.getByText("Dan")).toBeInTheDocument();
     // bench
     expect(screen.getByText("Finn")).toBeInTheDocument();
     expect(screen.getByText("Gus")).toBeInTheDocument();
+  });
+
+  it("shows each player's squad number from numberOf", () => {
+    render(<MatchView {...baseProps()} />);
+    // p1/Alice on the pitch (number 1) and p6/Finn on the bench (number 6).
+    const aliceNumber = screen.getAllByText("1").find((el) => el.tagName === "SPAN");
+    expect(aliceNumber).toBeInTheDocument();
+    const finnNumber = screen.getAllByText("6").find((el) => el.tagName === "SPAN");
+    expect(finnNumber).toBeInTheDocument();
   });
 
   it("shows Start when paused and Pause when running", () => {
@@ -148,7 +180,24 @@ describe("MatchView — next-sub badges", () => {
   });
 });
 
-describe("MatchView — Reset", () => {
+describe("MatchView — cog quick menu", () => {
+  // Interim scaffolding for this step (see the showQuickMenu comment in
+  // MatchView.jsx) — a plain modal standing in for the real anchored cog
+  // popover, which is its own later step. Reset clock moved in here (the
+  // redesigned header has no room for a separate always-visible button);
+  // Minutes/Settings/Season/Switch-team all still call the exact same
+  // callbacks the old header's Summary/Edit buttons and the app-level
+  // Season/team-switcher buttons did.
+  it("opens on tapping the cog and closes on tapping the close button", async () => {
+    const user = userEvent.setup();
+    render(<MatchView {...baseProps()} />);
+    expect(screen.queryByText("Reset clock")).not.toBeInTheDocument();
+    await user.click(screen.getByTitle("Menu"));
+    expect(screen.getByText("Reset clock")).toBeInTheDocument();
+    await user.click(screen.getByTitle("Close menu"));
+    expect(screen.queryByText("Reset clock")).not.toBeInTheDocument();
+  });
+
   it("resets the board back to interval 0, not just the clock", async () => {
     // Regression test: Reset used to rewind the clock/sub-log but leave the
     // board showing whatever interval was last being viewed.
@@ -161,78 +210,83 @@ describe("MatchView — Reset", () => {
         {...baseProps({ activeInterval: 1, elapsedSec: 400, setActiveInterval, setElapsedSec, setTimerRunning })}
       />
     );
-    await user.click(screen.getByTitle("Reset clock"));
+    await user.click(screen.getByTitle("Menu"));
+    await user.click(screen.getByText("Reset clock"));
     expect(setActiveInterval).toHaveBeenCalledWith(0);
     expect(setElapsedSec).toHaveBeenCalledWith(0);
     expect(setTimerRunning).toHaveBeenCalledWith(false);
   });
+
+  it("Minutes so far, Squad & game settings, Season data and Switch team each call their own callback and close the menu", async () => {
+    const onShowSummary = vi.fn();
+    const onShowSettings = vi.fn();
+    const onShowSeason = vi.fn();
+    const onShowTeamSwitcher = vi.fn();
+    const user = userEvent.setup();
+    render(<MatchView {...baseProps({ onShowSummary, onShowSettings, onShowSeason, onShowTeamSwitcher })} />);
+
+    await user.click(screen.getByTitle("Menu"));
+    await user.click(screen.getByText("Minutes so far"));
+    expect(onShowSummary).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("Reset clock")).not.toBeInTheDocument(); // menu closed itself
+
+    await user.click(screen.getByTitle("Menu"));
+    await user.click(screen.getByText(/Squad & game settings/));
+    expect(onShowSettings).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByTitle("Menu"));
+    await user.click(screen.getByText("Season data"));
+    expect(onShowSeason).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByTitle("Menu"));
+    await user.click(screen.getByText("Switch team"));
+    expect(onShowTeamSwitcher).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("MatchView — interval navigation", () => {
-  it("disables the back button on the first interval and the forward button on the last", () => {
-    const { rerender } = render(<MatchView {...baseProps({ activeInterval: 0 })} />);
-    expect(screen.getByText("Interval 1 of 2")).toBeInTheDocument();
-    // ‹ is the only disabled iconBtn at the first interval
-    const backBtnFirst = screen.getAllByRole("button").find((b) => b.disabled);
-    expect(backBtnFirst).toBeTruthy();
-
-    rerender(<MatchView {...baseProps({ activeInterval: 1 })} />);
-    expect(screen.getByText("Interval 2 of 2")).toBeInTheDocument();
+  // The separate "Interval X of Y ◀ ▶" nav is gone — the sub-window chip
+  // row (already there for browsing) is now the only way to change which
+  // interval is being viewed.
+  it("tapping a chip changes the viewed interval", async () => {
+    const setActiveInterval = vi.fn();
+    const user = userEvent.setup();
+    render(<MatchView {...baseProps({ activeInterval: 0, setActiveInterval })} />);
+    await user.click(screen.getByText("6–12′"));
+    expect(setActiveInterval).toHaveBeenCalledWith(1);
   });
 });
 
-describe("MatchView — sub-window warning box", () => {
-  // Regular subs used to only ever say "Start looking for the next sub" —
-  // no names. This shows exactly who's coming off and on, plus a large
-  // countdown, so a coach glancing at their phone can act without reading
-  // closely. Tied to the live interval (elapsedSec), not whatever's being
-  // browsed — see liveChanges in MatchView.
-  it("names who's coming off and on, and shows the keeper handover, inside the last-minute warning window", () => {
-    // interval 0 (0-6min) -> interval 1: p4 off, p6 on, keeper handover p1->p3.
-    // 340s elapsed leaves 20s in interval 0 (6*60=360), inside the 60s window.
-    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 340 })} />);
-    // "0:20" appears twice — the header row stays put the whole game (see
-    // MatchView) and the warning box shows the same value again, larger.
-    expect(screen.getAllByText("0:20").length).toBe(2);
-    // Names appear elsewhere too (pitch/bench labels), so scope into the
-    // OFF/ON line's own text rather than matching bare names page-wide.
-    const offOnLine = screen.getByText(/OFF:/).closest("div");
-    expect(offOnLine.textContent).toContain("Dan"); // p4, coming off
-    expect(offOnLine.textContent).toContain("Finn"); // p6, coming on
-    const keeperLine = screen.getByText(/to goal for the swap/).closest("div");
-    expect(keeperLine.textContent).toContain("Cara"); // p3, becoming keeper
+describe("MatchView — action bar", () => {
+  // Replaces the old intervalCountdown/gkWarmup boxes entirely — always
+  // visible (not just in the last 60s), always the live interval's
+  // countdown (never whatever's being browsed), single "Sub done" button
+  // regardless of timing.
+  it("shows the live countdown to the next sub, tied to the live interval even while browsing elsewhere", () => {
+    // Live interval is 0 (elapsedSec=340, 20s left in a 0-6min interval);
+    // board is showing interval 1 (browsed ahead).
+    render(<MatchView {...baseProps({ activeInterval: 1, elapsedSec: 340 })} />);
+    expect(screen.getByText("Next sub 0:20")).toBeInTheDocument();
   });
 
-  it("keeps showing the live upcoming change even while browsing a different interval", () => {
-    const threeIntervalPlan = [...defaultPlan, makeInterval(2, 12, 18, ["p1", "p3", "p5", "p6", "p7"], "p3", ["p2", "p4"])];
-    // Live is still interval 0 (elapsedSec=340), but the board is showing interval 2.
-    render(<MatchView {...baseProps({ plan: threeIntervalPlan, activeInterval: 2, elapsedSec: 340 })} />);
-    expect(screen.getAllByText("0:20").length).toBe(2);
-    const offOnLine = screen.getByText(/OFF:/).closest("div");
-    expect(offOnLine.textContent).toContain("Dan"); // still the live transition's names (p4), not interval 2's (p2/p4 bench)
+  it("shows a swap-count status derived from who's coming off, and an out-count when someone's injured", () => {
+    render(<MatchView {...baseProps({ plan: planWithP7Injured, injuredThisGame: ["p7"], activeInterval: 0, elapsedSec: 0 })} />);
+    // interval 0 -> 1: p4 comes off (regular sub) — 1 to swap. p7 already injured — 1 out.
+    expect(screen.getByText("1 to swap · 1 out")).toBeInTheDocument();
   });
 
-  it("disappears once the interval it warned about actually ends", () => {
-    // elapsedSec now well into interval 1 - the interval-0 warning is gone.
+  it("Sub done writes to subLog for the live interval regardless of how much time is left", () => {
+    const setSubLog = vi.fn();
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 100, setSubLog })} />);
+    fireEvent.click(screen.getByText("Sub done ✓"));
+    const updater = setSubLog.mock.calls[0][0];
+    expect(updater({})).toEqual({ 0: 100 });
+  });
+
+  it("hides Sub done on the last interval of the game (nothing to sub into) but keeps the Start/Pause toggle", () => {
     render(<MatchView {...baseProps({ activeInterval: 1, elapsedSec: 400 })} />);
-    expect(screen.queryByText(/OFF:/)).not.toBeInTheDocument();
-  });
-
-  it("keeps the header countdown row's own height stable when the warning box appears — only its button toggles", () => {
-    // Regression test: an earlier version hid the whole header row once the
-    // warning box appeared, which collapsed its height at the exact moment
-    // the (taller) box appeared below it — looked like the "Sub made early"
-    // button had jumped or the two were overlapping. The row itself must
-    // never disappear; only the button inside it should.
-    const { rerender } = render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 295 })} />); // 65s left - not yet in the window (window opens at <=60s)
-    expect(screen.getByText(/Sub window ends in/)).toBeInTheDocument();
-    expect(screen.getByText("✓ Sub made early")).toBeInTheDocument();
-    expect(screen.queryByText(/OFF:/)).not.toBeInTheDocument();
-
-    rerender(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 340 })} />); // 20s left - inside the window
-    expect(screen.getByText(/Sub window ends in/)).toBeInTheDocument(); // row still there
-    expect(screen.queryByText("✓ Sub made early")).not.toBeInTheDocument(); // only the button is gone
-    expect(screen.getByText(/OFF:/)).toBeInTheDocument(); // warning box now also showing
+    expect(screen.queryByText("Sub done ✓")).not.toBeInTheDocument();
+    expect(screen.getByText("Start")).toBeInTheDocument();
   });
 });
 
@@ -443,22 +497,22 @@ describe("MatchView — break markers (purely visual, no effect on the plan itse
 });
 
 describe("MatchView — match complete", () => {
-  it("shows the match-complete banner with a working Start new game action once the clock reaches the end", async () => {
+  it("shows the match-complete banner with a working Start new game action, and hides the action bar", async () => {
     const onShowSettings = vi.fn();
     const user = userEvent.setup();
     render(<MatchView {...baseProps({ activeInterval: 1, elapsedSec: 12 * 60, onShowSettings })} />);
-    expect(screen.getByText("Full Time")).toBeInTheDocument();
     expect(screen.getByText(/Match complete/)).toBeInTheDocument();
-    // The old "Sub window ends in" countdown shouldn't show once the match is over.
-    expect(screen.queryByText(/Sub window ends in/)).not.toBeInTheDocument();
+    // The action bar (countdown + Pause/Sub done) shouldn't show once the match is over.
+    expect(screen.queryByText(/Next sub/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Sub done ✓")).not.toBeInTheDocument();
 
     await user.click(screen.getByText("Start new game"));
     expect(onShowSettings).toHaveBeenCalledTimes(1);
   });
 
-  it("shows the sub-window countdown instead, before the match ends", () => {
+  it("shows the action bar's countdown instead, before the match ends", () => {
     render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0 })} />);
-    expect(screen.getByText(/Sub window ends in/)).toBeInTheDocument();
+    expect(screen.getByText(/Next sub/)).toBeInTheDocument();
     expect(screen.queryByText(/Match complete/)).not.toBeInTheDocument();
   });
 });
