@@ -362,6 +362,12 @@ export const styles = {
     fontFamily: tokens.font.body, fontWeight: 800, fontSize: 11, padding: "1px 6px", borderRadius: tokens.radius.chip,
     pointerEvents: "none",
   },
+  // Same look as mdGkTag without the absolute positioning — for the
+  // final60 sheet's swap-row chips, which aren't overlaid on a shirt.
+  mdGkTagInline: {
+    background: tokens.color.deepGreen, color: tokens.color.yellow, fontFamily: tokens.font.body, fontWeight: 800,
+    fontSize: 11, padding: "1px 6px", borderRadius: tokens.radius.chip,
+  },
   mdShirtPlayerName: { color: "#fff", fontFamily: tokens.font.body, fontSize: 12, fontWeight: 800, textAlign: "center" },
   // The one badge shape the design spells out explicitly (a pill, not a
   // circle) — everyone leaving the pitch next interval, regardless of
@@ -472,17 +478,37 @@ export const styles = {
     display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0,
   },
   mdTimerRow: { display: "flex", alignItems: "baseline", gap: 8, marginTop: 10 },
+  // Paused stacks the timer digits above a [Paused chip + caption] row
+  // instead of one inline row — swaps flexDirection/alignItems for that
+  // shape rather than needing a second, near-duplicate style.
+  mdTimerRowPaused: { flexDirection: "column", alignItems: "flex-start", gap: 4 },
   mdTimerDisplay: {
     fontFamily: tokens.font.display, fontWeight: 800, fontSize: 66, lineHeight: 0.95, color: tokens.color.deepGreen,
     fontVariantNumeric: "tabular-nums",
   },
+  // Paused greys the timer out — same digits, no longer counting, reads at
+  // a glance as "not live right now" even before spotting the chip beside it.
+  mdTimerDisplayPaused: { color: "rgba(28,58,46,.45)" },
   mdTimerCaption: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 14, color: tokens.color.goldText },
+  mdTimerCaptionRow: { display: "flex", alignItems: "center", gap: 8 },
+  mdPausedChip: {
+    background: tokens.color.deepGreen, color: tokens.color.yellow, fontFamily: tokens.font.display, fontWeight: 800,
+    fontSize: 15, borderRadius: tokens.radius.chip, padding: "3px 11px",
+  },
   mdBlockBar: { display: "flex", gap: 5, marginTop: 10 },
   mdBlockSegment: { flex: 1, height: 9, borderRadius: tokens.radius.chip, background: "rgba(28,58,46,.15)" },
   mdBlockSegmentElapsed: { background: tokens.color.deepGreen },
-  // Base ("running") state — see the comment in MatchView.jsx on why the
-  // pre-kickoff/paused variants of this same bar aren't built yet.
-  mdActionBar: { background: tokens.color.actionBar, borderRadius: tokens.radius.actionBarTop, padding: "14px 16px", marginTop: tokens.spacing.rhythm },
+  // Shared shell for all four action-bar states (pre-kickoff, running,
+  // paused, and the final-60 sheet reuses these same status/button styles
+  // too) — only the label text and which buttons render change per state.
+  // radius is top-corners-only (32 32 0 0), matching a bar that's meant to
+  // sit flush against the bottom of the screen — not yet actually pinned
+  // there with position:fixed (see the MatchView.jsx comment on why),
+  // but the shape is already correct for when it is.
+  mdActionBar: {
+    background: tokens.color.actionBar, borderRadius: `${tokens.radius.actionBarTop}px ${tokens.radius.actionBarTop}px 0 0`,
+    padding: "14px 16px", marginTop: tokens.spacing.rhythm,
+  },
   mdActionBarStatusRow: { display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 },
   mdActionBarCountdown: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 24, color: tokens.color.yellow },
   mdActionBarStatus: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 14, color: tokens.color.mutedOnDark },
@@ -497,6 +523,49 @@ export const styles = {
     color: tokens.color.deepGreen, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 18,
     boxShadow: tokens.shadow.solid(5, tokens.color.yellowShadow),
     display: "flex", alignItems: "center", justifyContent: "center", gap: 8, cursor: "pointer",
+  },
+  // Pre-kickoff's one full-width "Start match" CTA — same color/shadow
+  // language as mdActionBarBtnPrimary, just the single, larger button
+  // filling the whole row instead of sharing it with a secondary button.
+  mdActionBarBtnStart: {
+    width: "100%", height: 70, borderRadius: tokens.radius.buttonLg, border: "none", background: tokens.color.yellow,
+    color: tokens.color.deepGreen, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 26,
+    boxShadow: tokens.shadow.solid(5, tokens.color.yellowShadow),
+    display: "flex", alignItems: "center", justifyContent: "center", gap: 8, cursor: "pointer",
+  },
+
+  // ---- Full-screen final-60 sheet (A2b-Match-final60). A genuinely modal
+  // moment (dark scrim + a sheet that takes over as the primary confirm
+  // surface) rather than another in-flow card, so — unlike the rest of
+  // this screen so far — these two are position:fixed.
+  mdFinal60Scrim: { position: "fixed", inset: 0, background: tokens.color.scrim, zIndex: 45 },
+  mdFinal60Sheet: {
+    position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 46,
+    background: tokens.color.creamPaper, borderRadius: `${tokens.radius.actionBarTop}px ${tokens.radius.actionBarTop}px 0 0`,
+    padding: "14px 16px calc(20px + env(safe-area-inset-bottom, 0px))",
+    maxWidth: 640, margin: "0 auto",
+  },
+  mdFinal60Countdown: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 26, color: tokens.color.deepGreen },
+  mdFinal60Status: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 14, color: tokens.color.mutedText },
+  mdFinal60RowList: { display: "flex", flexDirection: "column", gap: 8, margin: "10px 0" },
+  mdFinal60Row: { display: "flex", alignItems: "center", justifyContent: "center", gap: 10 },
+  mdFinal60Arrow: { color: tokens.color.pitchGreen, fontFamily: tokens.font.body, fontWeight: 800, fontSize: 18 },
+  // Same pill-chip shape as the bench strip's own chips (mdBenchChip etc.)
+  // but on tokens.color.creamDeep rather than white — the sheet itself is
+  // already creamPaper, so a white chip would read almost the same as its
+  // own background; creamDeep keeps them visibly distinct.
+  mdFinal60Chip: {
+    display: "flex", alignItems: "center", gap: 6, background: tokens.color.creamDeep, borderRadius: tokens.radius.chip,
+    padding: "5px 12px 5px 5px",
+  },
+  // The outgoing half of a swap row gets a red number disc (leaving),
+  // matching mdOutgoingBadge's color — the incoming half reuses
+  // mdBenchChipNumber/mdBenchChipNumberGk directly (green, or gold for a
+  // new keeper), same "arriving" language the bench strip already uses.
+  mdFinal60ChipNumberOut: {
+    width: 30, height: 30, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 13, flexShrink: 0,
+    background: tokens.color.alertRed, color: "#fff",
   },
 
   modalOverlay: {

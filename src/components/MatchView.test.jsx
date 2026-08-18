@@ -19,7 +19,7 @@
 // — the sub-window chips are now the only interval navigation).
 import { describe, it, expect, vi, afterEach } from "vitest";
 import "@testing-library/jest-dom/vitest";
-import { render, screen, cleanup, fireEvent, act } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, act, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import MatchView from "./MatchView.jsx";
 
@@ -80,8 +80,14 @@ function baseProps(overrides = {}) {
     setBaseElapsedSec: vi.fn(),
     runStartedAt: null,
     setRunStartedAt: vi.fn(),
-    timerRunning: false,
+    // Defaults to a live, running match — the common case most tests in
+    // this file care about (badges, tap-menu, browsing). Tests about the
+    // pre-kickoff/paused/final60 states themselves override this and
+    // elapsedSec explicitly, since those three are exactly what varying
+    // timerRunning/elapsedSec together produces (see MatchView.jsx).
+    timerRunning: true,
     setTimerRunning: vi.fn(),
+    subLog: {},
     setSubLog: vi.fn(),
     swapPickId: null,
     setSwapPickId: vi.fn(),
@@ -142,13 +148,6 @@ describe("MatchView — basic rendering", () => {
     expect(aliceNumber).toBeInTheDocument();
     const finnNumber = screen.getAllByText("6").find((el) => el.tagName === "SPAN");
     expect(finnNumber).toBeInTheDocument();
-  });
-
-  it("shows Start when paused and Pause when running", () => {
-    const { rerender } = render(<MatchView {...baseProps({ timerRunning: false })} />);
-    expect(screen.getByText("Start")).toBeInTheDocument();
-    rerender(<MatchView {...baseProps({ timerRunning: true })} />);
-    expect(screen.getByText("Pause")).toBeInTheDocument();
   });
 });
 
@@ -263,10 +262,11 @@ describe("MatchView — action bar", () => {
   // countdown (never whatever's being browsed), single "Sub done" button
   // regardless of timing.
   it("shows the live countdown to the next sub, tied to the live interval even while browsing elsewhere", () => {
-    // Live interval is 0 (elapsedSec=340, 20s left in a 0-6min interval);
-    // board is showing interval 1 (browsed ahead).
-    render(<MatchView {...baseProps({ activeInterval: 1, elapsedSec: 340 })} />);
-    expect(screen.getByText("Next sub 0:20")).toBeInTheDocument();
+    // Live interval is 0 (elapsedSec=200, 160s left in a 0-6min interval —
+    // outside the final60 window, so this is genuinely the plain running
+    // bar, not the final60 sheet); board is showing interval 1 (browsed ahead).
+    render(<MatchView {...baseProps({ activeInterval: 1, elapsedSec: 200 })} />);
+    expect(screen.getByText("Next sub 2:40")).toBeInTheDocument();
   });
 
   it("shows a swap-count status derived from who's coming off, and an out-count when someone's injured", () => {
@@ -283,10 +283,121 @@ describe("MatchView — action bar", () => {
     expect(updater({})).toEqual({ 0: 100 });
   });
 
-  it("hides Sub done on the last interval of the game (nothing to sub into) but keeps the Start/Pause toggle", () => {
+  it("hides Sub done on the last interval of the game (nothing to sub into) but keeps Pause", () => {
     render(<MatchView {...baseProps({ activeInterval: 1, elapsedSec: 400 })} />);
     expect(screen.queryByText("Sub done ✓")).not.toBeInTheDocument();
-    expect(screen.getByText("Start")).toBeInTheDocument();
+    expect(screen.getByText("Pause")).toBeInTheDocument();
+  });
+});
+
+describe("MatchView — pre-kickoff", () => {
+  // !timerRunning && elapsedSec === 0 — the clock has never run yet.
+  it("shows Ready to go and a single full-width Start match button, no running/paused bar text", () => {
+    render(<MatchView {...baseProps({ timerRunning: false, elapsedSec: 0 })} />);
+    expect(screen.getByText("Ready to go")).toBeInTheDocument();
+    expect(screen.getByText(/first sub at/)).toBeInTheDocument();
+    expect(screen.getByText("Start match")).toBeInTheDocument();
+    expect(screen.queryByText(/Next sub/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Clock stopped")).not.toBeInTheDocument();
+    expect(screen.queryByText("Paused")).not.toBeInTheDocument();
+  });
+
+  it("Start match starts the clock", () => {
+    const setRunStartedAt = vi.fn();
+    const setTimerRunning = vi.fn();
+    render(<MatchView {...baseProps({ timerRunning: false, elapsedSec: 0, setRunStartedAt, setTimerRunning })} />);
+    fireEvent.click(screen.getByText("Start match"));
+    expect(setTimerRunning).toHaveBeenCalledWith(true);
+    expect(setRunStartedAt).toHaveBeenCalled();
+  });
+
+  it("shows no next-sub preview badges — nothing's due yet with the clock not even started", () => {
+    render(<MatchView {...baseProps({ timerRunning: false, elapsedSec: 0 })} />);
+    expect(screen.queryByTitle("Coming off next interval")).not.toBeInTheDocument();
+    expect(screen.queryByTitle("Coming on next interval")).not.toBeInTheDocument();
+    expect(screen.queryByTitle("Becoming keeper next interval")).not.toBeInTheDocument();
+    expect(screen.queryByTitle("Staying on, switching to outfield next interval")).not.toBeInTheDocument();
+  });
+});
+
+describe("MatchView — paused", () => {
+  // !timerRunning && elapsedSec > 0 — was running, now stopped.
+  it("shows the greyed timer, a Paused chip, Clock stopped, and Sub now / Resume", () => {
+    render(<MatchView {...baseProps({ timerRunning: false, elapsedSec: 100 })} />);
+    expect(screen.getByText("Paused")).toBeInTheDocument();
+    expect(screen.getByText("Clock stopped")).toBeInTheDocument();
+    expect(screen.getByText(/sub due in/)).toBeInTheDocument();
+    expect(screen.getByText("Sub now")).toBeInTheDocument();
+    expect(screen.getByText("Resume")).toBeInTheDocument();
+    expect(screen.queryByText("Ready to go")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Next sub/)).not.toBeInTheDocument();
+  });
+
+  it("Sub now confirms the current interval without touching the clock", () => {
+    const setSubLog = vi.fn();
+    const setTimerRunning = vi.fn();
+    render(<MatchView {...baseProps({ timerRunning: false, elapsedSec: 100, setSubLog, setTimerRunning })} />);
+    fireEvent.click(screen.getByText("Sub now"));
+    const updater = setSubLog.mock.calls[0][0];
+    expect(updater({})).toEqual({ 0: 100 });
+    expect(setTimerRunning).not.toHaveBeenCalled();
+  });
+
+  it("Resume restarts the clock", () => {
+    const setRunStartedAt = vi.fn();
+    const setTimerRunning = vi.fn();
+    render(<MatchView {...baseProps({ timerRunning: false, elapsedSec: 100, setRunStartedAt, setTimerRunning })} />);
+    fireEvent.click(screen.getByText("Resume"));
+    expect(setTimerRunning).toHaveBeenCalledWith(true);
+    expect(setRunStartedAt).toHaveBeenCalled();
+  });
+});
+
+describe("MatchView — final60 sheet", () => {
+  // timerRunning && hasSomethingToConfirm && secLeftInInterval <= 60 &&
+  // not already confirmed. defaultPlan's interval 0 is 0-6min (360s) with
+  // a keeper handover (Alice -> Cara) and a regular sub (Dan -> Finn) —
+  // elapsedSec 340 leaves 20s, inside the window.
+  it("replaces the plain running bar with a full-screen sheet listing both swap rows", () => {
+    render(<MatchView {...baseProps({ timerRunning: true, activeInterval: 0, elapsedSec: 340 })} />);
+    // Only one "Next sub" countdown on screen — the sheet's own, not a
+    // second copy from the plain bar (which shouldn't render at all here).
+    expect(screen.getAllByText("Next sub 0:20")).toHaveLength(1);
+    const sheet = within(screen.getByTestId("final60-sheet"));
+    expect(sheet.getByText("Alice")).toBeInTheDocument(); // outgoing keeper
+    expect(sheet.getByText("Cara")).toBeInTheDocument(); // incoming keeper
+    expect(sheet.getByText("Dan")).toBeInTheDocument(); // regular sub, off
+    expect(sheet.getByText("Finn")).toBeInTheDocument(); // regular sub, on
+    expect(sheet.getAllByText("GK")).toHaveLength(2); // both keeper-row chips tagged
+  });
+
+  it("does not show once this interval's sub is already confirmed, even inside the window", () => {
+    render(<MatchView {...baseProps({ timerRunning: true, activeInterval: 0, elapsedSec: 340, subLog: { 0: 300 } })} />);
+    expect(screen.queryByTestId("final60-sheet")).not.toBeInTheDocument();
+    expect(screen.getByText("Next sub 0:20")).toBeInTheDocument(); // plain bar back instead
+  });
+
+  it("does not show when there's nothing to confirm (empty bench, no keeper change)", () => {
+    const noSubPlan = [
+      makeInterval(0, 0, 6, ["p1", "p2", "p3", "p4", "p5"], "p1", []),
+      makeInterval(1, 6, 12, ["p1", "p2", "p3", "p4", "p5"], "p1", []),
+    ];
+    render(<MatchView {...baseProps({ plan: noSubPlan, timerRunning: true, activeInterval: 0, elapsedSec: 340 })} />);
+    expect(screen.queryByTestId("final60-sheet")).not.toBeInTheDocument();
+  });
+
+  it("disables every token on the board while it's showing", () => {
+    render(<MatchView {...baseProps({ timerRunning: true, activeInterval: 0, elapsedSec: 340 })} />);
+    expect(tokenButtonFor("Alice")).toBeDisabled();
+    expect(tokenButtonFor("Finn")).toBeDisabled();
+  });
+
+  it("Sub done in the sheet writes to subLog for the live interval", () => {
+    const setSubLog = vi.fn();
+    render(<MatchView {...baseProps({ timerRunning: true, activeInterval: 0, elapsedSec: 340, setSubLog })} />);
+    fireEvent.click(within(screen.getByTestId("final60-sheet")).getByText("Sub done ✓"));
+    const updater = setSubLog.mock.calls[0][0];
+    expect(updater({})).toEqual({ 0: 340 });
   });
 });
 

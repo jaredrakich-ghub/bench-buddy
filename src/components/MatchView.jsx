@@ -66,6 +66,7 @@ export default function MatchView({
   setRunStartedAt,
   timerRunning,
   setTimerRunning,
+  subLog,
   setSubLog,
   swapPickId,
   setSwapPickId,
@@ -104,6 +105,47 @@ export default function MatchView({
   // what to physically do right now, so it can't follow them if they've
   // tapped ahead to check a later interval.
   const liveChanges = computeNextChangeBadges({ cur, nextIv, curGk, nextGk, gkChanging });
+
+  // Four mutually-exclusive match states, driving which action-bar variant
+  // (and, for final60, the full-screen sheet) renders below. Order matters
+  // for how these compose: match-complete is checked first (untouched by
+  // this redesign), then pre-kickoff/paused (both simply !timerRunning,
+  // split by whether anything has happened yet), then final60 (only
+  // possible while actually running), else the plain running bar.
+  const isPreKickoff = !timerRunning && elapsedSec === 0 && !isMatchComplete;
+  const isPaused = !timerRunning && elapsedSec > 0 && !isMatchComplete;
+  // Same "is there actually anything to confirm this window" guard the old
+  // inline warning box used — a bench-less squad with no keeper handover
+  // has nothing to sub, so the last-60s takeover shouldn't fire for it.
+  const noBenchToRotate = cur.bench.length === 0;
+  const hasSomethingToConfirm = nextIv && (!noBenchToRotate || gkChanging);
+  // subLog[cur.index] being set — from either the running bar's always-on
+  // "Sub done" or the final60 sheet's own copy of that same button — means
+  // this interval's sub is already handled, so the takeover shouldn't
+  // reappear for it even if elapsedSec is still inside the last-60s window.
+  const confirmedAt = subLog[cur.index];
+  const inFinal60 = timerRunning && hasSomethingToConfirm && secLeftInInterval <= 60 && confirmedAt === undefined;
+
+  // The final60 sheet pairs each outgoing player with whoever's arriving,
+  // purely for a readable "X -> Y" line — the underlying schedule has no
+  // concept of one player specifically "replacing" another (any bench
+  // player filling any vacated slot is equally valid), so pairing is done
+  // by zipping the two lists in whatever order they naturally come out in,
+  // not read back from anywhere else. The keeper handover is the one
+  // *real* pair (there's exactly one outgoing and one incoming keeper), so
+  // it's built directly from curGk/becomingKeeperId rather than zipped in
+  // with the rest, and excluded from the regular lists so no one appears
+  // in two rows.
+  const outgoingKeeperId = liveChanges.becomingKeeperId ? curGk?.id : null;
+  const regularOffIds = [...liveChanges.comingOffIds].filter((id) => id !== outgoingKeeperId);
+  const regularOnIds = [...liveChanges.comingOnIds].filter((id) => id !== liveChanges.becomingKeeperId);
+  const final60Rows = [];
+  if (liveChanges.becomingKeeperId) {
+    final60Rows.push({ outId: outgoingKeeperId, inId: liveChanges.becomingKeeperId, isKeeperSwap: true });
+  }
+  for (let i = 0; i < Math.max(regularOffIds.length, regularOnIds.length); i++) {
+    final60Rows.push({ outId: regularOffIds[i] ?? null, inId: regularOnIds[i] ?? null, isKeeperSwap: false });
+  }
 
   // Who's changing going into the NEXT interval after whichever one is
   // currently being viewed (activeInterval) — not necessarily the live one
@@ -170,6 +212,18 @@ export default function MatchView({
     return () => clearTimeout(timer);
   }, [confirmMessage]);
 
+  // Nothing on the board should be tappable while either guard holds: a
+  // past interval can't be edited (see isPastInterval's own comment
+  // above), and the final60 sheet is meant to be the sole focus of that
+  // moment ("everything else dims" per the design) — its own Sub done
+  // button is the only action available until it resolves.
+  const interactionLocked = isPastInterval || inFinal60;
+  // Pre-kickoff shows no next-sub preview badges at all (per the design —
+  // nothing's "coming up soon" in a meaningful sense before the clock has
+  // even started) even though the same badge data would otherwise compute
+  // fine at elapsedSec 0 same as any other moment.
+  const showNextSubBadges = !isPreKickoff;
+
   // Shared by every token everywhere (pitch, bench, injured) — mid-swap
   // (swapPickId set), any tap completes the swap with whoever was just
   // tapped; performSwap's own guards safely no-op an invalid target (e.g.
@@ -178,7 +232,7 @@ export default function MatchView({
   // implicit cancel rather than a (meaningless) self-swap. Otherwise a tap
   // opens (or closes, if already open) that player's own action menu.
   const handleTokenTap = (id) => {
-    if (isPastInterval) return;
+    if (interactionLocked) return;
     if (swapPickId) {
       if (id === swapPickId) {
         setSwapPickId(null);
@@ -243,21 +297,21 @@ export default function MatchView({
       key={id}
       style={{
         ...styles.mdBenchChip,
-        ...(swapPickId && swapPickId !== id && !isPastInterval ? styles.mdBenchChipSwapTarget : {}),
+        ...(swapPickId && swapPickId !== id && !interactionLocked ? styles.mdBenchChipSwapTarget : {}),
       }}
       onClick={() => handleTokenTap(id)}
-      disabled={isPastInterval}
+      disabled={interactionLocked}
     >
       <span style={{ ...styles.mdBenchChipNumber, ...(keeperEligibleIds.includes(id) ? styles.mdBenchChipNumberGk : {}) }}>
         {numberOf(id)}
       </span>
       <span style={styles.mdBenchChipName}>{nameOf(id)}</span>
-      {comingOnIds.has(id) && (
+      {showNextSubBadges && comingOnIds.has(id) && (
         <span style={styles.mdBenchChipUpArrow} title="Coming on next interval">
           <ArrowUp size={14} strokeWidth={3} />
         </span>
       )}
-      {becomingKeeperId === id && (
+      {showNextSubBadges && becomingKeeperId === id && (
         <span title="Becoming keeper next interval">🧤</span>
       )}
     </button>
@@ -302,9 +356,14 @@ export default function MatchView({
             <GearIcon size={20} />
           </button>
         </div>
-        <div style={styles.mdTimerRow}>
-          <span style={styles.mdTimerDisplay}>{fmtClock(elapsedSec)}</span>
-          <span style={styles.mdTimerCaption}>of {Math.round(totalGameSec / 60)} min</span>
+        <div style={{ ...styles.mdTimerRow, ...(isPaused ? styles.mdTimerRowPaused : {}) }}>
+          <span style={{ ...styles.mdTimerDisplay, ...(isPaused ? styles.mdTimerDisplayPaused : {}) }}>
+            {fmtClock(elapsedSec)}
+          </span>
+          <div style={styles.mdTimerCaptionRow}>
+            {isPaused && <span style={styles.mdPausedChip}>Paused</span>}
+            <span style={styles.mdTimerCaption}>of {Math.round(totalGameSec / 60)} min</span>
+          </div>
         </div>
         <div style={styles.mdBlockBar}>
           {blockRanges.map(([, end], i) => (
@@ -363,10 +422,10 @@ export default function MatchView({
             <button
               style={{
                 ...styles.mdShirtBtn,
-                ...(swapPickId && swapPickId !== id && !isPastInterval ? styles.mdShirtBtnSwapTarget : {}),
+                ...(swapPickId && swapPickId !== id && !interactionLocked ? styles.mdShirtBtnSwapTarget : {}),
               }}
               onClick={() => handleTokenTap(id)}
-              disabled={isPastInterval}
+              disabled={interactionLocked}
             >
               <div style={{ position: "relative", width: shirtWidth, height: shirtHeight }}>
                 <KitShirt width={shirtWidth} height={shirtHeight} isGk={isGk} />
@@ -380,17 +439,17 @@ export default function MatchView({
                   {numberOf(id)}
                 </span>
                 {isGk && <span style={styles.mdGkTag}>GK</span>}
-                {comingOffIds.has(id) && (
+                {showNextSubBadges && comingOffIds.has(id) && (
                   <span style={styles.mdOutgoingBadge} title="Coming off next interval">
                     <ArrowDown size={13} strokeWidth={3} color="#fff" />
                   </span>
                 )}
-                {becomingKeeperId === id && (
+                {showNextSubBadges && becomingKeeperId === id && (
                   <span style={styles.nextKeeperBadge} title="Becoming keeper next interval">
                     🧤
                   </span>
                 )}
-                {steppingDownKeeperId === id && (
+                {showNextSubBadges && steppingDownKeeperId === id && (
                   <span style={styles.nextOnBadge} title="Staying on, switching to outfield next interval">
                     <ArrowUp size={11} strokeWidth={3.5} />
                   </span>
@@ -430,7 +489,7 @@ export default function MatchView({
         )}
       </div>
 
-      {!isPastInterval && (confirmMessage || swapPickId || menuPlayerId) && (
+      {!interactionLocked && (confirmMessage || swapPickId || menuPlayerId) && (
         <div style={styles.actionSheet}>
           {confirmMessage ? (
             <div style={styles.actionSheetConfirm}>✓ {confirmMessage}</div>
@@ -493,17 +552,52 @@ export default function MatchView({
         </div>
       )}
 
-      {!isMatchComplete && (
-        // The "running" action bar — the base case. Distinct pre-kickoff
-        // ("Start match", one button) and paused ("Resume"/"Sub now")
-        // variants of this same bar are their own step; for now Start and
-        // Pause share one toggle button here exactly like the old
-        // timerBar's did, just in the new shape/position. "Sub done" always
-        // does the same single confirmSubLog action regardless of timing —
-        // the old early-vs-in-warning-window "Sub made early"/"Sub made"
-        // distinction was cosmetic only (nothing downstream reads which one
-        // fired, only whether cur.index has *any* confirmation), so
-        // collapsing to one button here isn't a behavior change.
+      {/* "Sub done" always does the same single confirmSubLog action
+          regardless of timing or which of these three bars it's tapped
+          from — the old early-vs-in-warning-window "Sub made early"/"Sub
+          made" distinction was cosmetic only (nothing downstream reads
+          which one fired, only whether cur.index has *any*
+          confirmation), so one shared action across all three isn't a
+          behavior change. */}
+      {isPreKickoff && (
+        <div style={styles.mdActionBar}>
+          <div style={styles.mdActionBarStatusRow}>
+            <span style={styles.mdActionBarCountdown}>Ready to go</span>
+            {nextIv && <span style={styles.mdActionBarStatus}>first sub at {nextIv.startMin}′</span>}
+          </div>
+          <button style={styles.mdActionBarBtnStart} onClick={toggleTimer}>
+            <Play size={22} /> Start match
+          </button>
+        </div>
+      )}
+
+      {isPaused && (
+        <div style={styles.mdActionBar}>
+          <div style={styles.mdActionBarStatusRow}>
+            <span style={styles.mdActionBarCountdown}>Clock stopped</span>
+            {nextIv && <span style={styles.mdActionBarStatus}>sub due in {fmtClock(Math.max(0, secLeftInInterval))}</span>}
+          </div>
+          <div style={styles.mdActionBarBtnRow}>
+            {nextIv && (
+              <button
+                style={styles.mdActionBarBtnPause}
+                onClick={() => setSubLog((prev) => ({ ...prev, [cur.index]: elapsedSec }))}
+              >
+                Sub now
+              </button>
+            )}
+            <button style={{ ...styles.mdActionBarBtnPrimary, ...(nextIv ? {} : { flex: 1 }) }} onClick={toggleTimer}>
+              <Play size={20} /> Resume
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!isMatchComplete && !isPreKickoff && !isPaused && !inFinal60 && (
+        // The plain "running" bar. Mutually exclusive with the final60
+        // sheet below (not rendered at the same time) — they'd otherwise
+        // show the exact same "Next sub" countdown twice at once, which is
+        // redundant even with one of the two dimmed behind a scrim.
         <div style={styles.mdActionBar}>
           <div style={styles.mdActionBarStatusRow}>
             <span style={styles.mdActionBarCountdown}>Next sub {fmtClock(Math.max(0, secLeftInInterval))}</span>
@@ -511,8 +605,7 @@ export default function MatchView({
           </div>
           <div style={styles.mdActionBarBtnRow}>
             <button style={{ ...styles.mdActionBarBtnPause, ...(nextIv ? {} : { flex: 1 }) }} onClick={toggleTimer}>
-              {timerRunning ? <Pause size={20} /> : <Play size={20} />}
-              {timerRunning ? "Pause" : "Start"}
+              <Pause size={20} /> Pause
             </button>
             {nextIv && (
               <button
@@ -524,6 +617,58 @@ export default function MatchView({
             )}
           </div>
         </div>
+      )}
+
+      {inFinal60 && (
+        // Full-screen takeover (A2b-Match-final60): a dark scrim over the
+        // header/pitch/bench (already non-interactive behind it too — see
+        // interactionLocked above), plus a sheet that's the sole confirm
+        // surface for this window. One row per outgoing/incoming pair; a
+        // row missing one side (e.g. an uneven off/on count) just shows
+        // whichever side it has, no arrow.
+        <>
+          <div style={styles.mdFinal60Scrim} />
+          <div style={styles.mdFinal60Sheet} data-testid="final60-sheet">
+            <div style={styles.mdActionBarStatusRow}>
+              <span style={styles.mdFinal60Countdown}>Next sub {fmtClock(Math.max(0, secLeftInInterval))}</span>
+              {actionBarStatus && <span style={styles.mdFinal60Status}>{actionBarStatus}</span>}
+            </div>
+            <div style={styles.mdFinal60RowList}>
+              {final60Rows.map((row, i) => (
+                <div key={i} style={styles.mdFinal60Row}>
+                  {row.outId && (
+                    <span style={styles.mdFinal60Chip}>
+                      <span style={styles.mdFinal60ChipNumberOut}>{numberOf(row.outId)}</span>
+                      <span style={styles.mdBenchChipName}>{nameOf(row.outId)}</span>
+                      {row.isKeeperSwap && <span style={styles.mdGkTagInline}>GK</span>}
+                    </span>
+                  )}
+                  {row.outId && row.inId && <span style={styles.mdFinal60Arrow}>→</span>}
+                  {row.inId && (
+                    <span style={styles.mdFinal60Chip}>
+                      <span style={{ ...styles.mdBenchChipNumber, ...(row.isKeeperSwap ? styles.mdBenchChipNumberGk : {}) }}>
+                        {numberOf(row.inId)}
+                      </span>
+                      <span style={styles.mdBenchChipName}>{nameOf(row.inId)}</span>
+                      {row.isKeeperSwap && <span style={styles.mdGkTagInline}>GK</span>}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div style={styles.mdActionBarBtnRow}>
+              <button style={styles.mdActionBarBtnPause} onClick={toggleTimer}>
+                <Pause size={20} /> Pause
+              </button>
+              <button
+                style={styles.mdActionBarBtnPrimary}
+                onClick={() => setSubLog((prev) => ({ ...prev, [cur.index]: elapsedSec }))}
+              >
+                Sub done ✓
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {showQuickMenu && (
