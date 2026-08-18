@@ -4,7 +4,13 @@
 // component files can focus on structure/behavior — see the architecture
 // notes for the trade-offs of this approach vs. a CSS framework.
 
+// @import (not a <link> in index.html) so this stays self-contained with
+// the rest of the app's styling approach — fontStyle is already injected
+// as a real <style> tag in SubRotationPlanner, this just adds one more
+// rule to it. Only the weights actually specified by the design tokens
+// below (Baloo 2 800, Nunito 700/800) — no point loading unused weights.
 export const fontStyle = `
+  @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@800&family=Nunito:wght@700;800&display=swap');
   * { box-sizing: border-box; }
 `;
 
@@ -20,6 +26,100 @@ export const colors = {
   danger: "#C1502E",
   cardBg: "#FFFFFF",
   border: "#DDE4E0",
+};
+
+// Design tokens for the match-day redesign (see
+// design_handoff_bench_buddy_match_day/README.md — "Direction A", the
+// sticker-book look: cream paper, chunky solid drop shadows, kit-shirt
+// player tiles). Named straight from the README's own Design Tokens
+// section rather than invented fresh, so this file and that doc stay
+// readable side by side.
+//
+// Deliberately additive, not a replacement for `colors` above: this
+// redesign covers match-day (MatchView, the cog menu, SquadSettingsForm)
+// per the implementation plan, not every screen in the app. Anything not
+// yet rebuilt (TeamSwitcher's own chrome, SummaryModal, SeasonSummaryModal,
+// SignIn, LoadingScreen) still reads `colors`, so that has to keep working
+// unchanged until — if ever — those get their own redesign pass.
+export const tokens = {
+  color: {
+    creamPaper: "#FFF6E5",
+    creamDeep: "#F1E9D2",
+    rule: "#EDE3CB",
+    canvas: "#EDEAE2",
+    headerYellow: "#FBE3A6",
+    yellow: "#F5B93B",
+    yellowShadow: "#C9902A",
+    goldText: "#96772F",
+    pitchGreen: "#2E7D53",
+    deepGreen: "#1C3A2E",
+    actionBar: "#123F3D",
+    greenShadow: "#1F5A3B",
+    mint: "#CBE8D6",
+    mutedText: "#6B7C72",
+    mutedOnDark: "#8FB5AB",
+    chevron: "#C9C4B6",
+    alertRed: "#E8664A",
+    injuryRed: "#C4482A",
+    injuryTint: "#FBEDE9",
+    injuryTint2: "#FAD3C8",
+    injuryBorder: "#E8A899",
+    injuryText: "#8A4634",
+    scrim: "rgba(20,32,28,.55)",
+  },
+  // Baloo 2 800 for display type (timer, wordmark, buttons, popover
+  // titles); Nunito for body copy (700 captions, 800 labels/chips/names)
+  // — weight is picked per use, not baked in here, since the same family
+  // is used at both weights depending on the element.
+  font: {
+    display: "'Baloo 2', system-ui, sans-serif",
+    body: "'Nunito', system-ui, sans-serif",
+  },
+  // Named for what each radius is *for*, not just its pixel value, since
+  // several different values share the same rough purpose (three "row"
+  // radii for menu rows of different densities, two "button" radii for
+  // primary vs secondary buttons) and picking the right one only makes
+  // sense with that context in hand.
+  radius: {
+    phoneShell: 38,
+    actionBarTop: 32,
+    card: 28, // pitch card, anchored popovers' non-pointed corners
+    buttonLg: 26,
+    buttonMd: 24,
+    benchStrip: 22,
+    rowLg: 20,
+    rowMd: 18,
+    rowSm: 16,
+    iconButton: 14,
+    iconTile: 12,
+    chip: 999,
+    // An anchored popover (cog menu, player-tap menu) is otherwise `card`
+    // radius on every corner, except the one pointing at the control it
+    // grew from, which flattens to this instead. Which corner that is
+    // varies per popover (top-left for the cog, bottom-left for a
+    // bench-chip popover, etc.) so it's applied by hand at the call site
+    // rather than baked into one fixed shorthand here.
+    anchoredCorner: 10,
+  },
+  spacing: {
+    screenMin: 14,
+    screenMax: 20,
+    cardGapMin: 8,
+    cardGapMax: 12,
+    rhythm: 12,
+  },
+  shadow: {
+    // Solid (not blurred) drop shadows are this design's signature — a
+    // flat color offset straight down, no blur radius, so it reads as a
+    // sticker's paper edge rather than a soft elevation shadow. Offset and
+    // color vary per element (e.g. a yellow button's shadow is a darker
+    // yellow, a green button's is a darker green), so this takes both
+    // rather than being a fixed string.
+    solid: (px, color) => `0 ${px}px 0 ${color}`,
+    // The one blurred shadow in the whole system — for a popover/sheet
+    // lifted above the dark scrim, not a sticker sitting on the paper.
+    overlay: "0 18px 44px rgba(20,32,28,.45)",
+  },
 };
 
 export const styles = {
