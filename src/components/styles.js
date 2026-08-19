@@ -337,6 +337,11 @@ export const styles = {
   mdBenchLabel: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 15, color: tokens.color.mutedText, marginBottom: 8 },
   mdBenchSubLabel: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 12, color: tokens.color.mutedText, marginBottom: 6 },
   mdBenchChipRow: { display: "flex", flexWrap: "wrap", gap: 8 },
+  // Outfield (waiting) / Keeper (waiting) side by side rather than stacked
+  // full-width rows — a lone keeper chip otherwise left the whole right
+  // half of the strip empty. Two equal columns even though Keeper usually
+  // holds at most one chip; that's the point (it stops eating a full row).
+  mdBenchSplitGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 },
   mdBenchChip: {
     display: "flex", alignItems: "center", gap: 6, background: "#fff", borderRadius: tokens.radius.chip,
     padding: "4px 12px 4px 4px", border: "none", cursor: "pointer", font: "inherit",
@@ -540,6 +545,16 @@ export const styles = {
     width: 38, height: 38, borderRadius: tokens.radius.iconButton, border: "none", background: "#fff",
     display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0,
   },
+  // Start/Pause, in the header's top row rather than buried at the bottom
+  // of the page — real-device feedback found the old bottom action bar
+  // hard to reach reliably. Filled yellow + slightly larger than the other
+  // header icon buttons so it still reads as the primary action even
+  // sitting next to the plain white cog/reset buttons.
+  mdHeaderPrimaryBtn: {
+    width: 44, height: 44, borderRadius: tokens.radius.iconButton, border: "none", background: tokens.color.yellow,
+    display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0,
+    boxShadow: tokens.shadow.solid(3, tokens.color.yellowShadow),
+  },
   mdTimerRow: { display: "flex", alignItems: "baseline", gap: 8, marginTop: 10 },
   // Paused stacks the timer digits above a [Paused chip + caption] row
   // instead of one inline row — swaps flexDirection/alignItems for that
@@ -587,16 +602,6 @@ export const styles = {
     boxShadow: tokens.shadow.solid(5, tokens.color.yellowShadow),
     display: "flex", alignItems: "center", justifyContent: "center", gap: 8, cursor: "pointer",
   },
-  // Pre-kickoff's one full-width "Start match" CTA — same color/shadow
-  // language as mdActionBarBtnPrimary, just the single, larger button
-  // filling the whole row instead of sharing it with a secondary button.
-  mdActionBarBtnStart: {
-    width: "100%", height: 70, borderRadius: tokens.radius.buttonLg, border: "none", background: tokens.color.yellow,
-    color: tokens.color.deepGreen, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 26,
-    boxShadow: tokens.shadow.solid(5, tokens.color.yellowShadow),
-    display: "flex", alignItems: "center", justifyContent: "center", gap: 8, cursor: "pointer",
-  },
-
   // Shared full-screen dim layer — final60, the cog menu, and the
   // player-tap popover are mutually exclusive (never shown two at once,
   // see MatchView.jsx), so one scrim style serves all three rather than

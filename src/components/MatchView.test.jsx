@@ -340,30 +340,30 @@ describe("MatchView — action bar", () => {
     expect(updater({})).toEqual({ 0: 100 });
   });
 
-  it("hides Sub done on the last interval of the game (nothing to sub into) but keeps Pause", () => {
+  it("hides Sub done on the last interval of the game (nothing to sub into) but keeps Pause in the header", () => {
     render(<MatchView {...baseProps({ activeInterval: 1, elapsedSec: 400 })} />);
     expect(screen.queryByText("Sub done ✓")).not.toBeInTheDocument();
-    expect(screen.getByText("Pause")).toBeInTheDocument();
+    expect(screen.getByTitle("Pause")).toBeInTheDocument();
   });
 });
 
 describe("MatchView — pre-kickoff", () => {
   // !timerRunning && elapsedSec === 0 — the clock has never run yet.
-  it("shows Ready to go and a single full-width Start match button, no running/paused bar text", () => {
+  it("shows Ready to go context and the header's Start button, no running/paused bar text", () => {
     render(<MatchView {...baseProps({ timerRunning: false, elapsedSec: 0 })} />);
     expect(screen.getByText("Ready to go")).toBeInTheDocument();
     expect(screen.getByText(/first sub at/)).toBeInTheDocument();
-    expect(screen.getByText("Start match")).toBeInTheDocument();
+    expect(screen.getByTitle("Start")).toBeInTheDocument();
     expect(screen.queryByText(/Next sub/)).not.toBeInTheDocument();
     expect(screen.queryByText("Clock stopped")).not.toBeInTheDocument();
     expect(screen.queryByText("Paused")).not.toBeInTheDocument();
   });
 
-  it("Start match starts the clock", () => {
+  it("the header's Start button starts the clock", () => {
     const setRunStartedAt = vi.fn();
     const setTimerRunning = vi.fn();
     render(<MatchView {...baseProps({ timerRunning: false, elapsedSec: 0, setRunStartedAt, setTimerRunning })} />);
-    fireEvent.click(screen.getByText("Start match"));
+    fireEvent.click(screen.getByTitle("Start"));
     expect(setTimerRunning).toHaveBeenCalledWith(true);
     expect(setRunStartedAt).toHaveBeenCalled();
   });
@@ -379,13 +379,13 @@ describe("MatchView — pre-kickoff", () => {
 
 describe("MatchView — paused", () => {
   // !timerRunning && elapsedSec > 0 — was running, now stopped.
-  it("shows the greyed timer, a Paused chip, Clock stopped, and Sub now / Resume", () => {
+  it("shows the greyed timer, a Paused chip, Clock stopped, Sub now, and the header's Resume button", () => {
     render(<MatchView {...baseProps({ timerRunning: false, elapsedSec: 100 })} />);
     expect(screen.getByText("Paused")).toBeInTheDocument();
     expect(screen.getByText("Clock stopped")).toBeInTheDocument();
     expect(screen.getByText(/sub due in/)).toBeInTheDocument();
     expect(screen.getByText("Sub now")).toBeInTheDocument();
-    expect(screen.getByText("Resume")).toBeInTheDocument();
+    expect(screen.getByTitle("Resume")).toBeInTheDocument();
     expect(screen.queryByText("Ready to go")).not.toBeInTheDocument();
     expect(screen.queryByText(/Next sub/)).not.toBeInTheDocument();
   });
@@ -400,11 +400,11 @@ describe("MatchView — paused", () => {
     expect(setTimerRunning).not.toHaveBeenCalled();
   });
 
-  it("Resume restarts the clock", () => {
+  it("the header's Resume button restarts the clock", () => {
     const setRunStartedAt = vi.fn();
     const setTimerRunning = vi.fn();
     render(<MatchView {...baseProps({ timerRunning: false, elapsedSec: 100, setRunStartedAt, setTimerRunning })} />);
-    fireEvent.click(screen.getByText("Resume"));
+    fireEvent.click(screen.getByTitle("Resume"));
     expect(setTimerRunning).toHaveBeenCalledWith(true);
     expect(setRunStartedAt).toHaveBeenCalled();
   });

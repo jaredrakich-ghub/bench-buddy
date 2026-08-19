@@ -309,8 +309,10 @@ export default function MatchView({
   const outfielders = viewedIv.onField.filter((p) => !p.isGk);
   const tokenSize = computeTokenSize(outfielders.length);
   // 3-row formations (5+ outfielders) need more vertical room than the
-  // original fixed 2-row height ever had to allow for.
-  const pitchInnerHeight = outfielders.length > 4 ? 280 : 220;
+  // original fixed 2-row height ever had to allow for. Bumped up from the
+  // original 220/280 — real-device feedback called the pitch "way too
+  // squeezed vertically".
+  const pitchInnerHeight = outfielders.length > 4 ? 340 : 270;
   // The kit-shirt SVG's own natural aspect ratio (62x58, see
   // matchDayIcons.jsx) — scaled by the same tokenSize headcount tiering
   // formation.js already provides, rather than formation.js needing to
@@ -435,6 +437,29 @@ export default function MatchView({
         <div style={styles.mdHeaderTopRow}>
           <div style={styles.mdCrestOuter}>{crestSrc && <img src={crestSrc} alt="" style={styles.mdCrestImg} />}</div>
           <div style={styles.mdTeamName}>{teamName}</div>
+          {/* Start/Pause and Reset live here, in the header's top row, so
+              they're reachable without scrolling on any phone regardless of
+              how much vertical space the browser's own chrome eats up — the
+              coach's own real-device feedback on the original bottom action
+              bar. The bottom bar keeps the sub-confirmation action only
+              (see mdActionBar below); it no longer duplicates the clock
+              controls. */}
+          {!isMatchComplete && (
+            <button
+              style={styles.mdHeaderPrimaryBtn}
+              onClick={toggleTimer}
+              title={timerRunning ? "Pause" : isPreKickoff ? "Start" : "Resume"}
+            >
+              {timerRunning ? (
+                <Pause size={20} color={tokens.color.deepGreen} fill={tokens.color.deepGreen} />
+              ) : (
+                <Play size={20} color={tokens.color.deepGreen} fill={tokens.color.deepGreen} />
+              )}
+            </button>
+          )}
+          <button style={styles.mdCogBtn} onClick={resetClock} title="Reset clock">
+            <RotateCcw size={18} color={tokens.color.deepGreen} />
+          </button>
           <button
             style={{ ...styles.mdCogBtn, ...(cogOrigin ? { ...styles.mdOriginLit, ...styles.mdCogBtnLit } : {}) }}
             onClick={(e) => {
@@ -561,17 +586,27 @@ export default function MatchView({
           <span style={styles.mdBenchEmpty}>Full squad on field</span>
         ) : (
           <>
-            <div style={styles.mdBenchSubLabel}>Outfield (waiting)</div>
-            <div style={styles.mdBenchChipRow}>
-              {viewedIv.bench.filter((id) => id !== becomingKeeperId).map(renderBenchToken)}
-            </div>
-            <div style={{ ...styles.mdBenchSubLabel, marginTop: 10 }}>Keeper (waiting)</div>
-            <div style={styles.mdBenchChipRow}>
-              {viewedIv.bench.includes(becomingKeeperId) ? (
-                renderBenchToken(becomingKeeperId)
-              ) : (
-                <span style={styles.mdBenchEmpty}>—</span>
-              )}
+            {/* Side by side rather than stacked — a single keeper chip on
+                its own full-width row was wasting the entire right half of
+                the strip (real-device feedback: "should use more of the
+                space on the right side rather than forcing 2 lines"). */}
+            <div style={styles.mdBenchSplitGrid}>
+              <div>
+                <div style={styles.mdBenchSubLabel}>Outfield (waiting)</div>
+                <div style={styles.mdBenchChipRow}>
+                  {viewedIv.bench.filter((id) => id !== becomingKeeperId).map(renderBenchToken)}
+                </div>
+              </div>
+              <div>
+                <div style={styles.mdBenchSubLabel}>Keeper (waiting)</div>
+                <div style={styles.mdBenchChipRow}>
+                  {viewedIv.bench.includes(becomingKeeperId) ? (
+                    renderBenchToken(becomingKeeperId)
+                  ) : (
+                    <span style={styles.mdBenchEmpty}>—</span>
+                  )}
+                </div>
+              </div>
             </div>
           </>
         )}
@@ -744,15 +779,14 @@ export default function MatchView({
           which one fired, only whether cur.index has *any*
           confirmation), so one shared action across all three isn't a
           behavior change. */}
-      {isPreKickoff && (
+      {isPreKickoff && nextIv && (
+        // Start now lives in the header (see mdHeaderPrimaryBtn above), so
+        // this is context only — no button to duplicate it.
         <div style={styles.mdActionBar}>
           <div style={styles.mdActionBarStatusRow}>
             <span style={styles.mdActionBarCountdown}>Ready to go</span>
-            {nextIv && <span style={styles.mdActionBarStatus}>first sub at {nextIv.startMin}′</span>}
+            <span style={styles.mdActionBarStatus}>first sub at {nextIv.startMin}′</span>
           </div>
-          <button style={styles.mdActionBarBtnStart} onClick={toggleTimer}>
-            <Play size={22} /> Start match
-          </button>
         </div>
       )}
 
@@ -762,19 +796,14 @@ export default function MatchView({
             <span style={styles.mdActionBarCountdown}>Clock stopped</span>
             {nextIv && <span style={styles.mdActionBarStatus}>sub due in {fmtClock(Math.max(0, secLeftInInterval))}</span>}
           </div>
-          <div style={styles.mdActionBarBtnRow}>
-            {nextIv && (
-              <button
-                style={styles.mdActionBarBtnPause}
-                onClick={() => setSubLog((prev) => ({ ...prev, [cur.index]: elapsedSec }))}
-              >
-                Sub now
-              </button>
-            )}
-            <button style={{ ...styles.mdActionBarBtnPrimary, ...(nextIv ? {} : { flex: 1 }) }} onClick={toggleTimer}>
-              <Play size={20} /> Resume
+          {nextIv && (
+            <button
+              style={{ ...styles.mdActionBarBtnPrimary, width: "100%" }}
+              onClick={() => setSubLog((prev) => ({ ...prev, [cur.index]: elapsedSec }))}
+            >
+              Sub now
             </button>
-          </div>
+          )}
         </div>
       )}
 
@@ -782,25 +811,21 @@ export default function MatchView({
         // The plain "running" bar. Mutually exclusive with the final60
         // sheet below (not rendered at the same time) — they'd otherwise
         // show the exact same "Next sub" countdown twice at once, which is
-        // redundant even with one of the two dimmed behind a scrim.
+        // redundant even with one of the two dimmed behind a scrim. Pause
+        // lives in the header now, so this bar is just the sub-confirm action.
         <div style={styles.mdActionBar}>
           <div style={styles.mdActionBarStatusRow}>
             <span style={styles.mdActionBarCountdown}>Next sub {fmtClock(Math.max(0, secLeftInInterval))}</span>
             {actionBarStatus && <span style={styles.mdActionBarStatus}>{actionBarStatus}</span>}
           </div>
-          <div style={styles.mdActionBarBtnRow}>
-            <button style={{ ...styles.mdActionBarBtnPause, ...(nextIv ? {} : { flex: 1 }) }} onClick={toggleTimer}>
-              <Pause size={20} /> Pause
+          {nextIv && (
+            <button
+              style={{ ...styles.mdActionBarBtnPrimary, width: "100%" }}
+              onClick={() => setSubLog((prev) => ({ ...prev, [cur.index]: elapsedSec }))}
+            >
+              Sub done ✓
             </button>
-            {nextIv && (
-              <button
-                style={styles.mdActionBarBtnPrimary}
-                onClick={() => setSubLog((prev) => ({ ...prev, [cur.index]: elapsedSec }))}
-              >
-                Sub done ✓
-              </button>
-            )}
-          </div>
+          )}
         </div>
       )}
 
