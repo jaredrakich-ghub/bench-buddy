@@ -1024,4 +1024,46 @@ export const styles = {
     fontFamily: tokens.font.display, fontWeight: 800, fontSize: 15,
   },
   mdMinutesTotalsName: { flex: 1, color: tokens.color.mutedText, fontFamily: tokens.font.body, fontWeight: 800, fontSize: 13 },
+
+  // ---- A6-Season (#10c) — README: "has the season been fair"; headline
+  // is the average per game, not the total (a total penalises a child who
+  // missed weekends). Row shell is "as A5-Minutes" per the README, just
+  // different padding and a two-line name cell instead of three number
+  // columns — mdMinutesNote/mdMinutesDisc/mdMinutesDiscKeeper are reused
+  // directly rather than duplicated (identical shape/colour, no reason to
+  // fork them for this screen).
+  mdSeasonRow: {
+    display: "flex", alignItems: "center", gap: 10, background: "#fff", borderRadius: tokens.radius.rowLg,
+    padding: "10px 13px 10px 9px", boxShadow: tokens.shadow.solid(3, "rgba(28,58,46,.10)"),
+  },
+  mdSeasonNameStack: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 },
+  mdSeasonName: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 15.5, color: tokens.color.deepGreen },
+  mdSeasonSubline: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 12, color: tokens.color.mutedText },
+  // "Bars are scaled from the squad's lowest average, not from zero, so a
+  // small spread stays visible" — the component computes the fill
+  // percentage; this is just the track/fill shapes.
+  mdSeasonBarTrack: {
+    width: 96, flexShrink: 0, height: 11, borderRadius: tokens.radius.chip, background: tokens.color.creamDeep,
+    overflow: "hidden",
+  },
+  mdSeasonBarFill: { height: "100%", borderRadius: tokens.radius.chip, background: tokens.color.pitchGreen },
+  mdSeasonAvg: {
+    width: 48, flexShrink: 0, textAlign: "right", fontFamily: tokens.font.display, fontWeight: 800, fontSize: 18,
+    color: tokens.color.deepGreen,
+  },
+  mdSeasonFooter: {
+    fontFamily: tokens.font.body, fontWeight: 700, fontSize: 12.5, color: tokens.color.mutedText,
+    textAlign: "center", marginTop: "auto", paddingTop: 16,
+  },
+  // The per-game delete list isn't covered by the README's A6 section at
+  // all (it's existing functionality, not a designed screen) — light
+  // restyle to sit consistently under the newly-styled averages above,
+  // reusing mdTeamAcct*'s confirm-card/danger-button pattern rather than
+  // inventing a second one.
+  mdSeasonGameRow: {
+    display: "flex", alignItems: "center", gap: 10, background: "#fff", borderRadius: tokens.radius.rowMd,
+    padding: "9px 12px", boxShadow: tokens.shadow.solid(3, "rgba(28,58,46,.10)"), marginBottom: 6,
+  },
+  mdSeasonGameLabel: { flex: 1, fontFamily: tokens.font.body, fontWeight: 800, fontSize: 14, color: tokens.color.deepGreen },
+  mdSeasonGameMeta: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 12, color: tokens.color.mutedText },
 };

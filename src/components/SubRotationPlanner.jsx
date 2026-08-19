@@ -425,7 +425,18 @@ export default function SubRotationPlanner({ user }) {
       )}
 
       {showSeasonModal && (
-        <SeasonSummaryModal teamId={activeTeamId} onClose={() => setShowSeasonModal(false)} />
+        // README > A6-Season — same full-screen takeover pattern as
+        // A8-Team-account and A5-Minutes.
+        <div style={styles.mdFullScreenTakeoverOuter}>
+          <div style={styles.mdFullScreenTakeoverInner}>
+            <SeasonSummaryModal
+              teamId={activeTeamId}
+              numberOf={numberOf}
+              keeperEligibleIds={keeperEligibleIds}
+              onClose={() => setShowSeasonModal(false)}
+            />
+          </div>
+        </div>
       )}
 
       {showTeamSwitcher && (

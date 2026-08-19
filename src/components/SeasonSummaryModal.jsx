@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { X, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { fetchGameHistory, deleteGame } from "../lib/gameHistory.js";
 import { aggregateSeasonSummary } from "../lib/rotation.js";
 import { styles } from "./styles.js";
@@ -11,15 +11,12 @@ import { styles } from "./styles.js";
 // fresh every time it's opened rather than caching, since this is meant to
 // be checked occasionally, not kept live on screen.
 //
-// The averages table is summary-only: totals and per-game averages, nothing
-// that feeds back into how future games are generated. Season-to-season
-// fairness carryover was explicitly scoped out when this was designed — see
-// the architecture notes — so this is purely a "how has it balanced out so
-// far" view, not a second fairness engine. The per-game list below it is the
-// one write path this modal has — deleting a mis-recorded or test game — and
-// deletes locally from state on success rather than re-fetching, since a
-// coach removing one entry has no reason to wait on a second round trip to
-// see it gone.
+// README > A6-Season (#10c): "has the season been fair" — headline number
+// is the average per game, not the total (a total penalises a child who
+// missed weekends; the total stays as the secondary line under their
+// name). The per-game delete list below isn't part of the README's A6
+// section at all — real existing functionality, restyled to sit
+// consistently under the new averages rather than dropped.
 function describeLoadError(err) {
   if (err?.code === "permission-denied") return "You don't have access to this team's season history.";
   if (err?.code === "unavailable") return "You're offline — season history isn't available right now.";
@@ -32,7 +29,21 @@ function describeDeleteError(err) {
   return "Couldn't delete that game — try again.";
 }
 
-export default function SeasonSummaryModal({ teamId, onClose }) {
+// Total minutes across a season can genuinely pass an hour (the README's
+// own example: "2:43:00") — fmtClock (clock.js) deliberately only ever
+// formats m:ss, since a single live match never runs that long; this is
+// its own small h:mm:ss formatter rather than changing that shared one.
+function fmtLongClock(totalMinutes) {
+  const totalSec = Math.max(0, Math.round(totalMinutes * 60));
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  const mm = h > 0 ? m.toString().padStart(2, "0") : m;
+  const ss = s.toString().padStart(2, "0");
+  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
+export default function SeasonSummaryModal({ teamId, numberOf, keeperEligibleIds, onClose }) {
   const [games, setGames] = useState(null); // null = still loading
   const [error, setError] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
@@ -72,96 +83,122 @@ export default function SeasonSummaryModal({ teamId, onClose }) {
   };
 
   const summary = games ? aggregateSeasonSummary(games) : [];
-  const anyInjured = summary.some((r) => r.injuredMin > 0);
+  // Average *playing* time per game — outfield + keeper combined, bench
+  // doesn't count toward "played". Sorted descending; this drives both
+  // row order and the bar scale below.
+  const rows = summary
+    .map((r) => ({ ...r, avgTotalMin: r.avgOutfieldMin + r.avgGkMin, totalMin: r.outfieldMin + r.gkMin }))
+    .sort((a, b) => b.avgTotalMin - a.avgTotalMin);
+
+  const avgValues = rows.map((r) => r.avgTotalMin);
+  const maxAvg = avgValues.length ? Math.max(...avgValues) : 0;
+  const minAvg = avgValues.length ? Math.min(...avgValues) : 0;
+  const gapMin = maxAvg - minAvg;
+  // "Bars are scaled from the squad's lowest average, not from zero" — a
+  // player sitting exactly at the squad's low end reads as an empty bar,
+  // not a mostly-full one, so the actual spread is what's visible.
+  const barPct = (avgTotalMin) => (gapMin > 0 ? ((avgTotalMin - minAvg) / gapMin) * 100 : 100);
+
+  const oldestGameDate = games && games.length > 0 ? games[games.length - 1].date : null;
 
   return (
-    <div style={styles.modalOverlay} onClick={onClose}>
-      <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-        <div style={styles.modalHeader}>
-          <h3 style={styles.modalTitle}>Season Summary</h3>
-          <button style={styles.modalCloseBtn} onClick={onClose}>
-            <X size={18} />
-          </button>
-        </div>
+    <section style={{ display: "flex", flexDirection: "column", minHeight: "calc(100vh - 24px)" }}>
+      <div style={styles.mdSubHeader}>
+        <button style={styles.mdSubHeaderBack} onClick={onClose} title="Back">
+          ‹
+        </button>
+        <div style={styles.mdSubHeaderTitle}>Season</div>
+        {games !== null && !error && <span style={styles.mdSubHeaderChip}>{games.length} game{games.length === 1 ? "" : "s"}</span>}
+      </div>
 
-        {games === null && !error && <p style={styles.backupHint}>Loading season history…</p>}
-        {error && <div style={styles.modalWarning}>{error}</div>}
+      {games === null && !error && <p style={styles.backupHint}>Loading season history…</p>}
+      {error && <div style={styles.modalWarning}>{error}</div>}
 
-        {games !== null && !error && games.length === 0 && (
-          <p style={styles.backupHint}>
-            No games recorded yet — a game is saved to season history automatically once you start a new one after
-            finishing a previous one.
-          </p>
-        )}
+      {games !== null && !error && games.length === 0 && (
+        <p style={styles.backupHint}>
+          No games recorded yet — a game is saved to season history automatically once you start a new one after
+          finishing a previous one.
+        </p>
+      )}
 
-        {games !== null && !error && games.length > 0 && (
-          <>
-            <p style={styles.backupHint}>
-              Averages across the {games.length} game{games.length === 1 ? "" : "s"} played so far. A player who
-              missed a game just isn't counted for it — their average is only ever across games they actually played.
-            </p>
-            <div style={styles.summaryTable}>
-              <div style={{ ...styles.summaryRow, ...styles.summaryHeadRow, ...(anyInjured ? styles.summaryRow5 : {}) }}>
-                <span style={styles.summaryName}>Player</span>
-                <span>Games</span>
-                <span>Avg Outfield</span>
-                <span>Avg Keeper</span>
-                {anyInjured && <span>Avg Injured</span>}
-              </div>
-              {summary
-                .slice()
-                .sort((a, b) => b.avgOutfieldMin + b.avgGkMin - (a.avgOutfieldMin + a.avgGkMin))
-                .map((r) => (
-                  <div key={r.id} style={{ ...styles.summaryRow, ...(anyInjured ? styles.summaryRow5 : {}) }}>
-                    <span style={styles.summaryName}>{r.name || "?"}</span>
-                    <span>{r.gamesPlayed}</span>
-                    <span>{Math.round(r.avgOutfieldMin)}</span>
-                    <span>{Math.round(r.avgGkMin)}</span>
-                    {anyInjured && <span>{Math.round(r.injuredMin / r.gamesPlayed)}</span>}
+      {games !== null && !error && games.length > 0 && (
+        <>
+          <div style={styles.mdMinutesNote}>
+            Average minutes per game. Widest gap across the squad is {Math.round(gapMin)} minute{Math.round(gapMin) === 1 ? "" : "s"}.
+          </div>
+
+          <div style={styles.mdMinutesList}>
+            {rows.map((r) => {
+              const isKeeper = keeperEligibleIds.includes(r.id);
+              return (
+                <div key={r.id} style={styles.mdSeasonRow}>
+                  <span style={{ ...styles.mdMinutesDisc, ...(isKeeper ? styles.mdMinutesDiscKeeper : {}) }}>
+                    {numberOf(r.id)}
+                  </span>
+                  <div style={styles.mdSeasonNameStack}>
+                    <span style={styles.mdSeasonName}>{r.name || "?"}</span>
+                    <span style={styles.mdSeasonSubline}>
+                      {r.gamesPlayed} game{r.gamesPlayed === 1 ? "" : "s"} · {fmtLongClock(r.totalMin)}
+                    </span>
                   </div>
-                ))}
-            </div>
+                  <div style={styles.mdSeasonBarTrack}>
+                    <div style={{ ...styles.mdSeasonBarFill, width: `${barPct(r.avgTotalMin)}%` }} />
+                  </div>
+                  <span style={styles.mdSeasonAvg}>{Math.round(r.avgTotalMin)}′</span>
+                </div>
+              );
+            })}
+          </div>
 
-            <p style={{ ...styles.backupHint, marginTop: 14 }}>
-              Individual games — newest first. Removing one only affects the averages above.
-            </p>
-            {deleteError && <div style={styles.modalWarning}>{deleteError}</div>}
-            <div>
-              {games.map((g) => {
-                const dateLabel = g.date ? new Date(g.date).toLocaleDateString() : "Unknown date";
-                const playerCount = g.players?.length ?? 0;
+          <p style={{ ...styles.backupHint, marginTop: 14 }}>
+            Individual games — newest first. Removing one only affects the averages above.
+          </p>
+          {deleteError && <div style={styles.modalWarning}>{deleteError}</div>}
+          <div>
+            {games.map((g) => {
+              const dateLabel = g.date ? new Date(g.date).toLocaleDateString() : "Unknown date";
+              const playerCount = g.players?.length ?? 0;
 
-                if (confirmDeleteId === g.id) {
-                  return (
-                    <div key={g.id} style={styles.backupConfirmRow}>
-                      <span style={styles.backupHint}>
-                        Delete the {dateLabel} game? This can't be undone.
-                      </span>
-                      <button style={styles.backupConfirmBtn} onClick={() => handleDelete(g.id)} disabled={deletingId === g.id}>
+              if (confirmDeleteId === g.id) {
+                return (
+                  <div key={g.id} style={{ ...styles.mdTeamAcctConfirmCard, marginBottom: 6 }}>
+                    <span style={styles.mdTeamAcctConfirmText}>Delete the {dateLabel} game? This can't be undone.</span>
+                    <div style={styles.mdTeamAcctConfirmBtnRow}>
+                      <button style={styles.mdTeamAcctBtnDanger} onClick={() => handleDelete(g.id)} disabled={deletingId === g.id}>
                         {deletingId === g.id ? "Deleting…" : "Yes, delete"}
                       </button>
-                      <button style={styles.backupCancelBtn} onClick={() => setConfirmDeleteId(null)} disabled={deletingId === g.id}>
+                      <button
+                        style={styles.mdTeamAcctBtnCancel}
+                        onClick={() => setConfirmDeleteId(null)}
+                        disabled={deletingId === g.id}
+                      >
                         Cancel
                       </button>
                     </div>
-                  );
-                }
-
-                return (
-                  <div key={g.id} style={styles.teamRow}>
-                    <span style={{ flex: 1 }}>
-                      {dateLabel} <span style={styles.teamRowMeta}>{playerCount} player{playerCount === 1 ? "" : "s"}</span>
-                    </span>
-                    <button style={styles.iconBtn} onClick={() => setConfirmDeleteId(g.id)} title="Delete this game">
-                      <Trash2 size={14} />
-                    </button>
                   </div>
                 );
-              })}
+              }
+
+              return (
+                <div key={g.id} style={styles.mdSeasonGameRow}>
+                  <span style={styles.mdSeasonGameLabel}>
+                    {dateLabel} <span style={styles.mdSeasonGameMeta}>{playerCount} player{playerCount === 1 ? "" : "s"}</span>
+                  </span>
+                  <button style={styles.mdTeamAcctIconBtn} onClick={() => setConfirmDeleteId(g.id)} title="Delete this game">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          {oldestGameDate && (
+            <div style={styles.mdSeasonFooter}>
+              Since {new Date(oldestGameDate).toLocaleDateString(undefined, { day: "numeric", month: "long" })}
             </div>
-          </>
-        )}
-      </div>
-    </div>
+          )}
+        </>
+      )}
+    </section>
   );
 }

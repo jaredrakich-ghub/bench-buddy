@@ -16,23 +16,31 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+const NUMBERS = { p1: 1, p2: 2 };
+const numberOf = (id) => NUMBERS[id] ?? "?";
+const keeperEligibleIds = ["p1", "p2"];
+
+function renderModal(props = {}) {
+  return render(<SeasonSummaryModal teamId="t1" numberOf={numberOf} keeperEligibleIds={keeperEligibleIds} onClose={vi.fn()} {...props} />);
+}
+
 const GAMES = [
   // Newest first, matching fetchGameHistory's actual ordering — p1 played
   // both games, p2 only the older one (missed the newer one), so p2's
   // average should only reflect the one game they were actually part of.
+  // Averages deliberately distinct (Alice 30'/game, Bob 25'/game) so sort
+  // order and the bar scale are unambiguous to assert on.
   {
     id: "g2",
     date: 2,
-    players: [
-      { id: "p1", name: "Alice", outfieldMin: 30, gkMin: 10, benchMin: 0, injuredMin: 0 },
-    ],
+    players: [{ id: "p1", name: "Alice", outfieldMin: 30, gkMin: 10, benchMin: 0, injuredMin: 0 }],
   },
   {
     id: "g1",
     date: 1,
     players: [
       { id: "p1", name: "Alice", outfieldMin: 20, gkMin: 0, benchMin: 20, injuredMin: 0 },
-      { id: "p2", name: "Bob", outfieldMin: 25, gkMin: 5, benchMin: 10, injuredMin: 0 },
+      { id: "p2", name: "Bob", outfieldMin: 20, gkMin: 5, benchMin: 15, injuredMin: 0 },
     ],
   },
 ];
@@ -40,70 +48,78 @@ const GAMES = [
 describe("SeasonSummaryModal", () => {
   it("shows a loading state while the fetch is in flight", () => {
     fetchGameHistory.mockReturnValue(new Promise(() => {})); // never resolves
-    render(<SeasonSummaryModal teamId="t1" onClose={vi.fn()} />);
+    renderModal();
     expect(screen.getByText(/Loading season history/)).toBeInTheDocument();
   });
 
   it("shows an empty state when no games have been archived yet", async () => {
     fetchGameHistory.mockResolvedValue([]);
-    render(<SeasonSummaryModal teamId="t1" onClose={vi.fn()} />);
+    renderModal();
     expect(await screen.findByText(/No games recorded yet/)).toBeInTheDocument();
   });
 
   it("shows a friendly error if the fetch fails, rather than an unhandled rejection", async () => {
     fetchGameHistory.mockRejectedValue({ code: "unavailable" });
-    render(<SeasonSummaryModal teamId="t1" onClose={vi.fn()} />);
+    renderModal();
     expect(await screen.findByText(/You're offline/)).toBeInTheDocument();
   });
 
-  it("shows each player's games-played count and per-game averages, excluding games they weren't part of", async () => {
+  it("shows the average-per-game as the headline, games-played and total time as the subline, excluding games a player wasn't part of", async () => {
     fetchGameHistory.mockResolvedValue(GAMES);
-    render(<SeasonSummaryModal teamId="t1" onClose={vi.fn()} />);
+    renderModal();
 
     await screen.findByText("Alice");
-    // Alice: 2 games, avg outfield (30+20)/2=25, avg keeper (10+0)/2=5
-    const aliceRow = screen.getByText("Alice").closest("div");
-    expect(aliceRow).toHaveTextContent("Alice");
-    expect(aliceRow).toHaveTextContent("2"); // games played
-    expect(aliceRow).toHaveTextContent("25"); // avg outfield
-    expect(aliceRow).toHaveTextContent("5"); // avg keeper
+    // Alice: 2 games, avg (outfield 30+20 / 2) + (gk 10+0 / 2) = 25 + 5 = 30'.
+    // Total playing time: 40 + 20 = 60 minutes -> "1:00:00" (the h:mm:ss
+    // formatter this screen needs, since a season total can pass an hour
+    // even though a single match's own clock never does).
+    const aliceRow = screen.getByText("Alice").closest("div").parentElement;
+    expect(aliceRow).toHaveTextContent("30′");
+    expect(aliceRow).toHaveTextContent("2 games");
+    expect(aliceRow).toHaveTextContent("1:00:00");
 
-    // Bob: only 1 game (the one he was actually in) — not zero-filled for the other.
-    const bobRow = screen.getByText("Bob").closest("div");
-    expect(bobRow).toHaveTextContent("1");
-    expect(bobRow).toHaveTextContent("25");
+    // Bob: only 1 game (the one he was actually in) — not zero-filled for
+    // the game he missed. Avg 20+5=25'.
+    const bobRow = screen.getByText("Bob").closest("div").parentElement;
+    expect(bobRow).toHaveTextContent("25′");
+    expect(bobRow).toHaveTextContent("1 game");
+    expect(bobRow).not.toHaveTextContent("1 games");
   });
 
-  it("hides the injured column entirely when nobody's ever been injured", async () => {
+  it("orders rows by average playing time descending, and states the gap in the note card", async () => {
     fetchGameHistory.mockResolvedValue(GAMES);
-    render(<SeasonSummaryModal teamId="t1" onClose={vi.fn()} />);
+    renderModal();
     await screen.findByText("Alice");
-    expect(screen.queryByText("Avg Injured")).not.toBeInTheDocument();
+    const names = screen.getAllByText(/Alice|Bob/).map((el) => el.textContent);
+    expect(names).toEqual(["Alice", "Bob"]);
+    // 30' (Alice) - 25' (Bob) = 5' gap.
+    expect(screen.getByText(/Widest gap across the squad is 5 minutes\./)).toBeInTheDocument();
   });
 
-  it("shows an injured column when at least one archived game recorded injured minutes", async () => {
+  it("has no Injured column — a deliberate change from the previous version", async () => {
     const withInjury = [
       { id: "g1", date: 1, players: [{ id: "p1", name: "Alice", outfieldMin: 20, gkMin: 0, benchMin: 10, injuredMin: 10 }] },
     ];
     fetchGameHistory.mockResolvedValue(withInjury);
-    render(<SeasonSummaryModal teamId="t1" onClose={vi.fn()} />);
-    expect(await screen.findByText("Avg Injured")).toBeInTheDocument();
+    renderModal();
+    await screen.findByText("Alice");
+    expect(screen.queryByText(/Injured/)).not.toBeInTheDocument();
   });
 
   it("re-fetches when the team changes, rather than showing stale data for the new team", async () => {
     fetchGameHistory.mockResolvedValueOnce(GAMES);
-    const { rerender } = render(<SeasonSummaryModal teamId="t1" onClose={vi.fn()} />);
+    const { rerender } = renderModal();
     await screen.findByText("Alice");
 
     fetchGameHistory.mockResolvedValueOnce([]);
-    rerender(<SeasonSummaryModal teamId="t2" onClose={vi.fn()} />);
+    rerender(<SeasonSummaryModal teamId="t2" numberOf={numberOf} keeperEligibleIds={keeperEligibleIds} onClose={vi.fn()} />);
     await waitFor(() => expect(fetchGameHistory).toHaveBeenCalledWith("t2"));
     expect(await screen.findByText(/No games recorded yet/)).toBeInTheDocument();
   });
 
   it("lists each individual game, newest first, with a delete option", async () => {
     fetchGameHistory.mockResolvedValue(GAMES);
-    render(<SeasonSummaryModal teamId="t1" onClose={vi.fn()} />);
+    renderModal();
     await screen.findByText("Alice");
     expect(screen.getAllByTitle("Delete this game")).toHaveLength(2);
   });
@@ -111,7 +127,7 @@ describe("SeasonSummaryModal", () => {
   it("asks for confirmation before deleting, and cancel backs out without calling deleteGame", async () => {
     fetchGameHistory.mockResolvedValue(GAMES);
     const user = userEvent.setup();
-    render(<SeasonSummaryModal teamId="t1" onClose={vi.fn()} />);
+    renderModal();
     await screen.findByText("Alice");
 
     await user.click(screen.getAllByTitle("Delete this game")[0]);
@@ -125,7 +141,7 @@ describe("SeasonSummaryModal", () => {
     fetchGameHistory.mockResolvedValue(GAMES);
     deleteGame.mockResolvedValue(undefined);
     const user = userEvent.setup();
-    render(<SeasonSummaryModal teamId="t1" onClose={vi.fn()} />);
+    renderModal();
     await screen.findByText("Alice");
 
     await user.click(screen.getAllByTitle("Delete this game")[0]); // the newer game, g2
@@ -140,7 +156,7 @@ describe("SeasonSummaryModal", () => {
     fetchGameHistory.mockResolvedValue(GAMES);
     deleteGame.mockRejectedValue({ code: "unavailable" });
     const user = userEvent.setup();
-    render(<SeasonSummaryModal teamId="t1" onClose={vi.fn()} />);
+    renderModal();
     await screen.findByText("Alice");
 
     await user.click(screen.getAllByTitle("Delete this game")[0]);
@@ -150,13 +166,13 @@ describe("SeasonSummaryModal", () => {
     expect(screen.getAllByTitle("Delete this game")).toHaveLength(2); // still there, nothing lost
   });
 
-  it("calls onClose when the close button is clicked", async () => {
+  it("calls onClose when the back button is clicked", async () => {
     fetchGameHistory.mockResolvedValue([]);
     const onClose = vi.fn();
     const user = userEvent.setup();
-    render(<SeasonSummaryModal teamId="t1" onClose={onClose} />);
+    renderModal({ onClose });
     await screen.findByText(/No games recorded yet/);
-    await user.click(screen.getByRole("button")); // only the X close button exists in the empty state
+    await user.click(screen.getByRole("button")); // only the back button exists in the empty state
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
