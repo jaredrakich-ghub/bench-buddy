@@ -425,11 +425,9 @@ export default function MatchView({
         <div style={styles.mdHeaderTopRow}>
           <div style={styles.mdCrestOuter}>{crestSrc && <img src={crestSrc} alt="" style={styles.mdCrestImg} />}</div>
           <div style={styles.mdTeamName}>{teamName}</div>
-          {/* Reset lives here now, grouped with the cog as the header's two
-              "utility" actions — both right-aligned for free since
-              mdTeamName's flex:1 already pushes everything after it to the
-              edge. The primary match control (Start/Pause) stays down in
-              the timer row, next to the clock it actually controls. */}
+          {/* Reset — not part of the README spec (it doesn't cover a reset
+              control at all), kept as a pragmatic addition alongside the
+              cog since both are header-level utility actions. */}
           <button style={styles.mdHeaderResetBtn} onClick={resetClock} title="Reset clock">
             <RotateCcw size={18} color={tokens.color.deepGreen} />
           </button>
@@ -444,39 +442,22 @@ export default function MatchView({
             }}
             title="Menu"
           >
-            <GearIcon size={20} color="#fff" />
+            <GearIcon size={28} />
           </button>
         </div>
         <div style={styles.mdTimerRow}>
-          {/* No more "Paused" text chip — the Play/Pause icon already says
-              which state it's in, and the chip was forcing this row to
-              stack vertically on pause (digits above, chip+caption below),
-              which shifted the buttons out of alignment with the clock
-              every time. One consistent row now regardless of state; the
-              greyed-out digit color (mdTimerDisplayPaused) is still the
-              paused "look", just without a redundant label. */}
+          {/* No more "Paused" text chip — the Play/Pause icon on the
+              action bar's clock button already says which state it's in.
+              Start/Pause/Resume lives in the action bar now, next to
+              "Next sub" (README > A2-Match-actionbar > Action bar) — not
+              here; an earlier round of real-device feedback had moved it
+              up to this row instead, since reverted per an updated README. */}
           <div style={styles.mdTimerLeft}>
             <span style={{ ...styles.mdTimerDisplay, ...(isPaused ? styles.mdTimerDisplayPaused : {}) }}>
               {fmtClock(elapsedSec)}
             </span>
             <span style={styles.mdTimerCaption}>of {Math.round(totalGameSec / 60)} min</span>
           </div>
-          {/* Start/Pause sits right beside the clock, sized to match it —
-              the coach's own real-device feedback: reachable without
-              scrolling, and reading as "as important as the clock itself"
-              rather than a small icon tucked up by the crest. The bottom
-              action bar keeps the sub-confirmation action only (see
-              mdActionBar below); it no longer duplicates the clock control. */}
-          {!isMatchComplete && (
-            <button style={styles.mdTimerPrimaryBtn} onClick={toggleTimer}>
-              {timerRunning ? (
-                <Pause size={18} color={tokens.color.deepGreen} fill={tokens.color.deepGreen} />
-              ) : (
-                <Play size={18} color={tokens.color.deepGreen} fill={tokens.color.deepGreen} />
-              )}
-              {timerRunning ? "Pause" : isPreKickoff ? "Start" : "Resume"}
-            </button>
-          )}
         </div>
       </div>
 
@@ -746,15 +727,27 @@ export default function MatchView({
           which one fired, only whether cur.index has *any*
           confirmation), so one shared action across all three isn't a
           behavior change. */}
-      {isPreKickoff && nextIv && (
-        // Start now lives in the timer row (see mdTimerPrimaryBtn above), so
-        // this is context only — no button to duplicate it.
+      {/* README > A2-Match-actionbar > Action bar: one line, countdown on
+          the left, a single clock button on the right whose label follows
+          the clock (Start / Pause / Resume) — no full-width button row
+          beneath, and no "Sub done" anywhere in this bar. Confirmed
+          explicitly: sub confirmation happens only in the final-60 sheet
+          below, which already names who's coming off/on with room to
+          spare — this bar no longer offers an early-confirm shortcut. */}
+      {isPreKickoff && (
+        // README > A2e-Prekickoff: this state keeps its own distinct
+        // shape — a status line, then ONE full-width "Start match" button
+        // — rather than the inline countdown+button pattern every other
+        // state uses.
         <div style={styles.mdActionBarOuter}>
           <div style={styles.mdActionBar}>
-            <div style={styles.mdActionBarInlineRow}>
+            <div style={styles.mdActionBarStatusRow}>
               <span style={styles.mdActionBarCountdown}>Ready to go</span>
-              <span style={styles.mdActionBarStatus}>first sub at {nextIv.startMin}′</span>
+              {nextIv && <span style={styles.mdActionBarStatus}>first sub at {nextIv.startMin}′</span>}
             </div>
+            <button style={styles.mdActionBarBtnStart} onClick={toggleTimer}>
+              <Play size={22} color={tokens.color.deepGreen} fill={tokens.color.deepGreen} /> Start match
+            </button>
           </div>
         </div>
       )}
@@ -764,14 +757,12 @@ export default function MatchView({
           <div style={styles.mdActionBar}>
             <div style={styles.mdActionBarInlineRow}>
               <span style={styles.mdActionBarCountdown}>Clock stopped</span>
-              {nextIv && (
-                <button
-                  style={styles.mdActionBarBtnCompact}
-                  onClick={() => setSubLog((prev) => ({ ...prev, [cur.index]: elapsedSec }))}
-                >
-                  Sub now
-                </button>
-              )}
+              <button
+                style={{ ...styles.mdActionBarClockBtn, ...styles.mdActionBarClockBtnPrimary }}
+                onClick={toggleTimer}
+              >
+                <Play size={17} color={tokens.color.deepGreen} fill={tokens.color.deepGreen} /> Resume
+              </button>
             </div>
           </div>
         </div>
@@ -781,24 +772,17 @@ export default function MatchView({
         // The plain "running" bar. Mutually exclusive with the final60
         // sheet below (not rendered at the same time) — they'd otherwise
         // show the exact same "Next sub" countdown twice at once, which is
-        // redundant even with one of the two dimmed behind a scrim. Pause
-        // lives in the header now, so this bar is just the sub-confirm
-        // action, countdown and button on one row — the "X to swap" detail
-        // that used to sit under the countdown is dropped here too, since
-        // the final-60 takeover already surfaces that detail when it
-        // actually matters (inside 60 seconds of the sub).
+        // redundant even with one of the two dimmed behind a scrim.
         <div style={styles.mdActionBarOuter}>
           <div style={styles.mdActionBar}>
             <div style={styles.mdActionBarInlineRow}>
               <span style={styles.mdActionBarCountdown}>Next sub {fmtClock(Math.max(0, secLeftInInterval))}</span>
-              {nextIv && (
-                <button
-                  style={styles.mdActionBarBtnCompact}
-                  onClick={() => setSubLog((prev) => ({ ...prev, [cur.index]: elapsedSec }))}
-                >
-                  Sub done ✓
-                </button>
-              )}
+              <button
+                style={{ ...styles.mdActionBarClockBtn, ...styles.mdActionBarClockBtnRunning }}
+                onClick={toggleTimer}
+              >
+                <Pause size={17} color={tokens.color.deepGreen} fill={tokens.color.deepGreen} /> Pause
+              </button>
             </div>
           </div>
         </div>

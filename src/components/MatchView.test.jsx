@@ -338,38 +338,47 @@ describe("MatchView — action bar", () => {
     expect(screen.queryByText(/\d out/)).not.toBeInTheDocument();
   });
 
-  it("Sub done writes to subLog for the live interval regardless of how much time is left", () => {
-    const setSubLog = vi.fn();
-    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 100, setSubLog })} />);
-    fireEvent.click(screen.getByText("Sub done ✓"));
-    const updater = setSubLog.mock.calls[0][0];
-    expect(updater({})).toEqual({ 0: 100 });
-  });
-
-  it("hides Sub done on the last interval of the game (nothing to sub into) but keeps Pause in the header", () => {
+  // "Sub done" removed entirely from this bar (README > A2-Match-actionbar
+  // > Action bar, confirmed explicitly) — the final-60 sheet is now the
+  // only place a sub gets confirmed; this bar is just the countdown and
+  // the clock button.
+  it("has no Sub done early-confirm option — only the clock button, on the last interval too", () => {
     render(<MatchView {...baseProps({ activeInterval: 1, elapsedSec: 400 })} />);
     expect(screen.queryByText("Sub done ✓")).not.toBeInTheDocument();
     expect(screen.getByText("Pause")).toBeInTheDocument();
+  });
+
+  it("the action bar's clock button pauses the running clock", () => {
+    const setTimerRunning = vi.fn();
+    const setBaseElapsedSec = vi.fn();
+    render(
+      <MatchView
+        {...baseProps({ activeInterval: 0, elapsedSec: 100, baseElapsedSec: 100, setTimerRunning, setBaseElapsedSec })}
+      />
+    );
+    fireEvent.click(screen.getByText("Pause"));
+    expect(setTimerRunning).toHaveBeenCalledWith(false);
+    expect(setBaseElapsedSec).toHaveBeenCalledWith(100);
   });
 });
 
 describe("MatchView — pre-kickoff", () => {
   // !timerRunning && elapsedSec === 0 — the clock has never run yet.
-  it("shows Ready to go context and the header's Start button, no running/paused bar text", () => {
+  it("shows Ready to go context and the action bar's full-width Start match button, no running/paused bar text", () => {
     render(<MatchView {...baseProps({ timerRunning: false, elapsedSec: 0 })} />);
     expect(screen.getByText("Ready to go")).toBeInTheDocument();
     expect(screen.getByText(/first sub at/)).toBeInTheDocument();
-    expect(screen.getByText("Start")).toBeInTheDocument();
+    expect(screen.getByText("Start match")).toBeInTheDocument();
     expect(screen.queryByText(/Next sub/)).not.toBeInTheDocument();
     expect(screen.queryByText("Clock stopped")).not.toBeInTheDocument();
     expect(screen.queryByText("Paused")).not.toBeInTheDocument();
   });
 
-  it("the header's Start button starts the clock", () => {
+  it("the action bar's Start match button starts the clock", () => {
     const setRunStartedAt = vi.fn();
     const setTimerRunning = vi.fn();
     render(<MatchView {...baseProps({ timerRunning: false, elapsedSec: 0, setRunStartedAt, setTimerRunning })} />);
-    fireEvent.click(screen.getByText("Start"));
+    fireEvent.click(screen.getByText("Start match"));
     expect(setTimerRunning).toHaveBeenCalledWith(true);
     expect(setRunStartedAt).toHaveBeenCalled();
   });
@@ -385,30 +394,23 @@ describe("MatchView — pre-kickoff", () => {
 
 describe("MatchView — paused", () => {
   // !timerRunning && elapsedSec > 0 — was running, now stopped.
-  it("shows the greyed timer, Clock stopped, Sub now, and the header's Resume button — no redundant Paused text chip", () => {
+  it("shows the greyed timer, Clock stopped, and the action bar's Resume button — no redundant Paused text chip, no Sub now", () => {
     render(<MatchView {...baseProps({ timerRunning: false, elapsedSec: 100 })} />);
     // The Play/Pause icon button already communicates the state; a
     // separate "Paused" text chip was dropped (real-device feedback: it
     // forced the timer row to stack vertically and threw off alignment).
     expect(screen.queryByText("Paused")).not.toBeInTheDocument();
     expect(screen.getByText("Clock stopped")).toBeInTheDocument();
-    expect(screen.getByText("Sub now")).toBeInTheDocument();
+    // "Sub now" removed entirely (README > A2-Match-actionbar > Action
+    // bar, confirmed explicitly) — the final-60 sheet is the only place a
+    // sub gets confirmed now.
+    expect(screen.queryByText("Sub now")).not.toBeInTheDocument();
     expect(screen.getByText("Resume")).toBeInTheDocument();
     expect(screen.queryByText("Ready to go")).not.toBeInTheDocument();
     expect(screen.queryByText(/Next sub/)).not.toBeInTheDocument();
   });
 
-  it("Sub now confirms the current interval without touching the clock", () => {
-    const setSubLog = vi.fn();
-    const setTimerRunning = vi.fn();
-    render(<MatchView {...baseProps({ timerRunning: false, elapsedSec: 100, setSubLog, setTimerRunning })} />);
-    fireEvent.click(screen.getByText("Sub now"));
-    const updater = setSubLog.mock.calls[0][0];
-    expect(updater({})).toEqual({ 0: 100 });
-    expect(setTimerRunning).not.toHaveBeenCalled();
-  });
-
-  it("the header's Resume button restarts the clock", () => {
+  it("the action bar's Resume button restarts the clock", () => {
     const setRunStartedAt = vi.fn();
     const setTimerRunning = vi.fn();
     render(<MatchView {...baseProps({ timerRunning: false, elapsedSec: 100, setRunStartedAt, setTimerRunning })} />);
