@@ -1134,4 +1134,55 @@ export const styles = {
   mdSquadChangeBtnDanger: {
     background: tokens.color.injuryRed, color: "#fff", boxShadow: "none",
   },
+
+  // ---- A9-Signin (#10f) — README: "first run only. Magic-link, no
+  // password." The real app authenticates via a Google OAuth popup
+  // (signInWithGoogle, src/lib/auth.js), not email + a mailed link — that
+  // mismatch is between the design file and this codebase, not something
+  // to paper over with a non-functional email field. Restyled around the
+  // real flow instead: same lockup/button/footer shapes the README
+  // specifies, "Sign in with Google" where it says "Send me a link", and a
+  // reassurance line that's actually true of what happens.
+  mdSignInWrap: {
+    minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+    background: tokens.color.creamPaper, padding: "40px 28px",
+  },
+  mdSignInLockup: { display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 32 },
+  // 132px, "one step down" from A0-Launch's own 168px crest — same
+  // border/fill/crop treatment as every other crest in the app, just sized
+  // per this screen's own spec.
+  mdSignInCrest: {
+    width: 132, height: 132, borderRadius: "50%", flexShrink: 0, overflow: "hidden",
+    border: `6px solid ${tokens.color.pitchGreen}`, background: "#fff",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    boxShadow: tokens.shadow.solid(6, "rgba(28,58,46,.14)"),
+  },
+  mdSignInCrestImg: { width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 46%", transform: "scale(1.7)" },
+  mdSignInWordmark: {
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 42, color: tokens.color.deepGreen,
+    lineHeight: 1, marginTop: 16, textAlign: "center",
+  },
+  mdSignInTagline: {
+    fontFamily: tokens.font.body, fontWeight: 700, fontSize: 15.5, color: tokens.color.mutedText,
+    marginTop: 8, textAlign: "center",
+  },
+  mdSignInForm: { width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", gap: 14, alignItems: "stretch" },
+  mdSignInBtn: {
+    display: "flex", alignItems: "center", justifyContent: "center", gap: 10, width: "100%", height: 70,
+    borderRadius: tokens.radius.buttonLg, border: "none", background: tokens.color.yellow, color: tokens.color.deepGreen,
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 25,
+    boxShadow: tokens.shadow.solid(5, tokens.color.yellowShadow), cursor: "pointer",
+  },
+  mdSignInReassurance: {
+    fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13.5, color: tokens.color.mutedText,
+    textAlign: "center", marginTop: 4, lineHeight: 1.4,
+  },
+  mdSignInError: {
+    fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13, color: tokens.color.injuryText,
+    background: tokens.color.injuryTint, border: `1px solid ${tokens.color.injuryBorder}`,
+    borderRadius: 14, padding: "10px 14px", textAlign: "center",
+  },
+  mdSignInVersion: {
+    fontFamily: tokens.font.body, fontWeight: 700, fontSize: 12, color: tokens.color.unavailableText, marginTop: 28,
+  },
 };

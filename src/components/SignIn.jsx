@@ -1,10 +1,18 @@
 import { useState } from "react";
 import { signInWithGoogle } from "../lib/auth.js";
-import { colors } from "./styles.js";
+import { fontStyle, styles } from "./styles.js";
 import headerMascot from "../assets/header-mascot.jpg";
 
 // The gate shown whenever nobody's signed in. Google-only by design (see
 // the Firebase/account discussion) — no password to create or reset.
+//
+// README > A9-Signin (#10f) describes a magic-link flow (email field, "Send
+// me a link", "no password... we email you a link") — this app actually
+// authenticates via a Google OAuth popup, not email + a mailed link. Rather
+// than build a non-functional email field to match the mockup literally,
+// this restyles around the real flow: same lockup/button/footer shapes and
+// sizes the README specifies, "Sign in with Google" where it says "Send me
+// a link", and a reassurance line that's actually true of what happens.
 export default function SignIn() {
   const [error, setError] = useState("");
   const [signingIn, setSigningIn] = useState(false);
@@ -26,19 +34,28 @@ export default function SignIn() {
   };
 
   return (
-    <div style={styles.wrap}>
-      <div style={styles.card}>
-        <div style={styles.logoCrop}>
-          <img src={headerMascot} alt="" style={styles.logoImg} />
+    <div style={styles.mdSignInWrap}>
+      <style>{fontStyle}</style>
+      <div style={styles.mdSignInLockup}>
+        <div style={styles.mdSignInCrest}>
+          <img src={headerMascot} alt="" style={styles.mdSignInCrestImg} />
         </div>
-        <h1 style={styles.title}>BENCH BUDDY</h1>
-        <p style={styles.tagline}>Sign in to save your squads and access them from any device.</p>
-        <button style={styles.googleBtn} onClick={handleSignIn} disabled={signingIn}>
+        <h1 style={styles.mdSignInWordmark}>Bench Buddy</h1>
+        <p style={styles.mdSignInTagline}>Fair minutes, easy subs.</p>
+      </div>
+
+      <div style={styles.mdSignInForm}>
+        <button style={styles.mdSignInBtn} onClick={handleSignIn} disabled={signingIn}>
           <GoogleIcon />
           {signingIn ? "Signing in…" : "Sign in with Google"}
         </button>
-        {error && <div style={styles.error}>{error}</div>}
+        <p style={styles.mdSignInReassurance}>
+          One tap with your Google account — no password to create or remember.
+        </p>
+        {error && <div style={styles.mdSignInError}>{error}</div>}
       </div>
+
+      <div style={styles.mdSignInVersion}>v0.1.0</div>
     </div>
   );
 }
@@ -47,7 +64,7 @@ export default function SignIn() {
 // an external image/icon font.
 function GoogleIcon() {
   return (
-    <svg width={18} height={18} viewBox="0 0 18 18">
+    <svg width={20} height={20} viewBox="0 0 18 18">
       <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 01-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z" />
       <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.81.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.98v2.33A9 9 0 009 18z" />
       <path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 013.68 9c0-.59.1-1.17.27-1.7V4.97H.98A9 9 0 000 9c0 1.45.35 2.83.98 4.03l2.97-2.33z" />
@@ -55,27 +72,3 @@ function GoogleIcon() {
     </svg>
   );
 }
-
-const styles = {
-  wrap: {
-    minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
-    background: colors.chalk, padding: 20, fontFamily: "system-ui, -apple-system, sans-serif",
-  },
-  card: {
-    background: colors.cardBg, borderRadius: 16, padding: "32px 28px", maxWidth: 360, width: "100%",
-    textAlign: "center", boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
-  },
-  logoCrop: {
-    width: 72, height: 72, borderRadius: "50%", overflow: "hidden", margin: "0 auto 12px",
-    boxShadow: "0 0 0 3px " + colors.border,
-  },
-  logoImg: { width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 46%", transform: "scale(1.7)" },
-  title: { fontSize: 20, fontWeight: 900, letterSpacing: 2, color: colors.grass, margin: "0 0 10px" },
-  tagline: { fontSize: 13, color: "#5B6B64", lineHeight: 1.5, margin: "0 0 22px" },
-  googleBtn: {
-    display: "flex", alignItems: "center", justifyContent: "center", gap: 10, width: "100%",
-    padding: "12px 16px", borderRadius: 10, border: "1px solid " + colors.border, background: "#fff",
-    color: "#3C4043", fontWeight: 700, fontSize: 14, cursor: "pointer", minHeight: 44,
-  },
-  error: { marginTop: 14, fontSize: 12, color: colors.danger, fontWeight: 600 },
-};
