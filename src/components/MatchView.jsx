@@ -437,29 +437,6 @@ export default function MatchView({
         <div style={styles.mdHeaderTopRow}>
           <div style={styles.mdCrestOuter}>{crestSrc && <img src={crestSrc} alt="" style={styles.mdCrestImg} />}</div>
           <div style={styles.mdTeamName}>{teamName}</div>
-          {/* Start/Pause and Reset live here, in the header's top row, so
-              they're reachable without scrolling on any phone regardless of
-              how much vertical space the browser's own chrome eats up — the
-              coach's own real-device feedback on the original bottom action
-              bar. The bottom bar keeps the sub-confirmation action only
-              (see mdActionBar below); it no longer duplicates the clock
-              controls. */}
-          {!isMatchComplete && (
-            <button
-              style={styles.mdHeaderPrimaryBtn}
-              onClick={toggleTimer}
-              title={timerRunning ? "Pause" : isPreKickoff ? "Start" : "Resume"}
-            >
-              {timerRunning ? (
-                <Pause size={20} color={tokens.color.deepGreen} fill={tokens.color.deepGreen} />
-              ) : (
-                <Play size={20} color={tokens.color.deepGreen} fill={tokens.color.deepGreen} />
-              )}
-            </button>
-          )}
-          <button style={styles.mdCogBtn} onClick={resetClock} title="Reset clock">
-            <RotateCcw size={18} color={tokens.color.deepGreen} />
-          </button>
           <button
             style={{ ...styles.mdCogBtn, ...(cogOrigin ? { ...styles.mdOriginLit, ...styles.mdCogBtnLit } : {}) }}
             onClick={(e) => {
@@ -474,13 +451,39 @@ export default function MatchView({
             <GearIcon size={20} />
           </button>
         </div>
-        <div style={{ ...styles.mdTimerRow, ...(isPaused ? styles.mdTimerRowPaused : {}) }}>
-          <span style={{ ...styles.mdTimerDisplay, ...(isPaused ? styles.mdTimerDisplayPaused : {}) }}>
-            {fmtClock(elapsedSec)}
-          </span>
-          <div style={styles.mdTimerCaptionRow}>
-            {isPaused && <span style={styles.mdPausedChip}>Paused</span>}
-            <span style={styles.mdTimerCaption}>of {Math.round(totalGameSec / 60)} min</span>
+        <div style={styles.mdTimerRow}>
+          <div style={{ ...styles.mdTimerLeft, ...(isPaused ? styles.mdTimerLeftPaused : {}) }}>
+            <span style={{ ...styles.mdTimerDisplay, ...(isPaused ? styles.mdTimerDisplayPaused : {}) }}>
+              {fmtClock(elapsedSec)}
+            </span>
+            <div style={styles.mdTimerCaptionRow}>
+              {isPaused && <span style={styles.mdPausedChip}>Paused</span>}
+              <span style={styles.mdTimerCaption}>of {Math.round(totalGameSec / 60)} min</span>
+            </div>
+          </div>
+          {/* Start/Pause and Reset sit right beside the clock, sized to
+              match it — the coach's own real-device feedback: reachable
+              without scrolling, and reading as "as important as the clock
+              itself" rather than small icons tucked up by the crest. The
+              bottom action bar keeps the sub-confirmation action only (see
+              mdActionBar below); it no longer duplicates the clock controls. */}
+          <div style={styles.mdTimerBtnGroup}>
+            {!isMatchComplete && (
+              <button
+                style={styles.mdTimerPrimaryBtn}
+                onClick={toggleTimer}
+                title={timerRunning ? "Pause" : isPreKickoff ? "Start" : "Resume"}
+              >
+                {timerRunning ? (
+                  <Pause size={28} color={tokens.color.deepGreen} fill={tokens.color.deepGreen} />
+                ) : (
+                  <Play size={28} color={tokens.color.deepGreen} fill={tokens.color.deepGreen} />
+                )}
+              </button>
+            )}
+            <button style={styles.mdTimerResetBtn} onClick={resetClock} title="Reset clock">
+              <RotateCcw size={20} color={tokens.color.deepGreen} />
+            </button>
           </div>
         </div>
         <div style={styles.mdBlockBar}>
@@ -780,7 +783,7 @@ export default function MatchView({
           confirmation), so one shared action across all three isn't a
           behavior change. */}
       {isPreKickoff && nextIv && (
-        // Start now lives in the header (see mdHeaderPrimaryBtn above), so
+        // Start now lives in the timer row (see mdTimerPrimaryBtn above), so
         // this is context only — no button to duplicate it.
         <div style={styles.mdActionBar}>
           <div style={styles.mdActionBarStatusRow}>

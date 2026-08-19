@@ -545,21 +545,33 @@ export const styles = {
     width: 38, height: 38, borderRadius: tokens.radius.iconButton, border: "none", background: "#fff",
     display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0,
   },
-  // Start/Pause, in the header's top row rather than buried at the bottom
-  // of the page — real-device feedback found the old bottom action bar
-  // hard to reach reliably. Filled yellow + slightly larger than the other
-  // header icon buttons so it still reads as the primary action even
-  // sitting next to the plain white cog/reset buttons.
-  mdHeaderPrimaryBtn: {
-    width: 44, height: 44, borderRadius: tokens.radius.iconButton, border: "none", background: tokens.color.yellow,
-    display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0,
-    boxShadow: tokens.shadow.solid(3, tokens.color.yellowShadow),
-  },
-  mdTimerRow: { display: "flex", alignItems: "baseline", gap: 8, marginTop: 10 },
+  // The timer row: clock (left) and the Start/Pause + Reset button group
+  // (right), vertically centered against each other so the buttons read as
+  // belonging to the clock rather than floating separately — real-device
+  // feedback asked for them "aligned with the timer... same proportions as
+  // the main timer clock" rather than small icons up by the crest.
+  mdTimerRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 10 },
+  mdTimerLeft: { display: "flex", alignItems: "baseline", gap: 8 },
   // Paused stacks the timer digits above a [Paused chip + caption] row
   // instead of one inline row — swaps flexDirection/alignItems for that
   // shape rather than needing a second, near-duplicate style.
-  mdTimerRowPaused: { flexDirection: "column", alignItems: "flex-start", gap: 4 },
+  mdTimerLeftPaused: { flexDirection: "column", alignItems: "flex-start", gap: 4 },
+  mdTimerBtnGroup: { display: "flex", alignItems: "center", gap: 8, flexShrink: 0 },
+  // Sized to match the timer digits' own visual weight (mdTimerDisplay is
+  // 66px/0.95 line-height, so ~63px tall) rather than a small icon button —
+  // this is meant to read as being exactly as important as the clock.
+  mdTimerPrimaryBtn: {
+    width: 62, height: 62, borderRadius: tokens.radius.iconButton, border: "none", background: tokens.color.yellow,
+    display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0,
+    boxShadow: tokens.shadow.solid(4, tokens.color.yellowShadow),
+  },
+  // Reset stays secondary (plain white, smaller) — same visual hierarchy
+  // as the cog button, just moved down to sit with the rest of the clock
+  // controls instead of the crest/team-name row.
+  mdTimerResetBtn: {
+    width: 44, height: 44, borderRadius: tokens.radius.iconButton, border: "none", background: "#fff",
+    display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0,
+  },
   mdTimerDisplay: {
     fontFamily: tokens.font.display, fontWeight: 800, fontSize: 66, lineHeight: 0.95, color: tokens.color.deepGreen,
     fontVariantNumeric: "tabular-nums",
