@@ -245,6 +245,105 @@ describe("useMatchState — guard clauses", () => {
   });
 });
 
+describe("useMatchState — addArrival / removeAvailability (A7-Squad-change)", () => {
+  // A 7-player roster this time — p6 deliberately left off availableIds,
+  // the "hasn't arrived yet" case addArrival is for. 6 of the 7 available
+  // meets this app's own minimum (fieldSize + 1, i.e. at least one bench
+  // spot) for fieldSize 5, so this is a squad that could actually start a
+  // real game, not an artificially short one.
+  const ROSTER7 = Array.from({ length: 7 }, (_, i) => ({ id: `p${i}`, name: `Player ${i}`, keeperEligible: true }));
+  const TEAM7 = { id: "t1", name: "Scorpions", roster: ROSTER7, settings: { fieldSize: 5, gameMinutes: 12, subIntervalMinutes: 6 } };
+
+  function setup7(available) {
+    const { result } = renderHook(() => useMatchState({ activeTeamId: "t1", teamData: TEAM7, saveTeamData: vi.fn() }));
+    act(() => {
+      result.current.setAvailableIds(available);
+      result.current.setGameSettings({ fieldSize: 5, gameMinutes: 12, subIntervalMinutes: 6 });
+    });
+    act(() => result.current.startPlanning());
+    return { result };
+  }
+
+  it("addArrival adds the player to availableIds and rebuilds only the plan's remainder — not the whole game", () => {
+    const { result } = setup7(ROSTER7.slice(0, 6).map((p) => p.id)); // p0-p5, p6 not here yet
+    act(() => result.current.setElapsedSec(90)); // mid interval 0
+    const priorInterval0 = result.current.plan[0];
+
+    act(() => result.current.addArrival("p6"));
+
+    expect(result.current.availableIds).toContain("p6");
+    // The clock itself is untouched — addArrival must never look like
+    // startPlanning's full reset.
+    expect(result.current.elapsedSec).toBe(90);
+    // p6 joins the bench queue for the rest of interval 0 (fieldSize 5 was
+    // already full with 5 of p0-p5 on the pitch — no opening to walk
+    // straight into), not inserted retroactively as if they'd been there
+    // all along.
+    expect(result.current.plan[0].bench).toContain("p6");
+    expect(result.current.plan[0].onField.map((p) => p.id)).not.toContain("p6");
+    // Interval 0 is otherwise the exact plan already being played, not
+    // silently reference-swapped out from under the coach.
+    expect(result.current.plan[0].onField).toEqual(priorInterval0.onField);
+  });
+
+  it("addArrival does nothing if the player is already available", () => {
+    const { result } = setupWithPlan(); // all 6 already available
+    const planBefore = result.current.plan;
+    act(() => result.current.addArrival("p0"));
+    expect(result.current.plan).toBe(planBefore); // nothing rebuilt — same reference
+  });
+
+  it("addArrival fills a genuine opening immediately when the pitch is short a player", () => {
+    // Start with all 6 available (p0-p5), then two injuries mid-game drop
+    // it to 4 remaining — below fieldSize 5, so the pitch itself shrinks
+    // to 4 (generatePlan caps to whoever's actually available; the
+    // fieldSize+1 minimum only gates *starting* a game, not a mid-game
+    // rebuild). p6 arriving then finds a real opening, not just a bench
+    // queue, since the pitch has room again once they're counted.
+    const { result } = setup7(ROSTER7.slice(0, 6).map((p) => p.id));
+    // Two separate act()s, not one — handleInjury closes over this
+    // render's state, so batching both calls into a single act() would
+    // have the second call read injuredThisGame from before the first
+    // one's update ever committed.
+    act(() => result.current.handleInjury("p4"));
+    act(() => result.current.handleInjury("p5"));
+    expect(result.current.plan[result.current.activeInterval].onField).toHaveLength(4);
+
+    act(() => result.current.addArrival("p6"));
+    const cur = result.current.plan[result.current.activeInterval];
+    expect(cur.onField.map((p) => p.id)).toContain("p6");
+    expect(cur.bench).not.toContain("p6");
+  });
+
+  it("removeAvailability removes the player from availableIds and pulls them off the pitch immediately if they were on it", () => {
+    const { result } = setupWithPlan(); // 6 available, fieldSize 5
+    act(() => result.current.setElapsedSec(90));
+    const onFieldId = result.current.plan[0].onField[0].id;
+
+    act(() => result.current.removeAvailability(onFieldId));
+
+    expect(result.current.availableIds).not.toContain(onFieldId);
+    expect(result.current.elapsedSec).toBe(90); // clock untouched, same guarantee as addArrival
+    expect(result.current.plan[0].onField.map((p) => p.id)).not.toContain(onFieldId);
+    expect(result.current.plan[0].bench).not.toContain(onFieldId); // gone entirely, not benched
+  });
+
+  it("removeAvailability does nothing if the player wasn't available in the first place", () => {
+    const { result } = setupWithPlan();
+    const planBefore = result.current.plan;
+    act(() => result.current.removeAvailability("not-a-real-id"));
+    expect(result.current.plan).toBe(planBefore);
+  });
+
+  it("removeAvailability never touches injuredThisGame/injuredAt — it's a different concept from an injury", () => {
+    const { result } = setupWithPlan();
+    const onFieldId = result.current.plan[0].onField[0].id;
+    act(() => result.current.removeAvailability(onFieldId));
+    expect(result.current.injuredThisGame).toEqual([]);
+    expect(result.current.injuredAt).toEqual({});
+  });
+});
+
 describe("useMatchState — swapping on a browsed (not-necessarily-live) interval", () => {
   // performSwap always reads plan[activeInterval] — there's no separate
   // "live interval" concept it enforces. A coach can tap ahead to a later

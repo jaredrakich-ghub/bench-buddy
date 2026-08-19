@@ -15,6 +15,7 @@ import SeasonSummaryModal from "./SeasonSummaryModal.jsx";
 import SquadSettingsForm from "./SquadSettingsForm.jsx";
 import MatchView from "./MatchView.jsx";
 import TeamAccountScreen from "./TeamAccountScreen.jsx";
+import SquadChangeScreen from "./SquadChangeScreen.jsx";
 import LoadingScreen from "./LoadingScreen.jsx";
 import headerMascot from "../assets/header-mascot.jpg";
 
@@ -42,7 +43,7 @@ export default function SubRotationPlanner({ user }) {
     timerRunning, setTimerRunning, subLog, setSubLog, swapPickId, setSwapPickId,
     startingGkId, setStartingGkId,
     keeperEligibleIds,
-    startPlanning, handleInjury, bringBack, performSwap,
+    startPlanning, handleInjury, bringBack, performSwap, addArrival, removeAvailability,
   } = match;
 
   const [newPlayerName, setNewPlayerName] = useState("");
@@ -50,6 +51,7 @@ export default function SubRotationPlanner({ user }) {
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [showSeasonModal, setShowSeasonModal] = useState(false);
   const [showTeamSwitcher, setShowTeamSwitcher] = useState(false);
+  const [showSquadChange, setShowSquadChange] = useState(false);
   // Set when a save fails — either a team-registry save or a match-state
   // save — surfaced as a persistent banner rather than swallowed, so a
   // coach isn't silently trusting saves that aren't happening. Whichever
@@ -84,6 +86,7 @@ export default function SubRotationPlanner({ user }) {
     setShowSettingsModal(false);
     setShowSummaryModal(false);
     setShowSeasonModal(false);
+    setShowSquadChange(false);
     setSwapPickId(null);
     setStartingGkId(null);
 
@@ -381,6 +384,7 @@ export default function SubRotationPlanner({ user }) {
             onSwap={performSwap}
             onShowSummary={() => setShowSummaryModal(true)}
             onShowSettings={() => setShowSettingsModal(true)}
+            onShowSquadChange={() => setShowSquadChange(true)}
             onShowSeason={() => setShowSeasonModal(true)}
             onShowTeamSwitcher={() => setShowTeamSwitcher(true)}
             onSignOut={signOutUser}
@@ -434,6 +438,25 @@ export default function SubRotationPlanner({ user }) {
               numberOf={numberOf}
               keeperEligibleIds={keeperEligibleIds}
               onClose={() => setShowSeasonModal(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {showSquadChange && plan && (
+        // README > A7-Squad-change — same full-screen takeover pattern as
+        // every other non-match screen.
+        <div style={styles.mdFullScreenTakeoverOuter}>
+          <div style={styles.mdFullScreenTakeoverInner}>
+            <SquadChangeScreen
+              roster={teamData.roster}
+              availableIds={availableIds}
+              plan={plan}
+              activeInterval={activeInterval}
+              numberOf={numberOf}
+              onAddArrival={addArrival}
+              onRemoveAvailability={removeAvailability}
+              onClose={() => setShowSquadChange(false)}
             />
           </div>
         </div>

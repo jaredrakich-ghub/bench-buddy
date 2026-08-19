@@ -103,6 +103,7 @@ function baseProps(overrides = {}) {
     onSwap: vi.fn(),
     onShowSummary: vi.fn(),
     onShowSettings: vi.fn(),
+    onShowSquadChange: vi.fn(),
     onShowSeason: vi.fn(),
     onShowTeamSwitcher: vi.fn(),
     onSignOut: vi.fn(),
@@ -248,12 +249,15 @@ describe("MatchView — cog menu (anchored popover)", () => {
   it("every row calls its own callback and closes the menu", async () => {
     const onShowSummary = vi.fn();
     const onShowSettings = vi.fn();
+    const onShowSquadChange = vi.fn();
     const onShowSeason = vi.fn();
     const onShowTeamSwitcher = vi.fn();
     const onSignOut = vi.fn();
     const user = userEvent.setup();
     render(
-      <MatchView {...baseProps({ onShowSummary, onShowSettings, onShowSeason, onShowTeamSwitcher, onSignOut })} />
+      <MatchView
+        {...baseProps({ onShowSummary, onShowSettings, onShowSquadChange, onShowSeason, onShowTeamSwitcher, onSignOut })}
+      />
     );
 
     await user.click(screen.getByTitle("Menu"));
@@ -263,11 +267,11 @@ describe("MatchView — cog menu (anchored popover)", () => {
 
     await user.click(screen.getByTitle("Menu"));
     await user.click(screen.getByText("Squad change"));
-    expect(onShowSettings).toHaveBeenCalledTimes(1);
+    expect(onShowSquadChange).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByTitle("Menu"));
     await user.click(screen.getByText("Game settings"));
-    expect(onShowSettings).toHaveBeenCalledTimes(2);
+    expect(onShowSettings).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByTitle("Menu"));
     await user.click(screen.getByText("Season data"));
@@ -275,7 +279,7 @@ describe("MatchView — cog menu (anchored popover)", () => {
 
     await user.click(screen.getByTitle("Menu"));
     await user.click(screen.getByText("Manage squad"));
-    expect(onShowSettings).toHaveBeenCalledTimes(3);
+    expect(onShowSettings).toHaveBeenCalledTimes(2);
 
     await user.click(screen.getByTitle("Menu"));
     await user.click(screen.getByText("Switch team"));

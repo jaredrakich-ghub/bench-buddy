@@ -73,6 +73,7 @@ export const tokens = {
     disabledBorder: "#DCD3BB", // A7's "not here" disc/text base, A8's dashed "Add a team" border
     groupLabel: "#3E5148", // group-header label color on the shared sub-header screens (A8, and A6/A7/A5-Minutes when built)
     benchText: "#8C8677", // A5-Minutes' BENCH column, also A7's "not here" text
+    unavailableText: "#A39C8A", // A7-Squad-change's "not here" status line
     // A5-Minutes' em-dash-for-zero is #C9C4B6 — same value as `chevron`
     // above, so reuse that token directly rather than duplicating it here.
   },
@@ -1066,4 +1067,71 @@ export const styles = {
   },
   mdSeasonGameLabel: { flex: 1, fontFamily: tokens.font.body, fontWeight: 800, fontSize: 14, color: tokens.color.deepGreen },
   mdSeasonGameMeta: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 12, color: tokens.color.mutedText },
+
+  // ---- A7-Squad-change (#10d) — README: "Who's here?" — the only screen
+  // that adds or removes a player from the game mid-match, without
+  // touching the clock or the plan already played (see addArrival/
+  // removeAvailability, rotation.js/useMatchState.js — deliberately NOT
+  // built on the destructive "Save & Regenerate" path). Context chip
+  // reuses mdSubHeaderChip directly (same shape, just "{N} in" instead of
+  // an elapsed time). Row shell doesn't reuse mdMinutesRow/mdSeasonRow —
+  // this screen's cards sit in a 2-column grid, not a single-column list.
+  mdArrivalCallout: {
+    display: "flex", alignItems: "center", gap: 12, background: tokens.color.mint,
+    borderRadius: tokens.radius.rowLg, padding: "12px 14px", marginBottom: 12,
+  },
+  mdArrivalCalloutDisc: {
+    width: 34, height: 34, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center",
+    justifyContent: "center", fontFamily: tokens.font.display, fontWeight: 800, fontSize: 14,
+    background: tokens.color.pitchGreen, color: tokens.color.creamPaper,
+  },
+  mdArrivalCalloutText: { display: "flex", flexDirection: "column", gap: 1, minWidth: 0 },
+  mdArrivalCalloutName: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 19, color: tokens.color.deepGreen },
+  mdArrivalCalloutSub: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 12.5, color: tokens.color.groupLabel },
+  mdSquadGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9 },
+  // Base shape shared by both card states — background/shadow (the only
+  // real difference besides text color) applied per state below, same
+  // pattern as mdTeamAcctCard/mdTeamAcctCardActive.
+  mdSquadCard: {
+    display: "flex", alignItems: "center", gap: 9, width: "100%", border: "none",
+    borderRadius: tokens.radius.rowLg, padding: "10px 11px", cursor: "pointer", textAlign: "left", font: "inherit",
+  },
+  mdSquadCardAvailable: { background: "#fff", boxShadow: tokens.shadow.solid(3, "rgba(28,58,46,.10)") },
+  mdSquadCardUnavailable: { background: tokens.color.creamDeep },
+  // Tap-to-select before the action bar's named button commits the change
+  // — not in the README's own A7 spec (which only describes the two
+  // Available/Unavailable resting states), but a two-step tap-then-confirm
+  // flow reads safer than an instant add/remove on a single tap, especially
+  // for the on-pitch removal case. Same yellow-ring "lit" language as
+  // mdBenchChipLit, replacing rather than layering onto the resting shadow.
+  mdSquadCardSelected: { boxShadow: `0 0 0 3px ${tokens.color.yellow}` },
+  mdSquadCardDisc: {
+    width: 32, height: 32, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center",
+    justifyContent: "center", fontFamily: tokens.font.display, fontWeight: 800, fontSize: 13,
+    background: tokens.color.pitchGreen, color: tokens.color.creamPaper,
+  },
+  mdSquadCardDiscUnavailable: { background: tokens.color.disabledBorder, color: tokens.color.benchText },
+  mdSquadCardInfo: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 1 },
+  mdSquadCardName: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 15, color: tokens.color.deepGreen },
+  mdSquadCardNameUnavailable: { color: tokens.color.benchText },
+  // "on pitch" / "bench" (available) vs "not here" (unavailable).
+  mdSquadCardStatus: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 11.5, color: tokens.color.mutedText },
+  mdSquadCardStatusUnavailable: { color: tokens.color.unavailableText },
+  // Sits in the same fixed bottom shell as the match screen's action bar
+  // (mdActionBarOuter/mdActionBar) — this screen replaces that bar rather
+  // than showing both at once (see SquadChangeScreen.jsx), so no need for
+  // a third near-identical fixed-shell pair.
+  mdSquadChangeCaption: {
+    fontFamily: tokens.font.body, fontWeight: 800, fontSize: 13.5, color: tokens.color.mutedOnDark, marginBottom: 10,
+  },
+  mdSquadChangeBtn: {
+    width: "100%", height: 66, borderRadius: tokens.radius.buttonMd, border: "none", background: tokens.color.yellow,
+    color: tokens.color.deepGreen, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 24,
+    boxShadow: tokens.shadow.solid(5, tokens.color.yellowShadow), cursor: "pointer",
+  },
+  // Removing someone currently on the pitch — same red used for the
+  // injury flow's own primary actions elsewhere on this screen family.
+  mdSquadChangeBtnDanger: {
+    background: tokens.color.injuryRed, color: "#fff", boxShadow: "none",
+  },
 };

@@ -277,6 +277,108 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
     setInjuredThisGame(newInjuredList);
   };
 
+  // README > A7-Squad-change (#10d): a player who wasn't part of the game
+  // yet — arrived late, or was simply left off availability at kickoff —
+  // joins the rotation from right now. Same "freeze the current interval,
+  // rebuild the remainder" pattern as bringBack (which returns someone
+  // from injuredThisGame); generalized to someone who's never been in
+  // availableIds at all. Reuses resolveBringBack directly — it has no
+  // injury-specific coupling, just "does an opening exist right now, and
+  // if not, who's most owed the promotion" — so the newcomer joins the
+  // bench queue for what's left of this interval, or fills a genuine
+  // opening if one exists, exactly like a returning player would.
+  //
+  // Deliberately NOT routed through startPlanning/generateFixedPlan —
+  // that resets the whole clock and subLog (see its own comment), which
+  // would erase a game already in progress just to add one late arrival.
+  // This only touches the plan from the current interval forward, the
+  // same safety guarantee the injury/bring-back flow already has.
+  const addArrival = (playerId) => {
+    if (availableIds.includes(playerId)) return;
+    const newAvailableIds = [...availableIds, playerId];
+
+    const priorIntervals = plan.slice(0, activeInterval);
+    const cur = plan[activeInterval];
+    const remainingAvailableThisInterval = newAvailableIds.filter((id) => !injuredThisGame.includes(id));
+    const normalFieldSize = Math.min(gameSettings.fieldSize, remainingAvailableThisInterval.length);
+    const standing = buildCarryState(newAvailableIds, priorIntervals);
+    const { onField, bench } = resolveBringBack({
+      playerId, onField: cur.onField, bench: cur.bench, standing, normalFieldSize,
+    });
+    const frozenCurrent = { ...cur, onField, bench };
+    const doneIntervals = [...priorIntervals, frozenCurrent];
+
+    // Not "back of a queue they were already waiting in" — a brand-new
+    // arrival's consecBench naturally comes out at "however many
+    // intervals have already happened" (buildCarryState counts every
+    // prior interval they weren't part of), which is the right instinct
+    // here: it prioritizes bringing them on soon rather than treating a
+    // midway arrival as having zero claim on minutes.
+    const carryState = buildCarryState(newAvailableIds, doneIntervals);
+
+    const { numIntervals } = computeIntervals(gameSettings.gameMinutes, gameSettings.subIntervalMinutes);
+    const keeperShiftIntervals = keeperShiftIntervalsFor(gameSettings.subIntervalMinutes, gameSettings.keeperShiftMinutes);
+    const currentGkId = lastGkId(doneIntervals);
+    const { intervals: rebuiltRemainder } = generatePlan({
+      availableIds: remainingAvailableThisInterval,
+      gameMinutes: gameSettings.gameMinutes,
+      numIntervals,
+      fieldSize: gameSettings.fieldSize,
+      keeperEligibleIds,
+      startInterval: activeInterval + 1,
+      carryState,
+      keeperShiftIntervals,
+      currentGkId,
+    });
+    repairBenchToKeeper({
+      intervals: rebuiltRemainder, keeperEligibleIds, currentGkId, carryState,
+      previousOnFieldIds: frozenCurrent.onField.map((p) => p.id),
+    });
+
+    setPlan([...priorIntervals, frozenCurrent, ...rebuiltRemainder]);
+    setAvailableIds(newAvailableIds);
+  };
+
+  // The opposite of addArrival: an available player leaves early. Deliberately
+  // *not* the same thing as an injury (handleInjury/rebuildFromInterval) —
+  // this is plain "not here anymore", not "hurt", so it never touches
+  // injuredThisGame/injuredAt and the player never gets the red-cross
+  // treatment elsewhere in the UI. Mechanically identical to
+  // rebuildFromInterval's own pattern otherwise: rebuilds from the
+  // *current* interval (not +1) since README > A7-Squad-change says
+  // removing someone already on the pitch is real — they come off
+  // immediately, same as an injury would, just without the injury framing.
+  const removeAvailability = (playerId) => {
+    if (!availableIds.includes(playerId)) return;
+    const newAvailableIds = availableIds.filter((id) => id !== playerId);
+
+    const remainingAvailable = newAvailableIds.filter((id) => !injuredThisGame.includes(id));
+    const priorIntervals = plan.slice(0, activeInterval);
+    const carryState = buildCarryState(newAvailableIds, priorIntervals);
+
+    const { numIntervals } = computeIntervals(gameSettings.gameMinutes, gameSettings.subIntervalMinutes);
+    const keeperShiftIntervals = keeperShiftIntervalsFor(gameSettings.subIntervalMinutes, gameSettings.keeperShiftMinutes);
+    const currentGkId = lastGkId(priorIntervals);
+    const { intervals: rebuiltRemainder } = generatePlan({
+      availableIds: remainingAvailable,
+      gameMinutes: gameSettings.gameMinutes,
+      numIntervals,
+      fieldSize: gameSettings.fieldSize,
+      keeperEligibleIds,
+      startInterval: activeInterval,
+      carryState,
+      keeperShiftIntervals,
+      currentGkId,
+    });
+    repairBenchToKeeper({
+      intervals: rebuiltRemainder, keeperEligibleIds, currentGkId, carryState,
+      previousOnFieldIds: priorIntervals[priorIntervals.length - 1]?.onField.map((p) => p.id),
+    });
+
+    setPlan([...priorIntervals, ...rebuiltRemainder]);
+    setAvailableIds(newAvailableIds);
+  };
+
   // Manual override: swap any two players — either could currently be on
   // the bench or already on the pitch (including the keeper), effective for
   // the rest of the current interval. Covers what used to be two separate
@@ -379,6 +481,6 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
     startingGkId, setStartingGkId,
     saveError, setSaveError,
     keeperEligibleIds,
-    startPlanning, handleInjury, bringBack, performSwap,
+    startPlanning, handleInjury, bringBack, performSwap, addArrival, removeAvailability,
   };
 }

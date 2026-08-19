@@ -88,6 +88,7 @@ export default function MatchView({
   onSwap,
   onShowSummary,
   onShowSettings,
+  onShowSquadChange,
   onShowSeason,
   onShowTeamSwitcher,
   onSignOut,
@@ -885,7 +886,7 @@ export default function MatchView({
                 style={styles.mdPopoverRow}
                 onClick={() => {
                   setCogOrigin(null);
-                  onShowSettings();
+                  onShowSquadChange();
                 }}
               >
                 <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintGreen }}>
