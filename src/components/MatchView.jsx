@@ -320,18 +320,6 @@ export default function MatchView({
   const shirtWidth = tokenSize;
   const shirtHeight = Math.round(tokenSize * (58 / 62));
 
-  // Which of breakSegments' blocks (see computeBreakBoundaries above) have
-  // fully elapsed — purely a display split for the header's block bar,
-  // same "zero effect on the actual plan" caveat as breakBoundaries itself.
-  const sortedBreakBoundaries = [...breakBoundaries].sort((a, b) => a - b);
-  const blockRanges = [];
-  let blockRangeStart = 0;
-  for (const b of sortedBreakBoundaries) {
-    blockRanges.push([blockRangeStart, b]);
-    blockRangeStart = b;
-  }
-  blockRanges.push([blockRangeStart, plan.length]);
-
   // The action bar's small muted status line (e.g. "2 to swap · 1 out") —
   // tied to the LIVE upcoming change like the rest of the countdown, not
   // whichever interval the coach happens to be browsing (viewedIv).
@@ -432,7 +420,10 @@ export default function MatchView({
   };
 
   return (
-    <section>
+    // Bottom padding clears the fixed action bar (see mdActionBar) so the
+    // bench/injured rows never end up hidden underneath it — the bar is
+    // absent for match-complete, but the wasted space there is harmless.
+    <section style={!isMatchComplete ? { paddingBottom: 90 } : undefined}>
       <div style={styles.mdHeader}>
         <div style={styles.mdHeaderTopRow}>
           <div style={styles.mdCrestOuter}>{crestSrc && <img src={crestSrc} alt="" style={styles.mdCrestImg} />}</div>
@@ -452,14 +443,18 @@ export default function MatchView({
           </button>
         </div>
         <div style={styles.mdTimerRow}>
-          <div style={{ ...styles.mdTimerLeft, ...(isPaused ? styles.mdTimerLeftPaused : {}) }}>
+          {/* No more "Paused" text chip — the Play/Pause icon already says
+              which state it's in, and the chip was forcing this row to
+              stack vertically on pause (digits above, chip+caption below),
+              which shifted the buttons out of alignment with the clock
+              every time. One consistent row now regardless of state; the
+              greyed-out digit color (mdTimerDisplayPaused) is still the
+              paused "look", just without a redundant label. */}
+          <div style={styles.mdTimerLeft}>
             <span style={{ ...styles.mdTimerDisplay, ...(isPaused ? styles.mdTimerDisplayPaused : {}) }}>
               {fmtClock(elapsedSec)}
             </span>
-            <div style={styles.mdTimerCaptionRow}>
-              {isPaused && <span style={styles.mdPausedChip}>Paused</span>}
-              <span style={styles.mdTimerCaption}>of {Math.round(totalGameSec / 60)} min</span>
-            </div>
+            <span style={styles.mdTimerCaption}>of {Math.round(totalGameSec / 60)} min</span>
           </div>
           {/* Start/Pause and Reset sit right beside the clock, sized to
               match it — the coach's own real-device feedback: reachable
@@ -485,17 +480,6 @@ export default function MatchView({
               <RotateCcw size={20} color={tokens.color.deepGreen} />
             </button>
           </div>
-        </div>
-        <div style={styles.mdBlockBar}>
-          {blockRanges.map(([, end], i) => (
-            <div
-              key={i}
-              style={{
-                ...styles.mdBlockSegment,
-                ...(elapsedSec >= plan[end - 1].endMin * 60 ? styles.mdBlockSegmentElapsed : {}),
-              }}
-            />
-          ))}
         </div>
       </div>
 
@@ -563,7 +547,7 @@ export default function MatchView({
                 {isGk && <span style={styles.mdGkTag}>GK</span>}
                 {showNextSubBadges && comingOffIds.has(id) && (
                   <span style={styles.mdOutgoingBadge} title="Coming off next interval">
-                    <ArrowDown size={13} strokeWidth={3} color="#fff" />
+                    <ArrowDown size={11} strokeWidth={3.5} color="#fff" />
                   </span>
                 )}
                 {showNextSubBadges && becomingKeeperId === id && (
@@ -588,30 +572,13 @@ export default function MatchView({
         {viewedIv.bench.length === 0 ? (
           <span style={styles.mdBenchEmpty}>Full squad on field</span>
         ) : (
-          <>
-            {/* Side by side rather than stacked — a single keeper chip on
-                its own full-width row was wasting the entire right half of
-                the strip (real-device feedback: "should use more of the
-                space on the right side rather than forcing 2 lines"). */}
-            <div style={styles.mdBenchSplitGrid}>
-              <div>
-                <div style={styles.mdBenchSubLabel}>Outfield (waiting)</div>
-                <div style={styles.mdBenchChipRow}>
-                  {viewedIv.bench.filter((id) => id !== becomingKeeperId).map(renderBenchToken)}
-                </div>
-              </div>
-              <div>
-                <div style={styles.mdBenchSubLabel}>Keeper (waiting)</div>
-                <div style={styles.mdBenchChipRow}>
-                  {viewedIv.bench.includes(becomingKeeperId) ? (
-                    renderBenchToken(becomingKeeperId)
-                  ) : (
-                    <span style={styles.mdBenchEmpty}>—</span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </>
+          // One row, no "Outfield (waiting)"/"Keeper (waiting)" sub-labels —
+          // renderBenchToken already flips the keeper-eligible player's
+          // number disc gold and shows the 🧤 badge when they're becoming
+          // keeper next interval, which was the whole point of the split;
+          // the labels were redundant with that and cost two lines of
+          // vertical space for what's usually a single extra chip.
+          <div style={styles.mdBenchChipRow}>{viewedIv.bench.map(renderBenchToken)}</div>
         )}
         {injuredThisGame.length > 0 && (
           <>
@@ -786,7 +753,7 @@ export default function MatchView({
         // Start now lives in the timer row (see mdTimerPrimaryBtn above), so
         // this is context only — no button to duplicate it.
         <div style={styles.mdActionBar}>
-          <div style={styles.mdActionBarStatusRow}>
+          <div style={styles.mdActionBarInlineRow}>
             <span style={styles.mdActionBarCountdown}>Ready to go</span>
             <span style={styles.mdActionBarStatus}>first sub at {nextIv.startMin}′</span>
           </div>
@@ -795,18 +762,17 @@ export default function MatchView({
 
       {isPaused && (
         <div style={styles.mdActionBar}>
-          <div style={styles.mdActionBarStatusRow}>
+          <div style={styles.mdActionBarInlineRow}>
             <span style={styles.mdActionBarCountdown}>Clock stopped</span>
-            {nextIv && <span style={styles.mdActionBarStatus}>sub due in {fmtClock(Math.max(0, secLeftInInterval))}</span>}
+            {nextIv && (
+              <button
+                style={styles.mdActionBarBtnCompact}
+                onClick={() => setSubLog((prev) => ({ ...prev, [cur.index]: elapsedSec }))}
+              >
+                Sub now
+              </button>
+            )}
           </div>
-          {nextIv && (
-            <button
-              style={{ ...styles.mdActionBarBtnPrimary, width: "100%" }}
-              onClick={() => setSubLog((prev) => ({ ...prev, [cur.index]: elapsedSec }))}
-            >
-              Sub now
-            </button>
-          )}
         </div>
       )}
 
@@ -815,20 +781,23 @@ export default function MatchView({
         // sheet below (not rendered at the same time) — they'd otherwise
         // show the exact same "Next sub" countdown twice at once, which is
         // redundant even with one of the two dimmed behind a scrim. Pause
-        // lives in the header now, so this bar is just the sub-confirm action.
+        // lives in the header now, so this bar is just the sub-confirm
+        // action, countdown and button on one row — the "X to swap" detail
+        // that used to sit under the countdown is dropped here too, since
+        // the final-60 takeover already surfaces that detail when it
+        // actually matters (inside 60 seconds of the sub).
         <div style={styles.mdActionBar}>
-          <div style={styles.mdActionBarStatusRow}>
+          <div style={styles.mdActionBarInlineRow}>
             <span style={styles.mdActionBarCountdown}>Next sub {fmtClock(Math.max(0, secLeftInInterval))}</span>
-            {actionBarStatus && <span style={styles.mdActionBarStatus}>{actionBarStatus}</span>}
+            {nextIv && (
+              <button
+                style={styles.mdActionBarBtnCompact}
+                onClick={() => setSubLog((prev) => ({ ...prev, [cur.index]: elapsedSec }))}
+              >
+                Sub done ✓
+              </button>
+            )}
           </div>
-          {nextIv && (
-            <button
-              style={{ ...styles.mdActionBarBtnPrimary, width: "100%" }}
-              onClick={() => setSubLog((prev) => ({ ...prev, [cur.index]: elapsedSec }))}
-            >
-              Sub done ✓
-            </button>
-          )}
         </div>
       )}
 

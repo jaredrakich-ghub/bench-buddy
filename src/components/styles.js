@@ -123,7 +123,12 @@ export const tokens = {
 };
 
 export const styles = {
-  app: { fontFamily: "system-ui, -apple-system, sans-serif", background: colors.chalk, minHeight: 500, color: colors.ink },
+  // background was the old pre-redesign colors.chalk (pale grey) — the
+  // match-day redesign's cards (bench strip, action bar, popovers) are all
+  // designed against the warm "cream paper" page background instead, so
+  // that stale chalk was showing through the header's rounded corners and
+  // the gaps between cards, reading as a missing/unstyled background.
+  app: { fontFamily: "system-ui, -apple-system, sans-serif", background: tokens.color.creamPaper, minHeight: 500, color: colors.ink },
   header: {
     background: `linear-gradient(135deg, ${colors.grass} 0%, ${colors.grassLight} 100%)`,
     borderBottom: "3px solid " + colors.gk, boxShadow: "0 2px 8px rgba(0,0,0,0.25)", padding: "10px 16px",
@@ -241,32 +246,27 @@ export const styles = {
     WebkitMaskImage: "linear-gradient(to right, black calc(100% - 40px), transparent 100%)",
     maskImage: "linear-gradient(to right, black calc(100% - 40px), transparent 100%)",
   },
-  // Border kept as separate longhand properties (not the border shorthand)
-  // specifically so intervalTabBreakStart below can override just
-  // borderLeftColor/borderLeftWidth — same reasoning as subIntervalChip
-  // above: mixing a shorthand base with a longhand override on the same
-  // element is what React's "removing a style property during rerender"
-  // warning is about, and it's not just noise here — breakBoundaries can
-  // toggle a given tab in or out of this style across renders (settings
-  // change, browsing a different game), which is exactly the "flips
-  // between states live" case that bites.
-  // Sub-window chip row — match-day redesign styling (pill shape, no
-  // border; see tokens above). Active/inactive read purely from fill color
-  // now rather than border + fill, since flat pills with no border
-  // anywhere else in this row is the design's whole visual language here.
+  // Reverted back to the pre-redesign bordered-card look on real-device
+  // feedback ("I prefer your styling previously on the interval buttons")
+  // — the match-day redesign had switched these to borderless pills
+  // (tokens.color.creamDeep/deepGreen), but that didn't hold up in
+  // practice. Border kept as separate longhand properties (not the border
+  // shorthand) specifically so intervalTabBreakStart below can override
+  // just borderLeftColor/borderLeftWidth without React's "removing a style
+  // property during rerender" warning — breakBoundaries can toggle a given
+  // tab in or out of that style across renders (settings change, browsing
+  // a different game), which is exactly the case that bites.
   intervalTab: {
-    flex: "0 0 auto", padding: "8px 14px", borderRadius: tokens.radius.chip, border: "none",
-    background: tokens.color.creamDeep, color: tokens.color.mutedText,
-    fontFamily: tokens.font.body, fontWeight: 800, fontSize: 14, cursor: "pointer",
+    flex: "0 0 auto", padding: "9px 12px", borderRadius: 8,
+    borderWidth: 1, borderStyle: "solid", borderColor: colors.border,
+    background: colors.cardBg, fontSize: 12, fontWeight: 700, cursor: "pointer", color: colors.ink,
     scrollSnapAlign: "start",
   },
-  intervalTabActive: { background: tokens.color.deepGreen, color: tokens.color.creamPaper },
+  intervalTabActive: { background: colors.grass, color: colors.chalk, borderColor: colors.grass },
   // Purely visual grouping for a half-time/third-time/quarter-time break
-  // (see computeBreakBoundaries, rotation.js) — just extra gap now (no
-  // accent border) since the redesign's pills don't use borders anywhere
-  // else in this row; the gap alone still reads as "a new section starts
-  // here".
-  intervalTabBreakStart: { marginLeft: 12 },
+  // (see computeBreakBoundaries, rotation.js) — extra gap plus a colored
+  // left edge reads as "a new section starts here".
+  intervalTabBreakStart: { marginLeft: 12, borderLeftWidth: 2, borderLeftColor: colors.field },
 
   // ---- Match-day redesign (Direction A) — pitch, shirts, bench, action
   // bar. See design_handoff_bench_buddy_match_day/README.md and the
@@ -307,11 +307,12 @@ export const styles = {
     fontSize: 11, padding: "1px 6px", borderRadius: tokens.radius.chip,
   },
   mdShirtPlayerName: { color: "#fff", fontFamily: tokens.font.body, fontSize: 12, fontWeight: 800, textAlign: "center" },
-  // The one badge shape the design spells out explicitly (a pill, not a
-  // circle) — everyone leaving the pitch next interval, regardless of
-  // whether it's a regular sub or a keeper stepping down.
+  // Everyone leaving the pitch next interval, regardless of whether it's a
+  // regular sub or a keeper stepping down. Same 18px circle as nextOnBadge
+  // (real-device feedback: the two should read as the same size/shape,
+  // just red vs green) — was a slightly larger pill before.
   mdOutgoingBadge: {
-    position: "absolute", top: 0, right: -2, width: 26, height: 22, borderRadius: tokens.radius.chip,
+    position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: "50%",
     background: tokens.color.alertRed, display: "flex", alignItems: "center", justifyContent: "center",
     pointerEvents: "none", boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
   },
@@ -337,11 +338,6 @@ export const styles = {
   mdBenchLabel: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 15, color: tokens.color.mutedText, marginBottom: 8 },
   mdBenchSubLabel: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 12, color: tokens.color.mutedText, marginBottom: 6 },
   mdBenchChipRow: { display: "flex", flexWrap: "wrap", gap: 8 },
-  // Outfield (waiting) / Keeper (waiting) side by side rather than stacked
-  // full-width rows — a lone keeper chip otherwise left the whole right
-  // half of the strip empty. Two equal columns even though Keeper usually
-  // holds at most one chip; that's the point (it stops eating a full row).
-  mdBenchSplitGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 },
   mdBenchChip: {
     display: "flex", alignItems: "center", gap: 6, background: "#fff", borderRadius: tokens.radius.chip,
     padding: "4px 12px 4px 4px", border: "none", cursor: "pointer", font: "inherit",
@@ -545,17 +541,12 @@ export const styles = {
     width: 38, height: 38, borderRadius: tokens.radius.iconButton, border: "none", background: "#fff",
     display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0,
   },
-  // The timer row: clock (left) and the Start/Pause + Reset button group
-  // (right), vertically centered against each other so the buttons read as
-  // belonging to the clock rather than floating separately — real-device
-  // feedback asked for them "aligned with the timer... same proportions as
-  // the main timer clock" rather than small icons up by the crest.
-  mdTimerRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 10 },
+  // The timer row: clock + the Start/Pause/Reset button group, centered as
+  // one unit — real-device feedback asked for the clock and buttons to be
+  // centre-aligned together, sized/placed so the buttons read as belonging
+  // to the clock rather than floating separately.
+  mdTimerRow: { display: "flex", alignItems: "center", justifyContent: "center", gap: 14, marginTop: 10 },
   mdTimerLeft: { display: "flex", alignItems: "baseline", gap: 8 },
-  // Paused stacks the timer digits above a [Paused chip + caption] row
-  // instead of one inline row — swaps flexDirection/alignItems for that
-  // shape rather than needing a second, near-duplicate style.
-  mdTimerLeftPaused: { flexDirection: "column", alignItems: "flex-start", gap: 4 },
   mdTimerBtnGroup: { display: "flex", alignItems: "center", gap: 8, flexShrink: 0 },
   // Sized to match the timer digits' own visual weight (mdTimerDisplay is
   // 66px/0.95 line-height, so ~63px tall) rather than a small icon button —
@@ -579,29 +570,32 @@ export const styles = {
   // Paused greys the timer out — same digits, no longer counting, reads at
   // a glance as "not live right now" even before spotting the chip beside it.
   mdTimerDisplayPaused: { color: "rgba(28,58,46,.45)" },
-  mdTimerCaption: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 14, color: tokens.color.goldText },
-  mdTimerCaptionRow: { display: "flex", alignItems: "center", gap: 8 },
-  mdPausedChip: {
-    background: tokens.color.deepGreen, color: tokens.color.yellow, fontFamily: tokens.font.display, fontWeight: 800,
-    fontSize: 15, borderRadius: tokens.radius.chip, padding: "3px 11px",
+  mdTimerCaption: {
+    fontFamily: tokens.font.body, fontWeight: 800, fontSize: 14, color: tokens.color.goldText, whiteSpace: "nowrap",
   },
-  mdBlockBar: { display: "flex", gap: 5, marginTop: 10 },
-  mdBlockSegment: { flex: 1, height: 9, borderRadius: tokens.radius.chip, background: "rgba(28,58,46,.15)" },
-  mdBlockSegmentElapsed: { background: tokens.color.deepGreen },
   // Shared shell for all four action-bar states (pre-kickoff, running,
   // paused, and the final-60 sheet reuses these same status/button styles
   // too) — only the label text and which buttons render change per state.
-  // radius is top-corners-only (32 32 0 0), matching a bar that's meant to
-  // sit flush against the bottom of the screen — not yet actually pinned
-  // there with position:fixed (see the MatchView.jsx comment on why),
-  // but the shape is already correct for when it is.
+  // Pinned to the bottom of the viewport (thumb zone) rather than sitting
+  // wherever it falls in document flow after the pitch/bench — real-device
+  // feedback wanted it reachable without scrolling regardless of how far
+  // down the page the coach happens to have scrolled. MatchView.jsx adds
+  // matching bottom padding to the page content so the bench/injured rows
+  // never end up hidden underneath it.
   mdActionBar: {
+    position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 10,
     background: tokens.color.actionBar, borderRadius: `${tokens.radius.actionBarTop}px ${tokens.radius.actionBarTop}px 0 0`,
-    padding: "14px 16px", marginTop: tokens.spacing.rhythm,
+    padding: "14px 16px calc(14px + env(safe-area-inset-bottom, 0px))",
+    maxWidth: 640, margin: "0 auto",
   },
   mdActionBarStatusRow: { display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 },
-  mdActionBarCountdown: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 24, color: tokens.color.yellow },
+  mdActionBarCountdown: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 22, color: tokens.color.yellow },
   mdActionBarStatus: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 14, color: tokens.color.mutedOnDark },
+  // The compact single-row layout (label left, action button right) used
+  // by the pre-kickoff/paused/running bars — the final-60 sheet keeps its
+  // own taller stacked layout (mdActionBarStatusRow + row list + buttons)
+  // since it's a full takeover with real detail to show, not this bar.
+  mdActionBarInlineRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 },
   mdActionBarBtnRow: { display: "flex", gap: 10 },
   mdActionBarBtnPause: {
     flex: 1, height: 66, borderRadius: tokens.radius.buttonMd, border: "none", background: tokens.color.creamDeep,
@@ -613,6 +607,18 @@ export const styles = {
     color: tokens.color.deepGreen, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 18,
     boxShadow: tokens.shadow.solid(5, tokens.color.yellowShadow),
     display: "flex", alignItems: "center", justifyContent: "center", gap: 8, cursor: "pointer",
+  },
+  // Smaller than mdActionBarBtnPrimary, content-width rather than filling
+  // the bar — used by the compact pre-kickoff/paused/running bars now that
+  // the countdown sits right next to it in the same row instead of a full
+  // row of its own above (real-device feedback: "make that Sub Button
+  // smaller" + "put Next sub next to the sub done button").
+  mdActionBarBtnCompact: {
+    height: 48, padding: "0 22px", borderRadius: tokens.radius.buttonMd, border: "none", background: tokens.color.yellow,
+    color: tokens.color.deepGreen, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 16,
+    boxShadow: tokens.shadow.solid(4, tokens.color.yellowShadow),
+    display: "flex", alignItems: "center", justifyContent: "center", gap: 6, cursor: "pointer", flexShrink: 0,
+    whiteSpace: "nowrap",
   },
   // Shared full-screen dim layer — final60, the cog menu, and the
   // player-tap popover are mutually exclusive (never shown two at once,

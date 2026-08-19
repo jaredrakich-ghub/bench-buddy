@@ -326,10 +326,16 @@ describe("MatchView — action bar", () => {
     expect(screen.getByText("Next sub 2:40")).toBeInTheDocument();
   });
 
-  it("shows a swap-count status derived from who's coming off, and an out-count when someone's injured", () => {
+  // The swap-count/out-count status ("1 to swap · 1 out") used to also
+  // show on the plain running bar; real-device feedback asked for that to
+  // be dropped there ("the final 60 second window pop up will give us the
+  // detail we need") since the final60 sheet already surfaces it — see
+  // the "final60 sheet" describe block below for that coverage. The
+  // running bar itself is now just the countdown + button, no status line.
+  it("does not show a swap-count/out-count status on the plain running bar", () => {
     render(<MatchView {...baseProps({ plan: planWithP7Injured, injuredThisGame: ["p7"], activeInterval: 0, elapsedSec: 0 })} />);
-    // interval 0 -> 1: p4 comes off (regular sub) — 1 to swap. p7 already injured — 1 out.
-    expect(screen.getByText("1 to swap · 1 out")).toBeInTheDocument();
+    expect(screen.queryByText(/to swap/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\d out/)).not.toBeInTheDocument();
   });
 
   it("Sub done writes to subLog for the live interval regardless of how much time is left", () => {
@@ -379,11 +385,13 @@ describe("MatchView — pre-kickoff", () => {
 
 describe("MatchView — paused", () => {
   // !timerRunning && elapsedSec > 0 — was running, now stopped.
-  it("shows the greyed timer, a Paused chip, Clock stopped, Sub now, and the header's Resume button", () => {
+  it("shows the greyed timer, Clock stopped, Sub now, and the header's Resume button — no redundant Paused text chip", () => {
     render(<MatchView {...baseProps({ timerRunning: false, elapsedSec: 100 })} />);
-    expect(screen.getByText("Paused")).toBeInTheDocument();
+    // The Play/Pause icon button already communicates the state; a
+    // separate "Paused" text chip was dropped (real-device feedback: it
+    // forced the timer row to stack vertically and threw off alignment).
+    expect(screen.queryByText("Paused")).not.toBeInTheDocument();
     expect(screen.getByText("Clock stopped")).toBeInTheDocument();
-    expect(screen.getByText(/sub due in/)).toBeInTheDocument();
     expect(screen.getByText("Sub now")).toBeInTheDocument();
     expect(screen.getByTitle("Resume")).toBeInTheDocument();
     expect(screen.queryByText("Ready to go")).not.toBeInTheDocument();
@@ -426,6 +434,16 @@ describe("MatchView — final60 sheet", () => {
     expect(sheet.getByText("Dan")).toBeInTheDocument(); // regular sub, off
     expect(sheet.getByText("Finn")).toBeInTheDocument(); // regular sub, on
     expect(sheet.getAllByText("GK")).toHaveLength(2); // both keeper-row chips tagged
+  });
+
+  it("shows the swap-count/out-count status the plain running bar no longer carries", () => {
+    render(
+      <MatchView
+        {...baseProps({ plan: planWithP7Injured, injuredThisGame: ["p7"], activeInterval: 0, elapsedSec: 310 })}
+      />
+    );
+    const sheet = within(screen.getByTestId("final60-sheet"));
+    expect(sheet.getByText("1 to swap · 1 out")).toBeInTheDocument();
   });
 
   it("does not show once this interval's sub is already confirmed, even inside the window", () => {
