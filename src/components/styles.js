@@ -545,28 +545,39 @@ export const styles = {
   },
   // The timer row: clock + the Start/Pause/Reset button group, centered as
   // one unit — real-device feedback asked for the clock and buttons to be
-  // centre-aligned together, sized/placed so the buttons read as belonging
-  // to the clock rather than floating separately.
+  // centre-aligned together. The clock's caption stacks *under* the digits
+  // (not beside them) — mirroring the pre-redesign app's own clockBlock —
+  // rather than sitting inline next to them: a long time ("10:26") plus a
+  // wide labeled button plus Reset was overflowing/clipping off the left
+  // edge of the screen when the caption sat inline eating extra width.
   mdTimerRow: { display: "flex", alignItems: "center", justifyContent: "center", gap: 14, marginTop: 10 },
-  mdTimerLeft: { display: "flex", alignItems: "baseline", gap: 8 },
+  mdTimerLeft: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 },
   mdTimerBtnGroup: { display: "flex", alignItems: "center", gap: 8, flexShrink: 0 },
-  // Sized to match the timer digits' own visual weight (mdTimerDisplay is
-  // 66px/0.95 line-height, so ~63px tall) rather than a small icon button —
-  // this is meant to read as being exactly as important as the clock.
+  // A labeled pill (icon + text), not a bare icon square — real-device
+  // feedback pointed back at the pre-redesign app's own timer button
+  // (padding-based sizing, ~44px tall, icon+"Pause"/"Start" text) as the
+  // better-balanced shape, just carried over into this redesign's colours
+  // (yellow/deepGreen) rather than the old dark-bar palette.
   mdTimerPrimaryBtn: {
-    width: 62, height: 62, borderRadius: tokens.radius.iconButton, border: "none", background: tokens.color.yellow,
-    display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0,
-    boxShadow: tokens.shadow.solid(4, tokens.color.yellowShadow),
+    display: "flex", alignItems: "center", justifyContent: "center", gap: 6, whiteSpace: "nowrap",
+    padding: "12px 18px", borderRadius: tokens.radius.buttonMd, border: "none", background: tokens.color.yellow,
+    color: tokens.color.deepGreen, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 15, cursor: "pointer",
+    flexShrink: 0, boxShadow: tokens.shadow.solid(3, tokens.color.yellowShadow),
   },
-  // Reset stays secondary (plain white, smaller) — same visual hierarchy
-  // as the cog button, just moved down to sit with the rest of the clock
-  // controls instead of the crest/team-name row.
+  // Reset stays secondary (plain white icon-only, no label) — same visual
+  // hierarchy as the cog button, and deliberately lighter than the
+  // labeled Start/Pause pill (real-device feedback: Reset should feel
+  // like "just a refresh cycle", not a matching second primary action).
   mdTimerResetBtn: {
     width: 44, height: 44, borderRadius: tokens.radius.iconButton, border: "none", background: "#fff",
     display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0,
   },
+  // Trimmed from 66px (then 54px) — now that the caption moved under the
+  // digits instead of beside them, the row has room to stay this size
+  // without crowding the labeled button, closer to the old app's own
+  // clock-next-to-button balance.
   mdTimerDisplay: {
-    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 66, lineHeight: 0.95, color: tokens.color.deepGreen,
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 46, lineHeight: 0.95, color: tokens.color.deepGreen,
     fontVariantNumeric: "tabular-nums",
   },
   // Paused greys the timer out — same digits, no longer counting, reads at

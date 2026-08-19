@@ -464,16 +464,13 @@ export default function MatchView({
               mdActionBar below); it no longer duplicates the clock controls. */}
           <div style={styles.mdTimerBtnGroup}>
             {!isMatchComplete && (
-              <button
-                style={styles.mdTimerPrimaryBtn}
-                onClick={toggleTimer}
-                title={timerRunning ? "Pause" : isPreKickoff ? "Start" : "Resume"}
-              >
+              <button style={styles.mdTimerPrimaryBtn} onClick={toggleTimer}>
                 {timerRunning ? (
-                  <Pause size={28} color={tokens.color.deepGreen} fill={tokens.color.deepGreen} />
+                  <Pause size={18} color={tokens.color.deepGreen} fill={tokens.color.deepGreen} />
                 ) : (
-                  <Play size={28} color={tokens.color.deepGreen} fill={tokens.color.deepGreen} />
+                  <Play size={18} color={tokens.color.deepGreen} fill={tokens.color.deepGreen} />
                 )}
+                {timerRunning ? "Pause" : isPreKickoff ? "Start" : "Resume"}
               </button>
             )}
             <button style={styles.mdTimerResetBtn} onClick={resetClock} title="Reset clock">
