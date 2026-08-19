@@ -189,7 +189,6 @@ export const styles = {
   headerBtnGroup: { display: "flex", gap: 6 },
   addRow: { display: "flex", gap: 8, marginBottom: 12 },
   input: { flex: 1, padding: "10px 12px", borderRadius: 10, border: "1px solid " + colors.border, fontSize: 14 },
-  numInput: { width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid " + colors.border, fontSize: 14 },
   primaryBtn: {
     display: "flex", alignItems: "center", gap: 6, justifyContent: "center", padding: "10px 16px", borderRadius: 10,
     border: "none", background: colors.grass, color: colors.chalk, fontWeight: 700, fontSize: 14, cursor: "pointer",
@@ -200,35 +199,10 @@ export const styles = {
   },
   emptyState: { color: "#7C8983", fontSize: 14, padding: "16px 0" },
 
+  // settingsGrid still used (SquadSettingsForm's three number tiles) —
+  // the individual tile styling itself moved to the mdSetupXxx family
+  // further down, alongside the rest of that screen's redesign.
   settingsGrid: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, alignItems: "start" },
-  settingLabel: { display: "flex", flexDirection: "column", fontSize: 12, fontWeight: 700, color: "#5B6B64", textTransform: "uppercase", letterSpacing: 0.3 },
-  settingLabelText: { minHeight: 28, display: "flex", alignItems: "flex-end", marginBottom: 4, lineHeight: 1.2 },
-  intervalPreview: { fontSize: 12, color: colors.field, fontWeight: 700, marginTop: 8 },
-
-  // The sub-interval fairness chips (SquadSettingsForm) — live, recomputed
-  // against whoever's currently ticked "available", same visual family as
-  // intervalTab/intervalTabActive (MatchView's interval nav) but with an
-  // extra fair/unfair distinction baked into the resting (non-selected)
-  // state, since that's the whole point of showing them.
-  subIntervalHint: { fontSize: 12, color: "#5B6B64", marginTop: 10, marginBottom: 6, lineHeight: 1.4 },
-  subIntervalChipRow: { display: "flex", gap: 6, flexWrap: "wrap" },
-  // borderWidth/borderStyle/borderColor kept as separate longhand properties
-  // (not the border shorthand) specifically so fair/unfair/selected below
-  // can each override just borderColor — mixing a shorthand base with a
-  // longhand override is what React's "removing a style property during
-  // rerender" warning is about, and it's not just noise: it can leave a
-  // stale border color behind when this chip flips from one state to
-  // another on the same element (which it does live, as availability changes).
-  subIntervalChip: {
-    flex: "0 0 auto", display: "flex", alignItems: "center", gap: 4, padding: "6px 11px", borderRadius: 999,
-    borderWidth: 1, borderStyle: "solid", borderColor: colors.border, background: colors.cardBg,
-    fontSize: 12, fontWeight: 700, cursor: "pointer",
-  },
-  subIntervalChipFair: { borderColor: colors.field, color: colors.field },
-  subIntervalChipUnfair: { color: "#9AA6A0" },
-  subIntervalChipSelected: { background: colors.grass, borderColor: colors.grass, color: colors.chalk },
-
-  modeHint: { fontSize: 11, color: "#7C8983", marginTop: 6, lineHeight: 1.4 },
 
   subTitle: { fontSize: 15, fontWeight: 700, color: colors.ink, margin: 0 },
   subTitleRow: { display: "flex", alignItems: "center", gap: 10, marginTop: 24, marginBottom: 10, flexWrap: "wrap" },
@@ -237,42 +211,6 @@ export const styles = {
     background: "transparent", color: colors.field, border: "1px solid " + colors.field, borderRadius: 999,
     padding: "3px 9px", fontWeight: 700, fontSize: 11, cursor: "pointer", marginLeft: "auto",
   },
-
-  squadList: { display: "flex", flexDirection: "column", gap: 6 },
-  squadRow: {
-    display: "flex", alignItems: "center", gap: 10, background: colors.cardBg,
-    border: "1px solid " + colors.border, borderRadius: 10, padding: "8px 10px",
-  },
-  squadName: { flex: 1, fontWeight: 600, fontSize: 14 },
-  // borderWidth/borderStyle/borderColor as separate longhand properties
-  // (not the border shorthand) so numberBadgeActive's borderColor override
-  // applies cleanly across re-renders — see the comment on subIntervalChip
-  // above for why mixing shorthand + longhand here isn't just a lint nit.
-  numberBadge: {
-    width: 38, height: 38, borderRadius: "50%", borderWidth: 1.5, borderStyle: "solid", borderColor: colors.border,
-    background: "transparent", color: "#9AA6A0", fontWeight: 800, fontSize: 13, cursor: "pointer",
-    display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-  },
-  numberBadgeActive: { background: colors.field, borderColor: colors.field, color: "#fff" },
-  gloveToggle: {
-    width: 38, height: 38, borderRadius: 8, border: "1px solid " + colors.border, background: "transparent",
-    fontSize: 17, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: 0.35, flexShrink: 0,
-  },
-  gloveToggleActive: { opacity: 1, background: "#FFF6E4", borderColor: colors.gk },
-  // The "start this player in goal today" toggle — deliberately its own
-  // color (field green, matching numberBadgeActive's "you're active today"
-  // meaning) rather than reusing gloveToggleActive's gold. It sits directly
-  // next to the glove toggle in the same row, and gold means something
-  // different there (keeper-eligible in general, not "starting today") — two
-  // gold buttons side by side read as duplicates of the same state.
-  // borderWidth/borderStyle/borderColor as separate longhand properties for
-  // the same reason as subIntervalChip/numberBadge above.
-  startGkToggle: {
-    borderWidth: 1, borderStyle: "solid", borderColor: colors.border, background: colors.cardBg, color: "#9AA6A0",
-    borderRadius: 8, padding: 8, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-    minWidth: 40, minHeight: 40,
-  },
-  startGkToggleActive: { background: colors.field, borderColor: colors.field, color: "#fff" },
 
   // Kept for the match-complete banner only now (see matchCompleteBanner
   // below) — the running timer's own countdown/warning UI was replaced by
@@ -465,6 +403,90 @@ export const styles = {
   mdBackPopoverBtnSecondary: {
     flex: 1, height: 52, borderRadius: 22, border: "none", background: tokens.color.creamDeep,
     color: tokens.color.actionBar, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 19, cursor: "pointer",
+  },
+
+  // ---- Setup (A3/A4-Setup), SquadSettingsForm.jsx. A moderate restyle —
+  // new tokens/shapes applied to the existing structure and interactions
+  // (plain number inputs, not the design's dark tap-to-edit tiles with
+  // inline +/-) rather than a full interaction rewrite, given how much of
+  // this form's value is the validation/fairness logic underneath it,
+  // not its chrome. Reuses several pitch-screen patterns directly
+  // (mdPopoverRow's card shape for a squad row, mdBenchChip's number-disc
+  // language for a player's number) rather than inventing parallel ones.
+  mdSetupSectionLabel: {
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 15, color: tokens.color.mutedText,
+    textTransform: "uppercase", letterSpacing: 0.3, marginBottom: 8, marginTop: 18,
+  },
+  mdSetupTile: { background: tokens.color.creamDeep, borderRadius: tokens.radius.rowLg, padding: "10px 12px", textAlign: "center" },
+  mdSetupTileLabel: {
+    fontFamily: tokens.font.body, fontWeight: 700, fontSize: 11, color: tokens.color.mutedText,
+    textTransform: "uppercase", letterSpacing: 0.3, display: "block", marginBottom: 2, minHeight: 28,
+  },
+  mdSetupTileInput: {
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 24, color: tokens.color.deepGreen,
+    background: "transparent", border: "none", textAlign: "center", width: "100%", padding: 0,
+  },
+  mdSetupHint: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 12, color: tokens.color.mutedText, marginTop: 6, lineHeight: 1.4 },
+  mdSetupChipRow: { display: "flex", gap: 6, flexWrap: "wrap" },
+  mdSetupChip: {
+    flex: "0 0 auto", padding: "8px 14px", borderRadius: tokens.radius.chip, border: "none",
+    background: tokens.color.creamDeep, color: tokens.color.mutedText,
+    fontFamily: tokens.font.body, fontWeight: 800, fontSize: 13, cursor: "pointer",
+  },
+  mdSetupChipActive: { background: tokens.color.deepGreen, color: tokens.color.creamPaper },
+  mdSetupChipFair: { color: tokens.color.pitchGreen },
+  mdSetupAddRow: { display: "flex", gap: 8, marginBottom: 8 },
+  mdSetupInput: {
+    flex: 1, padding: "10px 14px", borderRadius: tokens.radius.chip, border: `1px solid ${tokens.color.rule}`,
+    fontFamily: tokens.font.body, fontWeight: 700, fontSize: 14, background: "#fff", color: tokens.color.deepGreen,
+  },
+  mdSetupAddBtn: {
+    display: "flex", alignItems: "center", gap: 6, padding: "10px 16px", borderRadius: tokens.radius.chip, border: "none",
+    background: tokens.color.yellow, color: tokens.color.deepGreen, fontFamily: tokens.font.display, fontWeight: 800,
+    fontSize: 14, cursor: "pointer", boxShadow: tokens.shadow.solid(3, tokens.color.yellowShadow),
+  },
+  // Squad row: same white-card shape mdPopoverRow already established for
+  // an anchored-popover row, reused here for a squad-list row — both are
+  // "one item, several small controls" cards, no reason to invent a
+  // second near-identical style for it.
+  mdSetupRow: {
+    display: "flex", alignItems: "center", gap: 8, background: "#fff", borderRadius: tokens.radius.rowSm,
+    padding: "6px 10px", marginBottom: 6, boxShadow: "0 3px 0 rgba(28,58,46,.10)",
+  },
+  mdSetupRowName: { flex: 1, fontFamily: tokens.font.body, fontWeight: 800, fontSize: 15, color: tokens.color.deepGreen, minWidth: 0 },
+  // The persistent squad-number editor — a small number disc (same visual
+  // language as mdBenchChipNumber) that turns into a real input when tapped.
+  mdSetupNumberBadge: {
+    width: 32, height: 32, borderRadius: "50%", border: "none", flexShrink: 0,
+    display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 13,
+    background: tokens.color.creamDeep, color: tokens.color.mutedText,
+  },
+  mdSetupNumberBadgeSet: { background: tokens.color.pitchGreen, color: "#fff" },
+  mdSetupNumberInput: {
+    width: 32, height: 32, borderRadius: "50%", border: `2px solid ${tokens.color.pitchGreen}`, flexShrink: 0,
+    textAlign: "center", padding: 0, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 13, color: tokens.color.deepGreen,
+  },
+  // Availability toggle, keeper-eligible toggle, and start-in-goal toggle
+  // share one small round tinted-button shape, only the tint/icon differ.
+  mdSetupToggle: {
+    width: 32, height: 32, borderRadius: "50%", border: "none", flexShrink: 0, cursor: "pointer",
+    display: "flex", alignItems: "center", justifyContent: "center", background: tokens.color.creamDeep, opacity: 0.5,
+  },
+  mdSetupToggleActive: { opacity: 1 },
+  mdSetupRemoveBtn: {
+    width: 32, height: 32, borderRadius: "50%", border: "none", flexShrink: 0, cursor: "pointer",
+    display: "flex", alignItems: "center", justifyContent: "center", background: "transparent", color: tokens.color.mutedText,
+  },
+  mdSetupWarning: {
+    marginTop: 14, fontSize: 13, fontFamily: tokens.font.body, fontWeight: 700, color: tokens.color.injuryText,
+    background: tokens.color.injuryTint, border: `1px solid ${tokens.color.injuryBorder}`, padding: "10px 14px", borderRadius: 14,
+  },
+  mdSetupSubmitBtn: {
+    display: "flex", alignItems: "center", gap: 8, justifyContent: "center", width: "100%", height: 60, marginTop: 20,
+    borderRadius: tokens.radius.buttonMd, border: "none", background: tokens.color.yellow, color: tokens.color.deepGreen,
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 19, cursor: "pointer",
+    boxShadow: tokens.shadow.solid(5, tokens.color.yellowShadow),
   },
 
   // Persistent inline note (not the fixed action sheet below) — shown

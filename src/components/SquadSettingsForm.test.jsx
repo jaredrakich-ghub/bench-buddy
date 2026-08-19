@@ -39,6 +39,7 @@ function baseProps(overrides = {}) {
     removePlayer: vi.fn(),
     toggleAvailable: vi.fn(),
     toggleKeeperEligible: vi.fn(),
+    setPlayerNumber: vi.fn(),
     showRestartWarning: false,
     onSubmit: vi.fn(),
     submitLabel: "Generate Rotation",
@@ -128,7 +129,10 @@ describe("SquadSettingsForm — squad list", () => {
     const toggleAvailable = vi.fn();
     const user = userEvent.setup();
     render(<SquadSettingsForm {...baseProps({ toggleAvailable })} />);
-    await user.click(screen.getAllByTitle("Toggle available today")[1]);
+    // Both p1/p2 are available by default (baseProps), so both toggles carry
+    // the "mark unavailable" title — index into them the same way the old
+    // test did (roster order).
+    await user.click(screen.getAllByTitle("Available today — tap to mark unavailable")[1]);
     expect(toggleAvailable).toHaveBeenCalledWith("p2");
   });
 
@@ -140,12 +144,67 @@ describe("SquadSettingsForm — squad list", () => {
     expect(toggleKeeperEligible).toHaveBeenCalledWith("p1");
   });
 
-  it("shows available players numbered by their position in availableIds, not roster order", () => {
-    render(<SquadSettingsForm {...baseProps({ availableIds: ["p2", "p1"] })} />);
-    // Roster order is [Alice, Bob], but availableIds puts Bob first -> Bob is "1", Alice is "2".
-    const badges = screen.getAllByTitle("Toggle available today");
-    expect(badges[0]).toHaveTextContent("2"); // Alice's badge — she's availableIds[1]
-    expect(badges[1]).toHaveTextContent("1"); // Bob's badge — he's availableIds[0]
+  it("marks each player's toggle by their own availability, independent of roster/availableIds order", () => {
+    // Deliberate redesign (match-day redesign step 7): the availability
+    // toggle used to double as a live "your position among today's
+    // available players" counter — a workaround from before real squad
+    // numbers existed (see squadNumber.js). Now that a real number exists,
+    // this is just a plain available/not-available toggle.
+    render(<SquadSettingsForm {...baseProps({ availableIds: ["p2"] })} />); // only Bob available
+    const toggles = screen.getAllByTitle(/available today/i);
+    expect(toggles[0]).toHaveAttribute("title", expect.stringContaining("Not available")); // Alice, p1
+    expect(toggles[1]).toHaveAttribute("title", expect.stringContaining("tap to mark unavailable")); // Bob, p2
+  });
+});
+
+describe("SquadSettingsForm — squad number", () => {
+  it("shows a dash for a player with no number set yet, and the real number once one is", () => {
+    render(
+      <SquadSettingsForm
+        {...baseProps({ roster: [{ id: "p1", name: "Alice", keeperEligible: true, number: 7 }, ROSTER[1]] })}
+      />
+    );
+    const badges = screen.getAllByTitle("Set squad number");
+    expect(badges[0]).toHaveTextContent("7"); // Alice
+    expect(badges[1]).toHaveTextContent("–"); // Bob, unset
+  });
+
+  it("tapping a player's number turns it into an input; typing and blurring calls setPlayerNumber", async () => {
+    const setPlayerNumber = vi.fn();
+    const user = userEvent.setup();
+    render(<SquadSettingsForm {...baseProps({ setPlayerNumber })} />);
+    await user.click(screen.getAllByTitle("Set squad number")[0]); // Alice
+    const input = document.activeElement;
+    fireEvent.change(input, { target: { value: "9" } });
+    fireEvent.blur(input);
+    expect(setPlayerNumber).toHaveBeenCalledWith("p1", 9);
+  });
+
+  it("committing an empty value clears the number back to unset (null), not 0 or NaN", async () => {
+    const setPlayerNumber = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <SquadSettingsForm
+        {...baseProps({ roster: [{ id: "p1", name: "Alice", keeperEligible: true, number: 7 }, ROSTER[1]], setPlayerNumber })}
+      />
+    );
+    await user.click(screen.getAllByTitle("Set squad number")[0]);
+    const input = screen.getByDisplayValue("7");
+    fireEvent.change(input, { target: { value: "" } });
+    fireEvent.blur(input);
+    expect(setPlayerNumber).toHaveBeenCalledWith("p1", null);
+  });
+
+  it("pressing Escape while editing discards the edit without calling setPlayerNumber", async () => {
+    const setPlayerNumber = vi.fn();
+    const user = userEvent.setup();
+    render(<SquadSettingsForm {...baseProps({ setPlayerNumber })} />);
+    await user.click(screen.getAllByTitle("Set squad number")[0]);
+    const input = document.activeElement;
+    fireEvent.change(input, { target: { value: "9" } });
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(setPlayerNumber).not.toHaveBeenCalled();
+    expect(screen.queryByDisplayValue("9")).not.toBeInTheDocument(); // back to the plain badge
   });
 });
 

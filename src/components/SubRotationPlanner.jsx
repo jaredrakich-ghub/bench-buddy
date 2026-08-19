@@ -205,6 +205,16 @@ export default function SubRotationPlanner({ user }) {
     saveTeamData({ ...teamData, roster });
   };
 
+  // A real, coach-assignable squad number — added for the match-day
+  // redesign (previously every shirt just showed roster position, see
+  // getSquadNumber's own comment in squadNumber.js). `null` clears it back
+  // to unset, same as any other optional field; getSquadNumber falls back
+  // to roster position again once it's gone rather than showing nothing.
+  const setPlayerNumber = (id, number) => {
+    const roster = teamData.roster.map((p) => (p.id === id ? { ...p, number } : p));
+    saveTeamData({ ...teamData, roster });
+  };
+
   const switchTeam = (id) => {
     const team = findTeam(teams, id);
     if (team) activateTeam(team);
@@ -288,6 +298,7 @@ export default function SubRotationPlanner({ user }) {
     removePlayer,
     toggleAvailable,
     toggleKeeperEligible,
+    setPlayerNumber,
     showRestartWarning: Boolean(plan && (elapsedSec > 0 || Object.keys(subLog).length > 0)),
     startingGkId,
     setStartingGkId,

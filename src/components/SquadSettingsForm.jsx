@@ -1,10 +1,10 @@
-import { useEffect, useMemo } from "react";
-import { Plus, Trash2, Shuffle, Play } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Plus, Trash2, Shuffle, Play, Check } from "lucide-react";
 import {
   computeIntervals, keeperShiftIntervalsFor, generatePlan, computeFairnessSpread, isFairSpread, recommendSubIntervals,
 } from "../lib/rotation.js";
 import { validateGameSettings } from "../lib/validation.js";
-import { styles } from "./styles.js";
+import { styles, tokens } from "./styles.js";
 
 // A fixed, small set of realistic choices — matches what a coach would
 // actually consider typing, not an exhaustive search. Kept as a module
@@ -49,6 +49,7 @@ export default function SquadSettingsForm({
   removePlayer,
   toggleAvailable,
   toggleKeeperEligible,
+  setPlayerNumber,
   showRestartWarning,
   onSubmit,
   submitLabel,
@@ -108,15 +109,26 @@ export default function SquadSettingsForm({
     });
   }, [validation.valid, gameSettings.gameMinutes, gameSettings.fieldSize, availableIds, keeperEligibleIds]);
 
+  // Which player's squad-number badge is currently a live input — purely
+  // transient UI state, same "one thing open at a time" shape as the
+  // match screen's own menuPlayerId. Committed on blur/Enter; emptying it
+  // clears the number back to unset rather than leaving a stale 0/NaN.
+  const [editingNumberId, setEditingNumberId] = useState(null);
+  const commitNumber = (id, raw) => {
+    const trimmed = raw.trim();
+    setPlayerNumber(id, trimmed === "" ? null : Number(trimmed));
+    setEditingNumberId(null);
+  };
+
   return (
     <>
       <div style={styles.settingsGrid}>
-        <label style={styles.settingLabel}>
-          <span style={styles.settingLabelText}>Players on field</span>
+        <div style={styles.mdSetupTile}>
+          <span style={styles.mdSetupTileLabel}>Players on field</span>
           <input
             type="number"
             min={2}
-            style={styles.numInput}
+            style={styles.mdSetupTileInput}
             value={gameSettings.fieldSize}
             onChange={(e) => {
               const v = e.target.value;
@@ -126,13 +138,13 @@ export default function SquadSettingsForm({
               if (e.target.value === "") setGameSettings({ ...gameSettings, fieldSize: 5 });
             }}
           />
-        </label>
-        <label style={styles.settingLabel}>
-          <span style={styles.settingLabelText}>Game length (min)</span>
+        </div>
+        <div style={styles.mdSetupTile}>
+          <span style={styles.mdSetupTileLabel}>Game length (min)</span>
           <input
             type="number"
             min={5}
-            style={styles.numInput}
+            style={styles.mdSetupTileInput}
             value={gameSettings.gameMinutes}
             onChange={(e) => {
               const v = e.target.value;
@@ -142,14 +154,14 @@ export default function SquadSettingsForm({
               if (e.target.value === "") setGameSettings({ ...gameSettings, gameMinutes: 40 });
             }}
           />
-        </label>
-        <label style={styles.settingLabel}>
-          <span style={styles.settingLabelText}>Sub every (min)</span>
+        </div>
+        <div style={styles.mdSetupTile}>
+          <span style={styles.mdSetupTileLabel}>Sub every (min)</span>
           <input
             type="number"
             min={2}
             step={0.5}
-            style={styles.numInput}
+            style={styles.mdSetupTileInput}
             value={gameSettings.subIntervalMinutes}
             onChange={(e) => {
               const v = e.target.value;
@@ -159,16 +171,16 @@ export default function SquadSettingsForm({
               if (e.target.value === "") setGameSettings({ ...gameSettings, subIntervalMinutes: 6 });
             }}
           />
-        </label>
+        </div>
       </div>
 
-      <label style={{ ...styles.settingLabel, marginTop: 12, maxWidth: 220 }}>
-        <span style={styles.settingLabelText}>Keeper shift (min)</span>
+      <div style={styles.mdSetupSectionLabel}>Keeper shift (min)</div>
+      <div style={{ ...styles.mdSetupTile, maxWidth: 160, textAlign: "left" }}>
         <input
           type="number"
           min={gameSettings.subIntervalMinutes || 2}
           step={0.5}
-          style={styles.numInput}
+          style={{ ...styles.mdSetupTileInput, textAlign: "left" }}
           placeholder={`Same as sub (${gameSettings.subIntervalMinutes || "?"})`}
           value={gameSettings.keeperShiftMinutes ?? ""}
           onChange={(e) => {
@@ -176,19 +188,17 @@ export default function SquadSettingsForm({
             setGameSettings({ ...gameSettings, keeperShiftMinutes: v === "" ? "" : Number(v) });
           }}
         />
-      </label>
-      <div style={styles.modeHint}>Leave blank to rotate keepers every sub window.</div>
+      </div>
+      <div style={styles.mdSetupHint}>Leave blank to rotate keepers every sub window.</div>
 
-      <label style={{ ...styles.settingLabel, marginTop: 12 }}>
-        <span style={styles.settingLabelText}>Breaks</span>
-      </label>
-      <div style={styles.subIntervalChipRow}>
+      <div style={styles.mdSetupSectionLabel}>Breaks</div>
+      <div style={styles.mdSetupChipRow}>
         {BREAK_OPTIONS.map((opt) => {
           const isSelected = (gameSettings.breakSegments || 1) === opt.segments;
           return (
             <button
               key={opt.segments}
-              style={{ ...styles.subIntervalChip, ...(isSelected ? styles.subIntervalChipSelected : {}) }}
+              style={{ ...styles.mdSetupChip, ...(isSelected ? styles.mdSetupChipActive : {}) }}
               onClick={() => setGameSettings({ ...gameSettings, breakSegments: opt.segments })}
             >
               {opt.label}
@@ -196,12 +206,12 @@ export default function SquadSettingsForm({
           );
         })}
       </div>
-      <div style={styles.modeHint}>
+      <div style={styles.mdSetupHint}>
         Just a visual grouping on the match screen for your own planning — doesn't change how the rotation itself is
         worked out.
       </div>
 
-      <div style={styles.intervalPreview}>
+      <div style={styles.mdSetupHint}>
         {(() => {
           const { numIntervals, intervalLen } = computeIntervals(gameSettings.gameMinutes || 1, gameSettings.subIntervalMinutes || 1);
           const shiftIntervals = keeperShiftIntervalsFor(gameSettings.subIntervalMinutes || 1, gameSettings.keeperShiftMinutes);
@@ -214,19 +224,19 @@ export default function SquadSettingsForm({
 
       {subIntervalRecs && (
         <>
-          <div style={styles.subIntervalHint}>
+          <div style={styles.mdSetupHint}>
             For today's {availableIds.length} available players — tap a fairer sub interval, or keep what you've got:
           </div>
-          <div style={styles.subIntervalChipRow}>
+          <div style={styles.mdSetupChipRow}>
             {subIntervalRecs.map((r) => {
               const isSelected = Number(gameSettings.subIntervalMinutes) === r.subIntervalMinutes;
               return (
                 <button
                   key={r.subIntervalMinutes}
                   style={{
-                    ...styles.subIntervalChip,
-                    ...(r.fair ? styles.subIntervalChipFair : styles.subIntervalChipUnfair),
-                    ...(isSelected ? styles.subIntervalChipSelected : {}),
+                    ...styles.mdSetupChip,
+                    ...(r.fair ? styles.mdSetupChipFair : {}),
+                    ...(isSelected ? styles.mdSetupChipActive : {}),
                   }}
                   onClick={() => setGameSettings({ ...gameSettings, subIntervalMinutes: r.subIntervalMinutes })}
                   title={
@@ -256,41 +266,67 @@ export default function SquadSettingsForm({
         )}
       </div>
 
-      <div style={styles.addRow}>
+      <div style={styles.mdSetupAddRow}>
         <input
-          style={styles.input}
+          style={styles.mdSetupInput}
           placeholder="Add player name"
           value={newPlayerName}
           onChange={(e) => setNewPlayerName(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && addPlayer()}
         />
-        <button style={styles.primaryBtn} onClick={addPlayer}>
+        <button style={styles.mdSetupAddBtn} onClick={addPlayer}>
           <Plus size={16} /> Add
         </button>
       </div>
 
       {roster.length > 0 && (
-        <div style={styles.modeHint}>Tap 🧤 to mark who can play keeper. Tap ▶ to start that player in goal today.</div>
+        <div style={styles.mdSetupHint}>
+          Tap a player's number to set their squad number. Tap 🧤 to mark who can play keeper, ▶ to start them in goal today.
+        </div>
       )}
 
-      <div style={styles.squadList}>
+      <div style={{ marginTop: 8 }}>
         {roster.length === 0 && <div style={styles.emptyState}>No players yet. Add your squad above.</div>}
         {roster.map((p) => {
-          const availIdx = availableIds.indexOf(p.id);
-          const isAvailable = availIdx !== -1;
+          const isAvailable = availableIds.includes(p.id);
+          const isEditingNumber = editingNumberId === p.id;
           return (
-            <div key={p.id} style={styles.squadRow}>
+            <div key={p.id} style={styles.mdSetupRow}>
               <button
-                style={{ ...styles.numberBadge, ...(isAvailable ? styles.numberBadgeActive : {}) }}
+                style={{ ...styles.mdSetupToggle, ...(isAvailable ? styles.mdSetupToggleActive : {}), background: tokens.color.pitchGreen, color: "#fff" }}
                 onClick={() => toggleAvailable(p.id)}
-                title="Toggle available today"
+                title={isAvailable ? "Available today — tap to mark unavailable" : "Not available today — tap to include"}
               >
-                {isAvailable ? availIdx + 1 : ""}
+                {isAvailable && <Check size={16} />}
               </button>
-              <span style={styles.squadName}>{p.name}</span>
+              {isEditingNumber ? (
+                <input
+                  autoFocus
+                  type="number"
+                  style={styles.mdSetupNumberInput}
+                  defaultValue={p.number ?? ""}
+                  onBlur={(e) => commitNumber(p.id, e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") commitNumber(p.id, e.target.value);
+                    if (e.key === "Escape") setEditingNumberId(null);
+                  }}
+                />
+              ) : (
+                <button
+                  style={{ ...styles.mdSetupNumberBadge, ...(p.number != null ? styles.mdSetupNumberBadgeSet : {}) }}
+                  onClick={() => setEditingNumberId(p.id)}
+                  title="Set squad number"
+                >
+                  {p.number ?? "–"}
+                </button>
+              )}
+              <span style={styles.mdSetupRowName}>{p.name}</span>
               {isAvailable && p.keeperEligible && (
                 <button
-                  style={{ ...styles.startGkToggle, ...(startingGkId === p.id ? styles.startGkToggleActive : {}) }}
+                  style={{
+                    ...styles.mdSetupToggle,
+                    ...(startingGkId === p.id ? { ...styles.mdSetupToggleActive, background: tokens.color.pitchGreen, color: "#fff" } : {}),
+                  }}
                   onClick={() => setStartingGkId(startingGkId === p.id ? null : p.id)}
                   title={startingGkId === p.id ? "Cancel — don't start in goal" : "Start this player in goal"}
                 >
@@ -298,13 +334,16 @@ export default function SquadSettingsForm({
                 </button>
               )}
               <button
-                style={{ ...styles.gloveToggle, ...(p.keeperEligible ? styles.gloveToggleActive : {}) }}
+                style={{
+                  ...styles.mdSetupToggle,
+                  ...(p.keeperEligible ? { ...styles.mdSetupToggleActive, background: tokens.color.headerYellow } : {}),
+                }}
                 onClick={() => toggleKeeperEligible(p.id)}
                 title="Toggle keeper-eligible"
               >
                 🧤
               </button>
-              <button style={styles.iconBtn} onClick={() => removePlayer(p.id)} title="Remove from squad">
+              <button style={styles.mdSetupRemoveBtn} onClick={() => removePlayer(p.id)} title="Remove from squad">
                 <Trash2 size={14} />
               </button>
             </div>
@@ -313,24 +352,20 @@ export default function SquadSettingsForm({
       </div>
 
       {showRestartWarning && (
-        <div style={styles.modalWarning}>This will restart the rotation from 0:00 and clear this game's progress so far.</div>
+        <div style={styles.mdSetupWarning}>This will restart the rotation from 0:00 and clear this game's progress so far.</div>
       )}
 
-      {fairnessWarning && <div style={styles.modalWarning}>{fairnessWarning}</div>}
+      {fairnessWarning && <div style={styles.mdSetupWarning}>{fairnessWarning}</div>}
 
       {!validation.valid && (
-        <div style={styles.modalWarning}>
+        <div style={styles.mdSetupWarning}>
           {validation.errors.map((err) => (
             <div key={err}>{err}</div>
           ))}
         </div>
       )}
 
-      <button
-        style={{ ...styles.primaryBtn, marginTop: 20, opacity: validation.valid ? 1 : 0.5 }}
-        disabled={!validation.valid}
-        onClick={onSubmit}
-      >
+      <button style={{ ...styles.mdSetupSubmitBtn, opacity: validation.valid ? 1 : 0.5 }} disabled={!validation.valid} onClick={onSubmit}>
         <Shuffle size={16} /> {submitLabel}
       </button>
     </>
