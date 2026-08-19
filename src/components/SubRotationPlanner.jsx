@@ -37,7 +37,7 @@ export default function SubRotationPlanner({ user }) {
   const {
     availableIds, setAvailableIds, gameSettings, setGameSettings, plan, setPlan,
     activeInterval, setActiveInterval, lastLiveIntervalRef,
-    injuredThisGame, setInjuredThisGame, elapsedSec, setElapsedSec,
+    injuredThisGame, setInjuredThisGame, injuredAt, setInjuredAt, elapsedSec, setElapsedSec,
     baseElapsedSec, setBaseElapsedSec, runStartedAt, setRunStartedAt,
     timerRunning, setTimerRunning, subLog, setSubLog, swapPickId, setSwapPickId,
     startingGkId, setStartingGkId,
@@ -93,6 +93,7 @@ export default function SubRotationPlanner({ user }) {
       setGameSettings(saved.gameSettings || team.settings);
       setPlan(saved.plan);
       setInjuredThisGame(saved.injuredThisGame || []);
+      setInjuredAt(saved.injuredAt || {});
       setSubLog(saved.subLog || {});
       setBaseElapsedSec(live);
       setElapsedSec(live);
@@ -107,6 +108,7 @@ export default function SubRotationPlanner({ user }) {
       lastLiveIntervalRef.current = 0;
       setActiveInterval(0);
       setInjuredThisGame([]);
+      setInjuredAt({});
       setElapsedSec(0);
       setBaseElapsedSec(0);
       setRunStartedAt(null);
@@ -114,7 +116,7 @@ export default function SubRotationPlanner({ user }) {
       setSubLog({});
     }
   }, [
-    setActiveTeamId, setSwapPickId, setStartingGkId, setAvailableIds, setGameSettings, setPlan, setInjuredThisGame,
+    setActiveTeamId, setSwapPickId, setStartingGkId, setAvailableIds, setGameSettings, setPlan, setInjuredThisGame, setInjuredAt,
     setSubLog, setBaseElapsedSec, setElapsedSec, setRunStartedAt, setTimerRunning, setActiveInterval, lastLiveIntervalRef,
   ]);
 
@@ -352,6 +354,7 @@ export default function SubRotationPlanner({ user }) {
             swapPickId={swapPickId}
             setSwapPickId={setSwapPickId}
             injuredThisGame={injuredThisGame}
+            injuredAt={injuredAt}
             keeperEligibleIds={keeperEligibleIds}
             breakSegments={gameSettings.breakSegments || 1}
             nameOf={nameOf}

@@ -72,6 +72,7 @@ export default function MatchView({
   swapPickId,
   setSwapPickId,
   injuredThisGame,
+  injuredAt,
   keeperEligibleIds,
   breakSegments,
   nameOf,
@@ -254,22 +255,29 @@ export default function MatchView({
   // Shared by every token everywhere (pitch, bench, injured) — mid-swap
   // (swapPickId set), any tap completes the swap with whoever was just
   // tapped; performSwap's own guards safely no-op an invalid target (e.g.
-  // accidentally tapping an injured player), so nothing extra needs to be
-  // checked here for those. Tapping the swap source again is treated as an
-  // implicit cancel rather than a (meaningless) self-swap. Otherwise a tap
-  // opens (or closes, if already open) that player's own action menu.
+  // accidentally tapping an injured player, who by then isn't in
+  // onField/bench at all), so nothing extra needs to be checked here for
+  // those. Tapping the swap source again is treated as an implicit cancel
+  // rather than a (meaningless) self-swap. Returns true when the tap was
+  // consumed this way, so callers know not to also open their own
+  // menu/popover for the same tap.
+  const trySwapComplete = (id) => {
+    if (!swapPickId) return false;
+    if (id === swapPickId) {
+      setSwapPickId(null);
+      return true;
+    }
+    setConfirmMessage(`${nameOf(swapPickId)} swapped with ${nameOf(id)}`);
+    onSwap(swapPickId, id);
+    setSwapPickId(null);
+    return true;
+  };
+
+  // Pitch shirts and non-injured bench chips: opens (or closes, if
+  // already open) the three-action player-tap popover.
   const handleTokenTap = (id, e) => {
     if (interactionLocked) return;
-    if (swapPickId) {
-      if (id === swapPickId) {
-        setSwapPickId(null);
-        return;
-      }
-      setConfirmMessage(`${nameOf(swapPickId)} swapped with ${nameOf(id)}`);
-      onSwap(swapPickId, id);
-      setSwapPickId(null);
-      return;
-    }
+    if (trySwapComplete(id)) return;
     if (menuPlayerId === id) {
       setMenuPlayerId(null);
       setMenuOrigin(null);
@@ -277,6 +285,25 @@ export default function MatchView({
     }
     setMenuPlayerId(id);
     setMenuOrigin({ top: e.currentTarget.getBoundingClientRect().bottom + 8 });
+  };
+
+  // Injured chips open their own dedicated two-button popover
+  // (A2i-Back-from-injury) instead — a completely different shape/content
+  // from the general player-tap menu, not a variant of it, so this is a
+  // separate piece of state (injuredPopoverId) rather than menuPlayerId
+  // reused with an injured-specific branch.
+  const [injuredPopoverId, setInjuredPopoverId] = useState(null);
+  const [injuredPopoverOrigin, setInjuredPopoverOrigin] = useState(null);
+  const handleInjuredChipTap = (id, e) => {
+    if (interactionLocked) return;
+    if (trySwapComplete(id)) return;
+    if (injuredPopoverId === id) {
+      setInjuredPopoverId(null);
+      setInjuredPopoverOrigin(null);
+      return;
+    }
+    setInjuredPopoverId(id);
+    setInjuredPopoverOrigin({ top: e.currentTarget.getBoundingClientRect().bottom + 8 });
   };
 
   const outfielders = viewedIv.onField.filter((p) => !p.isGk);
@@ -318,11 +345,11 @@ export default function MatchView({
   const [cogOrigin, setCogOrigin] = useState(null);
 
   // Bench tokens look and behave identically wherever they're rendered
-  // (the Outfield-waiting, Keeper-waiting and Injured rows all use this) —
-  // kept as one render function rather than a separate component since it
-  // just closes over this render's own state/handlers, no lifecycle of its
-  // own. An injured player's chip looks exactly like any other bench chip
-  // for now — the red-cross treatment is its own later step.
+  // (the Outfield-waiting and Keeper-waiting rows both use this) — kept
+  // as one render function rather than a separate component since it
+  // just closes over this render's own state/handlers, no lifecycle of
+  // its own. Injured players get their own distinct chip below
+  // (renderInjuredChip) — a different shape/color, not a variant of this one.
   const renderBenchToken = (id) => (
     <button
       key={id}
@@ -346,6 +373,30 @@ export default function MatchView({
       {showNextSubBadges && becomingKeeperId === id && (
         <span title="Becoming keeper next interval">🧤</span>
       )}
+    </button>
+  );
+
+  // A2h-Injured's chip: tinted pink pill, red number disc, a small
+  // cross badge on the corner — "the same read as an injury flag on a
+  // football-game card" per the handoff, not just a recolored bench chip.
+  // Opens the dedicated back-from-injury popover rather than the general
+  // player-tap one (see handleInjuredChipTap above).
+  const renderInjuredChip = (id) => (
+    <button
+      key={id}
+      style={{
+        ...styles.mdInjuredChip,
+        ...(swapPickId && swapPickId !== id && !interactionLocked ? styles.mdBenchChipSwapTarget : {}),
+        ...(injuredPopoverId === id ? { ...styles.mdOriginLit, ...styles.mdInjuredChipLit } : {}),
+      }}
+      onClick={(e) => handleInjuredChipTap(id, e)}
+      disabled={interactionLocked}
+    >
+      <span style={styles.mdInjuredChipNumber}>{numberOf(id)}</span>
+      <span style={styles.mdInjuredChipName}>{nameOf(id)}</span>
+      <span style={styles.mdInjuredCrossBadge}>
+        <MedicalCross size={11} color="#fff" />
+      </span>
     </button>
   );
   // Start resumes from wherever the clock is frozen; Pause freezes it at the
@@ -527,7 +578,7 @@ export default function MatchView({
         {injuredThisGame.length > 0 && (
           <>
             <div style={{ ...styles.mdBenchSubLabel, marginTop: 10 }}>Injured</div>
-            <div style={styles.mdBenchChipRow}>{injuredThisGame.map(renderBenchToken)}</div>
+            <div style={styles.mdBenchChipRow}>{injuredThisGame.map(renderInjuredChip)}</div>
           </>
         )}
       </div>
@@ -568,85 +619,120 @@ export default function MatchView({
           <div style={{ ...styles.mdPopover, top: menuOrigin.top }} data-testid="player-popover">
             <div style={styles.mdPlayerPopoverHeader}>
               <div style={styles.mdPlayerPopoverName}>{nameOf(menuPlayerId)}</div>
+              {/* Injured players never reach this popover (see
+                  handleInjuredChipTap/injuredPopoverId below) — every
+                  player who does is by definition on the pitch or bench. */}
               <div style={styles.mdPlayerPopoverMeta}>
-                #{numberOf(menuPlayerId)} ·{" "}
-                {injuredThisGame.includes(menuPlayerId) ? "injured" : menuOnFieldRecord ? "on pitch" : "bench"}
+                #{numberOf(menuPlayerId)} · {menuOnFieldRecord ? "on pitch" : "bench"}
               </div>
             </div>
-            {injuredThisGame.includes(menuPlayerId) ? (
+            <button
+              style={styles.mdPlayerPopoverRow}
+              onClick={() => {
+                setSwapPickId(menuPlayerId);
+                setMenuPlayerId(null);
+                setMenuOrigin(null);
+              }}
+            >
+              <span style={{ ...styles.mdPlayerPopoverIconTile, ...styles.mdTintGreen }}>
+                <ArrowLeftRight size={16} color={tokens.color.pitchGreen} />
+              </span>
+              <div>
+                <div style={styles.mdPlayerPopoverRowLabel}>Swap player</div>
+                <div style={styles.mdPlayerPopoverRowConsequence}>
+                  {swapPartnerFor(menuPlayerId)
+                    ? `${nameOf(swapPartnerFor(menuPlayerId))} comes on`
+                    : "Tap another player to swap with them"}
+                </div>
+              </div>
+            </button>
+            {menuCanMakeKeeper && (
               <button
                 style={styles.mdPlayerPopoverRow}
                 onClick={() => {
-                  onBringBack(menuPlayerId);
+                  setConfirmMessage(`${nameOf(menuPlayerId)} is now keeper`);
+                  onSwap(menuPlayerId, viewedGk.id);
                   setMenuPlayerId(null);
                   setMenuOrigin(null);
                 }}
               >
-                <span style={{ ...styles.mdPlayerPopoverIconTile, ...styles.mdTintGreen }}>
-                  <ArrowLeftRight size={16} color={tokens.color.pitchGreen} />
-                </span>
+                <span style={{ ...styles.mdPlayerPopoverIconTile, ...styles.mdTintYellow }}>🧤</span>
                 <div>
-                  <div style={styles.mdPlayerPopoverRowLabel}>Back in</div>
-                  <div style={styles.mdPlayerPopoverRowConsequence}>Returns to the bench queue</div>
+                  <div style={styles.mdPlayerPopoverRowLabel}>Make keeper</div>
+                  <div style={styles.mdPlayerPopoverRowConsequence}>{nameOf(viewedGk.id)} moves out</div>
                 </div>
               </button>
-            ) : (
-              <>
-                <button
-                  style={styles.mdPlayerPopoverRow}
-                  onClick={() => {
-                    setSwapPickId(menuPlayerId);
-                    setMenuPlayerId(null);
-                    setMenuOrigin(null);
-                  }}
-                >
-                  <span style={{ ...styles.mdPlayerPopoverIconTile, ...styles.mdTintGreen }}>
-                    <ArrowLeftRight size={16} color={tokens.color.pitchGreen} />
-                  </span>
-                  <div>
-                    <div style={styles.mdPlayerPopoverRowLabel}>Swap player</div>
-                    <div style={styles.mdPlayerPopoverRowConsequence}>
-                      {swapPartnerFor(menuPlayerId)
-                        ? `${nameOf(swapPartnerFor(menuPlayerId))} comes on`
-                        : "Tap another player to swap with them"}
-                    </div>
-                  </div>
-                </button>
-                {menuCanMakeKeeper && (
-                  <button
-                    style={styles.mdPlayerPopoverRow}
-                    onClick={() => {
-                      setConfirmMessage(`${nameOf(menuPlayerId)} is now keeper`);
-                      onSwap(menuPlayerId, viewedGk.id);
-                      setMenuPlayerId(null);
-                      setMenuOrigin(null);
-                    }}
-                  >
-                    <span style={{ ...styles.mdPlayerPopoverIconTile, ...styles.mdTintYellow }}>🧤</span>
-                    <div>
-                      <div style={styles.mdPlayerPopoverRowLabel}>Make keeper</div>
-                      <div style={styles.mdPlayerPopoverRowConsequence}>{nameOf(viewedGk.id)} moves out</div>
-                    </div>
-                  </button>
-                )}
-                <button
-                  style={styles.mdPlayerPopoverRow}
-                  onClick={() => {
-                    onInjury(menuPlayerId);
-                    setMenuPlayerId(null);
-                    setMenuOrigin(null);
-                  }}
-                >
-                  <span style={{ ...styles.mdPlayerPopoverIconTile, ...styles.mdTintRed }}>
-                    <MedicalCross size={16} color={tokens.color.injuryRed} />
-                  </span>
-                  <div>
-                    <div style={styles.mdPlayerPopoverRowLabel}>Mark injured</div>
-                    <div style={styles.mdPlayerPopoverRowConsequence}>Off, stops counting toward minutes</div>
-                  </div>
-                </button>
-              </>
             )}
+            <button
+              style={styles.mdPlayerPopoverRow}
+              onClick={() => {
+                onInjury(menuPlayerId);
+                setMenuPlayerId(null);
+                setMenuOrigin(null);
+              }}
+            >
+              <span style={{ ...styles.mdPlayerPopoverIconTile, ...styles.mdTintRed }}>
+                <MedicalCross size={16} color={tokens.color.injuryRed} />
+              </span>
+              <div>
+                <div style={styles.mdPlayerPopoverRowLabel}>Mark injured</div>
+                <div style={styles.mdPlayerPopoverRowConsequence}>Off, stops counting toward minutes</div>
+              </div>
+            </button>
+          </div>
+        </>
+      )}
+
+      {!interactionLocked && injuredPopoverId && injuredPopoverOrigin && (
+        // A2i-Back-from-injury: grows from the tapped injured chip, its
+        // square corner (bottom-right, per mdBackPopover) pointing back
+        // down at it. injuredAt may be missing for a game resumed from
+        // before this session's own tracking existed — falls back to
+        // just "Not counting minutes" rather than showing a broken time.
+        <>
+          <div
+            style={styles.mdScrim}
+            data-testid="scrim"
+            onClick={() => {
+              setInjuredPopoverId(null);
+              setInjuredPopoverOrigin(null);
+            }}
+          />
+          <div style={{ ...styles.mdBackPopover, top: injuredPopoverOrigin.top }} data-testid="back-popover">
+            <div style={styles.mdBackPopoverHeader}>
+              <span style={styles.mdBackPopoverCrossBadge}>
+                <MedicalCross size={20} color="#fff" />
+              </span>
+              <div>
+                <div style={styles.mdBackPopoverName}>{nameOf(injuredPopoverId)} is out</div>
+                <div style={styles.mdBackPopoverMeta}>
+                  {injuredAt[injuredPopoverId] !== undefined
+                    ? `Off at ${fmtClock(injuredAt[injuredPopoverId])} · not counting minutes`
+                    : "Not counting minutes"}
+                </div>
+              </div>
+            </div>
+            <div style={styles.mdBackPopoverBtnRow}>
+              <button
+                style={styles.mdBackPopoverBtnPrimary}
+                onClick={() => {
+                  onBringBack(injuredPopoverId);
+                  setInjuredPopoverId(null);
+                  setInjuredPopoverOrigin(null);
+                }}
+              >
+                Back to bench
+              </button>
+              <button
+                style={styles.mdBackPopoverBtnSecondary}
+                onClick={() => {
+                  setInjuredPopoverId(null);
+                  setInjuredPopoverOrigin(null);
+                }}
+              >
+                Still out
+              </button>
+            </div>
           </div>
         </>
       )}

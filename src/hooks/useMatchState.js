@@ -31,6 +31,7 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
   // is set directly outside this hook's own effects.
   const lastLiveIntervalRef = useRef(0);
   const [injuredThisGame, setInjuredThisGame] = useState([]);
+  const [injuredAt, setInjuredAt] = useState({}); // playerId -> elapsedSec when marked injured — display only, same role subLog plays for subs
   const [elapsedSec, setElapsedSec] = useState(0); // derived display value — recomputed from baseElapsedSec/runStartedAt, see the tick effect below
   const [baseElapsedSec, setBaseElapsedSec] = useState(0); // elapsed time as of the start of the current run segment (or the frozen value while paused)
   const [runStartedAt, setRunStartedAt] = useState(null); // Date.now() timestamp the clock was last started, or null while paused
@@ -55,14 +56,14 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
     (async () => {
       try {
         await saveMatchState(activeTeamId, {
-          availableIds, gameSettings, plan, activeInterval, injuredThisGame, subLog, baseElapsedSec, runStartedAt, timerRunning,
+          availableIds, gameSettings, plan, activeInterval, injuredThisGame, injuredAt, subLog, baseElapsedSec, runStartedAt, timerRunning,
         });
         setSaveError(null);
       } catch (err) {
         setSaveError(describeSaveError(err));
       }
     })();
-  }, [activeTeamId, availableIds, gameSettings, plan, activeInterval, injuredThisGame, subLog, baseElapsedSec, runStartedAt, timerRunning]);
+  }, [activeTeamId, availableIds, gameSettings, plan, activeInterval, injuredThisGame, injuredAt, subLog, baseElapsedSec, runStartedAt, timerRunning]);
 
   // Tick the clock — recomputed from the real-time anchor every second
   // rather than counted, and auto-frozen once the match reaches full time.
@@ -220,6 +221,7 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
   const handleInjury = (playerId) => {
     if (injuredThisGame.includes(playerId)) return;
     rebuildFromInterval([...injuredThisGame, playerId]);
+    setInjuredAt((prev) => ({ ...prev, [playerId]: elapsedSec }));
   };
 
   // A returning player joins the BACK of the bench queue for whatever's
@@ -367,6 +369,7 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
     activeInterval, setActiveInterval,
     lastLiveIntervalRef,
     injuredThisGame, setInjuredThisGame,
+    injuredAt, setInjuredAt,
     elapsedSec, setElapsedSec,
     baseElapsedSec, setBaseElapsedSec,
     runStartedAt, setRunStartedAt,

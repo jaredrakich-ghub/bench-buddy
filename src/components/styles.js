@@ -416,6 +416,57 @@ export const styles = {
   mdBenchChipName: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 15, color: tokens.color.deepGreen },
   mdBenchChipUpArrow: { color: tokens.color.pitchGreen, display: "flex", alignItems: "center" },
   mdBenchEmpty: { color: tokens.color.mutedText, fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13 },
+
+  // ---- Injured bench chip (A2h-Injured) + the back-from-injury popover
+  // (A2i-Back-from-injury). The chip is its own distinct look (not just a
+  // recolored mdBenchChip) — a tinted pink pill with a cross badge, "the
+  // same read as an injury flag on a football-game card" per the handoff.
+  mdInjuredChip: {
+    display: "flex", alignItems: "center", gap: 6, background: tokens.color.injuryTint,
+    border: `2px solid ${tokens.color.injuryBorder}`, borderRadius: tokens.radius.chip,
+    padding: "3px 12px 3px 4px", cursor: "pointer", font: "inherit", position: "relative",
+  },
+  mdInjuredChipNumber: {
+    width: 30, height: 30, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 13, flexShrink: 0,
+    background: tokens.color.injuryRed, color: "#fff",
+  },
+  mdInjuredChipName: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 15, color: tokens.color.injuryText },
+  mdInjuredCrossBadge: {
+    position: "absolute", top: -7, right: -5, width: 20, height: 20, borderRadius: "50%",
+    background: tokens.color.injuryRed, border: `2px solid ${tokens.color.creamPaper}`,
+    display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none",
+  },
+  // Same mdPopover shell as the cog/player-tap popovers, but with the
+  // injury-red border and the flattened corner on the opposite side
+  // (bottom-right, per the handoff's "28px 28px 10px 28px" — pointing
+  // down at the bench chip it grew from, rather than up at a header
+  // control) — a real, deliberate difference from those two, not an
+  // inconsistency.
+  mdBackPopover: {
+    position: "fixed", left: 14, right: 14, zIndex: 46,
+    background: tokens.color.creamPaper, borderRadius: "28px 28px 10px 28px",
+    border: `3px solid ${tokens.color.injuryRed}`, boxShadow: tokens.shadow.overlay,
+    padding: "14px 14px 12px", maxWidth: 640 - 28, margin: "0 auto",
+  },
+  mdBackPopoverHeader: { display: "flex", alignItems: "center", gap: 12, marginBottom: 12 },
+  mdBackPopoverCrossBadge: {
+    width: 40, height: 40, borderRadius: "50%", background: tokens.color.injuryRed, flexShrink: 0,
+    display: "flex", alignItems: "center", justifyContent: "center",
+  },
+  mdBackPopoverName: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 21, color: tokens.color.deepGreen },
+  mdBackPopoverMeta: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 12, color: tokens.color.mutedText },
+  mdBackPopoverBtnRow: { display: "flex", gap: 10 },
+  mdBackPopoverBtnPrimary: {
+    flex: 1, height: 52, borderRadius: 22, border: "none", background: tokens.color.pitchGreen,
+    color: tokens.color.creamPaper, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 19,
+    boxShadow: tokens.shadow.solid(4, tokens.color.greenShadow), cursor: "pointer",
+  },
+  mdBackPopoverBtnSecondary: {
+    flex: 1, height: 52, borderRadius: 22, border: "none", background: tokens.color.creamDeep,
+    color: tokens.color.actionBar, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 19, cursor: "pointer",
+  },
+
   // Persistent inline note (not the fixed action sheet below) — shown
   // while browsing a past interval, which stays true the whole time a
   // coach is reviewing it, not just for a moment after a tap.
@@ -643,6 +694,11 @@ export const styles = {
   // itself, not something a wrapping border would sit flush against.
   mdShirtBtnLit: { filter: `drop-shadow(0 0 0 3px ${tokens.color.yellow})` },
   mdBenchChipLit: { boxShadow: `0 0 0 3px ${tokens.color.yellow}` },
+  // Same idea, injury-red instead of yellow — for an injured chip lit
+  // above the back-from-injury popover's own injury-red-bordered scrim,
+  // so the "what's this connected to" ring matches that popover's theme
+  // rather than the generic yellow every other anchored surface uses.
+  mdInjuredChipLit: { boxShadow: `0 0 0 3px ${tokens.color.injuryRed}` },
 
   modalOverlay: {
     position: "fixed", inset: 0, background: "rgba(15,36,26,0.55)", display: "flex", alignItems: "center",

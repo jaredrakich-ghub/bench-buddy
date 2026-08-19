@@ -92,6 +92,7 @@ function baseProps(overrides = {}) {
     swapPickId: null,
     setSwapPickId: vi.fn(),
     injuredThisGame: [],
+    injuredAt: {},
     keeperEligibleIds: Object.keys(NAMES),
     nameOf,
     numberOf,
@@ -560,16 +561,6 @@ describe("MatchView — tap-to-act token menu", () => {
     expect(screen.queryByText("Make keeper")).not.toBeInTheDocument();
   });
 
-  it("offers only Back in for an injured player", async () => {
-    const user = userEvent.setup();
-    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0, plan: planWithP7Injured, injuredThisGame: ["p7"] })} />);
-    await user.click(tokenButtonFor("Gus")); // p7, injured
-    expect(screen.getByText("Back in")).toBeInTheDocument();
-    expect(screen.queryByText("Swap player")).not.toBeInTheDocument();
-    expect(screen.queryByText("Make keeper")).not.toBeInTheDocument();
-    expect(screen.queryByText(/Mark injured/)).not.toBeInTheDocument();
-  });
-
   it("choosing Swap enters swap-picking mode rather than immediately calling onSwap", async () => {
     const setSwapPickId = vi.fn();
     const onSwap = vi.fn();
@@ -600,15 +591,6 @@ describe("MatchView — tap-to-act token menu", () => {
     expect(screen.queryByText(/Mark injured/)).not.toBeInTheDocument();
   });
 
-  it("choosing Back in calls onBringBack", async () => {
-    const onBringBack = vi.fn();
-    const user = userEvent.setup();
-    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0, plan: planWithP7Injured, injuredThisGame: ["p7"], onBringBack })} />);
-    await user.click(tokenButtonFor("Gus"));
-    await user.click(screen.getByText("Back in"));
-    expect(onBringBack).toHaveBeenCalledWith("p7");
-  });
-
   it("tapping a bench player while mid-swap completes the swap with the pending swap source — no separate 'Swap in' button needed", async () => {
     const onSwap = vi.fn();
     const user = userEvent.setup();
@@ -635,6 +617,96 @@ describe("MatchView — tap-to-act token menu", () => {
     await user.click(tokenButtonFor("Bob")); // p2, the swap source itself
     expect(onSwap).not.toHaveBeenCalled();
     expect(setSwapPickId).toHaveBeenCalledWith(null);
+  });
+});
+
+describe("MatchView — injured chip and the back-from-injury popover", () => {
+  // A2h-Injured / A2i-Back-from-injury: an injured chip opens its own
+  // dedicated two-button popover, not the general Swap/Make keeper/Mark
+  // injured one — a separate mechanism from the tap-to-act menu above,
+  // not a variant of it.
+  it("tapping an injured chip opens Back to bench / Still out, not the general player-tap menu", async () => {
+    const user = userEvent.setup();
+    render(
+      <MatchView
+        {...baseProps({ activeInterval: 0, elapsedSec: 0, plan: planWithP7Injured, injuredThisGame: ["p7"] })}
+      />
+    );
+    await user.click(tokenButtonFor("Gus")); // p7, injured
+    expect(screen.getByText("Gus is out")).toBeInTheDocument();
+    expect(screen.getByText("Back to bench")).toBeInTheDocument();
+    expect(screen.getByText("Still out")).toBeInTheDocument();
+    expect(screen.queryByText("Swap player")).not.toBeInTheDocument();
+    expect(screen.queryByText("Make keeper")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Mark injured/)).not.toBeInTheDocument();
+  });
+
+  it("shows when they went off when tracked, and a plain fallback when it isn't (an older saved game)", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <MatchView
+        {...baseProps({
+          activeInterval: 0, elapsedSec: 0, plan: planWithP7Injured, injuredThisGame: ["p7"], injuredAt: { p7: 65 },
+        })}
+      />
+    );
+    await user.click(tokenButtonFor("Gus"));
+    expect(screen.getByText("Off at 1:05 · not counting minutes")).toBeInTheDocument();
+
+    // Same popover instance, re-rendered with no tracked timestamp this
+    // time (an older saved game) — still open (state persists across a
+    // rerender), so no second click here; clicking Gus again would toggle
+    // it closed instead.
+    rerender(
+      <MatchView
+        {...baseProps({
+          activeInterval: 0, elapsedSec: 0, plan: planWithP7Injured, injuredThisGame: ["p7"], injuredAt: {},
+        })}
+      />
+    );
+    expect(screen.getByText("Not counting minutes")).toBeInTheDocument();
+  });
+
+  it("Back to bench calls onBringBack and closes the popover", async () => {
+    const onBringBack = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <MatchView
+        {...baseProps({ activeInterval: 0, elapsedSec: 0, plan: planWithP7Injured, injuredThisGame: ["p7"], onBringBack })}
+      />
+    );
+    await user.click(tokenButtonFor("Gus"));
+    await user.click(screen.getByText("Back to bench"));
+    expect(onBringBack).toHaveBeenCalledWith("p7");
+    expect(screen.queryByText("Back to bench")).not.toBeInTheDocument();
+  });
+
+  it("Still out just closes the popover without calling onBringBack", async () => {
+    const onBringBack = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <MatchView
+        {...baseProps({ activeInterval: 0, elapsedSec: 0, plan: planWithP7Injured, injuredThisGame: ["p7"], onBringBack })}
+      />
+    );
+    await user.click(tokenButtonFor("Gus"));
+    await user.click(screen.getByText("Still out"));
+    expect(onBringBack).not.toHaveBeenCalled();
+    expect(screen.queryByText("Still out")).not.toBeInTheDocument();
+  });
+
+  it("tapping the same injured chip again toggles the popover closed", async () => {
+    const user = userEvent.setup();
+    render(
+      <MatchView
+        {...baseProps({ activeInterval: 0, elapsedSec: 0, plan: planWithP7Injured, injuredThisGame: ["p7"] })}
+      />
+    );
+    const gusChip = tokenButtonFor("Gus");
+    await user.click(gusChip);
+    expect(screen.getByText("Back to bench")).toBeInTheDocument();
+    await user.click(gusChip);
+    expect(screen.queryByText("Back to bench")).not.toBeInTheDocument();
   });
 });
 

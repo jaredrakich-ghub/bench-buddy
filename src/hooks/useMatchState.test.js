@@ -190,6 +190,13 @@ describe("useMatchState — guard clauses", () => {
     expect(result.current.plan).toBe(planAfterFirstInjury); // nothing rebuilt — same reference
   });
 
+  it("handleInjury records when the player was marked injured, for the A2i-Back-from-injury popover's own display", () => {
+    const { result } = setupWithPlan();
+    act(() => result.current.setElapsedSec(125));
+    act(() => result.current.handleInjury("p0"));
+    expect(result.current.injuredAt.p0).toBe(125);
+  });
+
   it("bringBack does nothing if the player was never marked injured", () => {
     const { result } = setupWithPlan();
     const planBefore = result.current.plan;
