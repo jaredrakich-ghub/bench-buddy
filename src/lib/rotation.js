@@ -611,3 +611,45 @@ export function computeNextChangeBadges({ cur, nextIv, curGk, nextGk, gkChanging
     steppingDownKeeperId,
   };
 }
+
+// Turns the off/on player-id sets into "who's trading places with whom"
+// rows for display (the final-60 sheet, and the player-tap popover's "who
+// comes on" preview) — zipping index-for-index, since the schedule has no
+// concept of one player specifically replacing another (formation is
+// positionless — see formation.js).
+//
+// The keeper handover always gets its own row when becomingKeeperId is
+// set — regardless of whether either side is a genuine bench transfer, a
+// keeper role change is meaningful information on its own (e.g. two
+// players who are BOTH already on the pitch simply swapping who holds the
+// gloves, with nobody physically going to/from the bench at all).
+//
+// comingOffIds/comingOnIds can end up different sizes even after removing
+// the keeper from each (comingOnIds already had the keeper removed
+// upstream — see computeNextChangeBadges; comingOffIds only loses them
+// here if they're actually a member). That happens specifically when the
+// outgoing keeper stays on the pitch (steppingDownKeeperId) while the
+// incoming keeper *is* a genuine bench arrival — their departure and the
+// new keeper's arrival aren't actually linked, so nothing should force
+// them into a fake pair. Whichever regular row(s) end up with only one
+// side filled are real: someone comes off with no bench arrival to name
+// this window (the outgoing keeper's repositioning absorbed that spot
+// instead) — callers should show that plainly rather than leaving a bare,
+// unexplained chip. See MatchView.jsx's rendering of these rows.
+export function pairChanges({ comingOffIds, comingOnIds, curGkId, becomingKeeperId }) {
+  const outgoingKeeperId = becomingKeeperId != null ? curGkId ?? null : null;
+  const rows = [];
+  if (becomingKeeperId != null) {
+    rows.push({
+      outId: outgoingKeeperId, inId: becomingKeeperId,
+      outIsKeeper: outgoingKeeperId != null, inIsKeeper: true,
+    });
+  }
+
+  const offIds = [...comingOffIds].filter((id) => id !== outgoingKeeperId);
+  const onIds = [...comingOnIds].filter((id) => id !== becomingKeeperId);
+  for (let i = 0; i < Math.max(offIds.length, onIds.length); i++) {
+    rows.push({ outId: offIds[i] ?? null, inId: onIds[i] ?? null, outIsKeeper: false, inIsKeeper: false });
+  }
+  return rows;
+}

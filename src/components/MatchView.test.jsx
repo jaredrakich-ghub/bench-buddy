@@ -452,6 +452,33 @@ describe("MatchView — final60 sheet", () => {
     expect(screen.getByText("Next sub 0:20")).toBeInTheDocument(); // plain bar back instead
   });
 
+  // Real bug found on a real device: the outgoing keeper stepping down to
+  // outfield (rather than leaving the pitch) absorbs a vacancy without a
+  // matching bench arrival — one regular departure ends up with no partner
+  // to show. It used to render as a bare, unexplained chip (looked like an
+  // extra, unaccounted-for substitution); now it explains itself instead
+  // of being force-paired with the wrong person or silently dropped.
+  it("explains a departure that has no bench arrival this window, rather than fabricating a partner or dropping it silently", () => {
+    const stepDownPlan = [
+      makeInterval(0, 0, 6, ["p1", "p2", "p3", "p4", "p5"], "p1", ["p6", "p7"]),
+      makeInterval(1, 6, 12, ["p1", "p4", "p5", "p6", "p7"], "p6", ["p2", "p3"]),
+    ];
+    render(<MatchView {...baseProps({ plan: stepDownPlan, activeInterval: 0, elapsedSec: 340 })} />);
+    const sheet = within(screen.getByTestId("final60-sheet"));
+    // Keeper handover still gets its own row — Alice steps down, Finn
+    // takes the gloves — even though Alice never leaves the pitch.
+    expect(sheet.getByText("Alice")).toBeInTheDocument();
+    expect(sheet.getByText("Finn")).toBeInTheDocument();
+    // Bob pairs with Gus, the one bench arrival left once Finn is set
+    // aside for the keeper row.
+    expect(sheet.getByText("Bob")).toBeInTheDocument();
+    expect(sheet.getByText("Gus")).toBeInTheDocument();
+    // Cara comes off alone — a real, unavoidable extra departure — shown
+    // with an explanation instead of a bare chip.
+    expect(sheet.getByText("Cara")).toBeInTheDocument();
+    expect(sheet.getByText("no bench arrival this window")).toBeInTheDocument();
+  });
+
   it("does not show when there's nothing to confirm (empty bench, no keeper change)", () => {
     const noSubPlan = [
       makeInterval(0, 0, 6, ["p1", "p2", "p3", "p4", "p5"], "p1", []),

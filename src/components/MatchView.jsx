@@ -3,7 +3,7 @@ import {
   RotateCcw, Play, Pause, BarChart2, History, Shirt, User, LogOut, Home,
   ArrowDown, ArrowUp, ArrowLeftRight,
 } from "lucide-react";
-import { intervalAtElapsed, computeNextChangeBadges, computeBreakBoundaries } from "../lib/rotation.js";
+import { intervalAtElapsed, computeNextChangeBadges, computeBreakBoundaries, pairChanges } from "../lib/rotation.js";
 import { computeLiveElapsedSec, fmtClock } from "../lib/clock.js";
 import { getFormationLayout, computeTokenSize } from "../lib/formation.js";
 import { styles, tokens } from "./styles.js";
@@ -134,25 +134,17 @@ export default function MatchView({
   const inFinal60 = timerRunning && hasSomethingToConfirm && secLeftInInterval <= 60 && confirmedAt === undefined;
 
   // The final60 sheet pairs each outgoing player with whoever's arriving,
-  // purely for a readable "X -> Y" line — the underlying schedule has no
-  // concept of one player specifically "replacing" another (any bench
-  // player filling any vacated slot is equally valid), so pairing is done
-  // by zipping the two lists in whatever order they naturally come out in,
-  // not read back from anywhere else. The keeper handover is the one
-  // *real* pair (there's exactly one outgoing and one incoming keeper), so
-  // it's built directly from curGk/becomingKeeperId rather than zipped in
-  // with the rest, and excluded from the regular lists so no one appears
-  // in two rows.
-  const outgoingKeeperId = liveChanges.becomingKeeperId ? curGk?.id : null;
-  const regularOffIds = [...liveChanges.comingOffIds].filter((id) => id !== outgoingKeeperId);
-  const regularOnIds = [...liveChanges.comingOnIds].filter((id) => id !== liveChanges.becomingKeeperId);
-  const final60Rows = [];
-  if (liveChanges.becomingKeeperId) {
-    final60Rows.push({ outId: outgoingKeeperId, inId: liveChanges.becomingKeeperId, isKeeperSwap: true });
-  }
-  for (let i = 0; i < Math.max(regularOffIds.length, regularOnIds.length); i++) {
-    final60Rows.push({ outId: regularOffIds[i] ?? null, inId: regularOnIds[i] ?? null, isKeeperSwap: false });
-  }
+  // purely for a readable "X -> Y" line — see pairChanges (rotation.js)
+  // for exactly how, and for the real case it can't cleanly pair (the
+  // outgoing keeper stepping down to outfield instead of leaving, while
+  // the incoming keeper is a genuine bench arrival) — that row renders
+  // with an explanatory line instead of a bare, unexplained chip.
+  const final60Rows = pairChanges({
+    comingOffIds: liveChanges.comingOffIds,
+    comingOnIds: liveChanges.comingOnIds,
+    curGkId: curGk?.id,
+    becomingKeeperId: liveChanges.becomingKeeperId,
+  });
 
   // Who's changing going into the NEXT interval after whichever one is
   // currently being viewed (activeInterval) — not necessarily the live one
@@ -210,18 +202,23 @@ export default function MatchView({
 
   // The player-tap popover's "Swap player" row previews who the schedule
   // already has lined up to come on for this specific player, the same
-  // way final60Rows pairs off/on lists — reusing that pairing here (based
+  // way final60Rows pairs off/on lists — reusing pairChanges here (based
   // on the *viewed* interval's badges, not live) rather than a second,
   // divergent implementation. Null when this player isn't part of a
   // scheduled change this window (an off-schedule swap the coach is
   // initiating themselves), in which case the row falls back to generic
   // copy instead of guessing.
-  const viewedOutgoingKeeperId = becomingKeeperId ? viewedGk?.id : null;
-  const viewedRegularOffIds = [...comingOffIds].filter((id) => id !== viewedOutgoingKeeperId);
-  const viewedRegularOnIds = [...comingOnIds].filter((id) => id !== becomingKeeperId);
+  const viewedSwapRows = pairChanges({
+    comingOffIds, comingOnIds, curGkId: viewedGk?.id, becomingKeeperId,
+  });
+  // Only meaningful when `id` is the one *leaving* — the popover's copy is
+  // hardcoded as "{partner} comes on", so a row matched on its inId side
+  // would have the direction backwards. A player who isn't part of a
+  // scheduled change this window (or who's only on the "coming on" side)
+  // falls back to the generic copy instead, same as before.
   const swapPartnerFor = (id) => {
-    const idx = viewedRegularOffIds.indexOf(id);
-    return idx === -1 ? null : viewedRegularOnIds[idx] ?? null;
+    const row = viewedSwapRows.find((r) => r.outId === id);
+    return row ? row.inId : null;
   };
 
   // A brief "✓ X swapped with Y" note shown in the action sheet right after
@@ -809,8 +806,12 @@ export default function MatchView({
         // header/pitch/bench (already non-interactive behind it too — see
         // interactionLocked above), plus a sheet that's the sole confirm
         // surface for this window. One row per outgoing/incoming pair; a
-        // row missing one side (e.g. an uneven off/on count) just shows
-        // whichever side it has, no arrow.
+        // row can genuinely end up with only one side filled (see
+        // pairChanges, rotation.js) when the outgoing keeper stays on the
+        // pitch as an outfielder instead of leaving — that absorbs a
+        // vacancy without it coming from (or going to) the bench, so
+        // there's no real partner to show. Explained inline rather than
+        // left as a bare, unexplained chip.
         <>
           <div style={styles.mdScrim} data-testid="scrim" />
           <div style={styles.mdFinal60Sheet} data-testid="final60-sheet">
@@ -825,17 +826,23 @@ export default function MatchView({
                     <span style={styles.mdFinal60Chip}>
                       <span style={styles.mdFinal60ChipNumberOut}>{numberOf(row.outId)}</span>
                       <span style={styles.mdBenchChipName}>{nameOf(row.outId)}</span>
-                      {row.isKeeperSwap && <span style={styles.mdGkTagInline}>GK</span>}
+                      {row.outIsKeeper && <span style={styles.mdGkTagInline}>GK</span>}
                     </span>
                   )}
                   {row.outId && row.inId && <span style={styles.mdFinal60Arrow}>→</span>}
+                  {row.outId && !row.inId && (
+                    <span style={styles.mdFinal60OrphanNote}>no bench arrival this window</span>
+                  )}
+                  {!row.outId && row.inId && (
+                    <span style={styles.mdFinal60OrphanNote}>no pitch departure this window</span>
+                  )}
                   {row.inId && (
                     <span style={styles.mdFinal60Chip}>
-                      <span style={{ ...styles.mdBenchChipNumber, ...(row.isKeeperSwap ? styles.mdBenchChipNumberGk : {}) }}>
+                      <span style={{ ...styles.mdBenchChipNumber, ...(row.inIsKeeper ? styles.mdBenchChipNumberGk : {}) }}>
                         {numberOf(row.inId)}
                       </span>
                       <span style={styles.mdBenchChipName}>{nameOf(row.inId)}</span>
-                      {row.isKeeperSwap && <span style={styles.mdGkTagInline}>GK</span>}
+                      {row.inIsKeeper && <span style={styles.mdGkTagInline}>GK</span>}
                     </span>
                   )}
                 </div>

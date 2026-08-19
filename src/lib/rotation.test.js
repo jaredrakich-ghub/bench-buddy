@@ -16,6 +16,7 @@ import {
   benchPriorityCompare,
   resolveBringBack,
   computeNextChangeBadges,
+  pairChanges,
   repairBenchToKeeper,
 } from "./rotation.js";
 
@@ -935,6 +936,66 @@ describe("computeNextChangeBadges", () => {
     expect(result.steppingDownKeeperId).toBeNull();
     expect(result.comingOffIds).toEqual(new Set(["p1"]));
     expect(result.becomingKeeperId).toBe("p3");
+  });
+});
+
+describe("pairChanges", () => {
+  it("zips a plain regular sub with no keeper involved", () => {
+    const rows = pairChanges({
+      comingOffIds: new Set(["p2"]), comingOnIds: new Set(["p3"]), curGkId: "p1", becomingKeeperId: null,
+    });
+    expect(rows).toEqual([{ outId: "p2", inId: "p3", outIsKeeper: false, inIsKeeper: false }]);
+  });
+
+  it("shows an in-place keeper swap as its own row even when neither player leaves the pitch", () => {
+    // Real scenario this covers: p1 and p3 are both already on the pitch;
+    // p3 simply takes over the gloves from p1. Nobody moves to/from the
+    // bench for the keeper change itself, but it's still worth a row.
+    const rows = pairChanges({
+      comingOffIds: new Set(["p4"]), comingOnIds: new Set(["p6"]), curGkId: "p1", becomingKeeperId: "p3",
+    });
+    expect(rows).toEqual([
+      { outId: "p1", inId: "p3", outIsKeeper: true, inIsKeeper: true },
+      { outId: "p4", inId: "p6", outIsKeeper: false, inIsKeeper: false },
+    ]);
+  });
+
+  it("leaves a regular departure unpaired (not force-matched) when the outgoing keeper stepping down absorbs a vacancy instead of a bench arrival — real bug found on a real device", () => {
+    // The outgoing keeper (p1) stays on the pitch as an outfielder rather
+    // than leaving — so comingOffIds never contained them, and nothing
+    // gets removed from the "off" side. The incoming keeper (p5) *is* a
+    // genuine bench arrival, so the "on" side does lose a real member.
+    // Two regular players (p2, p3) come off; only one bench player (p4)
+    // is left to pair with them once p5 is set aside for the keeper row —
+    // the second departure (p3) is real, not a bug, and should render
+    // with no invented partner rather than silently vanishing or getting
+    // wrongly paired with p5.
+    const rows = pairChanges({
+      comingOffIds: new Set(["p2", "p3"]), comingOnIds: new Set(["p4"]), curGkId: "p1", becomingKeeperId: "p5",
+    });
+    expect(rows).toEqual([
+      { outId: "p1", inId: "p5", outIsKeeper: true, inIsKeeper: true },
+      { outId: "p2", inId: "p4", outIsKeeper: false, inIsKeeper: false },
+      { outId: "p3", inId: null, outIsKeeper: false, inIsKeeper: false },
+    ]);
+  });
+
+  it("leaves an arrival unpaired the other way around: outgoing keeper truly leaves, incoming keeper was already on the pitch", () => {
+    const rows = pairChanges({
+      comingOffIds: new Set(["p1", "p2"]), comingOnIds: new Set(["p4", "p6"]), curGkId: "p1", becomingKeeperId: "p3",
+    });
+    expect(rows).toEqual([
+      { outId: "p1", inId: "p3", outIsKeeper: true, inIsKeeper: true },
+      { outId: "p2", inId: "p4", outIsKeeper: false, inIsKeeper: false },
+      { outId: null, inId: "p6", outIsKeeper: false, inIsKeeper: false },
+    ]);
+  });
+
+  it("does not create a keeper row at all when nobody's changing gloves", () => {
+    const rows = pairChanges({
+      comingOffIds: new Set(["p2"]), comingOnIds: new Set(["p3"]), curGkId: "p1", becomingKeeperId: null,
+    });
+    expect(rows.every((r) => !r.outIsKeeper && !r.inIsKeeper)).toBe(true);
   });
 });
 

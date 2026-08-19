@@ -670,6 +670,12 @@ export const styles = {
   mdFinal60RowList: { display: "flex", flexDirection: "column", gap: 8, margin: "10px 0" },
   mdFinal60Row: { display: "flex", alignItems: "center", justifyContent: "center", gap: 10 },
   mdFinal60Arrow: { color: tokens.color.pitchGreen, fontFamily: tokens.font.body, fontWeight: 800, fontSize: 18 },
+  // Stands in for the arrow when a row genuinely only has one side (see
+  // pairChanges, rotation.js) — explains why, instead of a bare chip with
+  // nothing next to it.
+  mdFinal60OrphanNote: {
+    color: tokens.color.mutedText, fontFamily: tokens.font.body, fontWeight: 700, fontSize: 12, fontStyle: "italic",
+  },
   // Same pill-chip shape as the bench strip's own chips (mdBenchChip etc.)
   // but on tokens.color.creamDeep rather than white — the sheet itself is
   // already creamPaper, so a white chip would read almost the same as its
