@@ -297,16 +297,18 @@ export const styles = {
   },
   mdGkTag: {
     position: "absolute", bottom: 2, left: -2, background: tokens.color.deepGreen, color: tokens.color.yellow,
-    fontFamily: tokens.font.body, fontWeight: 800, fontSize: 11, padding: "1px 6px", borderRadius: tokens.radius.chip,
+    fontFamily: tokens.font.body, fontWeight: 800, fontSize: 12, padding: "1px 6px", borderRadius: tokens.radius.chip,
     pointerEvents: "none",
   },
   // Same look as mdGkTag without the absolute positioning — for the
   // final60 sheet's swap-row chips, which aren't overlaid on a shirt.
   mdGkTagInline: {
     background: tokens.color.deepGreen, color: tokens.color.yellow, fontFamily: tokens.font.body, fontWeight: 800,
-    fontSize: 11, padding: "1px 6px", borderRadius: tokens.radius.chip,
+    fontSize: 12, padding: "1px 6px", borderRadius: tokens.radius.chip,
   },
-  mdShirtPlayerName: { color: "#fff", fontFamily: tokens.font.body, fontSize: 12, fontWeight: 800, textAlign: "center" },
+  // Bumped from 12px on real-device feedback ("the badges and names are
+  // too small") — goes with computeTokenSize's own bump (formation.js).
+  mdShirtPlayerName: { color: "#fff", fontFamily: tokens.font.body, fontSize: 14, fontWeight: 800, textAlign: "center" },
   // Everyone leaving the pitch next interval, regardless of whether it's a
   // regular sub or a keeper stepping down. Same 18px circle as nextOnBadge
   // (real-device feedback: the two should read as the same size/shape,
@@ -344,15 +346,15 @@ export const styles = {
   },
   mdBenchChipSwapTarget: { boxShadow: "0 0 0 2px " + tokens.color.pitchGreen },
   mdBenchChipNumber: {
-    width: 30, height: 30, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
-    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 13, flexShrink: 0,
+    width: 34, height: 34, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 14, flexShrink: 0,
     background: tokens.color.pitchGreen, color: "#fff",
   },
   // A keeper-eligible bench player's number disc flips to gold — matches
   // the on-pitch keeper's gold shirt, so "this player can go in goal"
   // reads the same color wherever they're shown.
   mdBenchChipNumberGk: { background: tokens.color.yellow, color: tokens.color.deepGreen },
-  mdBenchChipName: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 15, color: tokens.color.deepGreen },
+  mdBenchChipName: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 16, color: tokens.color.deepGreen },
   mdBenchChipUpArrow: { color: tokens.color.pitchGreen, display: "flex", alignItems: "center" },
   mdBenchEmpty: { color: tokens.color.mutedText, fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13 },
 
@@ -366,11 +368,11 @@ export const styles = {
     padding: "3px 12px 3px 4px", cursor: "pointer", font: "inherit", position: "relative",
   },
   mdInjuredChipNumber: {
-    width: 30, height: 30, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
-    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 13, flexShrink: 0,
+    width: 34, height: 34, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 14, flexShrink: 0,
     background: tokens.color.injuryRed, color: "#fff",
   },
-  mdInjuredChipName: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 15, color: tokens.color.injuryText },
+  mdInjuredChipName: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 16, color: tokens.color.injuryText },
   mdInjuredCrossBadge: {
     position: "absolute", top: -7, right: -5, width: 20, height: 20, borderRadius: "50%",
     background: tokens.color.injuryRed, border: `2px solid ${tokens.color.creamPaper}`,
@@ -579,14 +581,30 @@ export const styles = {
   // Pinned to the bottom of the viewport (thumb zone) rather than sitting
   // wherever it falls in document flow after the pitch/bench — real-device
   // feedback wanted it reachable without scrolling regardless of how far
-  // down the page the coach happens to have scrolled. MatchView.jsx adds
-  // matching bottom padding to the page content so the bench/injured rows
-  // never end up hidden underneath it.
+  // down the page the coach happens to have scrolled. `main`'s own
+  // pre-existing bottom padding (see the `main` style) already reserves
+  // room below the page content for it, so MatchView.jsx doesn't need any
+  // padding of its own.
+  //
+  // Split into an outer positioning shell + this inner visible card,
+  // mirroring `main`'s own box model exactly (same maxWidth/margin/16px
+  // horizontal padding) — a plain position:fixed;left:0;right:0 card would
+  // span the full viewport edge-to-edge, wider than every other card on
+  // the page (all of which sit inset inside `main`'s padding). The outer
+  // shell carries the positioning/inset with a transparent background and
+  // pointerEvents:none (so its side gutters don't swallow taps on
+  // scrolled content behind them); this inner card carries the visible
+  // background/radius/padding and pointerEvents:auto. All four corners
+  // round now (not just the top) and it sits with a small gap off the
+  // true bottom edge, reading as a floating card like the rest of the
+  // screen rather than a flush edge-to-edge sheet.
+  mdActionBarOuter: {
+    position: "fixed", left: 0, right: 0, bottom: "calc(12px + env(safe-area-inset-bottom, 0px))", zIndex: 10,
+    maxWidth: 640, margin: "0 auto", padding: "0 16px", pointerEvents: "none",
+  },
   mdActionBar: {
-    position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 10,
-    background: tokens.color.actionBar, borderRadius: `${tokens.radius.actionBarTop}px ${tokens.radius.actionBarTop}px 0 0`,
-    padding: "14px 16px calc(14px + env(safe-area-inset-bottom, 0px))",
-    maxWidth: 640, margin: "0 auto",
+    background: tokens.color.actionBar, borderRadius: tokens.radius.card, padding: "14px 16px",
+    pointerEvents: "auto", boxShadow: "0 4px 14px rgba(0,0,0,0.18)",
   },
   mdActionBarStatusRow: { display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 },
   mdActionBarCountdown: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 22, color: tokens.color.yellow },

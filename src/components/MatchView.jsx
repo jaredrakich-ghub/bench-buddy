@@ -420,10 +420,10 @@ export default function MatchView({
   };
 
   return (
-    // Bottom padding clears the fixed action bar (see mdActionBar) so the
-    // bench/injured rows never end up hidden underneath it — the bar is
-    // absent for match-complete, but the wasted space there is harmless.
-    <section style={!isMatchComplete ? { paddingBottom: 90 } : undefined}>
+    // No extra bottom padding needed here for the fixed action bar —
+    // `main` (SubRotationPlanner.jsx) already reserves bottom clearance
+    // for exactly this on every screen it renders.
+    <section>
       <div style={styles.mdHeader}>
         <div style={styles.mdHeaderTopRow}>
           <div style={styles.mdCrestOuter}>{crestSrc && <img src={crestSrc} alt="" style={styles.mdCrestImg} />}</div>
@@ -752,26 +752,30 @@ export default function MatchView({
       {isPreKickoff && nextIv && (
         // Start now lives in the timer row (see mdTimerPrimaryBtn above), so
         // this is context only — no button to duplicate it.
-        <div style={styles.mdActionBar}>
-          <div style={styles.mdActionBarInlineRow}>
-            <span style={styles.mdActionBarCountdown}>Ready to go</span>
-            <span style={styles.mdActionBarStatus}>first sub at {nextIv.startMin}′</span>
+        <div style={styles.mdActionBarOuter}>
+          <div style={styles.mdActionBar}>
+            <div style={styles.mdActionBarInlineRow}>
+              <span style={styles.mdActionBarCountdown}>Ready to go</span>
+              <span style={styles.mdActionBarStatus}>first sub at {nextIv.startMin}′</span>
+            </div>
           </div>
         </div>
       )}
 
       {isPaused && (
-        <div style={styles.mdActionBar}>
-          <div style={styles.mdActionBarInlineRow}>
-            <span style={styles.mdActionBarCountdown}>Clock stopped</span>
-            {nextIv && (
-              <button
-                style={styles.mdActionBarBtnCompact}
-                onClick={() => setSubLog((prev) => ({ ...prev, [cur.index]: elapsedSec }))}
-              >
-                Sub now
-              </button>
-            )}
+        <div style={styles.mdActionBarOuter}>
+          <div style={styles.mdActionBar}>
+            <div style={styles.mdActionBarInlineRow}>
+              <span style={styles.mdActionBarCountdown}>Clock stopped</span>
+              {nextIv && (
+                <button
+                  style={styles.mdActionBarBtnCompact}
+                  onClick={() => setSubLog((prev) => ({ ...prev, [cur.index]: elapsedSec }))}
+                >
+                  Sub now
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -786,17 +790,19 @@ export default function MatchView({
         // that used to sit under the countdown is dropped here too, since
         // the final-60 takeover already surfaces that detail when it
         // actually matters (inside 60 seconds of the sub).
-        <div style={styles.mdActionBar}>
-          <div style={styles.mdActionBarInlineRow}>
-            <span style={styles.mdActionBarCountdown}>Next sub {fmtClock(Math.max(0, secLeftInInterval))}</span>
-            {nextIv && (
-              <button
-                style={styles.mdActionBarBtnCompact}
-                onClick={() => setSubLog((prev) => ({ ...prev, [cur.index]: elapsedSec }))}
-              >
-                Sub done ✓
-              </button>
-            )}
+        <div style={styles.mdActionBarOuter}>
+          <div style={styles.mdActionBar}>
+            <div style={styles.mdActionBarInlineRow}>
+              <span style={styles.mdActionBarCountdown}>Next sub {fmtClock(Math.max(0, secLeftInInterval))}</span>
+              {nextIv && (
+                <button
+                  style={styles.mdActionBarBtnCompact}
+                  onClick={() => setSubLog((prev) => ({ ...prev, [cur.index]: elapsedSec }))}
+                >
+                  Sub done ✓
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

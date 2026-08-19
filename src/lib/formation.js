@@ -58,11 +58,12 @@ export function getFormationLayout(onField) {
 
 // How big a pitch token should render, purely based on how many outfielders
 // are sharing the pitch right now — a small game (4 or fewer outfielders,
-// the common 5-a-side case) gets today's full 40px size; busier games get
+// the common 5-a-side case) gets the full 48px size; busier games get
 // progressively smaller tokens so a 3-row formation doesn't overlap itself
-// on a phone-width screen.
+// on a phone-width screen. Bumped up from 40/34/28 on real-device feedback
+// ("the badges and names are too small").
 export function computeTokenSize(outfieldCount) {
-  if (outfieldCount <= 4) return 40;
-  if (outfieldCount <= 6) return 34;
-  return 28;
+  if (outfieldCount <= 4) return 48;
+  if (outfieldCount <= 6) return 40;
+  return 34;
 }

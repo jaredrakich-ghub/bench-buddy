@@ -105,18 +105,18 @@ describe("getFormationLayout", () => {
 });
 
 describe("computeTokenSize", () => {
-  it("uses the full 40px size for a typical 5-a-side game (4 or fewer outfielders)", () => {
-    expect(computeTokenSize(4)).toBe(40);
-    expect(computeTokenSize(1)).toBe(40);
+  it("uses the full 48px size for a typical 5-a-side game (4 or fewer outfielders)", () => {
+    expect(computeTokenSize(4)).toBe(48);
+    expect(computeTokenSize(1)).toBe(48);
   });
 
   it("shrinks tokens for a mid-size game (5-6 outfielders)", () => {
-    expect(computeTokenSize(5)).toBe(34);
-    expect(computeTokenSize(6)).toBe(34);
+    expect(computeTokenSize(5)).toBe(40);
+    expect(computeTokenSize(6)).toBe(40);
   });
 
   it("shrinks tokens further for a larger game (7+ outfielders)", () => {
-    expect(computeTokenSize(7)).toBe(28);
-    expect(computeTokenSize(10)).toBe(28);
+    expect(computeTokenSize(7)).toBe(34);
+    expect(computeTokenSize(10)).toBe(34);
   });
 });
