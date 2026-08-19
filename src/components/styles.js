@@ -66,6 +66,12 @@ export const tokens = {
     injuryBorder: "#E8A899",
     injuryText: "#8A4634",
     scrim: "rgba(20,32,28,.55)",
+    // Not in the README's own central "Design Tokens" list, but each
+    // appears in more than one of the shared non-match screens (A7/A8,
+    // A8/A9 respectively) — named here rather than left as scattered
+    // literals, same as everything else in this object.
+    disabledBorder: "#DCD3BB", // A7's "not here" disc/text base, A8's dashed "Add a team" border
+    groupLabel: "#3E5148", // group-header label color on the shared sub-header screens (A8, and A6/A7/A5-Minutes when built)
   },
   // Baloo 2 800 for display type (timer, wordmark, buttons, popover
   // titles); Nunito for body copy (700 captions, 800 labels/chips/names)
@@ -162,14 +168,11 @@ export const styles = {
     border: "none", borderRadius: 999, padding: "5px 10px", fontWeight: 700, fontSize: 12, cursor: "pointer",
     flexShrink: 0,
   },
-  teamList: { display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 },
+  // teamRow/teamRowMeta stay — SeasonSummaryModal's game-history list
+  // reuses them. teamList/teamRowBtn/teamRowBtnActive were TeamSwitcher-
+  // exclusive; removed alongside it (superseded by TeamAccountScreen.jsx
+  // and its own mdTeamAcct* styles).
   teamRow: { display: "flex", alignItems: "center", gap: 6 },
-  teamRowBtn: {
-    flex: 1, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, textAlign: "left",
-    background: colors.cardBg, border: "1px solid " + colors.border, borderRadius: 10, padding: "10px 12px",
-    fontWeight: 700, fontSize: 14, color: colors.ink, cursor: "pointer",
-  },
-  teamRowBtnActive: { background: "#E9F5EE", border: "1px solid " + colors.field, color: colors.grass },
   teamRowMeta: { fontWeight: 600, fontSize: 11, color: "#7C8983" },
   // paddingBottom is deliberately generous: on mobile browsers the docked
   // bottom toolbar (back/forward/tabs) isn't reserved space the page knows
@@ -202,7 +205,7 @@ export const styles = {
   // flex row with no margin of its own.
   sectionTitle: { fontSize: 17, fontWeight: 900, margin: 0, marginBottom: 8, color: colors.grass, textTransform: "uppercase", letterSpacing: 0.5 },
   headerBtnGroup: { display: "flex", gap: 6 },
-  addRow: { display: "flex", gap: 8, marginBottom: 12 },
+  // addRow was TeamSwitcher-exclusive; removed alongside it.
   input: { flex: 1, padding: "10px 12px", borderRadius: 10, border: "1px solid " + colors.border, fontSize: 14 },
   primaryBtn: {
     display: "flex", alignItems: "center", gap: 6, justifyContent: "center", padding: "10px 16px", borderRadius: 10,
@@ -859,5 +862,102 @@ export const styles = {
   saveErrorBanner: {
     background: colors.danger, color: "#fff", fontSize: 12, fontWeight: 700, textAlign: "center",
     padding: "8px 16px", lineHeight: 1.4,
+  },
+
+  // ---- Non-match screens (Direction A round 2) — see
+  // design_handoff_bench_buddy_match_day/README.md. mdSubHeader* is the
+  // shared header used by every screen reached off the cog menu that isn't
+  // the match itself (A8-Team-account now; A5-Minutes/A6-Season/
+  // A7-Squad-change when those get built) — same shape everywhere per the
+  // README, so built once here rather than per screen.
+  // Full-screen takeover, not a floating dialog — the README's non-match
+  // screens replace the whole page (with their own back arrow) rather
+  // than sitting as a centered card over a dimmed backdrop the way the
+  // old TeamSwitcher modal did. `inset:0` pins left/right explicitly,
+  // which defeats `margin:auto` centering on the content — same overflow
+  // bug class already hit (and fixed) for the match screen's action bar —
+  // so the maxWidth/centering lives on an inner wrapper instead, mirroring
+  // `main`'s own box model exactly.
+  mdFullScreenTakeoverOuter: {
+    position: "fixed", inset: 0, zIndex: 50, overflowY: "auto", background: tokens.color.creamPaper,
+  },
+  mdFullScreenTakeoverInner: { maxWidth: 640, margin: "0 auto", padding: "0 16px 24px" },
+  mdSubHeader: {
+    background: tokens.color.headerYellow, padding: "16px 18px 18px", borderRadius: "0 0 30px 30px",
+    display: "flex", alignItems: "center", gap: 12, marginBottom: 12,
+  },
+  mdSubHeaderBack: {
+    width: 44, height: 44, borderRadius: tokens.radius.rowSm, border: "none", background: "#fff",
+    display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0,
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 26, color: tokens.color.deepGreen,
+  },
+  mdSubHeaderTitle: { flex: 1, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 27, color: tokens.color.deepGreen },
+  // Same dot+rule shape as mdPopoverGroupHeader (cog menu), but this
+  // screen's own label color per the README (#3E5148, named `groupLabel`
+  // above) rather than mdPopoverGroupLabel's #6B7C72 — kept as its own
+  // style rather than editing the cog menu's, which stays exactly as it
+  // already is (out of scope here).
+  mdTeamAcctGroupLabel: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 16, color: tokens.color.groupLabel },
+  mdTeamAcctList: { display: "flex", flexDirection: "column", gap: 8, marginBottom: 4 },
+  mdTeamAcctCard: {
+    display: "flex", alignItems: "center", gap: 12, width: "100%", background: "#fff",
+    borderRadius: tokens.radius.rowLg, border: "none", padding: "11px 14px 11px 11px",
+    boxShadow: tokens.shadow.solid(3, "rgba(28,58,46,.10)"), cursor: "pointer", textAlign: "left", font: "inherit",
+  },
+  mdTeamAcctCardActive: { border: `3px solid ${tokens.color.pitchGreen}`, padding: "9px 12px 9px 9px" },
+  mdTeamAcctCrest: {
+    width: 46, height: 46, borderRadius: "50%", flexShrink: 0, overflow: "hidden",
+    display: "flex", alignItems: "center", justifyContent: "center", background: tokens.color.creamDeep,
+  },
+  mdTeamAcctCrestImg: { width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 46%", transform: "scale(1.7)" },
+  // A non-current team has no real crest to show (the app only has the
+  // one shared crest asset, used for whichever team is active) — an
+  // initial disc reads fine here and matches the README's own fallback
+  // ("Other teams show a #F1E9D2 initial disc").
+  mdTeamAcctInitialDisc: {
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 18, color: tokens.color.mutedText,
+  },
+  mdTeamAcctInfo: { flex: 1, minWidth: 0 },
+  mdTeamAcctName: {
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 16, color: tokens.color.deepGreen,
+    display: "flex", alignItems: "center", gap: 6,
+  },
+  mdTeamAcctSubline: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 12.5, color: tokens.color.mutedText, marginTop: 2 },
+  mdTeamAcctTickDisc: {
+    width: 20, height: 20, borderRadius: "50%", background: tokens.color.pitchGreen, color: tokens.color.creamPaper,
+    display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, flexShrink: 0,
+  },
+  mdTeamAcctAddCard: {
+    width: "100%", borderRadius: tokens.radius.rowLg, padding: 13, border: `3px dashed ${tokens.color.disabledBorder}`,
+    background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 18, color: tokens.color.mutedText,
+  },
+  // Interaction affordances (rename/delete/add-team text entry, delete
+  // confirmation) aren't covered by the README's A8 section — it's a
+  // read-mostly screen in the design file — so these keep the existing
+  // TeamSwitcher interaction shape (inline input, inline confirm row)
+  // just restyled to sit inside a card instead of a plain modal row.
+  mdTeamAcctInlineRow: { display: "flex", alignItems: "center", gap: 8, width: "100%" },
+  mdTeamAcctInput: {
+    flex: 1, height: 40, borderRadius: tokens.radius.rowSm, border: `2px solid ${tokens.color.rule}`,
+    padding: "0 12px", fontFamily: tokens.font.body, fontWeight: 700, fontSize: 14, color: tokens.color.deepGreen,
+  },
+  mdTeamAcctIconBtn: {
+    width: 34, height: 34, borderRadius: tokens.radius.iconTile, border: "none", background: tokens.color.creamDeep,
+    display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, color: tokens.color.mutedText,
+  },
+  mdTeamAcctConfirmCard: {
+    background: tokens.color.injuryTint, border: `2px solid ${tokens.color.injuryBorder}`, borderRadius: tokens.radius.rowLg,
+    padding: "11px 14px", display: "flex", flexDirection: "column", gap: 8,
+  },
+  mdTeamAcctConfirmText: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13, color: tokens.color.injuryText },
+  mdTeamAcctConfirmBtnRow: { display: "flex", gap: 8 },
+  mdTeamAcctBtnDanger: {
+    flex: 1, height: 40, borderRadius: tokens.radius.buttonMd, border: "none", background: tokens.color.injuryRed,
+    color: "#fff", fontFamily: tokens.font.display, fontWeight: 800, fontSize: 14, cursor: "pointer",
+  },
+  mdTeamAcctBtnCancel: {
+    flex: 1, height: 40, borderRadius: tokens.radius.buttonMd, border: "none", background: tokens.color.creamDeep,
+    color: tokens.color.deepGreen, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 14, cursor: "pointer",
   },
 };

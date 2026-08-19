@@ -14,7 +14,7 @@ import SummaryModal from "./SummaryModal.jsx";
 import SeasonSummaryModal from "./SeasonSummaryModal.jsx";
 import SquadSettingsForm from "./SquadSettingsForm.jsx";
 import MatchView from "./MatchView.jsx";
-import TeamSwitcher from "./TeamSwitcher.jsx";
+import TeamAccountScreen from "./TeamAccountScreen.jsx";
 import LoadingScreen from "./LoadingScreen.jsx";
 import headerMascot from "../assets/header-mascot.jpg";
 
@@ -415,18 +415,28 @@ export default function SubRotationPlanner({ user }) {
       )}
 
       {showTeamSwitcher && (
-        <TeamSwitcher
-          teams={teams}
-          activeTeamId={activeTeamId}
-          onSwitch={switchTeam}
-          onAdd={addNewTeam}
-          onRename={renameTeamById}
-          onDelete={deleteTeamById}
-          onClose={() => setShowTeamSwitcher(false)}
-          userEmail={user.email}
-          onSignOut={signOutUser}
-          onDeleteAccount={deleteMyAccount}
-        />
+        // README > A8-Team-account — full-screen takeover, not a floating
+        // modal (see mdFullScreenTakeover* in styles.js for why it's split
+        // into an outer/inner wrapper).
+        <div style={styles.mdFullScreenTakeoverOuter}>
+          <div style={styles.mdFullScreenTakeoverInner}>
+            <TeamAccountScreen
+              teams={teams}
+              activeTeamId={activeTeamId}
+              onSwitch={switchTeam}
+              onAdd={addNewTeam}
+              onRename={renameTeamById}
+              onDelete={deleteTeamById}
+              onClose={() => setShowTeamSwitcher(false)}
+              userEmail={user.email}
+              onSignOut={signOutUser}
+              onDeleteAccount={deleteMyAccount}
+              onShowSeason={() => setShowSeasonModal(true)}
+              onShowSettings={() => setShowSettingsModal(true)}
+              crestSrc={headerMascot}
+            />
+          </div>
+        </div>
       )}
     </div>
   );
