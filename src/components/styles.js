@@ -72,6 +72,9 @@ export const tokens = {
     // literals, same as everything else in this object.
     disabledBorder: "#DCD3BB", // A7's "not here" disc/text base, A8's dashed "Add a team" border
     groupLabel: "#3E5148", // group-header label color on the shared sub-header screens (A8, and A6/A7/A5-Minutes when built)
+    benchText: "#8C8677", // A5-Minutes' BENCH column, also A7's "not here" text
+    // A5-Minutes' em-dash-for-zero is #C9C4B6 — same value as `chevron`
+    // above, so reuse that token directly rather than duplicating it here.
   },
   // Baloo 2 800 for display type (timer, wordmark, buttons, popover
   // titles); Nunito for body copy (700 captions, 800 labels/chips/names)
@@ -960,4 +963,65 @@ export const styles = {
     flex: 1, height: 40, borderRadius: tokens.radius.buttonMd, border: "none", background: tokens.color.creamDeep,
     color: tokens.color.deepGreen, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 14, cursor: "pointer",
   },
+
+  // ---- A5-Minutes (#11b) — README: "splits each child's time three ways
+  // — pitch, in goal, bench — ... so the coach can audit the rotation
+  // rather than take its word for it."
+  // Right-hand context chip on the shared sub-header, showing elapsed
+  // time — generalized off mdSubHeaderTitle's row (flex:1 there leaves
+  // room for this to sit at the end).
+  mdSubHeaderChip: {
+    background: tokens.color.deepGreen, color: tokens.color.yellow, fontFamily: tokens.font.body, fontWeight: 800,
+    fontSize: 14, borderRadius: tokens.radius.chip, padding: "6px 13px", flexShrink: 0, whiteSpace: "nowrap",
+  },
+  mdMinutesNote: {
+    background: tokens.color.creamDeep, borderRadius: tokens.radius.rowLg, padding: "11px 14px",
+    fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13.5, color: tokens.color.groupLabel,
+    lineHeight: 1.4, marginBottom: 12,
+  },
+  // padding-left 51px aligns past the 32px disc + gap in the rows below.
+  mdMinutesColHeads: { display: "flex", padding: "0 12px 2px 51px", gap: 9, marginBottom: 4 },
+  mdMinutesColHeadPitch: {
+    flex: 1, textAlign: "right", fontFamily: tokens.font.body, fontWeight: 800, fontSize: 11.5,
+    letterSpacing: "0.03em", color: tokens.color.pitchGreen,
+  },
+  mdMinutesColHeadGoal: {
+    width: 52, flexShrink: 0, textAlign: "right", fontFamily: tokens.font.body, fontWeight: 800, fontSize: 11.5,
+    letterSpacing: "0.03em", color: tokens.color.goldText,
+  },
+  mdMinutesColHeadBench: {
+    width: 52, flexShrink: 0, textAlign: "right", fontFamily: tokens.font.body, fontWeight: 800, fontSize: 11.5,
+    letterSpacing: "0.03em", color: tokens.color.benchText,
+  },
+  mdMinutesList: { display: "flex", flexDirection: "column", gap: 6 },
+  mdMinutesRow: {
+    display: "flex", alignItems: "center", gap: 9, background: "#fff", borderRadius: tokens.radius.rowLg,
+    padding: "10px 12px 10px 9px", boxShadow: tokens.shadow.solid(3, "rgba(28,58,46,.10)"),
+  },
+  mdMinutesDisc: {
+    width: 32, height: 32, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center",
+    justifyContent: "center", fontFamily: tokens.font.display, fontWeight: 800, fontSize: 13,
+    background: tokens.color.pitchGreen, color: tokens.color.creamPaper,
+  },
+  mdMinutesDiscKeeper: { background: tokens.color.yellow, color: tokens.color.deepGreen },
+  mdMinutesName: { flex: 1, minWidth: 0, fontFamily: tokens.font.body, fontWeight: 800, fontSize: 15, color: tokens.color.deepGreen },
+  mdMinutesValuePitch: {
+    flex: 1, textAlign: "right", fontFamily: tokens.font.display, fontWeight: 800, fontSize: 17, color: tokens.color.pitchGreen,
+  },
+  mdMinutesValueGoal: {
+    width: 52, flexShrink: 0, textAlign: "right", fontFamily: tokens.font.display, fontWeight: 800, fontSize: 17,
+    color: tokens.color.goldText,
+  },
+  mdMinutesValueBench: {
+    width: 52, flexShrink: 0, textAlign: "right", fontFamily: tokens.font.display, fontWeight: 800, fontSize: 17,
+    color: tokens.color.benchText,
+  },
+  // Zero reads as this em dash instead of "0" — keeps the columns quiet
+  // so the numbers that exist carry the meaning (README's own words).
+  mdMinutesZero: { color: tokens.color.chevron },
+  mdMinutesTotalsRow: {
+    display: "flex", alignItems: "center", gap: 9, padding: "6px 12px 0 51px", marginTop: 4,
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 15,
+  },
+  mdMinutesTotalsName: { flex: 1, color: tokens.color.mutedText, fontFamily: tokens.font.body, fontWeight: 800, fontSize: 13 },
 };

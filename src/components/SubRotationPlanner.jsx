@@ -407,7 +407,21 @@ export default function SubRotationPlanner({ user }) {
       )}
 
       {showSummaryModal && plan && (
-        <SummaryModal plan={plan} availableIds={availableIds} nameOf={nameOf} onClose={() => setShowSummaryModal(false)} />
+        // README > A5-Minutes — full-screen takeover, same wrapper pattern
+        // as A8-Team-account (see mdFullScreenTakeover* in styles.js).
+        <div style={styles.mdFullScreenTakeoverOuter}>
+          <div style={styles.mdFullScreenTakeoverInner}>
+            <SummaryModal
+              plan={plan}
+              availableIds={availableIds}
+              nameOf={nameOf}
+              numberOf={numberOf}
+              keeperEligibleIds={keeperEligibleIds}
+              elapsedSec={elapsedSec}
+              onClose={() => setShowSummaryModal(false)}
+            />
+          </div>
+        </div>
       )}
 
       {showSeasonModal && (

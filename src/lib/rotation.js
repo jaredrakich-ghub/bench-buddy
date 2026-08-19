@@ -499,20 +499,29 @@ export function recommendSubIntervals({ candidateMinutes, gameMinutes, fieldSize
   });
 }
 
-// Totals each player's time across the whole plan, split into outfield,
-// keeper, bench, and (if it happened) injured/sidelined minutes. Since the
-// full game is generated up front, this works whether or not the timer's
-// ever been started — it's effectively a full match simulation.
+// Totals each player's time across the plan, split into outfield, keeper,
+// bench, and (if it happened) injured/sidelined minutes.
+//
+// `capMin`, when given, truncates the count to "as of this many minutes
+// in" instead of the whole plan — README > A5-Minutes (#11b): this screen
+// is a *mid-game* audit ("Data shown is mid-game at 12:40"), not a
+// full-game projection, so it needs what's actually accrued so far, not
+// what the plan eventually adds up to. Omitting it (or passing null/
+// undefined) keeps the original full-plan behavior — every existing
+// caller (the end-of-game archive in useMatchState.js, and any test that
+// doesn't pass a third argument) is unaffected.
 //
 // Previously this closed over `plan`/`availableIds` from component state;
 // it now takes them as explicit arguments so it can be tested and reasoned
 // about on its own, with the same behavior.
-export function computeMinutesSummary(plan, availableIds) {
+export function computeMinutesSummary(plan, availableIds, capMin) {
   if (!plan) return [];
   return availableIds.map((id) => {
     let outfieldMin = 0, gkMin = 0, benchMin = 0, injuredMin = 0;
     plan.forEach((iv) => {
-      const len = iv.endMin - iv.startMin;
+      const effectiveEnd = capMin != null ? Math.min(iv.endMin, capMin) : iv.endMin;
+      const len = Math.max(0, effectiveEnd - iv.startMin);
+      if (len === 0) return;
       const onF = iv.onField.find((p) => p.id === id);
       if (onF) {
         if (onF.isGk) gkMin += len;
@@ -525,6 +534,45 @@ export function computeMinutesSummary(plan, availableIds) {
     });
     return { id, outfieldMin, gkMin, benchMin, injuredMin };
   });
+}
+
+// The note card's data for A5-Minutes — two independent observations:
+//  1. How close pitch (outfield) time is across the squad right now — the
+//     spread between whoever's had the most and whoever's had the least.
+//  2. Whether someone has been in goal continuously since kickoff (their
+//     gkMin equals the elapsed time exactly — never rotated out), and if
+//     so, when their shift is next due to end, read forward from the plan.
+// Returns plain data (ids, not names) — same convention as the rest of
+// this file (see pairChanges) — the component composes the final sentence
+// with whatever nameOf it has on hand.
+//
+// Deliberately *not* attempting the mockup's "evens out by 25′" style
+// prediction of when the spread will close — that would need simulating
+// the rest of the plan's rotation forward, which is real algorithmic work
+// on its own and not needed for the note card to be useful; stating the
+// current spread as a fact is honest and still tells the coach what they
+// came here to check.
+export function describeMinutesNote({ summary, plan, elapsedMin, keeperEligibleIds }) {
+  if (!summary.length) return { spreadMin: 0, continuousKeeperId: null, shiftEndsAt: null };
+  const outfieldValues = summary.map((s) => s.outfieldMin);
+  const spreadMin = Math.max(...outfieldValues) - Math.min(...outfieldValues);
+
+  let continuousKeeperId = null;
+  let shiftEndsAt = null;
+  const continuousKeeper = summary.find((s) => keeperEligibleIds.includes(s.id) && s.gkMin > 0 && s.gkMin >= elapsedMin);
+  if (continuousKeeper && plan) {
+    const currentIv = plan.find((iv) => iv.startMin <= elapsedMin && elapsedMin < iv.endMin) ?? plan[plan.length - 1];
+    const stillGk = (iv) => iv.onField.some((p) => p.id === continuousKeeper.id && p.isGk);
+    if (stillGk(currentIv)) {
+      const futureIvs = plan.filter((iv) => iv.startMin >= currentIv.startMin);
+      const lastGkIv = [...futureIvs].reverse().find(stillGk);
+      if (lastGkIv) {
+        continuousKeeperId = continuousKeeper.id;
+        shiftEndsAt = lastGkIv.endMin;
+      }
+    }
+  }
+  return { spreadMin, continuousKeeperId, shiftEndsAt };
 }
 
 // Rolls up several archived games (see gameHistory.js — each one's
