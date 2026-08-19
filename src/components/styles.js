@@ -448,16 +448,6 @@ export const styles = {
   // MatchView) rather than needing its own Cancel/dismiss action — it's
   // confirming something that already happened, not asking for a decision.
   actionSheetConfirm: { fontSize: 13, fontWeight: 700, color: colors.field, textAlign: "center", padding: "4px 0" },
-  // The tap-to-open action menu shared by every token (pitch, bench,
-  // injured) — replaces the old always-visible per-token side buttons.
-  // Lives inside actionSheet, which already supplies the card chrome.
-  tokenActionMenuHeader: { fontSize: 11, fontWeight: 700, color: colors.bench, padding: "2px 4px 7px" },
-  tokenActionMenuItem: {
-    display: "flex", alignItems: "center", gap: 8, padding: "10px 4px", borderRadius: 8,
-    border: "none", background: "none", width: "100%", textAlign: "left", cursor: "pointer",
-    fontSize: 13, fontWeight: 700, color: colors.ink, font: "inherit",
-  },
-  tokenActionMenuItemDanger: { color: colors.danger },
 
   // ---- Match-day redesign (Direction A) — header + action bar. See the
   // `tokens` export above and the pitch/shirt/bench styles further up.
@@ -534,11 +524,16 @@ export const styles = {
     display: "flex", alignItems: "center", justifyContent: "center", gap: 8, cursor: "pointer",
   },
 
+  // Shared full-screen dim layer — final60, the cog menu, and the
+  // player-tap popover are mutually exclusive (never shown two at once,
+  // see MatchView.jsx), so one scrim style serves all three rather than
+  // three near-identical copies.
+  mdScrim: { position: "fixed", inset: 0, background: tokens.color.scrim, zIndex: 45 },
+
   // ---- Full-screen final-60 sheet (A2b-Match-final60). A genuinely modal
   // moment (dark scrim + a sheet that takes over as the primary confirm
   // surface) rather than another in-flow card, so — unlike the rest of
   // this screen so far — these two are position:fixed.
-  mdFinal60Scrim: { position: "fixed", inset: 0, background: tokens.color.scrim, zIndex: 45 },
   mdFinal60Sheet: {
     position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 46,
     background: tokens.color.creamPaper, borderRadius: `${tokens.radius.actionBarTop}px ${tokens.radius.actionBarTop}px 0 0`,
@@ -567,6 +562,87 @@ export const styles = {
     fontFamily: tokens.font.display, fontWeight: 800, fontSize: 13, flexShrink: 0,
     background: tokens.color.alertRed, color: "#fff",
   },
+
+  // ---- Anchored popovers (A2d-Menu-anchored, A2g-Player-tap). Both grow
+  // out of the control that opened them — position:fixed with `top`
+  // computed from that control's own getBoundingClientRect() at the
+  // moment it's tapped (see MatchView.jsx), one flattened corner (10px,
+  // top-right) pointing back at it. Horizontal placement is simplified
+  // from the design's own per-screen left/right values (14/14 for the
+  // cog, 96/16 for a player tap, i.e. narrower and offset toward
+  // wherever the tap happened) to one consistent full-width-within-
+  // margins treatment for both — matching the same maxWidth:640-centered
+  // pattern every other fixed surface on this screen already uses, rather
+  // than reproducing the original 380px frame's exact offsets.
+  mdPopover: {
+    position: "fixed", left: 14, right: 14, zIndex: 46,
+    background: tokens.color.creamPaper, borderRadius: "28px 10px 28px 28px",
+    border: `3px solid ${tokens.color.yellow}`, boxShadow: tokens.shadow.overlay,
+    padding: "10px 12px 12px", maxWidth: 640 - 28, margin: "0 auto",
+    maxHeight: "calc(100vh - 24px)", overflowY: "auto",
+  },
+  mdPopoverGroup: { marginBottom: 6 },
+  mdPopoverGroupHeader: { display: "flex", alignItems: "center", gap: 8, padding: "6px 0 6px 6px" },
+  mdPopoverGroupDot: { width: 8, height: 8, borderRadius: "50%", flexShrink: 0 },
+  mdPopoverGroupLabel: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 16, color: tokens.color.mutedText },
+  mdPopoverGroupRule: { flex: 1, height: 1, background: tokens.color.rule },
+  mdPopoverRow: {
+    display: "flex", alignItems: "center", gap: 10, width: "100%", background: "#fff", borderRadius: tokens.radius.rowSm,
+    border: "none", padding: "3px 12px 3px 8px", marginBottom: 6, boxShadow: "0 3px 0 rgba(28,58,46,.10)",
+    cursor: "pointer", textAlign: "left", font: "inherit",
+  },
+  mdPopoverRowIconTile: {
+    width: 33, height: 33, borderRadius: tokens.radius.iconTile, flexShrink: 0,
+    display: "flex", alignItems: "center", justifyContent: "center", fontFamily: tokens.font.display, fontWeight: 800, fontSize: 17,
+  },
+  mdPopoverRowLabel: { flex: 1, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 19, color: tokens.color.deepGreen },
+  mdPopoverRowValue: {
+    background: tokens.color.creamDeep, color: tokens.color.mutedText, fontFamily: tokens.font.body, fontWeight: 800,
+    fontSize: 13, borderRadius: tokens.radius.chip, padding: "4px 10px", whiteSpace: "nowrap",
+  },
+  mdPopoverRowChevron: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 22, color: tokens.color.chevron, paddingLeft: 2 },
+  // The four icon-tile tints reused across both popovers (README: "yellow
+  // #FBE3A6, green #CBE8D6, neutral #F1E9D2, red #FAD3C8") — background
+  // only, text/icon color is set per row alongside whichever of these is used.
+  mdTintYellow: { background: tokens.color.headerYellow },
+  mdTintGreen: { background: tokens.color.mint },
+  mdTintNeutral: { background: tokens.color.creamDeep },
+  mdTintRed: { background: tokens.color.injuryTint2 },
+  mdPopoverFooter: {
+    textAlign: "center", marginTop: 4, paddingTop: 10, borderTop: `1px solid ${tokens.color.rule}`,
+    fontFamily: tokens.font.body, fontWeight: 800, color: tokens.color.mutedText, fontSize: 14,
+  },
+  mdPopoverFooterVersion: { fontSize: 12 },
+
+  // Player-tap popover (A2g-Player-tap) — same mdPopover shell, different
+  // interior: a name/meta header instead of grouped rows, and three (or
+  // one, for an injured player) bigger action rows with a consequence
+  // line under each label rather than a value chip.
+  mdPlayerPopoverHeader: { padding: "0 4px 8px" },
+  mdPlayerPopoverName: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 22, color: tokens.color.deepGreen },
+  mdPlayerPopoverMeta: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 13, color: tokens.color.mutedText },
+  mdPlayerPopoverRow: {
+    display: "flex", alignItems: "center", gap: 10, width: "100%", background: "#fff", borderRadius: tokens.radius.rowLg,
+    border: "none", padding: "9px 12px 9px 9px", marginBottom: 8, cursor: "pointer", textAlign: "left", font: "inherit",
+  },
+  mdPlayerPopoverIconTile: {
+    width: 36, height: 36, borderRadius: 14, flexShrink: 0,
+    display: "flex", alignItems: "center", justifyContent: "center", fontFamily: tokens.font.display, fontWeight: 800, fontSize: 18,
+  },
+  mdPlayerPopoverRowLabel: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 19, color: tokens.color.deepGreen },
+  mdPlayerPopoverRowConsequence: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 12, color: tokens.color.mutedText },
+
+  // "Lit above the scrim" treatment for whichever control opened the
+  // popover it's paired with — position:relative lets zIndex actually
+  // apply (a static-position element ignores it), and the zIndex itself
+  // just needs to clear mdScrim's 45.
+  mdOriginLit: { position: "relative", zIndex: 47 },
+  mdCogBtnLit: { background: tokens.color.headerYellow, border: `3px solid ${tokens.color.yellow}` },
+  // Same idea for a tapped shirt/chip, but via drop-shadow/box-shadow
+  // rather than a border — a shirt's own SVG stroke is part of the icon
+  // itself, not something a wrapping border would sit flush against.
+  mdShirtBtnLit: { filter: `drop-shadow(0 0 0 3px ${tokens.color.yellow})` },
+  mdBenchChipLit: { boxShadow: `0 0 0 3px ${tokens.color.yellow}` },
 
   modalOverlay: {
     position: "fixed", inset: 0, background: "rgba(15,36,26,0.55)", display: "flex", alignItems: "center",

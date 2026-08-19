@@ -74,3 +74,15 @@ export function KitShirt({ width = 62, height = 58, isGk = false, strokeColor = 
     </svg>
   );
 }
+
+// A medical-cross glyph — two overlapping rects forming a plus, matching
+// the design file's own construction (it builds this the same way, not
+// a single plus-shaped path) for the "Mark injured" action tile.
+export function MedicalCross({ size = 18, color = tokens.color.injuryRed }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="9" y="3" width="6" height="18" rx="1.5" fill={color} />
+      <rect x="3" y="9" width="18" height="6" rx="1.5" fill={color} />
+    </svg>
+  );
+}

@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import {
-  RotateCcw, Play, Pause, Settings, BarChart2, History, Users, X, ArrowDown, ArrowUp, Shield, ArrowLeftRight,
+  RotateCcw, Play, Pause, BarChart2, History, Shirt, User, LogOut, Home,
+  ArrowDown, ArrowUp, ArrowLeftRight,
 } from "lucide-react";
 import { intervalAtElapsed, computeNextChangeBadges, computeBreakBoundaries } from "../lib/rotation.js";
 import { computeLiveElapsedSec, fmtClock } from "../lib/clock.js";
 import { getFormationLayout, computeTokenSize } from "../lib/formation.js";
-import { styles } from "./styles.js";
-import { GearIcon, KitShirt } from "./matchDayIcons.jsx";
+import { styles, tokens } from "./styles.js";
+import { GearIcon, KitShirt, MedicalCross } from "./matchDayIcons.jsx";
 
 // Hand-drawn-style pitch markings (halfway line + centre circle) as one
 // absolutely-positioned SVG overlay, replacing the old plain CSS
@@ -77,6 +78,10 @@ export default function MatchView({
   numberOf,
   teamName,
   crestSrc,
+  userEmail,
+  availableCount,
+  rosterSize,
+  gameSettingsSummary,
   onInjury,
   onBringBack,
   onSwap,
@@ -84,6 +89,7 @@ export default function MatchView({
   onShowSettings,
   onShowSeason,
   onShowTeamSwitcher,
+  onSignOut,
 }) {
   const totalGameSec = plan[plan.length - 1].endMin * 60;
   const isMatchComplete = elapsedSec >= totalGameSec;
@@ -189,12 +195,33 @@ export default function MatchView({
     cur: viewedIv, nextIv: viewedNextIv, curGk: viewedGk, nextGk: viewedNextGk, gkChanging: viewedGkChanging,
   });
 
-  // Which token's tap-to-open action menu is currently showing — purely
-  // transient UI state, doesn't need to live in useMatchState the way
-  // swapPickId does (that one has to survive being read by performSwap).
+  // Which token's tap-to-open action popover is currently showing, plus
+  // where it should grow from — purely transient UI state, doesn't need
+  // to live in useMatchState the way swapPickId does (that one has to
+  // survive being read by performSwap). menuOrigin.top is captured from
+  // the tapped element's own getBoundingClientRect() at tap time (see
+  // handleTokenTap) — position:fixed's `top`, so it stays correct
+  // regardless of where in the page this happens to render.
   const [menuPlayerId, setMenuPlayerId] = useState(null);
+  const [menuOrigin, setMenuOrigin] = useState(null);
   const menuOnFieldRecord = menuPlayerId ? viewedIv.onField.find((p) => p.id === menuPlayerId) : null;
   const menuCanMakeKeeper = menuOnFieldRecord && !menuOnFieldRecord.isGk && keeperEligibleIds.includes(menuPlayerId);
+
+  // The player-tap popover's "Swap player" row previews who the schedule
+  // already has lined up to come on for this specific player, the same
+  // way final60Rows pairs off/on lists — reusing that pairing here (based
+  // on the *viewed* interval's badges, not live) rather than a second,
+  // divergent implementation. Null when this player isn't part of a
+  // scheduled change this window (an off-schedule swap the coach is
+  // initiating themselves), in which case the row falls back to generic
+  // copy instead of guessing.
+  const viewedOutgoingKeeperId = becomingKeeperId ? viewedGk?.id : null;
+  const viewedRegularOffIds = [...comingOffIds].filter((id) => id !== viewedOutgoingKeeperId);
+  const viewedRegularOnIds = [...comingOnIds].filter((id) => id !== becomingKeeperId);
+  const swapPartnerFor = (id) => {
+    const idx = viewedRegularOffIds.indexOf(id);
+    return idx === -1 ? null : viewedRegularOnIds[idx] ?? null;
+  };
 
   // A brief "✓ X swapped with Y" note shown in the action sheet right after
   // a swap/make-keeper action completes — found from real use that a swap
@@ -231,7 +258,7 @@ export default function MatchView({
   // checked here for those. Tapping the swap source again is treated as an
   // implicit cancel rather than a (meaningless) self-swap. Otherwise a tap
   // opens (or closes, if already open) that player's own action menu.
-  const handleTokenTap = (id) => {
+  const handleTokenTap = (id, e) => {
     if (interactionLocked) return;
     if (swapPickId) {
       if (id === swapPickId) {
@@ -243,7 +270,13 @@ export default function MatchView({
       setSwapPickId(null);
       return;
     }
-    setMenuPlayerId((current) => (current === id ? null : id));
+    if (menuPlayerId === id) {
+      setMenuPlayerId(null);
+      setMenuOrigin(null);
+      return;
+    }
+    setMenuPlayerId(id);
+    setMenuOrigin({ top: e.currentTarget.getBoundingClientRect().bottom + 8 });
   };
 
   const outfielders = viewedIv.onField.filter((p) => !p.isGk);
@@ -278,13 +311,11 @@ export default function MatchView({
   if (injuredThisGame.length > 0) actionBarStatusParts.push(`${injuredThisGame.length} out`);
   const actionBarStatus = actionBarStatusParts.join(" · ");
 
-  // Cog menu — interim scaffolding for this step. The real anchored,
-  // glowing-origin-control popover (absorbing Season/Switch-team/Account/
-  // Sign-out too) is its own step; for now this just keeps every one of
-  // those entry points reachable via a plain reused modal, since the new
-  // header has no room left for the separate Summary/Edit buttons the old
-  // one had.
-  const [showQuickMenu, setShowQuickMenu] = useState(false);
+  // The cog menu — same anchored-popover mechanism as the player-tap menu
+  // above (a null-or-{top} origin, captured from the cog's own rect at
+  // tap time). Absorbs Season/Switch-team/Account/Sign-out from the old
+  // app-level header per the "full consolidation" decision.
+  const [cogOrigin, setCogOrigin] = useState(null);
 
   // Bench tokens look and behave identically wherever they're rendered
   // (the Outfield-waiting, Keeper-waiting and Injured rows all use this) —
@@ -298,8 +329,9 @@ export default function MatchView({
       style={{
         ...styles.mdBenchChip,
         ...(swapPickId && swapPickId !== id && !interactionLocked ? styles.mdBenchChipSwapTarget : {}),
+        ...(menuPlayerId === id ? { ...styles.mdOriginLit, ...styles.mdBenchChipLit } : {}),
       }}
-      onClick={() => handleTokenTap(id)}
+      onClick={(e) => handleTokenTap(id, e)}
       disabled={interactionLocked}
     >
       <span style={{ ...styles.mdBenchChipNumber, ...(keeperEligibleIds.includes(id) ? styles.mdBenchChipNumberGk : {}) }}>
@@ -352,7 +384,17 @@ export default function MatchView({
         <div style={styles.mdHeaderTopRow}>
           <div style={styles.mdCrestOuter}>{crestSrc && <img src={crestSrc} alt="" style={styles.mdCrestImg} />}</div>
           <div style={styles.mdTeamName}>{teamName}</div>
-          <button style={styles.mdCogBtn} onClick={() => setShowQuickMenu(true)} title="Menu">
+          <button
+            style={{ ...styles.mdCogBtn, ...(cogOrigin ? { ...styles.mdOriginLit, ...styles.mdCogBtnLit } : {}) }}
+            onClick={(e) => {
+              // Read the rect synchronously, before handing off to the
+              // updater callback — by the time that runs, the synthetic
+              // event's currentTarget has already been cleared.
+              const top = e.currentTarget.getBoundingClientRect().bottom + 8;
+              setCogOrigin((current) => (current ? null : { top }));
+            }}
+            title="Menu"
+          >
             <GearIcon size={20} />
           </button>
         </div>
@@ -423,8 +465,9 @@ export default function MatchView({
               style={{
                 ...styles.mdShirtBtn,
                 ...(swapPickId && swapPickId !== id && !interactionLocked ? styles.mdShirtBtnSwapTarget : {}),
+                ...(menuPlayerId === id ? { ...styles.mdOriginLit, ...styles.mdShirtBtnLit } : {}),
               }}
-              onClick={() => handleTokenTap(id)}
+              onClick={(e) => handleTokenTap(id, e)}
               disabled={interactionLocked}
             >
               <div style={{ position: "relative", width: shirtWidth, height: shirtHeight }}>
@@ -489,67 +532,123 @@ export default function MatchView({
         )}
       </div>
 
-      {!interactionLocked && (confirmMessage || swapPickId || menuPlayerId) && (
+      {/* Swap-picking hint and the post-action confirmation toast keep
+          their existing fixed-bottom treatment — neither is one of the
+          two anchored popovers this step covers (there's no reference
+          design screen for "mid-swap, picking a target"), so both stay
+          exactly as they were. */}
+      {!interactionLocked && (confirmMessage || swapPickId) && (
         <div style={styles.actionSheet}>
           {confirmMessage ? (
             <div style={styles.actionSheetConfirm}>✓ {confirmMessage}</div>
-          ) : swapPickId ? (
+          ) : (
             <div style={styles.actionSheetSwapRow}>
               Tap another player to swap with <strong>{nameOf(swapPickId)}</strong>
               <button style={styles.swapCancelBtn} onClick={() => setSwapPickId(null)}>
                 Cancel
               </button>
             </div>
-          ) : (
-            <>
-              <div style={styles.tokenActionMenuHeader}>{nameOf(menuPlayerId)}</div>
-              {injuredThisGame.includes(menuPlayerId) ? (
-                <button
-                  style={styles.tokenActionMenuItem}
-                  onClick={() => {
-                    onBringBack(menuPlayerId);
-                    setMenuPlayerId(null);
-                  }}
-                >
-                  <ArrowLeftRight size={15} /> Back in
-                </button>
-              ) : (
-                <>
-                  <button
-                    style={styles.tokenActionMenuItem}
-                    onClick={() => {
-                      setSwapPickId(menuPlayerId);
-                      setMenuPlayerId(null);
-                    }}
-                  >
-                    <ArrowLeftRight size={15} /> Swap
-                  </button>
-                  {menuCanMakeKeeper && (
-                    <button
-                      style={styles.tokenActionMenuItem}
-                      onClick={() => {
-                        setConfirmMessage(`${nameOf(menuPlayerId)} is now keeper`);
-                        onSwap(menuPlayerId, viewedGk.id);
-                        setMenuPlayerId(null);
-                      }}
-                    >
-                      <Shield size={15} /> Make keeper
-                    </button>
-                  )}
-                  <button
-                    style={{ ...styles.tokenActionMenuItem, ...styles.tokenActionMenuItemDanger }}
-                    onClick={() => {
-                      onInjury(menuPlayerId);
-                      setMenuPlayerId(null);
-                    }}
-                  >
-                    🤕 Mark injured
-                  </button>
-                </>
-              )}
-            </>
           )}
         </div>
+      )}
+
+      {!interactionLocked && menuPlayerId && menuOrigin && (
+        // A2g-Player-tap: grows from the tapped token (menuOrigin.top —
+        // see handleTokenTap), dismissed by tapping the scrim, the token
+        // again (handleTokenTap's own toggle), or any action inside it.
+        <>
+          <div
+            style={styles.mdScrim}
+            data-testid="scrim"
+            onClick={() => {
+              setMenuPlayerId(null);
+              setMenuOrigin(null);
+            }}
+          />
+          <div style={{ ...styles.mdPopover, top: menuOrigin.top }} data-testid="player-popover">
+            <div style={styles.mdPlayerPopoverHeader}>
+              <div style={styles.mdPlayerPopoverName}>{nameOf(menuPlayerId)}</div>
+              <div style={styles.mdPlayerPopoverMeta}>
+                #{numberOf(menuPlayerId)} ·{" "}
+                {injuredThisGame.includes(menuPlayerId) ? "injured" : menuOnFieldRecord ? "on pitch" : "bench"}
+              </div>
+            </div>
+            {injuredThisGame.includes(menuPlayerId) ? (
+              <button
+                style={styles.mdPlayerPopoverRow}
+                onClick={() => {
+                  onBringBack(menuPlayerId);
+                  setMenuPlayerId(null);
+                  setMenuOrigin(null);
+                }}
+              >
+                <span style={{ ...styles.mdPlayerPopoverIconTile, ...styles.mdTintGreen }}>
+                  <ArrowLeftRight size={16} color={tokens.color.pitchGreen} />
+                </span>
+                <div>
+                  <div style={styles.mdPlayerPopoverRowLabel}>Back in</div>
+                  <div style={styles.mdPlayerPopoverRowConsequence}>Returns to the bench queue</div>
+                </div>
+              </button>
+            ) : (
+              <>
+                <button
+                  style={styles.mdPlayerPopoverRow}
+                  onClick={() => {
+                    setSwapPickId(menuPlayerId);
+                    setMenuPlayerId(null);
+                    setMenuOrigin(null);
+                  }}
+                >
+                  <span style={{ ...styles.mdPlayerPopoverIconTile, ...styles.mdTintGreen }}>
+                    <ArrowLeftRight size={16} color={tokens.color.pitchGreen} />
+                  </span>
+                  <div>
+                    <div style={styles.mdPlayerPopoverRowLabel}>Swap player</div>
+                    <div style={styles.mdPlayerPopoverRowConsequence}>
+                      {swapPartnerFor(menuPlayerId)
+                        ? `${nameOf(swapPartnerFor(menuPlayerId))} comes on`
+                        : "Tap another player to swap with them"}
+                    </div>
+                  </div>
+                </button>
+                {menuCanMakeKeeper && (
+                  <button
+                    style={styles.mdPlayerPopoverRow}
+                    onClick={() => {
+                      setConfirmMessage(`${nameOf(menuPlayerId)} is now keeper`);
+                      onSwap(menuPlayerId, viewedGk.id);
+                      setMenuPlayerId(null);
+                      setMenuOrigin(null);
+                    }}
+                  >
+                    <span style={{ ...styles.mdPlayerPopoverIconTile, ...styles.mdTintYellow }}>🧤</span>
+                    <div>
+                      <div style={styles.mdPlayerPopoverRowLabel}>Make keeper</div>
+                      <div style={styles.mdPlayerPopoverRowConsequence}>{nameOf(viewedGk.id)} moves out</div>
+                    </div>
+                  </button>
+                )}
+                <button
+                  style={styles.mdPlayerPopoverRow}
+                  onClick={() => {
+                    onInjury(menuPlayerId);
+                    setMenuPlayerId(null);
+                    setMenuOrigin(null);
+                  }}
+                >
+                  <span style={{ ...styles.mdPlayerPopoverIconTile, ...styles.mdTintRed }}>
+                    <MedicalCross size={16} color={tokens.color.injuryRed} />
+                  </span>
+                  <div>
+                    <div style={styles.mdPlayerPopoverRowLabel}>Mark injured</div>
+                    <div style={styles.mdPlayerPopoverRowConsequence}>Off, stops counting toward minutes</div>
+                  </div>
+                </button>
+              </>
+            )}
+          </div>
+        </>
       )}
 
       {/* "Sub done" always does the same single confirmSubLog action
@@ -627,7 +726,7 @@ export default function MatchView({
         // row missing one side (e.g. an uneven off/on count) just shows
         // whichever side it has, no arrow.
         <>
-          <div style={styles.mdFinal60Scrim} />
+          <div style={styles.mdScrim} data-testid="scrim" />
           <div style={styles.mdFinal60Sheet} data-testid="final60-sheet">
             <div style={styles.mdActionBarStatusRow}>
               <span style={styles.mdFinal60Countdown}>Next sub {fmtClock(Math.max(0, secLeftInInterval))}</span>
@@ -671,65 +770,169 @@ export default function MatchView({
         </>
       )}
 
-      {showQuickMenu && (
-        // Interim scaffolding (see the showQuickMenu comment above) — a
-        // plain reused modal standing in for the real anchored, glowing-
-        // origin-control cog menu, which is its own later step.
-        <div style={styles.modalOverlay} onClick={() => setShowQuickMenu(false)}>
-          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.modalHeader}>
-              <h3 style={styles.modalTitle}>Menu</h3>
-              <button style={styles.modalCloseBtn} onClick={() => setShowQuickMenu(false)} title="Close menu">
-                <X size={18} />
+      {cogOrigin && (
+        // A2d-Menu-anchored: grows from the cog (cogOrigin.top, captured
+        // when it was tapped), dismissed by tapping the scrim, the cog
+        // again, or any row inside it. No standalone close button, same
+        // as the design — that's genuinely all "dismiss" needs here.
+        // "Reset clock" has no row in the reference screens (nothing in
+        // this design covers it) — kept in "This game" since that's the
+        // closest existing group, rather than dropped.
+        <>
+          <div style={styles.mdScrim} data-testid="scrim" onClick={() => setCogOrigin(null)} />
+          <div style={{ ...styles.mdPopover, top: cogOrigin.top }} data-testid="cog-popover">
+            <div style={styles.mdPopoverGroup}>
+              <div style={styles.mdPopoverGroupHeader}>
+                <span style={{ ...styles.mdPopoverGroupDot, background: tokens.color.yellow }} />
+                <span style={styles.mdPopoverGroupLabel}>This game</span>
+                <span style={styles.mdPopoverGroupRule} />
+              </div>
+              <button
+                style={styles.mdPopoverRow}
+                onClick={() => {
+                  setCogOrigin(null);
+                  onShowSummary();
+                }}
+              >
+                <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintYellow }}>
+                  <BarChart2 size={16} color={tokens.color.deepGreen} />
+                </span>
+                <span style={styles.mdPopoverRowLabel}>Minutes so far</span>
+                <span style={styles.mdPopoverRowValue}>{fmtClock(elapsedSec)}</span>
+                <span style={styles.mdPopoverRowChevron}>›</span>
+              </button>
+              <button
+                style={styles.mdPopoverRow}
+                onClick={() => {
+                  setCogOrigin(null);
+                  onShowSettings();
+                }}
+              >
+                <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintGreen }}>
+                  <ArrowLeftRight size={16} color={tokens.color.pitchGreen} />
+                </span>
+                <span style={styles.mdPopoverRowLabel}>Squad change</span>
+                {availableCount != null && <span style={styles.mdPopoverRowValue}>{availableCount} in</span>}
+                <span style={styles.mdPopoverRowChevron}>›</span>
+              </button>
+              <button
+                style={styles.mdPopoverRow}
+                onClick={() => {
+                  setCogOrigin(null);
+                  onShowSettings();
+                }}
+              >
+                <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintNeutral }}>
+                  <GearIcon size={16} />
+                </span>
+                <span style={styles.mdPopoverRowLabel}>Game settings</span>
+                {gameSettingsSummary && <span style={styles.mdPopoverRowValue}>{gameSettingsSummary}</span>}
+                <span style={styles.mdPopoverRowChevron}>›</span>
+              </button>
+              <button
+                style={styles.mdPopoverRow}
+                onClick={() => {
+                  setCogOrigin(null);
+                  resetClock();
+                }}
+              >
+                <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintNeutral }}>
+                  <RotateCcw size={16} color={tokens.color.mutedText} />
+                </span>
+                <span style={styles.mdPopoverRowLabel}>Reset clock</span>
+                <span style={styles.mdPopoverRowChevron}>›</span>
               </button>
             </div>
-            <button
-              style={styles.tokenActionMenuItem}
-              onClick={() => {
-                setShowQuickMenu(false);
-                onShowSummary();
-              }}
-            >
-              <BarChart2 size={15} /> Minutes so far
-            </button>
-            <button
-              style={styles.tokenActionMenuItem}
-              onClick={() => {
-                setShowQuickMenu(false);
-                onShowSettings();
-              }}
-            >
-              <Settings size={15} /> Squad &amp; game settings
-            </button>
-            <button
-              style={styles.tokenActionMenuItem}
-              onClick={() => {
-                setShowQuickMenu(false);
-                onShowSeason();
-              }}
-            >
-              <History size={15} /> Season data
-            </button>
-            <button
-              style={styles.tokenActionMenuItem}
-              onClick={() => {
-                setShowQuickMenu(false);
-                onShowTeamSwitcher();
-              }}
-            >
-              <Users size={15} /> Switch team
-            </button>
-            <button
-              style={styles.tokenActionMenuItem}
-              onClick={() => {
-                setShowQuickMenu(false);
-                resetClock();
-              }}
-            >
-              <RotateCcw size={15} /> Reset clock
-            </button>
+
+            <div style={styles.mdPopoverGroup}>
+              <div style={styles.mdPopoverGroupHeader}>
+                <span style={{ ...styles.mdPopoverGroupDot, background: tokens.color.pitchGreen }} />
+                <span style={styles.mdPopoverGroupLabel}>Team</span>
+                <span style={styles.mdPopoverGroupRule} />
+              </div>
+              <button
+                style={styles.mdPopoverRow}
+                onClick={() => {
+                  setCogOrigin(null);
+                  onShowSeason();
+                }}
+              >
+                <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintGreen }}>
+                  <BarChart2 size={16} color={tokens.color.pitchGreen} />
+                </span>
+                <span style={styles.mdPopoverRowLabel}>Season data</span>
+                <span style={styles.mdPopoverRowChevron}>›</span>
+              </button>
+              <button
+                style={styles.mdPopoverRow}
+                onClick={() => {
+                  setCogOrigin(null);
+                  onShowSettings();
+                }}
+              >
+                <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintYellow }}>
+                  <Shirt size={16} color={tokens.color.deepGreen} />
+                </span>
+                <span style={styles.mdPopoverRowLabel}>Manage squad</span>
+                {rosterSize != null && <span style={styles.mdPopoverRowValue}>{rosterSize} players</span>}
+                <span style={styles.mdPopoverRowChevron}>›</span>
+              </button>
+              <button
+                style={styles.mdPopoverRow}
+                onClick={() => {
+                  setCogOrigin(null);
+                  onShowTeamSwitcher();
+                }}
+              >
+                <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintNeutral }}>
+                  <Home size={16} color={tokens.color.mutedText} />
+                </span>
+                <span style={styles.mdPopoverRowLabel}>Switch team</span>
+                <span style={styles.mdPopoverRowValue}>{teamName}</span>
+                <span style={styles.mdPopoverRowChevron}>›</span>
+              </button>
+            </div>
+
+            <div style={styles.mdPopoverGroup}>
+              <div style={styles.mdPopoverGroupHeader}>
+                <span style={{ ...styles.mdPopoverGroupDot, background: tokens.color.chevron }} />
+                <span style={styles.mdPopoverGroupLabel}>App</span>
+                <span style={styles.mdPopoverGroupRule} />
+              </div>
+              <button
+                style={styles.mdPopoverRow}
+                onClick={() => {
+                  setCogOrigin(null);
+                  onShowTeamSwitcher();
+                }}
+              >
+                <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintNeutral }}>
+                  <User size={16} color={tokens.color.mutedText} />
+                </span>
+                <span style={styles.mdPopoverRowLabel}>Account</span>
+                {userEmail && <span style={styles.mdPopoverRowValue}>{userEmail}</span>}
+                <span style={styles.mdPopoverRowChevron}>›</span>
+              </button>
+              <button
+                style={styles.mdPopoverRow}
+                onClick={() => {
+                  setCogOrigin(null);
+                  onSignOut();
+                }}
+              >
+                <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintNeutral }}>
+                  <LogOut size={16} color={tokens.color.mutedText} />
+                </span>
+                <span style={styles.mdPopoverRowLabel}>Sign out</span>
+                <span style={styles.mdPopoverRowChevron}>›</span>
+              </button>
+            </div>
+
+            <div style={styles.mdPopoverFooter}>
+              Bench Buddy <span style={styles.mdPopoverFooterVersion}>v0.1.0</span>
+            </div>
           </div>
-        </div>
+        </>
       )}
     </section>
   );

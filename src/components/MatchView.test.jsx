@@ -104,6 +104,7 @@ function baseProps(overrides = {}) {
     onShowSettings: vi.fn(),
     onShowSeason: vi.fn(),
     onShowTeamSwitcher: vi.fn(),
+    onSignOut: vi.fn(),
     ...overrides,
   };
 }
@@ -179,21 +180,24 @@ describe("MatchView — next-sub badges", () => {
   });
 });
 
-describe("MatchView — cog quick menu", () => {
-  // Interim scaffolding for this step (see the showQuickMenu comment in
-  // MatchView.jsx) — a plain modal standing in for the real anchored cog
-  // popover, which is its own later step. Reset clock moved in here (the
-  // redesigned header has no room for a separate always-visible button);
-  // Minutes/Settings/Season/Switch-team all still call the exact same
-  // callbacks the old header's Summary/Edit buttons and the app-level
-  // Season/team-switcher buttons did.
-  it("opens on tapping the cog and closes on tapping the close button", async () => {
+describe("MatchView — cog menu (anchored popover)", () => {
+  // A2d-Menu-anchored: no standalone close button by design — dismissed by
+  // tapping the cog again (its onClick toggles) or the scrim behind it.
+  // "Reset clock" has no row in the reference screens; kept in "This
+  // game" as the closest existing group rather than dropped.
+  it("opens on tapping the cog, closes on tapping the cog again or the scrim", async () => {
     const user = userEvent.setup();
     render(<MatchView {...baseProps()} />);
     expect(screen.queryByText("Reset clock")).not.toBeInTheDocument();
+
     await user.click(screen.getByTitle("Menu"));
     expect(screen.getByText("Reset clock")).toBeInTheDocument();
-    await user.click(screen.getByTitle("Close menu"));
+    await user.click(screen.getByTitle("Menu")); // toggle closed
+    expect(screen.queryByText("Reset clock")).not.toBeInTheDocument();
+
+    await user.click(screen.getByTitle("Menu"));
+    expect(screen.getByText("Reset clock")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("scrim"));
     expect(screen.queryByText("Reset clock")).not.toBeInTheDocument();
   });
 
@@ -216,13 +220,40 @@ describe("MatchView — cog quick menu", () => {
     expect(setTimerRunning).toHaveBeenCalledWith(false);
   });
 
-  it("Minutes so far, Squad & game settings, Season data and Switch team each call their own callback and close the menu", async () => {
+  it("shows the live-computed value chips: minutes so far, squad in, game settings, roster size, team name, account email", () => {
+    render(
+      <MatchView
+        {...baseProps({
+          elapsedSec: 125,
+          userEmail: "sam@example.com",
+          availableCount: 7,
+          rosterSize: 9,
+          gameSettingsSummary: "5 a side · sub 5′",
+        })}
+      />
+    );
+    fireEvent.click(screen.getByTitle("Menu"));
+    // Scoped into the popover specifically — "2:05" and "Scorpions" also
+    // legitimately appear in the (still-rendered, just dimmed) header behind it.
+    const popover = within(screen.getByTestId("cog-popover"));
+    expect(popover.getByText("2:05")).toBeInTheDocument(); // Minutes so far
+    expect(popover.getByText("7 in")).toBeInTheDocument(); // Squad change
+    expect(popover.getByText("5 a side · sub 5′")).toBeInTheDocument(); // Game settings
+    expect(popover.getByText("9 players")).toBeInTheDocument(); // Manage squad
+    expect(popover.getByText("Scorpions")).toBeInTheDocument(); // Switch team value
+    expect(popover.getByText("sam@example.com")).toBeInTheDocument(); // Account
+  });
+
+  it("every row calls its own callback and closes the menu", async () => {
     const onShowSummary = vi.fn();
     const onShowSettings = vi.fn();
     const onShowSeason = vi.fn();
     const onShowTeamSwitcher = vi.fn();
+    const onSignOut = vi.fn();
     const user = userEvent.setup();
-    render(<MatchView {...baseProps({ onShowSummary, onShowSettings, onShowSeason, onShowTeamSwitcher })} />);
+    render(
+      <MatchView {...baseProps({ onShowSummary, onShowSettings, onShowSeason, onShowTeamSwitcher, onSignOut })} />
+    );
 
     await user.click(screen.getByTitle("Menu"));
     await user.click(screen.getByText("Minutes so far"));
@@ -230,16 +261,41 @@ describe("MatchView — cog quick menu", () => {
     expect(screen.queryByText("Reset clock")).not.toBeInTheDocument(); // menu closed itself
 
     await user.click(screen.getByTitle("Menu"));
-    await user.click(screen.getByText(/Squad & game settings/));
+    await user.click(screen.getByText("Squad change"));
     expect(onShowSettings).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByTitle("Menu"));
+    await user.click(screen.getByText("Game settings"));
+    expect(onShowSettings).toHaveBeenCalledTimes(2);
 
     await user.click(screen.getByTitle("Menu"));
     await user.click(screen.getByText("Season data"));
     expect(onShowSeason).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByTitle("Menu"));
+    await user.click(screen.getByText("Manage squad"));
+    expect(onShowSettings).toHaveBeenCalledTimes(3);
+
+    await user.click(screen.getByTitle("Menu"));
     await user.click(screen.getByText("Switch team"));
     expect(onShowTeamSwitcher).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByTitle("Menu"));
+    await user.click(screen.getByText("Account"));
+    expect(onShowTeamSwitcher).toHaveBeenCalledTimes(2);
+
+    await user.click(screen.getByTitle("Menu"));
+    await user.click(screen.getByText("Sign out"));
+    expect(onSignOut).toHaveBeenCalledTimes(1);
+  });
+
+  it("the cog stays lit (elevated above the scrim) while its menu is open", async () => {
+    const user = userEvent.setup();
+    render(<MatchView {...baseProps()} />);
+    const cog = screen.getByTitle("Menu");
+    expect(cog.style.zIndex).toBe("");
+    await user.click(cog);
+    expect(cog.style.zIndex).toBe("47");
   });
 });
 
@@ -423,7 +479,7 @@ describe("MatchView — past-interval guard", () => {
     const user = userEvent.setup();
     render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 400 })} />);
     await user.click(tokenButtonFor("Alice"));
-    expect(screen.queryByText("Swap")).not.toBeInTheDocument();
+    expect(screen.queryByText("Swap player")).not.toBeInTheDocument();
   });
 
   it("tapping a token on the live interval opens its action menu instead", async () => {
@@ -431,7 +487,7 @@ describe("MatchView — past-interval guard", () => {
     render(<MatchView {...baseProps({ activeInterval: 1, elapsedSec: 400 })} />);
     expect(screen.queryByText(/Interval Complete/)).not.toBeInTheDocument();
     await user.click(tokenButtonFor("Bob"));
-    expect(screen.getByText("Swap")).toBeInTheDocument();
+    expect(screen.getByText("Swap player")).toBeInTheDocument();
   });
 });
 
@@ -441,16 +497,59 @@ describe("MatchView — tap-to-act token menu", () => {
     const user = userEvent.setup();
     render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0 })} />);
     await user.click(tokenButtonFor("Bob")); // p2, outfield
-    expect(screen.getByText("Swap")).toBeInTheDocument();
+    expect(screen.getByText("Swap player")).toBeInTheDocument();
     expect(screen.getByText("Make keeper")).toBeInTheDocument();
     expect(screen.getByText(/Mark injured/)).toBeInTheDocument();
+  });
+
+  it("shows the player's name, number, and pitch/bench location in the popover header", async () => {
+    const user = userEvent.setup();
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0 })} />);
+    await user.click(tokenButtonFor("Bob")); // p2, on the pitch
+    const popover = within(screen.getByTestId("player-popover"));
+    expect(popover.getByText("Bob")).toBeInTheDocument();
+    expect(popover.getByText("#2 · on pitch")).toBeInTheDocument();
+
+    await user.click(tokenButtonFor("Bob")); // close
+    await user.click(tokenButtonFor("Finn")); // p6, on the bench
+    expect(within(screen.getByTestId("player-popover")).getByText("#6 · bench")).toBeInTheDocument();
+  });
+
+  it("previews who the schedule already has coming on when swapping a player who's due off this window", async () => {
+    const user = userEvent.setup();
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0 })} />);
+    await user.click(tokenButtonFor("Dan")); // p4, scheduled to come off for p6/Finn next interval
+    expect(screen.getByText("Finn comes on")).toBeInTheDocument();
+  });
+
+  it("falls back to generic copy when swapping a player who isn't part of a scheduled change", async () => {
+    const user = userEvent.setup();
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0 })} />);
+    await user.click(tokenButtonFor("Eve")); // p5, not due off this window
+    expect(screen.getByText("Tap another player to swap with them")).toBeInTheDocument();
+  });
+
+  it("Make keeper's consequence line names the current keeper", async () => {
+    const user = userEvent.setup();
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0 })} />);
+    await user.click(tokenButtonFor("Bob")); // p2
+    expect(screen.getByText("Alice moves out")).toBeInTheDocument(); // p1 is the current keeper
+  });
+
+  it("lights up the tapped token while its popover is open", async () => {
+    const user = userEvent.setup();
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0 })} />);
+    const bobToken = tokenButtonFor("Bob");
+    expect(bobToken.style.zIndex).toBe("");
+    await user.click(bobToken);
+    expect(bobToken.style.zIndex).toBe("47");
   });
 
   it("does not offer Make keeper on the current keeper themselves", async () => {
     const user = userEvent.setup();
     render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0 })} />);
     await user.click(tokenButtonFor("Alice")); // p1, keeper
-    expect(screen.getByText("Swap")).toBeInTheDocument();
+    expect(screen.getByText("Swap player")).toBeInTheDocument();
     expect(screen.queryByText("Make keeper")).not.toBeInTheDocument();
   });
 
@@ -466,7 +565,7 @@ describe("MatchView — tap-to-act token menu", () => {
     render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0, plan: planWithP7Injured, injuredThisGame: ["p7"] })} />);
     await user.click(tokenButtonFor("Gus")); // p7, injured
     expect(screen.getByText("Back in")).toBeInTheDocument();
-    expect(screen.queryByText("Swap")).not.toBeInTheDocument();
+    expect(screen.queryByText("Swap player")).not.toBeInTheDocument();
     expect(screen.queryByText("Make keeper")).not.toBeInTheDocument();
     expect(screen.queryByText(/Mark injured/)).not.toBeInTheDocument();
   });
@@ -477,7 +576,7 @@ describe("MatchView — tap-to-act token menu", () => {
     const user = userEvent.setup();
     render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0, setSwapPickId, onSwap })} />);
     await user.click(tokenButtonFor("Bob"));
-    await user.click(screen.getByText("Swap"));
+    await user.click(screen.getByText("Swap player"));
     expect(setSwapPickId).toHaveBeenCalledWith("p2");
     expect(onSwap).not.toHaveBeenCalled();
   });
@@ -523,9 +622,9 @@ describe("MatchView — tap-to-act token menu", () => {
     render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0 })} />);
     const bobToken = tokenButtonFor("Bob");
     await user.click(bobToken);
-    expect(screen.getByText("Swap")).toBeInTheDocument();
+    expect(screen.getByText("Swap player")).toBeInTheDocument();
     await user.click(bobToken);
-    expect(screen.queryByText("Swap")).not.toBeInTheDocument();
+    expect(screen.queryByText("Swap player")).not.toBeInTheDocument();
   });
 
   it("tapping the pending swap source again cancels instead of swapping them with themselves", async () => {
