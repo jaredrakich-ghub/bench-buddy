@@ -53,7 +53,11 @@ export function getFormationLayout(onField) {
   const gap = rows.length > 1 ? (BACK_ROW_TOP_PCT - FRONT_ROW_TOP_PCT) / (rows.length - 1) : 0;
   const laidOut = rows.flatMap((row, i) => spread(row, BACK_ROW_TOP_PCT - i * gap));
 
-  return [...(gk ? [{ ...gk, topPct: 88, leftPct: 50 }] : []), ...laidOut];
+  // Moved up from 88 on real-device feedback ("goalkeeper badge needs to
+  // move up from the bottom") — with the bigger tokens (computeTokenSize)
+  // and taller name label underneath, 88 left the keeper's own name
+  // crowded right up against (or clipped by) the pitch card's bottom edge.
+  return [...(gk ? [{ ...gk, topPct: 78, leftPct: 50 }] : []), ...laidOut];
 }
 
 // How big a pitch token should render, purely based on how many outfielders

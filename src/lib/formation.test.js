@@ -10,7 +10,7 @@ describe("getFormationLayout", () => {
     ];
     const layout = getFormationLayout(onField);
     const gk = layout.find((p) => p.id === "gk1");
-    expect(gk.topPct).toBe(88);
+    expect(gk.topPct).toBe(78);
     expect(gk.leftPct).toBe(50);
   });
 

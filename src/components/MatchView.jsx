@@ -425,6 +425,14 @@ export default function MatchView({
         <div style={styles.mdHeaderTopRow}>
           <div style={styles.mdCrestOuter}>{crestSrc && <img src={crestSrc} alt="" style={styles.mdCrestImg} />}</div>
           <div style={styles.mdTeamName}>{teamName}</div>
+          {/* Reset lives here now, grouped with the cog as the header's two
+              "utility" actions — both right-aligned for free since
+              mdTeamName's flex:1 already pushes everything after it to the
+              edge. The primary match control (Start/Pause) stays down in
+              the timer row, next to the clock it actually controls. */}
+          <button style={styles.mdHeaderResetBtn} onClick={resetClock} title="Reset clock">
+            <RotateCcw size={18} color={tokens.color.deepGreen} />
+          </button>
           <button
             style={{ ...styles.mdCogBtn, ...(cogOrigin ? { ...styles.mdOriginLit, ...styles.mdCogBtnLit } : {}) }}
             onClick={(e) => {
@@ -436,7 +444,7 @@ export default function MatchView({
             }}
             title="Menu"
           >
-            <GearIcon size={20} />
+            <GearIcon size={20} color="#fff" />
           </button>
         </div>
         <div style={styles.mdTimerRow}>
@@ -453,27 +461,22 @@ export default function MatchView({
             </span>
             <span style={styles.mdTimerCaption}>of {Math.round(totalGameSec / 60)} min</span>
           </div>
-          {/* Start/Pause and Reset sit right beside the clock, sized to
-              match it — the coach's own real-device feedback: reachable
-              without scrolling, and reading as "as important as the clock
-              itself" rather than small icons tucked up by the crest. The
-              bottom action bar keeps the sub-confirmation action only (see
-              mdActionBar below); it no longer duplicates the clock controls. */}
-          <div style={styles.mdTimerBtnGroup}>
-            {!isMatchComplete && (
-              <button style={styles.mdTimerPrimaryBtn} onClick={toggleTimer}>
-                {timerRunning ? (
-                  <Pause size={18} color={tokens.color.deepGreen} fill={tokens.color.deepGreen} />
-                ) : (
-                  <Play size={18} color={tokens.color.deepGreen} fill={tokens.color.deepGreen} />
-                )}
-                {timerRunning ? "Pause" : isPreKickoff ? "Start" : "Resume"}
-              </button>
-            )}
-            <button style={styles.mdTimerResetBtn} onClick={resetClock} title="Reset clock">
-              <RotateCcw size={20} color={tokens.color.deepGreen} />
+          {/* Start/Pause sits right beside the clock, sized to match it —
+              the coach's own real-device feedback: reachable without
+              scrolling, and reading as "as important as the clock itself"
+              rather than a small icon tucked up by the crest. The bottom
+              action bar keeps the sub-confirmation action only (see
+              mdActionBar below); it no longer duplicates the clock control. */}
+          {!isMatchComplete && (
+            <button style={styles.mdTimerPrimaryBtn} onClick={toggleTimer}>
+              {timerRunning ? (
+                <Pause size={18} color={tokens.color.deepGreen} fill={tokens.color.deepGreen} />
+              ) : (
+                <Play size={18} color={tokens.color.deepGreen} fill={tokens.color.deepGreen} />
+              )}
+              {timerRunning ? "Pause" : isPreKickoff ? "Start" : "Resume"}
             </button>
-          </div>
+          )}
         </div>
       </div>
 

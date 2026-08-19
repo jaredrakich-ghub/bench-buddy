@@ -185,7 +185,17 @@ export const styles = {
   // reliable than depending on that inset for this. env() is kept additive
   // on top for the safe-area itself; index.html's viewport-fit=cover is
   // what makes that env() value non-zero.
-  main: { padding: "12px 16px", paddingBottom: "calc(96px + env(safe-area-inset-bottom, 0px))", maxWidth: 640, margin: "0 auto" },
+  // paddingBottom reserves room below the page content for MatchView's
+  // fixed action bar so it never sits on top of the bench/injured rows.
+  // Bumped from 96px — real-device feedback: on first load the action bar
+  // overlapped the bench, correcting itself the moment the page scrolled.
+  // That's consistent with a known mobile-Safari quirk where
+  // env(safe-area-inset-bottom) can resolve to 0 on the very first paint
+  // and only settles to its real value after a reflow (e.g. from
+  // scrolling) — this extra static buffer keeps the reserved space
+  // comfortably larger than the action bar's actual height even if the
+  // safe-area part of the calc briefly reads as 0.
+  main: { padding: "12px 16px", paddingBottom: "calc(130px + env(safe-area-inset-bottom, 0px))", maxWidth: 640, margin: "0 auto" },
   // marginTop: 0 matters here — without it, the browser's default <h2> top
   // margin (not otherwise reset anywhere in this file) throws off
   // align-items: center wherever this sits alongside something else in a
@@ -539,20 +549,38 @@ export const styles = {
     flex: 1, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 21, color: tokens.color.deepGreen,
     minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
   },
+  // Filled deepGreen with a white icon — deliberately NOT the same plain
+  // white circle as Reset (mdHeaderResetBtn) even though they now sit
+  // right next to each other in the header's top row. Real-device
+  // feedback: the cog was reading as a near-duplicate of Reset; giving it
+  // its own fill color keeps "open the menu" visually distinct from
+  // "reset the clock" at a glance, not just by icon.
   mdCogBtn: {
+    width: 38, height: 38, borderRadius: tokens.radius.iconButton, border: "none", background: tokens.color.deepGreen,
+    display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0,
+  },
+  // Reset moved out of the timer row and into the header's top row,
+  // grouped with the cog — both are "utility" actions (not the primary
+  // match control), and the team-name column already pushes everything
+  // after it to the right edge, so the two land right-aligned as a pair
+  // for free. Stays plain white/icon-only (no label) — real-device
+  // feedback: Reset should feel like "just a refresh cycle", lighter
+  // than the labeled Start/Pause pill below.
+  mdHeaderResetBtn: {
     width: 38, height: 38, borderRadius: tokens.radius.iconButton, border: "none", background: "#fff",
     display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0,
   },
-  // The timer row: clock + the Start/Pause/Reset button group, centered as
-  // one unit — real-device feedback asked for the clock and buttons to be
-  // centre-aligned together. The clock's caption stacks *under* the digits
-  // (not beside them) — mirroring the pre-redesign app's own clockBlock —
-  // rather than sitting inline next to them: a long time ("10:26") plus a
-  // wide labeled button plus Reset was overflowing/clipping off the left
-  // edge of the screen when the caption sat inline eating extra width.
-  mdTimerRow: { display: "flex", alignItems: "center", justifyContent: "center", gap: 14, marginTop: 10 },
+  // The timer row: clock + the Start/Pause button, centered as a pair,
+  // top-aligned (not vertically centered) — real-device feedback: with
+  // the caption stacked under the digits, centering left the button's top
+  // edge sitting lower than the clock's, which read as misaligned. The
+  // clock's caption stacks *under* the digits (not beside them) —
+  // mirroring the pre-redesign app's own clockBlock — rather than sitting
+  // inline next to them: a long time ("10:26") plus the button was
+  // overflowing/clipping off the left edge of the screen when the caption
+  // sat inline eating extra width.
+  mdTimerRow: { display: "flex", alignItems: "flex-start", justifyContent: "center", gap: 14, marginTop: 10 },
   mdTimerLeft: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 },
-  mdTimerBtnGroup: { display: "flex", alignItems: "center", gap: 8, flexShrink: 0 },
   // A labeled pill (icon + text), not a bare icon square — real-device
   // feedback pointed back at the pre-redesign app's own timer button
   // (padding-based sizing, ~44px tall, icon+"Pause"/"Start" text) as the
@@ -563,14 +591,6 @@ export const styles = {
     padding: "12px 18px", borderRadius: tokens.radius.buttonMd, border: "none", background: tokens.color.yellow,
     color: tokens.color.deepGreen, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 15, cursor: "pointer",
     flexShrink: 0, boxShadow: tokens.shadow.solid(3, tokens.color.yellowShadow),
-  },
-  // Reset stays secondary (plain white icon-only, no label) — same visual
-  // hierarchy as the cog button, and deliberately lighter than the
-  // labeled Start/Pause pill (real-device feedback: Reset should feel
-  // like "just a refresh cycle", not a matching second primary action).
-  mdTimerResetBtn: {
-    width: 44, height: 44, borderRadius: tokens.radius.iconButton, border: "none", background: "#fff",
-    display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0,
   },
   // Trimmed from 66px (then 54px) — now that the caption moved under the
   // digits instead of beside them, the row has room to stay this size
