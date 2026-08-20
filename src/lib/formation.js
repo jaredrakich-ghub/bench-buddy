@@ -27,24 +27,26 @@
 // MatchView.jsx's pitchInnerHeight) — reused at the taller 3-row card
 // height, the same percentages scale up into far more absolute pixels of
 // clearance at the bottom (GK) than at the top (front row), which is
-// exactly the asymmetry that showed up. FRONT_ROW_TOP_PCT_3ROW and
-// GK_TOP_PCT_3ROW are deliberately symmetric (14 and 100-14) so both ends
-// get equal clearance regardless of card height.
+// exactly the asymmetry that showed up.
 const BACK_ROW_TOP_PCT = 56;
 const FRONT_ROW_TOP_PCT = 18;
-// 14 -> 13: nudged again on further real-device feedback ("move the
-// goalkeeper up and reduce the bottom of the pitch" — still cut off at
-// the previous 330px/14-86 tuning). Paired with pitchInnerHeight's own
-// 330 -> 300 (MatchView.jsx) — both together move the goalkeeper further
-// up in absolute pixels than either change alone would.
-const FRONT_ROW_TOP_PCT_3ROW = 13;
-const GK_TOP_PCT_3ROW = 100 - FRONT_ROW_TOP_PCT_3ROW;
+// GK_TOP_PCT_3ROW used to be derived as 100 - FRONT_ROW_TOP_PCT_3ROW
+// (symmetric clearance top and bottom) — that coupling is gone now.
+// Real-device feedback asked for the outfield rows, as a whole group, to
+// sit further from the top ("give the top players some more padding"),
+// explicitly *without* moving the goalkeeper or changing the pitch's own
+// height — the two are independently tuned values from here on, not
+// locked to each other by a formula.
+const FRONT_ROW_TOP_PCT_3ROW = 18;
+const BACK_ROW_TOP_PCT_3ROW = 61;
+const GK_TOP_PCT_3ROW = 87;
 
 export function getFormationLayout(onField) {
   const gk = onField.find((p) => p.isGk);
   const outfielders = onField.filter((p) => !p.isGk);
   const numRows = outfielders.length > 4 ? 3 : 2;
   const frontRowTopPct = numRows === 3 ? FRONT_ROW_TOP_PCT_3ROW : FRONT_ROW_TOP_PCT;
+  const backRowTopPct = numRows === 3 ? BACK_ROW_TOP_PCT_3ROW : BACK_ROW_TOP_PCT;
 
   const perRow = Math.ceil(outfielders.length / numRows);
   const rows = [];
@@ -66,18 +68,18 @@ export function getFormationLayout(onField) {
       return { ...p, topPct, leftPct };
     });
 
-  // Evenly spaced from BACK_ROW_TOP_PCT (nearest goal) down to
-  // frontRowTopPct (furthest forward), however many rows actually exist
-  // spaced between them. A single row (e.g. a genuinely tiny game) falls
-  // back to sitting at the midpoint.
-  const gap = rows.length > 1 ? (BACK_ROW_TOP_PCT - frontRowTopPct) / (rows.length - 1) : 0;
-  const laidOut = rows.flatMap((row, i) => spread(row, BACK_ROW_TOP_PCT - i * gap));
+  // Evenly spaced from backRowTopPct (nearest goal) down to frontRowTopPct
+  // (furthest forward), however many rows actually exist spaced between
+  // them. A single row (e.g. a genuinely tiny game) falls back to sitting
+  // at the midpoint.
+  const gap = rows.length > 1 ? (backRowTopPct - frontRowTopPct) / (rows.length - 1) : 0;
+  const laidOut = rows.flatMap((row, i) => spread(row, backRowTopPct - i * gap));
 
   // 78 (2-row case): moved up from 88 on real-device feedback ("goalkeeper
   // badge needs to move up from the bottom") — with the bigger tokens
   // (computeTokenSize) and taller name label underneath, 88 left the
   // keeper's own name crowded right up against (or clipped by) the pitch
-  // card's bottom edge. GK_TOP_PCT_3ROW (86) is the 3-row case's own,
+  // card's bottom edge. GK_TOP_PCT_3ROW (87) is the 3-row case's own,
   // separately-tuned value — see the comment above frontRowTopPct.
   const gkTopPct = numRows === 3 ? GK_TOP_PCT_3ROW : 78;
   return [...(gk ? [{ ...gk, topPct: gkTopPct, leftPct: 50 }] : []), ...laidOut];

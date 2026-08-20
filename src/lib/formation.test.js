@@ -83,23 +83,25 @@ describe("getFormationLayout", () => {
     ];
     const layout = getFormationLayout(onField);
     const rowValues = [...new Set(layout.filter((p) => p.id !== "gk1").map((p) => p.topPct))];
-    // The 3-row case uses its own, smaller front-row value (13, not the
-    // 2-row case's 18) — see formation.js's own comment on why.
-    expect(rowValues.sort((a, b) => a - b)).toEqual([13, 34.5, 56]);
+    // The 3-row case uses its own front/back-row pair (18/61, not the
+    // 2-row case's 18/56) — see formation.js's own comment on why.
+    expect(rowValues.sort((a, b) => a - b)).toEqual([18, 39.5, 61]);
     // 6 outfielders split evenly across 3 rows of 2.
     const counts = rowValues.map((t) => layout.filter((p) => p.topPct === t).length);
     expect(counts).toEqual([2, 2, 2]);
   });
 
-  it("gives the goalkeeper its own, symmetric bottom clearance in the 3-row case (not the 2-row's 78)", () => {
+  it("gives the goalkeeper its own bottom clearance in the 3-row case (not the 2-row's 78)", () => {
     const onField = [
       { id: "gk1", isGk: true },
       ...Array.from({ length: 6 }, (_, i) => ({ id: `p${i}`, isGk: false })),
     ];
     const layout = getFormationLayout(onField);
     const gk = layout.find((p) => p.id === "gk1");
-    // Symmetric with the 3-row front row's 13 (100 - 13 = 87) so both ends
-    // of the pitch get equal clearance regardless of card height.
+    // Independently tuned from the outfield rows' own front/back pair —
+    // real-device feedback wanted the outfield group to move without
+    // moving the goalkeeper, so this is no longer derived from
+    // frontRowTopPct by a symmetry formula.
     expect(gk.topPct).toBe(87);
   });
 

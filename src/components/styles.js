@@ -746,7 +746,14 @@ export const styles = {
   // site keeps the same two-level JSX shape it already had, minimizing
   // the diff). Outer now only carries the margin/gutter; inner carries
   // the visible card.
-  mdActionBarOuter: { margin: "12px 16px 16px" },
+  //
+  // Vertical margin only — no horizontal margin. Both places this renders
+  // (`main` and mdFullScreenTakeoverInner) already provide their own 16px
+  // horizontal inset; adding another 16px here doubled it, real-device
+  // feedback: the bar visibly narrower than the header/pitch/bench cards
+  // above it, not flush with their left/right edges the way every other
+  // section is.
+  mdActionBarOuter: { margin: "12px 0 16px" },
   mdActionBar: {
     background: tokens.color.actionBar, borderRadius: tokens.radius.card, padding: 16,
     boxShadow: "0 4px 14px rgba(0,0,0,0.18)",
@@ -878,7 +885,7 @@ export const styles = {
   // pattern every other fixed surface on this screen already uses, rather
   // than reproducing the original 380px frame's exact offsets.
   mdPopover: {
-    position: "fixed", left: 14, right: 14, zIndex: 46,
+    position: "fixed", left: 14, right: 14, zIndex: 47,
     background: tokens.color.creamPaper, backgroundImage: paperTexture, borderRadius: "28px 10px 28px 28px",
     border: `3px solid ${tokens.color.yellow}`, boxShadow: tokens.shadow.overlay,
     padding: "10px 12px 12px", maxWidth: 640 - 28, margin: "0 auto",
@@ -973,7 +980,7 @@ export const styles = {
   // of view" here — `absolute` would inherit the exact class of bug this
   // is fixing, just relative to the page instead of the tap point.
   mdSheet: {
-    position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 46,
+    position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 47,
     maxWidth: 640, margin: "0 auto",
     background: tokens.color.creamPaper, backgroundImage: paperTexture,
     borderRadius: "32px 32px 0 0", boxShadow: "0 -16px 44px rgba(20,32,28,.42)",
@@ -1016,9 +1023,14 @@ export const styles = {
 
   // "Lit above the scrim" treatment for whichever control opened the
   // popover it's paired with — position:relative lets zIndex actually
-  // apply (a static-position element ignores it), and the zIndex itself
-  // just needs to clear mdScrim's 45.
-  mdOriginLit: { position: "relative", zIndex: 47 },
+  // apply (a static-position element ignores it). 46: above mdScrim's 45
+  // (so it isn't dimmed along with everything else behind the scrim), but
+  // below mdSheet/mdPopover's 47 — real-device feedback found an injured
+  // chip's own lit highlight rendering *in front of* the bottom sheet it
+  // had just opened, when it should stay tucked behind it; the sheet's
+  // own header already identifies who it's about, so the lit chip only
+  // needs to clear the scrim, never the sheet itself.
+  mdOriginLit: { position: "relative", zIndex: 46 },
   mdCogBtnLit: { background: tokens.color.headerYellow, border: `3px solid ${tokens.color.yellow}` },
   // Same idea for a tapped shirt/chip, but via drop-shadow/box-shadow
   // rather than a border — a shirt's own SVG stroke is part of the icon

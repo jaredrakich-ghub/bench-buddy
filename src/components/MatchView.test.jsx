@@ -260,13 +260,13 @@ describe("MatchView — cog menu (anchored popover, trimmed / #10a)", () => {
     expect(onShowTeamSwitcher).toHaveBeenCalledTimes(1);
   });
 
-  it("the cog stays lit (elevated above the scrim) while its menu is open", async () => {
+  it("the cog stays lit (elevated above the scrim, but below the popover itself) while its menu is open", async () => {
     const user = userEvent.setup();
     render(<MatchView {...baseProps()} />);
     const cog = screen.getByTitle("Menu");
     expect(cog.style.zIndex).toBe("");
     await user.click(cog);
-    expect(cog.style.zIndex).toBe("47");
+    expect(cog.style.zIndex).toBe("46");
   });
 });
 
@@ -556,13 +556,13 @@ describe("MatchView — tap-to-act token menu", () => {
     expect(screen.getByText("Alice moves out")).toBeInTheDocument(); // p1 is the current keeper
   });
 
-  it("lights up the tapped token while its popover is open", async () => {
+  it("lights up the tapped token while its popover is open, staying below the sheet itself", async () => {
     const user = userEvent.setup();
     render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0 })} />);
     const bobToken = tokenButtonFor("Bob");
     expect(bobToken.style.zIndex).toBe("");
     await user.click(bobToken);
-    expect(bobToken.style.zIndex).toBe("47");
+    expect(bobToken.style.zIndex).toBe("46");
   });
 
   it("does not offer Make keeper on the current keeper themselves", async () => {
@@ -658,6 +658,23 @@ describe("MatchView — injured chip and the back-from-injury popover", () => {
     expect(screen.queryByText("Swap player")).not.toBeInTheDocument();
     expect(screen.queryByText("Make keeper")).not.toBeInTheDocument();
     expect(screen.queryByText(/Mark injured/)).not.toBeInTheDocument();
+  });
+
+  // Real-device bug: the injured chip's own "lit above the scrim"
+  // highlight was rendering *in front of* the back-from-injury sheet it
+  // had just opened, instead of staying tucked behind it (mdOriginLit
+  // used to outrank mdSheet's own z-index — see styles.js's comment).
+  it("keeps the lit injured chip behind the back-from-injury sheet, not in front of it", async () => {
+    const user = userEvent.setup();
+    render(
+      <MatchView
+        {...baseProps({ activeInterval: 0, elapsedSec: 0, plan: planWithP7Injured, injuredThisGame: ["p7"] })}
+      />
+    );
+    const gusChip = tokenButtonFor("Gus");
+    await user.click(gusChip);
+    const sheet = screen.getByTestId("back-popover");
+    expect(Number(gusChip.style.zIndex)).toBeLessThan(Number(sheet.style.zIndex));
   });
 
   it("shows when they went off when tracked, and a plain fallback when it isn't (an older saved game)", async () => {
