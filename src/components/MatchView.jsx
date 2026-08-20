@@ -370,7 +370,13 @@ export default function MatchView({
   // squeezed vertically". Bumped again (270/340 -> 288/358) once "of 45
   // min" moved beside the timer instead of under it (see mdTimerRow),
   // freeing ~18px of header height that's spent here instead of left empty.
-  const pitchInnerHeight = outfielders.length > 4 ? 358 : 288;
+  // Trimmed back down (358 -> 330) once formation.js's own 3-row
+  // GK_TOP_PCT_3ROW tuning removed the dead space that height was
+  // originally padding out below the goalkeeper — real-device feedback on
+  // a big-roster (10-outfielder) game, wanting everything to fit closer
+  // to one screen. Still comfortably clears the 3-row token spacing (see
+  // formation.js's own comment) at every token-size tier.
+  const pitchInnerHeight = outfielders.length > 4 ? 330 : 288;
   // The kit-shirt SVG's own natural aspect ratio (62x58, see
   // matchDayIcons.jsx) — scaled by the same tokenSize headcount tiering
   // formation.js already provides, rather than formation.js needing to

@@ -18,13 +18,28 @@
 // lot of slack before the goal box and could move up more than the front
 // row needed to. A 3-row formation's middle row still lands at the
 // midpoint of the two, same as before.
+//
+// The 3-row case gets its own, smaller FRONT_ROW_TOP_PCT/GK topPct pair
+// rather than reusing the 2-row ones — real-device feedback on a big
+// roster (7+ outfielders, 3 rows) showed a lot of dead green below the
+// goalkeeper with the top row comparatively cramped. That's because the
+// 2-row pair was tuned against a *shorter* pitch card (see
+// MatchView.jsx's pitchInnerHeight) — reused at the taller 3-row card
+// height, the same percentages scale up into far more absolute pixels of
+// clearance at the bottom (GK) than at the top (front row), which is
+// exactly the asymmetry that showed up. FRONT_ROW_TOP_PCT_3ROW and
+// GK_TOP_PCT_3ROW are deliberately symmetric (14 and 100-14) so both ends
+// get equal clearance regardless of card height.
 const BACK_ROW_TOP_PCT = 56;
 const FRONT_ROW_TOP_PCT = 18;
+const FRONT_ROW_TOP_PCT_3ROW = 14;
+const GK_TOP_PCT_3ROW = 100 - FRONT_ROW_TOP_PCT_3ROW;
 
 export function getFormationLayout(onField) {
   const gk = onField.find((p) => p.isGk);
   const outfielders = onField.filter((p) => !p.isGk);
   const numRows = outfielders.length > 4 ? 3 : 2;
+  const frontRowTopPct = numRows === 3 ? FRONT_ROW_TOP_PCT_3ROW : FRONT_ROW_TOP_PCT;
 
   const perRow = Math.ceil(outfielders.length / numRows);
   const rows = [];
@@ -47,17 +62,20 @@ export function getFormationLayout(onField) {
     });
 
   // Evenly spaced from BACK_ROW_TOP_PCT (nearest goal) down to
-  // FRONT_ROW_TOP_PCT (furthest forward), however many rows actually
-  // exist spaced between them. A single row (e.g. a genuinely tiny game)
-  // falls back to sitting at the midpoint.
-  const gap = rows.length > 1 ? (BACK_ROW_TOP_PCT - FRONT_ROW_TOP_PCT) / (rows.length - 1) : 0;
+  // frontRowTopPct (furthest forward), however many rows actually exist
+  // spaced between them. A single row (e.g. a genuinely tiny game) falls
+  // back to sitting at the midpoint.
+  const gap = rows.length > 1 ? (BACK_ROW_TOP_PCT - frontRowTopPct) / (rows.length - 1) : 0;
   const laidOut = rows.flatMap((row, i) => spread(row, BACK_ROW_TOP_PCT - i * gap));
 
-  // Moved up from 88 on real-device feedback ("goalkeeper badge needs to
-  // move up from the bottom") — with the bigger tokens (computeTokenSize)
-  // and taller name label underneath, 88 left the keeper's own name
-  // crowded right up against (or clipped by) the pitch card's bottom edge.
-  return [...(gk ? [{ ...gk, topPct: 78, leftPct: 50 }] : []), ...laidOut];
+  // 78 (2-row case): moved up from 88 on real-device feedback ("goalkeeper
+  // badge needs to move up from the bottom") — with the bigger tokens
+  // (computeTokenSize) and taller name label underneath, 88 left the
+  // keeper's own name crowded right up against (or clipped by) the pitch
+  // card's bottom edge. GK_TOP_PCT_3ROW (86) is the 3-row case's own,
+  // separately-tuned value — see the comment above frontRowTopPct.
+  const gkTopPct = numRows === 3 ? GK_TOP_PCT_3ROW : 78;
+  return [...(gk ? [{ ...gk, topPct: gkTopPct, leftPct: 50 }] : []), ...laidOut];
 }
 
 // How big a pitch token should render, purely based on how many outfielders

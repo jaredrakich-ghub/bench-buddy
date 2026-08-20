@@ -83,10 +83,24 @@ describe("getFormationLayout", () => {
     ];
     const layout = getFormationLayout(onField);
     const rowValues = [...new Set(layout.filter((p) => p.id !== "gk1").map((p) => p.topPct))];
-    expect(rowValues.sort((a, b) => a - b)).toEqual([18, 37, 56]);
+    // The 3-row case uses its own, smaller front-row value (14, not the
+    // 2-row case's 18) — see formation.js's own comment on why.
+    expect(rowValues.sort((a, b) => a - b)).toEqual([14, 35, 56]);
     // 6 outfielders split evenly across 3 rows of 2.
     const counts = rowValues.map((t) => layout.filter((p) => p.topPct === t).length);
     expect(counts).toEqual([2, 2, 2]);
+  });
+
+  it("gives the goalkeeper its own, symmetric bottom clearance in the 3-row case (not the 2-row's 78)", () => {
+    const onField = [
+      { id: "gk1", isGk: true },
+      ...Array.from({ length: 6 }, (_, i) => ({ id: `p${i}`, isGk: false })),
+    ];
+    const layout = getFormationLayout(onField);
+    const gk = layout.find((p) => p.id === "gk1");
+    // Symmetric with the 3-row front row's 14 (100 - 14 = 86) so both ends
+    // of the pitch get equal clearance regardless of card height.
+    expect(gk.topPct).toBe(86);
   });
 
   it("still uses 2 rows at exactly the 4-outfielder boundary, not 3", () => {
