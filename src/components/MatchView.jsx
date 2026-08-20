@@ -785,19 +785,25 @@ export default function MatchView({
           below, which already names who's coming off/on with room to
           spare — this bar no longer offers an early-confirm shortcut. */}
       {isPreKickoff && !sheetOpen && (
-        // README > A2e-Prekickoff: this state keeps its own distinct
-        // shape — a status line, then ONE full-width "Start match" button
-        // — rather than the inline countdown+button pattern every other
-        // state uses.
+        // Used to keep its own distinct shape — a status line, then ONE
+        // full-width "Start match" button (README > A2e-Prekickoff's own
+        // spec) — taller and visually different from every other state's
+        // bar. Real-device feedback: wanted this to read as "the same
+        // element" as the running/paused bar, not a bigger, different-
+        // looking one just for this state — same mdActionBarInlineRow +
+        // mdActionBarClockBtn shape and size as Resume/Pause below,
+        // deliberately deviating from the README here.
         <div style={styles.mdActionBarOuter}>
-          <div style={{ ...styles.mdActionBar, ...styles.mdActionBarStacked }}>
-            <div style={styles.mdActionBarStatusRow}>
+          <div style={styles.mdActionBar}>
+            <div style={styles.mdActionBarInlineRow}>
               <span style={styles.mdActionBarCountdown}>Ready to go</span>
-              {nextIv && <span style={styles.mdActionBarStatus}>first sub at {nextIv.startMin}′</span>}
+              <button
+                style={{ ...styles.mdActionBarClockBtn, ...styles.mdActionBarClockBtnPrimary }}
+                onClick={toggleTimer}
+              >
+                <Play size={17} color={tokens.color.deepGreen} fill={tokens.color.deepGreen} /> Start match
+              </button>
             </div>
-            <button style={styles.mdActionBarBtnStart} onClick={toggleTimer}>
-              <Play size={22} color={tokens.color.deepGreen} fill={tokens.color.deepGreen} /> Start match
-            </button>
           </div>
         </div>
       )}

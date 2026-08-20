@@ -334,14 +334,24 @@ describe("MatchView — action bar", () => {
 
 describe("MatchView — pre-kickoff", () => {
   // !timerRunning && elapsedSec === 0 — the clock has never run yet.
-  it("shows Ready to go context and the action bar's full-width Start match button, no running/paused bar text", () => {
+  it("shows Ready to go context and the action bar's Start match button, no running/paused bar text", () => {
     render(<MatchView {...baseProps({ timerRunning: false, elapsedSec: 0 })} />);
     expect(screen.getByText("Ready to go")).toBeInTheDocument();
-    expect(screen.getByText(/first sub at/)).toBeInTheDocument();
     expect(screen.getByText("Start match")).toBeInTheDocument();
     expect(screen.queryByText(/Next sub/)).not.toBeInTheDocument();
     expect(screen.queryByText("Clock stopped")).not.toBeInTheDocument();
     expect(screen.queryByText("Paused")).not.toBeInTheDocument();
+  });
+
+  // Real-device feedback: the pre-kickoff bar used to be its own bigger,
+  // stacked shape (a status line, then a full-width button) — now the
+  // same compact single-row shape (label + a content-width button) as the
+  // running/paused bars, same mdActionBarClockBtn size/placement as
+  // Resume/Pause use.
+  it("sizes the Start match button the same as the running/paused bar's own clock button", () => {
+    render(<MatchView {...baseProps({ timerRunning: false, elapsedSec: 0 })} />);
+    const btn = screen.getByText("Start match").closest("button");
+    expect(btn).toHaveStyle({ height: "66px" });
   });
 
   it("the action bar's Start match button starts the clock", () => {

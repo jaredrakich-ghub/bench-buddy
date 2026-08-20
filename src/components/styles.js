@@ -758,9 +758,11 @@ export const styles = {
     background: tokens.color.actionBar, borderRadius: tokens.radius.card, padding: 16,
     boxShadow: "0 4px 14px rgba(0,0,0,0.18)",
   },
-  // For the two bars whose content stacks in a column instead of one row
-  // (the match screen's own pre-kickoff state, and Squad change's) —
-  // tighter vertical padding than the inline-row bars get.
+  // For a bar whose content stacks in a column instead of one row (Squad
+  // change's own action bar) — tighter vertical padding than the
+  // inline-row bars get. The match screen's pre-kickoff bar used to be
+  // stacked too (its own status line + full-width button) but now uses
+  // the same inline-row shape as every other match-screen bar state.
   mdActionBarStacked: { padding: "14px 16px" },
   mdActionBarStatusRow: { display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 },
   // 26px per the reference HTML's own markup for this element (the
@@ -776,7 +778,6 @@ export const styles = {
   mdActionBarCountdown: {
     fontFamily: tokens.font.display, fontWeight: 800, fontSize: 22, color: tokens.color.yellow, whiteSpace: "nowrap",
   },
-  mdActionBarStatus: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 14, color: tokens.color.mutedOnDark },
   // The compact single-row layout (label left, action button right) used
   // by the pre-kickoff/paused/running bars — the final-60 sheet keeps its
   // own taller stacked layout (mdActionBarStatusRow + row list + buttons)
@@ -817,16 +818,6 @@ export const styles = {
   },
   // "cream #F1E9D2 with dark text ... while running" (Pause).
   mdActionBarClockBtnRunning: { background: tokens.color.creamDeep, color: tokens.color.deepGreen },
-  // README > A2e-Prekickoff: "ONE full-width primary button 'Start match'
-  // (height 70, radius 26, #F5B93B, shadow 0 5px 0 #C9902A, Baloo 2 800
-  // 26px) with a solid play triangle" — its own distinct shape from the
-  // action bar's usual inline clock button, only for this one state.
-  mdActionBarBtnStart: {
-    width: "100%", height: 70, borderRadius: tokens.radius.buttonLg, border: "none", background: tokens.color.yellow,
-    color: tokens.color.deepGreen, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 26,
-    boxShadow: tokens.shadow.solid(5, tokens.color.yellowShadow),
-    display: "flex", alignItems: "center", justifyContent: "center", gap: 10, cursor: "pointer",
-  },
   // Shared full-screen dim layer — final60, the cog menu, and the
   // player-tap popover are mutually exclusive (never shown two at once,
   // see MatchView.jsx), so one scrim style serves all three rather than
