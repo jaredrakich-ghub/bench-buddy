@@ -1392,11 +1392,16 @@ export const styles = {
     marginTop: 8, textAlign: "center",
   },
   mdSignInForm: { width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", gap: 14, alignItems: "stretch" },
+  // Green/white, not yellow — real-use feedback: yellow "didn't feel
+  // inviting" for a sign-in CTA. Same pitchGreen/creamPaper pairing the
+  // rest of the app already uses for its own primary green buttons (e.g.
+  // mdBackPopoverBtnPrimary), with a matching darker-green shadow rather
+  // than the yellow one.
   mdSignInBtn: {
     display: "flex", alignItems: "center", justifyContent: "center", gap: 10, width: "100%", height: 70,
-    borderRadius: tokens.radius.buttonLg, border: "none", background: tokens.color.yellow, color: tokens.color.deepGreen,
+    borderRadius: tokens.radius.buttonLg, border: "none", background: tokens.color.pitchGreen, color: tokens.color.creamPaper,
     fontFamily: tokens.font.display, fontWeight: 800, fontSize: 25,
-    boxShadow: tokens.shadow.solid(5, tokens.color.yellowShadow), cursor: "pointer",
+    boxShadow: tokens.shadow.solid(5, tokens.color.greenShadow), cursor: "pointer",
   },
   mdSignInReassurance: {
     fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13.5, color: tokens.color.mutedText,
