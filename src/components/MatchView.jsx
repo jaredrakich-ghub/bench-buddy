@@ -418,7 +418,15 @@ export default function MatchView({
       onClick={() => handleTokenTap(id)}
       disabled={interactionLocked}
     >
-      <span style={{ ...styles.mdBenchChipNumber, ...(keeperEligibleIds.includes(id) ? styles.mdBenchChipNumberGk : {}) }}>
+      {/* Gold specifically when THIS bench player is who's actually coming
+          on as keeper at the next interval (becomingKeeperId) — not
+          keeperEligibleIds (whether they're generally allowed to play
+          goal at all, a permanent roster flag most players default to).
+          Real-use feedback: with eligibility defaulted on for most of a
+          squad, using it here meant almost every bench chip read gold
+          regardless of what was actually about to happen, misleadingly
+          suggesting an outfield sub was headed for goal. */}
+      <span style={{ ...styles.mdBenchChipNumber, ...(showNextSubBadges && becomingKeeperId === id ? styles.mdBenchChipNumberGk : {}) }}>
         {numberOf(id)}
       </span>
       <span style={styles.mdBenchChipName}>{nameOf(id)}</span>

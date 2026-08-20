@@ -387,9 +387,13 @@ export const styles = {
     fontFamily: tokens.font.display, fontWeight: 800, fontSize: 14, flexShrink: 0,
     background: tokens.color.pitchGreen, color: "#fff",
   },
-  // A keeper-eligible bench player's number disc flips to gold — matches
-  // the on-pitch keeper's gold shirt, so "this player can go in goal"
-  // reads the same color wherever they're shown.
+  // A bench player's number disc flips to gold specifically when they're
+  // who's actually coming on as keeper — matches the on-pitch keeper's
+  // gold shirt, so "this player is going in goal" reads the same color
+  // wherever they're shown. Not a blanket "keeper-eligible" indicator —
+  // see MatchView.jsx's renderBenchToken for why that reading was
+  // misleading (most players default to eligible, so almost every chip
+  // read gold regardless of what was actually about to happen).
   mdBenchChipNumberGk: { background: tokens.color.yellow, color: tokens.color.deepGreen },
   mdBenchChipName: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 16, color: tokens.color.deepGreen },
   mdBenchChipUpArrow: { color: tokens.color.pitchGreen, display: "flex", alignItems: "center" },

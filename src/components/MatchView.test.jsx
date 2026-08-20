@@ -178,6 +178,25 @@ describe("MatchView — next-sub badges", () => {
     render(<MatchView {...baseProps({ activeInterval: 1, elapsedSec: 6 * 60 })} />);
     expect(screen.queryByTitle("Coming off next interval")).not.toBeInTheDocument();
   });
+
+  // Real-use bug report: two bench subs both showed gold discs — read by
+  // the coach as "these two are both going in goal" — when neither was;
+  // the actual next keeper (p3) is an on-pitch player switching role, not
+  // a bench sub at all. baseProps defaults keeperEligibleIds to *every*
+  // player (matching real teams, where eligibility is opt-out and most
+  // squads never touch it) — the disc used to key off that blanket flag
+  // instead of who's actually coming on as keeper.
+  it("only golds a bench chip's disc for the specific player becoming keeper, not everyone keeper-eligible", () => {
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0 })} />);
+    // p6 (regular sub, arriving as an outfielder) and p7 (staying put) are
+    // both keeper-eligible per baseProps, but neither is becomingKeeperId
+    // (p3 is, and p3 is already on the pitch) — both should read plain
+    // green, not gold.
+    const finnDisc = tokenButtonFor("Finn").querySelector("span");
+    const gusDisc = tokenButtonFor("Gus").querySelector("span");
+    expect(finnDisc).toHaveStyle({ backgroundColor: "rgb(46, 125, 83)" }); // tokens.color.pitchGreen
+    expect(gusDisc).toHaveStyle({ backgroundColor: "rgb(46, 125, 83)" });
+  });
 });
 
 describe("MatchView — cog menu (anchored popover, trimmed / #10a)", () => {
