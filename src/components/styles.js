@@ -578,9 +578,16 @@ export const styles = {
   mdSetupChipActive: { background: tokens.color.deepGreen, color: tokens.color.creamPaper },
   mdSetupChipFair: { color: tokens.color.pitchGreen },
   mdSetupAddRow: { display: "flex", gap: 8, marginBottom: 8 },
+  // fontSize 16 (not 14) matters here — iOS Safari auto-zooms the whole
+  // page on focusing any text input whose font-size computes under 16px,
+  // which is exactly what real-device feedback reported ("zooms in too
+  // much, pushes the button to the side" — the Add button next to this
+  // field, and the mismatched-looking cursor were both just symptoms of
+  // that zoom). Same fix applied to mdTeamAcctInput/mdSetupNumberInput
+  // below, the app's only other real text inputs.
   mdSetupInput: {
     flex: 1, padding: "10px 14px", borderRadius: tokens.radius.chip, border: `1px solid ${tokens.color.rule}`,
-    fontFamily: tokens.font.body, fontWeight: 700, fontSize: 14, background: "#fff", color: tokens.color.deepGreen,
+    fontFamily: tokens.font.body, fontWeight: 700, fontSize: 16, background: "#fff", color: tokens.color.deepGreen,
   },
   mdSetupAddBtn: {
     display: "flex", alignItems: "center", gap: 6, padding: "10px 16px", borderRadius: tokens.radius.chip, border: "none",
@@ -607,7 +614,7 @@ export const styles = {
   mdSetupNumberBadgeSet: { background: tokens.color.pitchGreen, color: "#fff" },
   mdSetupNumberInput: {
     width: 32, height: 32, borderRadius: "50%", border: `2px solid ${tokens.color.pitchGreen}`, flexShrink: 0,
-    textAlign: "center", padding: 0, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 13, color: tokens.color.deepGreen,
+    textAlign: "center", padding: 0, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 16, color: tokens.color.deepGreen,
   },
   // Availability toggle, keeper-eligible toggle, and start-in-goal toggle
   // share one small round tinted-button shape, only the tint/icon differ.
@@ -1089,9 +1096,11 @@ export const styles = {
   // TeamSwitcher interaction shape (inline input, inline confirm row)
   // just restyled to sit inside a card instead of a plain modal row.
   mdTeamAcctInlineRow: { display: "flex", alignItems: "center", gap: 8, width: "100%" },
+  // fontSize 16, same reason as mdSetupInput above — stays clear of
+  // iOS Safari's auto-zoom-on-focus threshold.
   mdTeamAcctInput: {
     flex: 1, height: 40, borderRadius: tokens.radius.rowSm, border: `2px solid ${tokens.color.rule}`,
-    padding: "0 12px", fontFamily: tokens.font.body, fontWeight: 700, fontSize: 14, color: tokens.color.deepGreen,
+    padding: "0 12px", fontFamily: tokens.font.body, fontWeight: 700, fontSize: 16, color: tokens.color.deepGreen,
   },
   mdTeamAcctIconBtn: {
     width: 34, height: 34, borderRadius: tokens.radius.iconTile, border: "none", background: tokens.color.creamDeep,
