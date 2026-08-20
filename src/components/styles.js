@@ -1193,7 +1193,6 @@ export const styles = {
     justifyContent: "center", fontFamily: tokens.font.display, fontWeight: 800, fontSize: 13,
     background: tokens.color.pitchGreen, color: tokens.color.creamPaper,
   },
-  mdMinutesDiscKeeper: { background: tokens.color.yellow, color: tokens.color.deepGreen },
   mdMinutesName: { flex: 1, minWidth: 0, fontFamily: tokens.font.body, fontWeight: 800, fontSize: 15, color: tokens.color.deepGreen },
   mdMinutesValuePitch: {
     flex: 1, textAlign: "right", fontFamily: tokens.font.display, fontWeight: 800, fontSize: 17, color: tokens.color.pitchGreen,
@@ -1219,9 +1218,11 @@ export const styles = {
   // is the average per game, not the total (a total penalises a child who
   // missed weekends). Row shell is "as A5-Minutes" per the README, just
   // different padding and a two-line name cell instead of three number
-  // columns — mdMinutesNote/mdMinutesDisc/mdMinutesDiscKeeper are reused
-  // directly rather than duplicated (identical shape/colour, no reason to
-  // fork them for this screen).
+  // columns — mdMinutesNote/mdMinutesDisc are reused directly rather than
+  // duplicated (identical shape/colour, no reason to fork them for this
+  // screen). Same green/white disc for every player, no gold keeper
+  // variant — matches A5-Minutes (real-use feedback: "too much yellow"),
+  // which dropped it first.
   mdSeasonRow: {
     display: "flex", alignItems: "center", gap: 10, background: "#fff", borderRadius: tokens.radius.rowLg,
     padding: "10px 13px 10px 9px", boxShadow: tokens.shadow.solid(3, "rgba(28,58,46,.10)"),

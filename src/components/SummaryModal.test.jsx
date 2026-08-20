@@ -97,7 +97,7 @@ describe("SummaryModal", () => {
     render(<SummaryModal {...baseProps()} />);
     // p1/p2 are both keeper-eligible in the source data this fixture is
     // drawn from (rotation.js's plan generation) — this screen just
-    // doesn't care, unlike Season (#10c), which still colors keepers gold.
+    // doesn't care. Season (#10c) matches this exactly, see its own test.
     const discs = screen.getAllByText(/^[123]$/); // the number-disc spans (Alice=1, Bob=2, Cara=3)
     discs.forEach((disc) => {
       expect(disc).toHaveStyle({ backgroundColor: "rgb(46, 125, 83)" }); // tokens.color.pitchGreen

@@ -18,10 +18,9 @@ afterEach(() => {
 
 const NUMBERS = { p1: 1, p2: 2 };
 const numberOf = (id) => NUMBERS[id] ?? "?";
-const keeperEligibleIds = ["p1", "p2"];
 
 function renderModal(props = {}) {
-  return render(<SeasonSummaryModal teamId="t1" numberOf={numberOf} keeperEligibleIds={keeperEligibleIds} onClose={vi.fn()} {...props} />);
+  return render(<SeasonSummaryModal teamId="t1" numberOf={numberOf} onClose={vi.fn()} {...props} />);
 }
 
 const GAMES = [
@@ -86,6 +85,20 @@ describe("SeasonSummaryModal", () => {
     expect(bobRow).not.toHaveTextContent("1 games");
   });
 
+  it("gives every player the same plain green disc — no gold keeper-eligible variant, matching Minutes (#10a)", async () => {
+    fetchGameHistory.mockResolvedValue(GAMES);
+    renderModal();
+    await screen.findByText("Alice");
+    // Real-use feedback ("can we make the circles the normal green colour
+    // ... too much yellow"): this screen used to keep a gold disc for
+    // keeper-eligible players (both p1/p2 here) after Minutes dropped it —
+    // now it matches Minutes exactly.
+    const discs = screen.getAllByText(/^[12]$/); // the number-disc spans (Alice=1, Bob=2)
+    discs.forEach((disc) => {
+      expect(disc).toHaveStyle({ backgroundColor: "rgb(46, 125, 83)" }); // tokens.color.pitchGreen
+    });
+  });
+
   it("orders rows by average playing time descending, and states the gap in the note card", async () => {
     fetchGameHistory.mockResolvedValue(GAMES);
     renderModal();
@@ -112,7 +125,7 @@ describe("SeasonSummaryModal", () => {
     await screen.findByText("Alice");
 
     fetchGameHistory.mockResolvedValueOnce([]);
-    rerender(<SeasonSummaryModal teamId="t2" numberOf={numberOf} keeperEligibleIds={keeperEligibleIds} onClose={vi.fn()} />);
+    rerender(<SeasonSummaryModal teamId="t2" numberOf={numberOf} onClose={vi.fn()} />);
     await waitFor(() => expect(fetchGameHistory).toHaveBeenCalledWith("t2"));
     expect(await screen.findByText(/No games recorded yet/)).toBeInTheDocument();
   });

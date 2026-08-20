@@ -43,7 +43,7 @@ function fmtLongClock(totalMinutes) {
   return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
-export default function SeasonSummaryModal({ teamId, numberOf, keeperEligibleIds, onClose }) {
+export default function SeasonSummaryModal({ teamId, numberOf, onClose }) {
   const [games, setGames] = useState(null); // null = still loading
   const [error, setError] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
@@ -129,12 +129,9 @@ export default function SeasonSummaryModal({ teamId, numberOf, keeperEligibleIds
 
           <div style={styles.mdMinutesList}>
             {rows.map((r) => {
-              const isKeeper = keeperEligibleIds.includes(r.id);
               return (
                 <div key={r.id} style={styles.mdSeasonRow}>
-                  <span style={{ ...styles.mdMinutesDisc, ...(isKeeper ? styles.mdMinutesDiscKeeper : {}) }}>
-                    {numberOf(r.id)}
-                  </span>
+                  <span style={styles.mdMinutesDisc}>{numberOf(r.id)}</span>
                   <div style={styles.mdSeasonNameStack}>
                     <span style={styles.mdSeasonName}>{r.name || "?"}</span>
                     <span style={styles.mdSeasonSubline}>

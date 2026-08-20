@@ -491,7 +491,6 @@ export default function SubRotationPlanner({ user }) {
             <SeasonSummaryModal
               teamId={activeTeamId}
               numberOf={numberOf}
-              keeperEligibleIds={keeperEligibleIds}
               onClose={() => setShowSeasonModal(false)}
             />
           </div>
