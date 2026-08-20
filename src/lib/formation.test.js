@@ -83,9 +83,9 @@ describe("getFormationLayout", () => {
     ];
     const layout = getFormationLayout(onField);
     const rowValues = [...new Set(layout.filter((p) => p.id !== "gk1").map((p) => p.topPct))];
-    // The 3-row case uses its own, smaller front-row value (14, not the
+    // The 3-row case uses its own, smaller front-row value (13, not the
     // 2-row case's 18) — see formation.js's own comment on why.
-    expect(rowValues.sort((a, b) => a - b)).toEqual([14, 35, 56]);
+    expect(rowValues.sort((a, b) => a - b)).toEqual([13, 34.5, 56]);
     // 6 outfielders split evenly across 3 rows of 2.
     const counts = rowValues.map((t) => layout.filter((p) => p.topPct === t).length);
     expect(counts).toEqual([2, 2, 2]);
@@ -98,9 +98,9 @@ describe("getFormationLayout", () => {
     ];
     const layout = getFormationLayout(onField);
     const gk = layout.find((p) => p.id === "gk1");
-    // Symmetric with the 3-row front row's 14 (100 - 14 = 86) so both ends
+    // Symmetric with the 3-row front row's 13 (100 - 13 = 87) so both ends
     // of the pitch get equal clearance regardless of card height.
-    expect(gk.topPct).toBe(86);
+    expect(gk.topPct).toBe(87);
   });
 
   it("still uses 2 rows at exactly the 4-outfielder boundary, not 3", () => {

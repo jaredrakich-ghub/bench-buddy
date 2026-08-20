@@ -358,16 +358,24 @@ export const styles = {
     background: tokens.color.yellow, display: "flex", alignItems: "center", justifyContent: "center",
     fontSize: 11, lineHeight: 1, pointerEvents: "none", boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
   },
+  // display:flex/alignItems (not the old stacked block) so BENCH sits
+  // inline with the chip row instead of on its own line above it — real-
+  // device feedback wanting to reclaim that line's height for the pitch/
+  // action-bar below. alignItems:"flex-start" (not "center") so the label
+  // stays pinned to the first line if the chip row ever wraps to a second.
   mdBenchStrip: {
     background: tokens.color.creamDeep, borderRadius: tokens.radius.benchStrip, padding: "12px 14px",
-    marginBottom: tokens.spacing.rhythm,
+    marginBottom: tokens.spacing.rhythm, display: "flex", alignItems: "flex-start", gap: 10,
   },
-  mdBenchLabel: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 15, color: tokens.color.mutedText, marginBottom: 8 },
+  mdBenchLabel: {
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 15, color: tokens.color.mutedText,
+    flexShrink: 0, paddingTop: 5, // roughly centers the label on the chip row's own first line
+  },
   // Block 8, part D — one row, not two: available players first, then a
   // divider, then anyone injured. Replaces the old separate "Injured"
   // sub-label + second row (mdBenchSubLabel, now dead — the pink-tinted
   // chip and cross badge already read as "injured" without a text label).
-  mdBenchChipRow: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 },
+  mdBenchChipRow: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, flex: 1, minWidth: 0 },
   mdBenchDivider: { width: 2, height: 28, borderRadius: 1, background: "#DCD2B6", margin: "0 2px", flexShrink: 0 },
   mdBenchChip: {
     display: "flex", alignItems: "center", gap: 6, background: "#fff", borderRadius: tokens.radius.chip,
@@ -663,7 +671,13 @@ export const styles = {
   // `main` (SubRotationPlanner.jsx) already provides the 16px horizontal
   // gutter and ~12px top gap this sits in — the only real change here is
   // rounding all four corners instead of just the bottom two.
-  mdHeader: { background: tokens.color.headerYellow, padding: "18px 20px 20px", borderRadius: 28, marginBottom: 12 },
+  // Bottom padding (20 -> 12) and marginBottom (12 -> 8) both trimmed on
+  // real-device feedback ("take a bit of padding from the top yellow
+  // section, below the timer") — reclaiming header height to help the
+  // action bar/timer actually fit on screen. Top/side padding (18/20)
+  // untouched — that's the crest/name/cog row's own breathing room, not
+  // what was reported as excess.
+  mdHeader: { background: tokens.color.headerYellow, padding: "18px 20px 12px", borderRadius: 28, marginBottom: 8 },
   mdHeaderTopRow: { display: "flex", alignItems: "center", gap: 10 },
   mdCrestOuter: {
     width: 62, height: 62, borderRadius: "50%", flexShrink: 0, overflow: "hidden",

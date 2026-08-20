@@ -32,7 +32,12 @@
 // get equal clearance regardless of card height.
 const BACK_ROW_TOP_PCT = 56;
 const FRONT_ROW_TOP_PCT = 18;
-const FRONT_ROW_TOP_PCT_3ROW = 14;
+// 14 -> 13: nudged again on further real-device feedback ("move the
+// goalkeeper up and reduce the bottom of the pitch" — still cut off at
+// the previous 330px/14-86 tuning). Paired with pitchInnerHeight's own
+// 330 -> 300 (MatchView.jsx) — both together move the goalkeeper further
+// up in absolute pixels than either change alone would.
+const FRONT_ROW_TOP_PCT_3ROW = 13;
 const GK_TOP_PCT_3ROW = 100 - FRONT_ROW_TOP_PCT_3ROW;
 
 export function getFormationLayout(onField) {
