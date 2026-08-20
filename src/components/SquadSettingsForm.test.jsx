@@ -111,6 +111,33 @@ describe("SquadSettingsForm — rendering (edit / A4 layout)", () => {
     expect(screen.getByText("Breaks")).toBeInTheDocument();
     expect(screen.getByText("None")).toBeInTheDocument();
   });
+
+  // Manage squad joined the other three accordion rows on real-use feedback
+  // ("too much going on" that page) — every player's name/number was
+  // already shown once in the Who's here chip row, so the detail list
+  // (number/keeper-eligible/remove) sitting open by default was pure
+  // duplication. Only the "edit" layout gets this treatment — "inline"
+  // (first-time setup) still shows everything open, per its own README-
+  // cited rationale ("nothing already answered yet to skim past").
+  it("collapses Manage squad to a one-line row carrying the player count", () => {
+    render(<SquadSettingsForm {...baseProps({ variant: "edit" })} />);
+    expect(screen.getByText("Manage squad")).toBeInTheDocument();
+    expect(screen.getByText("2 players")).toBeInTheDocument();
+    expect(screen.queryByTitle("Set squad number")).not.toBeInTheDocument();
+  });
+
+  it("expands Manage squad to show the number/keeper-eligible/remove rows, and collapses the other sections", async () => {
+    const user = userEvent.setup();
+    render(<SquadSettingsForm {...baseProps({ variant: "edit" })} />);
+    await user.click(screen.getByText("In goal today"));
+    expect(screen.getByText("Tap a name to pick who starts in goal today.")).toBeInTheDocument();
+
+    await user.click(screen.getByText("Manage squad"));
+    expect(screen.queryByText("Tap a name to pick who starts in goal today.")).not.toBeInTheDocument();
+    expect(screen.getAllByTitle("Set squad number")).toHaveLength(2);
+    expect(screen.getAllByTitle("Toggle keeper-eligible")).toHaveLength(2);
+    expect(screen.getAllByTitle("Remove from squad")).toHaveLength(2);
+  });
 });
 
 describe("SquadSettingsForm — number tiles (tap to flip, stepper)", () => {

@@ -139,11 +139,17 @@ export default function SquadSettingsForm({
 
   // Which tile ("fieldSize" | "gameMinutes" | "subIntervalMinutes") is
   // flipped dark with its stepper showing — one at a time. Which of the
-  // three accordion sections is expanded in the "edit" layout — also one
+  // four accordion sections is expanded in the "edit" layout — also one
   // at a time, same "one thing open" shape used elsewhere in this app
-  // (e.g. the match screen's own player-tap menu).
+  // (e.g. the match screen's own player-tap menu). "squad" (Manage squad)
+  // joined the other three on real-use feedback ("too much going on"
+  // that page) — every player's name/number was already shown once in
+  // the Who's here chip row above, so the full one-row-per-player detail
+  // list underneath was pure duplication sitting open by default. Number/
+  // keeper-eligible/remove are all edited far less often than availability
+  // is, so tucking them behind a tap costs little.
   const [activeTile, setActiveTile] = useState(null);
-  const [expandedSection, setExpandedSection] = useState(null); // "goal" | "swaps" | "breaks" | null
+  const [expandedSection, setExpandedSection] = useState(null); // "goal" | "swaps" | "breaks" | "squad" | null
   const [showAddChip, setShowAddChip] = useState(false);
   const [editingNumberId, setEditingNumberId] = useState(null);
 
@@ -601,10 +607,25 @@ export default function SquadSettingsForm({
               <span style={styles.mdSetupAccordionChevron}>›</span>
             </button>
           )}
-        </div>
 
-        <div style={{ ...styles.mdSetupSectionTitle, fontSize: 18, marginTop: 22, marginBottom: 8 }}>Manage squad</div>
-        <div>{renderManageSquadRows()}</div>
+          {expandedSection === "squad" ? (
+            <div style={styles.mdSetupCard}>
+              <div style={styles.mdSetupCardHeaderRow}>
+                <div style={styles.mdSetupCardTitle}>Manage squad</div>
+                <span style={styles.mdSetupAccordionChevron} onClick={() => setExpandedSection(null)} role="button" tabIndex={0}>
+                  ⌄
+                </span>
+              </div>
+              <div style={{ marginTop: 8 }}>{renderManageSquadRows()}</div>
+            </div>
+          ) : (
+            <button style={styles.mdSetupAccordionRow} onClick={() => setExpandedSection("squad")}>
+              <span style={styles.mdSetupAccordionLabel}>Manage squad</span>
+              <span style={styles.mdSetupAccordionValue}>{roster.length} player{roster.length === 1 ? "" : "s"}</span>
+              <span style={styles.mdSetupAccordionChevron}>›</span>
+            </button>
+          )}
+        </div>
 
         {renderWarningsAndSubmit()}
       </>
