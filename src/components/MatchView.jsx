@@ -935,11 +935,17 @@ export default function MatchView({
                 onShowSummary();
               }}
             >
+              {/* "Minutes so far" + a live elapsed-time value (fmtClock
+                  (elapsedSec)) were both leftover from before this screen's
+                  own reversion back to a full-game projection (see
+                  SummaryModal.jsx's own header comment) — "so far" hasn't
+                  described what it opens for a while, and the elapsed-time
+                  chip was never actually a preview of that screen's content
+                  in the first place. Real-use feedback caught both. */}
               <span style={{ ...styles.mdCogMenuIconTile, ...styles.mdTintYellow }}>
                 <BarChart2 size={16} color={tokens.color.deepGreen} />
               </span>
-              <span style={styles.mdCogMenuLabel}>Minutes so far</span>
-              <span style={styles.mdCogMenuValue}>{fmtClock(elapsedSec)}</span>
+              <span style={styles.mdCogMenuLabel}>Minutes</span>
               <span style={styles.mdCogMenuChevron}>›</span>
             </button>
             <button

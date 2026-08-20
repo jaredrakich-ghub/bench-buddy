@@ -226,7 +226,7 @@ describe("MatchView — cog menu (anchored popover, trimmed / #10a)", () => {
     render(<MatchView {...baseProps()} />);
     await user.click(screen.getByTitle("Menu"));
     const popover = within(screen.getByTestId("cog-popover"));
-    expect(popover.getByText("Minutes so far")).toBeInTheDocument();
+    expect(popover.getByText("Minutes")).toBeInTheDocument();
     expect(popover.getByText("Squad change")).toBeInTheDocument();
     expect(popover.getByText("Game settings")).toBeInTheDocument();
     expect(popover.getByText("Team & account")).toBeInTheDocument();
@@ -237,17 +237,17 @@ describe("MatchView — cog menu (anchored popover, trimmed / #10a)", () => {
     expect(popover.queryByText("Sign out")).not.toBeInTheDocument();
   });
 
-  it("shows the live-computed value chips: minutes so far, squad in, game settings, team name", () => {
+  it("shows the live-computed value chips: squad in, game settings, team name (Minutes has none — full-game projection, not tied to elapsed time)", () => {
     render(
       <MatchView
         {...baseProps({ elapsedSec: 125, availableCount: 7, teamName: "Scorpions", gameSettingsSummary: "5 a side · sub 5′" })}
       />
     );
     fireEvent.click(screen.getByTitle("Menu"));
-    // Scoped into the popover specifically — "2:05" and "Scorpions" also
-    // legitimately appear in the (still-rendered, just dimmed) header behind it.
+    // Scoped into the popover specifically — "Scorpions" also legitimately
+    // appears in the (still-rendered, just dimmed) header behind it.
     const popover = within(screen.getByTestId("cog-popover"));
-    expect(popover.getByText("2:05")).toBeInTheDocument(); // Minutes so far
+    expect(popover.queryByText("2:05")).not.toBeInTheDocument(); // no elapsed-time chip on Minutes
     expect(popover.getByText("7 in")).toBeInTheDocument(); // Squad change
     expect(popover.getByText("5 a side · sub 5′")).toBeInTheDocument(); // Game settings
     expect(popover.getByText("Scorpions")).toBeInTheDocument(); // Team & account value
@@ -262,7 +262,7 @@ describe("MatchView — cog menu (anchored popover, trimmed / #10a)", () => {
     render(<MatchView {...baseProps({ onShowSummary, onShowSettings, onShowSquadChange, onShowTeamSwitcher })} />);
 
     await user.click(screen.getByTitle("Menu"));
-    await user.click(screen.getByText("Minutes so far"));
+    await user.click(screen.getByText("Minutes"));
     expect(onShowSummary).toHaveBeenCalledTimes(1);
     expect(screen.queryByText("Game settings")).not.toBeInTheDocument(); // menu closed itself
 
