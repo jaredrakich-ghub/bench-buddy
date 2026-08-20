@@ -521,7 +521,18 @@ export const styles = {
   },
   mdSetupAccordionLabel: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 16, color: tokens.color.deepGreen },
   mdSetupAccordionValue: { marginLeft: "auto", fontFamily: tokens.font.body, fontWeight: 800, fontSize: 16, color: tokens.color.mutedText },
-  mdSetupAccordionChevron: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 18, color: tokens.color.chevron },
+  // Bumped from 18px with zero padding — real-device feedback: too small a
+  // tap target for the "⌄" collapse control this same style doubles as
+  // (Breaks/Manage squad's own expanded cards). The padding matters more
+  // than the font-size bump here — it's what actually grows the hit area,
+  // not just how the glyph looks. Harmless where this is only ever the
+  // static "›" indicator (every collapsed row) — those sit inside an
+  // already-full-row button, so the extra padding is just a bit more
+  // breathing room, not a new tap target.
+  mdSetupAccordionChevron: {
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 26, lineHeight: 1, color: tokens.color.chevron,
+    padding: 8, cursor: "pointer",
+  },
 
   // The expanded "In goal today" / "Keeper swaps" card. White + always-open
   // in the first-time (A3) layout; dark + only shown when its accordion row
@@ -538,7 +549,12 @@ export const styles = {
   // the collapse control.
   mdSetupCardHint: { marginLeft: "auto", fontFamily: tokens.font.body, fontWeight: 800, fontSize: 13, color: tokens.color.mutedText },
   mdSetupCardHintOnDark: { color: tokens.color.yellow },
-  mdSetupCardChevronOnDark: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 18, color: tokens.color.mutedOnDark },
+  // Same bigger-tap-target treatment as mdSetupAccordionChevron above —
+  // this is the "In goal today" card's own collapse control.
+  mdSetupCardChevronOnDark: {
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 26, lineHeight: 1, color: tokens.color.mutedOnDark,
+    padding: 8, cursor: "pointer",
+  },
   mdSetupCardCaptionOnDark: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13, color: tokens.color.mutedOnDark, marginTop: 8 },
 
   // Inline stepper — "Swap every" / "Keeper swaps", a smaller always-on

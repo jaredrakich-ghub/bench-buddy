@@ -227,7 +227,7 @@ describe("MatchView — cog menu (anchored popover, trimmed / #10a)", () => {
     await user.click(screen.getByTitle("Menu"));
     const popover = within(screen.getByTestId("cog-popover"));
     expect(popover.getByText("Minutes")).toBeInTheDocument();
-    expect(popover.getByText("Squad change")).toBeInTheDocument();
+    expect(popover.getByText("Who's here")).toBeInTheDocument();
     expect(popover.getByText("Game settings")).toBeInTheDocument();
     expect(popover.getByText("Team & account")).toBeInTheDocument();
     expect(popover.queryByText("Season data")).not.toBeInTheDocument();
@@ -248,7 +248,7 @@ describe("MatchView — cog menu (anchored popover, trimmed / #10a)", () => {
     // appears in the (still-rendered, just dimmed) header behind it.
     const popover = within(screen.getByTestId("cog-popover"));
     expect(popover.queryByText("2:05")).not.toBeInTheDocument(); // no elapsed-time chip on Minutes
-    expect(popover.getByText("7 in")).toBeInTheDocument(); // Squad change
+    expect(popover.getByText("7 in")).toBeInTheDocument(); // Who's here
     expect(popover.getByText("5 a side · sub 5′")).toBeInTheDocument(); // Game settings
     expect(popover.getByText("Scorpions")).toBeInTheDocument(); // Team & account value
   });
@@ -267,7 +267,7 @@ describe("MatchView — cog menu (anchored popover, trimmed / #10a)", () => {
     expect(screen.queryByText("Game settings")).not.toBeInTheDocument(); // menu closed itself
 
     await user.click(screen.getByTitle("Menu"));
-    await user.click(screen.getByText("Squad change"));
+    await user.click(screen.getByText("Who's here"));
     expect(onShowSquadChange).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByTitle("Menu"));

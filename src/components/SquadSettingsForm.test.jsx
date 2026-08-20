@@ -80,23 +80,44 @@ describe("SquadSettingsForm — rendering (edit / A4 layout)", () => {
 
   it("shows the three advanced sections collapsed to one-line rows carrying their current value", () => {
     render(<SquadSettingsForm {...baseProps({ variant: "edit" })} />);
-    expect(screen.getByText("In goal today")).toBeInTheDocument();
+    expect(screen.getByText("First in goal today")).toBeInTheDocument();
     expect(screen.getByText("Random")).toBeInTheDocument(); // no starting keeper picked
-    expect(screen.getByText("Keeper swaps")).toBeInTheDocument();
+    expect(screen.getByText("Keeper changes")).toBeInTheDocument();
     expect(screen.getByText("Every 6′")).toBeInTheDocument(); // defaults to subIntervalMinutes
     expect(screen.getByText("Breaks")).toBeInTheDocument();
     expect(screen.getByText("None")).toBeInTheDocument();
+  });
+
+  // Real-use feedback: this row used to duplicate SquadChangeScreen.jsx's
+  // own job (the cog menu's "Who's here" row) — availability toggling and
+  // +Player both live there now, so the edit layout drops its own copy of
+  // that section entirely. Manage squad (further down) keeps its own,
+  // different job — number/keeper-eligible/remove, not availability.
+  it("has no Who's here availability section — that's SquadChangeScreen's own job now", () => {
+    render(<SquadSettingsForm {...baseProps({ variant: "edit" })} />);
+    expect(screen.queryByText("Who's here?")).not.toBeInTheDocument();
+    expect(screen.queryByText("tap to drop out")).not.toBeInTheDocument();
+    expect(screen.queryByText("Select all")).not.toBeInTheDocument();
+  });
+
+  // Real-use feedback: wanted the Breaks row to read as one phrase
+  // ("Breaks" + "Every third"), matching how "Keeper changes" + "Every 4′"
+  // already reads.
+  it("shows the Breaks row's value as 'Every <segment>', not the chip's own plain noun", () => {
+    render(<SquadSettingsForm {...baseProps({ variant: "edit", gameSettings: { fieldSize: 5, gameMinutes: 40, subIntervalMinutes: 6, breakSegments: 3 } })} />);
+    expect(screen.getByText("Every third")).toBeInTheDocument();
+    expect(screen.queryByText("Thirds")).not.toBeInTheDocument(); // that's the chip's own label, only shown once expanded
   });
 
   it("expands a section in place when tapped, and only one at a time", async () => {
     const user = userEvent.setup();
     render(<SquadSettingsForm {...baseProps({ variant: "edit" })} />);
 
-    await user.click(screen.getByText("In goal today"));
+    await user.click(screen.getByText("First in goal today"));
     expect(screen.getByText("Tap a name to pick who starts in goal today.")).toBeInTheDocument();
 
-    // Opening Keeper swaps closes the In-goal card back to its one-liner.
-    await user.click(screen.getByText("Keeper swaps"));
+    // Opening Keeper changes closes the In-goal card back to its one-liner.
+    await user.click(screen.getByText("Keeper changes"));
     expect(screen.queryByText("Tap a name to pick who starts in goal today.")).not.toBeInTheDocument();
     expect(screen.getByText("Leave at the sub length to rotate keepers every window.")).toBeInTheDocument();
   });
@@ -110,6 +131,16 @@ describe("SquadSettingsForm — rendering (edit / A4 layout)", () => {
     await user.click(screen.getByText("⌄"));
     expect(screen.getByText("Breaks")).toBeInTheDocument();
     expect(screen.getByText("None")).toBeInTheDocument();
+  });
+
+  // Real-device feedback: the "⌄" collapse control was too small a tap
+  // target (18px font, no padding). Bumped alongside the rename work.
+  it("gives the collapse chevron a bigger tap target than before", async () => {
+    const user = userEvent.setup();
+    render(<SquadSettingsForm {...baseProps({ variant: "edit" })} />);
+    await user.click(screen.getByText("Breaks"));
+    const chevron = screen.getByText("⌄");
+    expect(chevron).toHaveStyle({ fontSize: "26px", padding: "8px" });
   });
 
   // Manage squad joined the other three accordion rows on real-use feedback
@@ -129,7 +160,7 @@ describe("SquadSettingsForm — rendering (edit / A4 layout)", () => {
   it("expands Manage squad to show the number/keeper-eligible/remove rows, and collapses the other sections", async () => {
     const user = userEvent.setup();
     render(<SquadSettingsForm {...baseProps({ variant: "edit" })} />);
-    await user.click(screen.getByText("In goal today"));
+    await user.click(screen.getByText("First in goal today"));
     expect(screen.getByText("Tap a name to pick who starts in goal today.")).toBeInTheDocument();
 
     await user.click(screen.getByText("Manage squad"));

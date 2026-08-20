@@ -458,7 +458,13 @@ export default function SubRotationPlanner({ user }) {
             <SquadSettingsForm
               {...squadSettingsProps}
               variant="edit"
-              title={isMatchComplete ? "Set up next game" : "Today's game"}
+              // "Game settings" — matches the cog menu's own row label that
+              // opens this screen (real-use feedback: same expectation as
+              // "Minutes" and "Who's here", whose own headers already match
+              // their menu rows). "Set up next game" stays distinct for the
+              // match-complete case — a genuinely different moment (a fresh
+              // game, not editing today's), not reached via that same row.
+              title={isMatchComplete ? "Set up next game" : "Game settings"}
               onClose={() => setShowSettingsModal(false)}
               onSubmit={handleGenerate}
               submitLabel={isMatchComplete ? "Start Game" : "Save & Regenerate"}

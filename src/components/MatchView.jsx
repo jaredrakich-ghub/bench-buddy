@@ -958,7 +958,11 @@ export default function MatchView({
               <span style={{ ...styles.mdCogMenuIconTile, ...styles.mdTintGreen }}>
                 <ArrowLeftRight size={16} color={tokens.color.pitchGreen} />
               </span>
-              <span style={styles.mdCogMenuLabel}>Squad change</span>
+              {/* "Who's here" — matches the screen's own header title
+                  exactly (SquadChangeScreen.jsx), same consistency fix as
+                  Minutes/Game settings. Was "Squad change" here while the
+                  screen itself already said "Who's here?". */}
+              <span style={styles.mdCogMenuLabel}>Who's here</span>
               {availableCount != null && <span style={styles.mdCogMenuValue}>{availableCount} in</span>}
               <span style={styles.mdCogMenuChevron}>›</span>
             </button>

@@ -5,7 +5,8 @@ import { styles, tokens } from "./styles.js";
 // README > A7-Squad-change (#10d) — "a child arrived late or left early.
 // This is the only reason the screen gets opened." Full-screen takeover
 // (same mdFullScreenTakeoverOuter/Inner wrapper as every other non-match
-// screen), reached from MatchView's cog menu "Squad change" row, which
+// screen), reached from MatchView's cog menu "Who's here" row (renamed
+// from "Squad change" to match this screen's own header exactly), which
 // used to open the destructive Save & Regenerate flow (SquadSettingsForm)
 // instead — that row now points here. Wired to the addArrival/
 // removeAvailability hook functions (useMatchState.js), which rebuild only

@@ -19,6 +19,14 @@ const BREAK_OPTIONS = [
   { segments: 4, label: "Quarters" },
 ];
 
+// The edit layout's own collapsed-row VALUE text — distinct from
+// BREAK_OPTIONS' own chip labels above (kept short as tap targets:
+// "Halves"/"Thirds"/"Quarters"). Real-use feedback: wanted the row to
+// read as one phrase, "Breaks" + this value, matching how "Keeper
+// changes" + "Every 4′" already reads elsewhere in this same accordion.
+// "None" stays a plain noun — "Breaks Every none" doesn't parse.
+const BREAK_VALUE_LABEL = { 1: "None", 2: "Every half", 3: "Every third", 4: "Every quarter" };
+
 const TILE_ORDER = [
   { key: "fieldSize", label: "on pitch", min: 2, step: 1 },
   { key: "gameMinutes", label: "minutes", min: 5, step: 5 },
@@ -530,15 +538,13 @@ export default function SquadSettingsForm({
       <>
         {header}
 
-        <div style={styles.mdSetupHeaderInRow}>
-          <div style={styles.mdSetupSectionTitle}>Who's here?</div>
-          <span style={styles.mdSetupInChip}>{availableIds.length} in</span>
-          <span style={styles.mdSetupDropOutHint}>tap to drop out</span>
-          {renderSelectAll()}
-        </div>
-        {renderSquadChips()}
-
-        <div style={{ ...styles.mdSetupSectionTitle, marginTop: 22, marginBottom: 11 }}>The game</div>
+        {/* The "Who's here?" chip row (availability toggle + add-player)
+            used to open here too — dropped on real-use feedback, now that
+            it's fully covered by its own dedicated screen (cog menu's
+            "Who's here" row, SquadChangeScreen.jsx). Manage squad below
+            keeps its own separate job — number/keeper-eligible/remove,
+            not availability. */}
+        <div style={{ ...styles.mdSetupSectionTitle, marginTop: 14, marginBottom: 11 }}>The game</div>
         {renderTiles()}
         {renderIntervalPreview()}
         {renderSubIntervalRecs()}
@@ -547,7 +553,7 @@ export default function SquadSettingsForm({
           {expandedSection === "goal" ? (
             <div style={{ ...styles.mdSetupCard, ...styles.mdSetupCardDark }}>
               <div style={styles.mdSetupCardHeaderRow}>
-                <div style={{ ...styles.mdSetupCardTitle, ...styles.mdSetupCardTitleOnDark }}>In goal today</div>
+                <div style={{ ...styles.mdSetupCardTitle, ...styles.mdSetupCardTitleOnDark }}>First in goal today</div>
                 <span style={{ ...styles.mdSetupCardHint, ...styles.mdSetupCardHintOnDark }}>
                   {startingGkId ? `${roster.find((p) => p.id === startingGkId)?.name} starts` : "Random"}
                 </span>
@@ -565,7 +571,7 @@ export default function SquadSettingsForm({
             </div>
           ) : (
             <button style={styles.mdSetupAccordionRow} onClick={() => setExpandedSection("goal")}>
-              <span style={styles.mdSetupAccordionLabel}>In goal today</span>
+              <span style={styles.mdSetupAccordionLabel}>First in goal today</span>
               <span style={styles.mdSetupAccordionValue}>
                 {startingGkId ? `${roster.find((p) => p.id === startingGkId)?.name} starts` : "Random"}
               </span>
@@ -576,14 +582,14 @@ export default function SquadSettingsForm({
           {expandedSection === "swaps" ? (
             <div style={{ ...styles.mdSetupCard, ...styles.mdSetupCardDark }}>
               <div style={styles.mdSetupCardHeaderRow}>
-                <div style={{ ...styles.mdSetupCardTitle, ...styles.mdSetupCardTitleOnDark }}>Keeper swaps</div>
+                <div style={{ ...styles.mdSetupCardTitle, ...styles.mdSetupCardTitleOnDark }}>Keeper changes</div>
                 {renderKeeperSwapStepper(true)}
               </div>
               <div style={styles.mdSetupCardCaptionOnDark}>Leave at the sub length to rotate keepers every window.</div>
             </div>
           ) : (
             <button style={styles.mdSetupAccordionRow} onClick={() => setExpandedSection("swaps")}>
-              <span style={styles.mdSetupAccordionLabel}>Keeper swaps</span>
+              <span style={styles.mdSetupAccordionLabel}>Keeper changes</span>
               <span style={styles.mdSetupAccordionValue}>Every {keeperSwapValue}′</span>
               <span style={styles.mdSetupAccordionChevron}>›</span>
             </button>
@@ -603,7 +609,7 @@ export default function SquadSettingsForm({
           ) : (
             <button style={styles.mdSetupAccordionRow} onClick={() => setExpandedSection("breaks")}>
               <span style={styles.mdSetupAccordionLabel}>Breaks</span>
-              <span style={styles.mdSetupAccordionValue}>{BREAK_OPTIONS.find((o) => o.segments === (gameSettings.breakSegments || 1))?.label}</span>
+              <span style={styles.mdSetupAccordionValue}>{BREAK_VALUE_LABEL[gameSettings.breakSegments || 1]}</span>
               <span style={styles.mdSetupAccordionChevron}>›</span>
             </button>
           )}
@@ -643,7 +649,7 @@ export default function SquadSettingsForm({
 
       <div style={{ ...styles.mdSetupCard, marginTop: 14 }}>
         <div style={styles.mdSetupCardHeaderRow}>
-          <div style={styles.mdSetupCardTitle}>In goal today</div>
+          <div style={styles.mdSetupCardTitle}>First in goal today</div>
           <span style={styles.mdSetupCardHint}>👑 starts</span>
         </div>
         <div style={{ marginTop: 11 }}>{renderInGoalChips(false)}</div>
