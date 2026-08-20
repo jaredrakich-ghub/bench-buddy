@@ -411,6 +411,44 @@ export default function SubRotationPlanner({ user }) {
         )}
       </main>
 
+      {showTeamSwitcher && (
+        // README > A8-Team-account — full-screen takeover, not a floating
+        // modal (see mdFullScreenTakeover* in styles.js for why it's split
+        // into an outer/inner wrapper).
+        //
+        // Rendered FIRST among these five overlays, deliberately — its own
+        // "Season data"/"Manage squad" rows open showSeasonModal/
+        // showSettingsModal *without* closing this screen underneath them
+        // (so its own back arrow returns here, not straight to the match
+        // screen — a proper drill-down, not a screen swap). All of these
+        // sibling overlays share the same fixed z-index (mdFullScreenTake
+        // overOuter), so with equal z-index it's DOM order that decides
+        // which one paints on top — this used to be declared *last*, which
+        // meant it silently painted over Season/Settings instead of the
+        // other way around, making "Season data"/"Manage squad" look
+        // broken (the state flipped correctly; nothing ever became
+        // visible). Keep this first if any more rows like these are added.
+        <div style={styles.mdFullScreenTakeoverOuter}>
+          <div style={styles.mdFullScreenTakeoverInner}>
+            <TeamAccountScreen
+              teams={teams}
+              activeTeamId={activeTeamId}
+              onSwitch={switchTeam}
+              onAdd={addNewTeam}
+              onRename={renameTeamById}
+              onDelete={deleteTeamById}
+              onClose={() => setShowTeamSwitcher(false)}
+              userEmail={user.email}
+              onSignOut={signOutUser}
+              onDeleteAccount={deleteMyAccount}
+              onShowSeason={() => setShowSeasonModal(true)}
+              onShowSettings={() => setShowSettingsModal(true)}
+              crestSrc={headerMascot}
+            />
+          </div>
+        </div>
+      )}
+
       {showSettingsModal && (
         // README > A4-Setup-collapsed/expanded — same full-screen takeover
         // pattern as every other secondary screen now (was the last
@@ -475,31 +513,6 @@ export default function SubRotationPlanner({ user }) {
               onRemoveAvailability={removeAvailability}
               onAddRosterPlayer={addRosterPlayer}
               onClose={() => setShowSquadChange(false)}
-            />
-          </div>
-        </div>
-      )}
-
-      {showTeamSwitcher && (
-        // README > A8-Team-account — full-screen takeover, not a floating
-        // modal (see mdFullScreenTakeover* in styles.js for why it's split
-        // into an outer/inner wrapper).
-        <div style={styles.mdFullScreenTakeoverOuter}>
-          <div style={styles.mdFullScreenTakeoverInner}>
-            <TeamAccountScreen
-              teams={teams}
-              activeTeamId={activeTeamId}
-              onSwitch={switchTeam}
-              onAdd={addNewTeam}
-              onRename={renameTeamById}
-              onDelete={deleteTeamById}
-              onClose={() => setShowTeamSwitcher(false)}
-              userEmail={user.email}
-              onSignOut={signOutUser}
-              onDeleteAccount={deleteMyAccount}
-              onShowSeason={() => setShowSeasonModal(true)}
-              onShowSettings={() => setShowSettingsModal(true)}
-              crestSrc={headerMascot}
             />
           </div>
         </div>
