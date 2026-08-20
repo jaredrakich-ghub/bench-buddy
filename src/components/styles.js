@@ -306,6 +306,12 @@ export const styles = {
   mdShirtNumber: {
     position: "absolute", left: "50%", transform: "translateX(-50%)",
     fontFamily: tokens.font.display, fontWeight: 800, color: tokens.color.deepGreen, pointerEvents: "none",
+    // line-height:1 matters here — without it, the browser's default
+    // line-height for Baloo 2 pads well below the glyph, and since `top`
+    // (set inline, MatchView.jsx) positions this box not the glyph itself,
+    // the number renders noticeably lower on the shirt than the reference
+    // HTML's own "top:24px; ...; line-height:1" at the same 62x58 size.
+    lineHeight: 1,
   },
   mdGkTag: {
     position: "absolute", bottom: 2, left: -2, background: tokens.color.deepGreen, color: tokens.color.yellow,
@@ -674,8 +680,11 @@ export const styles = {
   // not up here). An earlier round of real-device feedback had put it
   // here instead; the README was updated after that and this reverts to
   // the current spec, confirmed explicitly.
-  mdTimerRow: { marginTop: 10 },
-  mdTimerLeft: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 },
+  // "of 45 min" sits beside the timer now, not stacked underneath it
+  // (align-items:flex-end + the caption's own padding-bottom, straight
+  // from the reference HTML) — frees up header height for a taller pitch
+  // below, per real-device feedback.
+  mdTimerRow: { marginTop: 14, display: "flex", alignItems: "flex-end", gap: 14 },
   // README: "Timer: Baloo 2 800 66px #1C3A2E".
   mdTimerDisplay: {
     fontFamily: tokens.font.display, fontWeight: 800, fontSize: 66, lineHeight: 0.95, color: tokens.color.deepGreen,
@@ -686,6 +695,7 @@ export const styles = {
   mdTimerDisplayPaused: { color: "rgba(28,58,46,.45)" },
   mdTimerCaption: {
     fontFamily: tokens.font.body, fontWeight: 800, fontSize: 14, color: tokens.color.goldText, whiteSpace: "nowrap",
+    paddingBottom: 10,
   },
   // Shared shell for all four action-bar states (pre-kickoff, running,
   // paused, and the final-60 sheet reuses these same status/button styles

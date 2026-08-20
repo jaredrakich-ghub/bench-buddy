@@ -302,8 +302,10 @@ export default function MatchView({
   // 3-row formations (5+ outfielders) need more vertical room than the
   // original fixed 2-row height ever had to allow for. Bumped up from the
   // original 220/280 — real-device feedback called the pitch "way too
-  // squeezed vertically".
-  const pitchInnerHeight = outfielders.length > 4 ? 340 : 270;
+  // squeezed vertically". Bumped again (270/340 -> 288/358) once "of 45
+  // min" moved beside the timer instead of under it (see mdTimerRow),
+  // freeing ~18px of header height that's spent here instead of left empty.
+  const pitchInnerHeight = outfielders.length > 4 ? 358 : 288;
   // The kit-shirt SVG's own natural aspect ratio (62x58, see
   // matchDayIcons.jsx) — scaled by the same tokenSize headcount tiering
   // formation.js already provides, rather than formation.js needing to
@@ -426,14 +428,15 @@ export default function MatchView({
               "Next sub" (README > A2-Match-actionbar > Action bar) — not
               here; an earlier round of real-device feedback had moved it
               up to this row instead, since reverted per an updated README. */}
-          <div style={styles.mdTimerLeft}>
-            <span style={{ ...styles.mdTimerDisplay, ...(isPaused ? styles.mdTimerDisplayPaused : {}) }}>
-              {fmtClock(elapsedSec)}
-            </span>
-            <span style={styles.mdTimerCaption}>of {Math.round(totalGameSec / 60)} min</span>
-          </div>
+          <span style={{ ...styles.mdTimerDisplay, ...(isPaused ? styles.mdTimerDisplayPaused : {}) }}>
+            {fmtClock(elapsedSec)}
+          </span>
+          <span style={styles.mdTimerCaption}>of {Math.round(totalGameSec / 60)} min</span>
         </div>
       </div>
+      {/* Reclaimed header height (caption moved beside the timer instead of
+          under it) is spent on a taller pitch below, not left as empty
+          space — see pitchInnerHeight. */}
 
       {isMatchComplete && (
         // The clear next step once a match ends — same underlying flow as
