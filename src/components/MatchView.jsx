@@ -499,7 +499,6 @@ export default function MatchView({
                 >
                   {numberOf(id)}
                 </span>
-                {isGk && <span style={styles.mdGkTag}>GK</span>}
                 {showNextSubBadges && comingOffIds.has(id) && (
                   <span style={styles.mdOutgoingBadge} title="Coming off next interval">
                     <ArrowDown size={11} strokeWidth={3.5} color="#fff" />

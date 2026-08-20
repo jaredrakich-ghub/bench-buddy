@@ -132,13 +132,31 @@ export const tokens = {
   },
 };
 
+// README > Design Tokens > Texture: "Cream surfaces carry a tiled football
+// pattern: 170x170 tile, two balls (r 19 and r 12) drawn as a
+// rgba(28,58,46,.06) disc with cream pentagon patches. Subtle — it must
+// never compete with text." Never actually applied anywhere in this
+// redesign until now — copied verbatim as a data-URI from the reference
+// file's own `--paper` CSS custom property (Bench Buddy Direction A.dc.html)
+// rather than re-encoded by hand, to guarantee pixel-identical output.
+// Applied as backgroundImage alongside `background: tokens.color.creamPaper`
+// on actual page/sheet surfaces (the app root, full-screen takeovers,
+// sign-in, the final60 sheet, anchored popovers) — not on small elements
+// that merely use creamPaper as an accent color (e.g. a stepper button),
+// where a 170px tile would be meaningless.
+export const paperTexture =
+  "url(data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27170%27%20height%3D%27170%27%3E%3Ccircle%20cx%3D%2738%27%20cy%3D%2736%27%20r%3D%2719%27%20fill%3D%27%231C3A2E%27%20fill-opacity%3D%27.06%27%2F%3E%3Cpath%20d%3D%27M38.0%2029.2L44.5%2033.9L42.0%2041.5L34.0%2041.5L31.5%2033.9ZM42.0%2030.5L40.2%2024.9L44.9%2021.5L49.6%2024.9L47.8%2030.5ZM44.5%2038.1L49.2%2034.7L53.9%2038.1L52.1%2043.6L46.3%2043.6ZM38.0%2042.8L42.7%2046.3L40.9%2051.8L35.1%2051.8L33.3%2046.3ZM31.5%2038.1L29.7%2043.6L23.9%2043.6L22.1%2038.1L26.8%2034.7ZM34.0%2030.5L28.2%2030.5L26.4%2024.9L31.1%2021.5L35.8%2024.9Z%27%20fill%3D%27%23FFF6E5%27%2F%3E%3Ccircle%20cx%3D%27120%27%20cy%3D%27116%27%20r%3D%2712%27%20fill%3D%27%231C3A2E%27%20fill-opacity%3D%27.06%27%2F%3E%3Cpath%20d%3D%27M120.0%20111.7L124.1%20114.7L122.5%20119.5L117.5%20119.5L115.9%20114.7ZM122.5%20112.5L121.4%20109.0L124.4%20106.9L127.3%20109.0L126.2%20112.5ZM124.1%20117.3L127.1%20115.2L130.0%20117.3L128.9%20120.8L125.2%20120.8ZM120.0%20120.3L123.0%20122.5L121.8%20126.0L118.2%20126.0L117.0%20122.5ZM115.9%20117.3L114.8%20120.8L111.1%20120.8L110.0%20117.3L112.9%20115.2ZM117.5%20112.5L113.8%20112.5L112.7%20109.0L115.6%20106.9L118.6%20109.0Z%27%20fill%3D%27%23FFF6E5%27%2F%3E%3C%2Fsvg%3E)";
+
 export const styles = {
   // background was the old pre-redesign colors.chalk (pale grey) — the
   // match-day redesign's cards (bench strip, action bar, popovers) are all
   // designed against the warm "cream paper" page background instead, so
   // that stale chalk was showing through the header's rounded corners and
   // the gaps between cards, reading as a missing/unstyled background.
-  app: { fontFamily: "system-ui, -apple-system, sans-serif", background: tokens.color.creamPaper, minHeight: 500, color: colors.ink },
+  app: {
+    fontFamily: "system-ui, -apple-system, sans-serif", background: tokens.color.creamPaper,
+    backgroundImage: paperTexture, minHeight: 500, color: colors.ink,
+  },
   header: {
     background: `linear-gradient(135deg, ${colors.grass} 0%, ${colors.grassLight} 100%)`,
     borderBottom: "3px solid " + colors.gk, boxShadow: "0 2px 8px rgba(0,0,0,0.25)", padding: "10px 16px",
@@ -313,13 +331,12 @@ export const styles = {
     // HTML's own "top:24px; ...; line-height:1" at the same 62x58 size.
     lineHeight: 1,
   },
-  mdGkTag: {
-    position: "absolute", bottom: 2, left: -2, background: tokens.color.deepGreen, color: tokens.color.yellow,
-    fontFamily: tokens.font.body, fontWeight: 800, fontSize: 12, padding: "1px 6px", borderRadius: tokens.radius.chip,
-    pointerEvents: "none",
-  },
-  // Same look as mdGkTag without the absolute positioning — for the
-  // final60 sheet's swap-row chips, which aren't overlaid on a shirt.
+  // The on-pitch shirt's own "GK" tag (bottom-left overlay) was removed
+  // by explicit request — the yellow shirt fill is already a clear
+  // enough goalkeeper indicator on its own, and the badge was sitting
+  // awkwardly over the shirt. mdGkTagInline (below) is unrelated and
+  // stays — it's a standalone chip label in the final60 sheet's swap
+  // rows, not an overlay on a shirt.
   mdGkTagInline: {
     background: tokens.color.deepGreen, color: tokens.color.yellow, fontFamily: tokens.font.body, fontWeight: 800,
     fontSize: 12, padding: "1px 6px", borderRadius: tokens.radius.chip,
@@ -404,7 +421,7 @@ export const styles = {
   // inconsistency.
   mdBackPopover: {
     position: "fixed", left: 14, right: 14, zIndex: 46,
-    background: tokens.color.creamPaper, borderRadius: "28px 28px 10px 28px",
+    background: tokens.color.creamPaper, backgroundImage: paperTexture, borderRadius: "28px 28px 10px 28px",
     border: `3px solid ${tokens.color.injuryRed}`, boxShadow: tokens.shadow.overlay,
     padding: "14px 14px 12px", maxWidth: 640 - 28, margin: "0 auto",
   },
@@ -805,7 +822,8 @@ export const styles = {
   // this screen so far — these two are position:fixed.
   mdFinal60Sheet: {
     position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 46,
-    background: tokens.color.creamPaper, borderRadius: `${tokens.radius.actionBarTop}px ${tokens.radius.actionBarTop}px 0 0`,
+    background: tokens.color.creamPaper, backgroundImage: paperTexture,
+    borderRadius: `${tokens.radius.actionBarTop}px ${tokens.radius.actionBarTop}px 0 0`,
     padding: "14px 16px calc(20px + env(safe-area-inset-bottom, 0px))",
     maxWidth: 640, margin: "0 auto",
   },
@@ -851,7 +869,7 @@ export const styles = {
   // than reproducing the original 380px frame's exact offsets.
   mdPopover: {
     position: "fixed", left: 14, right: 14, zIndex: 46,
-    background: tokens.color.creamPaper, borderRadius: "28px 10px 28px 28px",
+    background: tokens.color.creamPaper, backgroundImage: paperTexture, borderRadius: "28px 10px 28px 28px",
     border: `3px solid ${tokens.color.yellow}`, boxShadow: tokens.shadow.overlay,
     padding: "10px 12px 12px", maxWidth: 640 - 28, margin: "0 auto",
     maxHeight: "calc(100vh - 24px)", overflowY: "auto",
@@ -1011,7 +1029,8 @@ export const styles = {
   // so the maxWidth/centering lives on an inner wrapper instead, mirroring
   // `main`'s own box model exactly.
   mdFullScreenTakeoverOuter: {
-    position: "fixed", inset: 0, zIndex: 50, overflowY: "auto", background: tokens.color.creamPaper,
+    position: "fixed", inset: 0, zIndex: 50, overflowY: "auto",
+    background: tokens.color.creamPaper, backgroundImage: paperTexture,
   },
   mdFullScreenTakeoverInner: { maxWidth: 640, margin: "0 auto", padding: "0 16px 24px" },
   mdSubHeader: {
@@ -1273,7 +1292,7 @@ export const styles = {
   // reassurance line that's actually true of what happens.
   mdSignInWrap: {
     minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-    background: tokens.color.creamPaper, padding: "40px 28px",
+    background: tokens.color.creamPaper, backgroundImage: paperTexture, padding: "40px 28px",
   },
   mdSignInLockup: { display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 32 },
   // 132px, "one step down" from A0-Launch's own 168px crest — same
