@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Play, Pause, BarChart2, History, ArrowDown, ArrowUp, ArrowLeftRight } from "lucide-react";
 import { intervalAtElapsed, computeNextChangeBadges, computeBreakBoundaries, pairChanges } from "../lib/rotation.js";
 import { computeLiveElapsedSec, fmtClock } from "../lib/clock.js";
@@ -46,6 +46,47 @@ function PitchMarkings({ height }) {
       />
     </svg>
   );
+}
+
+// Swipe-down-to-dismiss for a bottom sheet (block 8, part C's grab handle
+// needs to actually do something). Returns props for the draggable zone
+// (the grab handle + header, not the whole sheet — see call site) and a
+// style to spread onto the sheet's own root element. Pixels past
+// DISMISS_THRESHOLD_PX on release dismiss; anything less snaps back.
+const DISMISS_THRESHOLD_PX = 90;
+function useSheetDrag(onDismiss) {
+  const [dragY, setDragY] = useState(0);
+  const dragState = useRef({ dragging: false, startY: 0 }).current;
+
+  const onPointerDown = (e) => {
+    dragState.dragging = true;
+    dragState.startY = e.clientY;
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onPointerMove = (e) => {
+    if (!dragState.dragging) return;
+    const delta = e.clientY - dragState.startY;
+    if (delta > 0) setDragY(delta); // ignore upward drags — nothing to reveal above bottom:0
+  };
+  const endDrag = () => {
+    if (!dragState.dragging) return;
+    dragState.dragging = false;
+    if (dragY > DISMISS_THRESHOLD_PX) onDismiss();
+    setDragY(0);
+  };
+
+  return {
+    dragHandleProps: {
+      onPointerDown, onPointerMove, onPointerUp: endDrag, onPointerCancel: endDrag,
+      style: { touchAction: "none", cursor: "grab" },
+    },
+    // Always a concrete transform (not just while dragY > 0) so releasing
+    // short of the threshold animates smoothly back to translateY(0)
+    // instead of snapping — the transition is only suppressed while a
+    // drag is actually in progress, so the sheet tracks the finger
+    // without lag.
+    dragStyle: { transform: `translateY(${dragY}px)`, transition: dragState.dragging ? "none" : "transform 0.2s ease" },
+  };
 }
 
 // The live match screen: clock, current sub-window status, interval tabs,
@@ -308,6 +349,18 @@ export default function MatchView({
   // completely anyway (unlike the old anchored popovers, which left the
   // bar visible underneath them).
   const sheetOpen = Boolean(menuPlayerId || injuredPopoverId);
+
+  // Swipe-down-to-dismiss for the bottom sheets — the grab handle
+  // (mdSheetGrabHandle) is a standard drag affordance, so it needs to
+  // actually drag, not just look like it does. Pointer events (not touch
+  // events) so this works with mouse drags too, e.g. testing on desktop.
+  // setPointerCapture keeps move/up events targeted at the handle even
+  // once the pointer wanders off it mid-drag. Only the handle + header
+  // are draggable, not the option rows below — those need their taps to
+  // keep working normally, and drag-vs-scroll disambiguation on tappable
+  // content is a lot more that isn't needed here.
+  const playerSheetDrag = useSheetDrag(() => setMenuPlayerId(null));
+  const injurySheetDrag = useSheetDrag(() => setInjuredPopoverId(null));
 
   const outfielders = viewedIv.onField.filter((p) => !p.isGk);
   const tokenSize = computeTokenSize(outfielders.length);
@@ -587,15 +640,20 @@ export default function MatchView({
             data-testid="scrim"
             onClick={() => setMenuPlayerId(null)}
           />
-          <div style={{ ...styles.mdSheet, ...styles.mdSheetPlayerTap }} data-testid="player-popover">
-            <div style={styles.mdSheetGrabHandle} />
-            <div style={styles.mdPlayerPopoverHeader}>
-              <div style={styles.mdPlayerPopoverHeaderShirt}>
-                <KitShirt width={40} height={38} isGk={Boolean(menuOnFieldRecord?.isGk)} />
-                <span style={{ ...styles.mdShirtNumber, top: 15, fontSize: 16 }}>{numberOf(menuPlayerId)}</span>
+          <div
+            style={{ ...styles.mdSheet, ...styles.mdSheetPlayerTap, ...playerSheetDrag.dragStyle }}
+            data-testid="player-popover"
+          >
+            <div {...playerSheetDrag.dragHandleProps}>
+              <div style={styles.mdSheetGrabHandle} />
+              <div style={styles.mdPlayerPopoverHeader}>
+                <div style={styles.mdPlayerPopoverHeaderShirt}>
+                  <KitShirt width={40} height={38} isGk={Boolean(menuOnFieldRecord?.isGk)} />
+                  <span style={{ ...styles.mdShirtNumber, top: 15, fontSize: 16 }}>{numberOf(menuPlayerId)}</span>
+                </div>
+                <div style={styles.mdPlayerPopoverName}>{nameOf(menuPlayerId)}</div>
+                <div style={styles.mdPlayerPopoverMeta}>{fmtClock(Math.round(playedMinFor(menuPlayerId) * 60))} played</div>
               </div>
-              <div style={styles.mdPlayerPopoverName}>{nameOf(menuPlayerId)}</div>
-              <div style={styles.mdPlayerPopoverMeta}>{fmtClock(Math.round(playedMinFor(menuPlayerId) * 60))} played</div>
             </div>
             <button
               style={styles.mdPlayerPopoverRow}
@@ -665,18 +723,23 @@ export default function MatchView({
             data-testid="scrim"
             onClick={() => setInjuredPopoverId(null)}
           />
-          <div style={{ ...styles.mdSheet, ...styles.mdSheetInjury }} data-testid="back-popover">
-            <div style={styles.mdSheetGrabHandle} />
-            <div style={styles.mdBackPopoverHeader}>
-              <span style={styles.mdBackPopoverCrossBadge}>
-                <MedicalCross size={20} color="#fff" />
-              </span>
-              <div>
-                <div style={styles.mdBackPopoverName}>{nameOf(injuredPopoverId)} is out</div>
-                <div style={styles.mdBackPopoverMeta}>
-                  {injuredAt[injuredPopoverId] !== undefined
-                    ? `Off at ${fmtClock(injuredAt[injuredPopoverId])} · not counting minutes`
-                    : "Not counting minutes"}
+          <div
+            style={{ ...styles.mdSheet, ...styles.mdSheetInjury, ...injurySheetDrag.dragStyle }}
+            data-testid="back-popover"
+          >
+            <div {...injurySheetDrag.dragHandleProps}>
+              <div style={styles.mdSheetGrabHandle} />
+              <div style={styles.mdBackPopoverHeader}>
+                <span style={styles.mdBackPopoverCrossBadge}>
+                  <MedicalCross size={20} color="#fff" />
+                </span>
+                <div>
+                  <div style={styles.mdBackPopoverName}>{nameOf(injuredPopoverId)} is out</div>
+                  <div style={styles.mdBackPopoverMeta}>
+                    {injuredAt[injuredPopoverId] !== undefined
+                      ? `Off at ${fmtClock(injuredAt[injuredPopoverId])} · not counting minutes`
+                      : "Not counting minutes"}
+                  </div>
                 </div>
               </div>
             </div>
