@@ -380,9 +380,7 @@ export default function SubRotationPlanner({ user }) {
             numberOf={numberOf}
             teamName={teamData.name}
             crestSrc={headerMascot}
-            userEmail={user.email}
             availableCount={availableIds.length}
-            rosterSize={teamData.roster.length}
             gameSettingsSummary={`${gameSettings.fieldSize} a side · sub ${gameSettings.subIntervalMinutes}′`}
             onInjury={handleInjury}
             onBringBack={bringBack}
@@ -390,9 +388,7 @@ export default function SubRotationPlanner({ user }) {
             onShowSummary={() => setShowSummaryModal(true)}
             onShowSettings={() => setShowSettingsModal(true)}
             onShowSquadChange={() => setShowSquadChange(true)}
-            onShowSeason={() => setShowSeasonModal(true)}
             onShowTeamSwitcher={() => setShowTeamSwitcher(true)}
-            onSignOut={signOutUser}
           />
         )}
       </main>

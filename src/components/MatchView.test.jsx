@@ -104,9 +104,7 @@ function baseProps(overrides = {}) {
     onShowSummary: vi.fn(),
     onShowSettings: vi.fn(),
     onShowSquadChange: vi.fn(),
-    onShowSeason: vi.fn(),
     onShowTeamSwitcher: vi.fn(),
-    onSignOut: vi.fn(),
     ...overrides,
   };
 }
@@ -182,12 +180,12 @@ describe("MatchView — next-sub badges", () => {
   });
 });
 
-describe("MatchView — cog menu (anchored popover)", () => {
-  // A2d-Menu-anchored: no standalone close button by design — dismissed by
-  // tapping the cog again (its onClick toggles) or the scrim behind it.
-  // "Reset clock" used to have a row here too — removed by explicit
-  // request; the header's own reset button (mdHeaderResetBtn, tested
-  // separately below) is now the only way to reset the clock.
+describe("MatchView — cog menu (anchored popover, trimmed / #10a)", () => {
+  // A2d-Menu-trimmed (#10a): 4 rows, no group headers — Season data,
+  // Manage squad, Switch team, Account, and Sign out all moved to
+  // Team & account (#10e); the reset button came out of the app entirely
+  // rather than being relocated (no standalone close button either, by
+  // design — dismissed by tapping the cog again, the scrim, or any row).
   it("opens on tapping the cog, closes on tapping the cog again or the scrim", async () => {
     const user = userEvent.setup();
     render(<MatchView {...baseProps()} />);
@@ -204,34 +202,26 @@ describe("MatchView — cog menu (anchored popover)", () => {
     expect(screen.queryByText("Game settings")).not.toBeInTheDocument();
   });
 
-  it("resets the board back to interval 0, not just the clock, via the header's reset button", async () => {
-    // Regression test: Reset used to rewind the clock/sub-log but leave the
-    // board showing whatever interval was last being viewed.
-    const setActiveInterval = vi.fn();
-    const setElapsedSec = vi.fn();
-    const setTimerRunning = vi.fn();
+  it("shows only the 4 rows this trim keeps — nothing that moved to Team & account", async () => {
     const user = userEvent.setup();
-    render(
-      <MatchView
-        {...baseProps({ activeInterval: 1, elapsedSec: 400, setActiveInterval, setElapsedSec, setTimerRunning })}
-      />
-    );
-    await user.click(screen.getByTitle("Reset clock"));
-    expect(setActiveInterval).toHaveBeenCalledWith(0);
-    expect(setElapsedSec).toHaveBeenCalledWith(0);
-    expect(setTimerRunning).toHaveBeenCalledWith(false);
+    render(<MatchView {...baseProps()} />);
+    await user.click(screen.getByTitle("Menu"));
+    const popover = within(screen.getByTestId("cog-popover"));
+    expect(popover.getByText("Minutes so far")).toBeInTheDocument();
+    expect(popover.getByText("Squad change")).toBeInTheDocument();
+    expect(popover.getByText("Game settings")).toBeInTheDocument();
+    expect(popover.getByText("Team & account")).toBeInTheDocument();
+    expect(popover.queryByText("Season data")).not.toBeInTheDocument();
+    expect(popover.queryByText("Manage squad")).not.toBeInTheDocument();
+    expect(popover.queryByText("Switch team")).not.toBeInTheDocument();
+    expect(popover.queryByText("Account")).not.toBeInTheDocument();
+    expect(popover.queryByText("Sign out")).not.toBeInTheDocument();
   });
 
-  it("shows the live-computed value chips: minutes so far, squad in, game settings, roster size, team name, account email", () => {
+  it("shows the live-computed value chips: minutes so far, squad in, game settings, team name", () => {
     render(
       <MatchView
-        {...baseProps({
-          elapsedSec: 125,
-          userEmail: "sam@example.com",
-          availableCount: 7,
-          rosterSize: 9,
-          gameSettingsSummary: "5 a side · sub 5′",
-        })}
+        {...baseProps({ elapsedSec: 125, availableCount: 7, teamName: "Scorpions", gameSettingsSummary: "5 a side · sub 5′" })}
       />
     );
     fireEvent.click(screen.getByTitle("Menu"));
@@ -241,24 +231,16 @@ describe("MatchView — cog menu (anchored popover)", () => {
     expect(popover.getByText("2:05")).toBeInTheDocument(); // Minutes so far
     expect(popover.getByText("7 in")).toBeInTheDocument(); // Squad change
     expect(popover.getByText("5 a side · sub 5′")).toBeInTheDocument(); // Game settings
-    expect(popover.getByText("9 players")).toBeInTheDocument(); // Manage squad
-    expect(popover.getByText("Scorpions")).toBeInTheDocument(); // Switch team value
-    expect(popover.getByText("sam@example.com")).toBeInTheDocument(); // Account
+    expect(popover.getByText("Scorpions")).toBeInTheDocument(); // Team & account value
   });
 
   it("every row calls its own callback and closes the menu", async () => {
     const onShowSummary = vi.fn();
     const onShowSettings = vi.fn();
     const onShowSquadChange = vi.fn();
-    const onShowSeason = vi.fn();
     const onShowTeamSwitcher = vi.fn();
-    const onSignOut = vi.fn();
     const user = userEvent.setup();
-    render(
-      <MatchView
-        {...baseProps({ onShowSummary, onShowSettings, onShowSquadChange, onShowSeason, onShowTeamSwitcher, onSignOut })}
-      />
-    );
+    render(<MatchView {...baseProps({ onShowSummary, onShowSettings, onShowSquadChange, onShowTeamSwitcher })} />);
 
     await user.click(screen.getByTitle("Menu"));
     await user.click(screen.getByText("Minutes so far"));
@@ -274,24 +256,8 @@ describe("MatchView — cog menu (anchored popover)", () => {
     expect(onShowSettings).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByTitle("Menu"));
-    await user.click(screen.getByText("Season data"));
-    expect(onShowSeason).toHaveBeenCalledTimes(1);
-
-    await user.click(screen.getByTitle("Menu"));
-    await user.click(screen.getByText("Manage squad"));
-    expect(onShowSettings).toHaveBeenCalledTimes(2);
-
-    await user.click(screen.getByTitle("Menu"));
-    await user.click(screen.getByText("Switch team"));
+    await user.click(screen.getByText("Team & account"));
     expect(onShowTeamSwitcher).toHaveBeenCalledTimes(1);
-
-    await user.click(screen.getByTitle("Menu"));
-    await user.click(screen.getByText("Account"));
-    expect(onShowTeamSwitcher).toHaveBeenCalledTimes(2);
-
-    await user.click(screen.getByTitle("Menu"));
-    await user.click(screen.getByText("Sign out"));
-    expect(onSignOut).toHaveBeenCalledTimes(1);
   });
 
   it("the cog stays lit (elevated above the scrim) while its menu is open", async () => {

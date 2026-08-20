@@ -668,14 +668,6 @@ export const styles = {
     background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
     flexShrink: 0,
   },
-  // Reset lives in the header's top row, grouped with the cog — not part
-  // of the design spec (the README doesn't cover a reset control at all),
-  // kept here as a pragmatic addition; out of scope for the README
-  // comparison this token set was last checked against.
-  mdHeaderResetBtn: {
-    width: 38, height: 38, borderRadius: tokens.radius.iconButton, border: "none", background: "#fff",
-    display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0,
-  },
   // Just the clock digits + caption now — the Start/Pause/Resume control
   // moved back down to the action bar (README > A2-Match-actionbar >
   // Action bar: "single clock button" on the same row as the countdown,
@@ -886,6 +878,44 @@ export const styles = {
     fontFamily: tokens.font.body, fontWeight: 800, color: tokens.color.mutedText, fontSize: 14,
   },
   mdPopoverFooterVersion: { fontSize: 12 },
+
+  // ---- A2d-Menu-trimmed (#10a) — the cog menu cut from 8 rows in 3
+  // labelled groups down to 4 rows with no group headers, "holding only
+  // what a coach touches during a game." Same mdPopover shell (reused
+  // directly — its own radius/border already match this spec exactly);
+  // new row shapes here rather than resizing the existing mdPopoverRow
+  // family, since that's also used by TeamAccountScreen's Records/Account
+  // rows, which this trim doesn't touch.
+  mdCogMenuRow: {
+    display: "flex", alignItems: "center", gap: 10, width: "100%", background: "#fff",
+    borderRadius: tokens.radius.rowMd, border: "none", padding: "9px 13px 9px 9px", marginBottom: 7,
+    boxShadow: "0 3px 0 rgba(28,58,46,.10)", cursor: "pointer", textAlign: "left", font: "inherit",
+  },
+  mdCogMenuIconTile: {
+    width: 34, height: 34, borderRadius: tokens.radius.iconTile, flexShrink: 0,
+    display: "flex", alignItems: "center", justifyContent: "center",
+  },
+  // The Team & account row's icon is the team's own crest thumbnail, not a
+  // tinted glyph tile — same ring treatment as every other crest chip in
+  // the app, just sized for this row.
+  mdCogMenuCrestIcon: {
+    width: 34, height: 34, borderRadius: tokens.radius.iconTile, flexShrink: 0, overflow: "hidden",
+    border: `2px solid ${tokens.color.pitchGreen}`, background: "#fff",
+  },
+  mdCogMenuCrestImg: { width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 46%", transform: "scale(1.7)" },
+  // white-space: nowrap on both the label and the value chip — "so all
+  // four rows come out the same height (53px); the chip copy is long
+  // enough to wrap otherwise."
+  mdCogMenuLabel: {
+    flex: 1, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 19, color: tokens.color.deepGreen,
+    whiteSpace: "nowrap",
+  },
+  mdCogMenuValue: {
+    background: tokens.color.creamDeep, color: tokens.color.mutedText, fontFamily: tokens.font.body, fontWeight: 800,
+    fontSize: 13, borderRadius: tokens.radius.chip, padding: "4px 10px", whiteSpace: "nowrap",
+  },
+  mdCogMenuChevron: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 22, color: tokens.color.chevron, paddingLeft: 2 },
+  mdCogMenuDivider: { height: 3, background: tokens.color.rule, margin: "3px 6px", borderRadius: 2 },
 
   // Player-tap popover (A2g-Player-tap) — same mdPopover shell, different
   // interior: a name/meta header instead of grouped rows, and three (or

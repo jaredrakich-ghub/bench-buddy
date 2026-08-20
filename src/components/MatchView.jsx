@@ -1,8 +1,5 @@
 import { useState, useEffect } from "react";
-import {
-  RotateCcw, Play, Pause, BarChart2, History, Shirt, User, LogOut, Home,
-  ArrowDown, ArrowUp, ArrowLeftRight,
-} from "lucide-react";
+import { Play, Pause, BarChart2, History, ArrowDown, ArrowUp, ArrowLeftRight } from "lucide-react";
 import { intervalAtElapsed, computeNextChangeBadges, computeBreakBoundaries, pairChanges } from "../lib/rotation.js";
 import { computeLiveElapsedSec, fmtClock } from "../lib/clock.js";
 import { getFormationLayout, computeTokenSize } from "../lib/formation.js";
@@ -79,9 +76,7 @@ export default function MatchView({
   numberOf,
   teamName,
   crestSrc,
-  userEmail,
   availableCount,
-  rosterSize,
   gameSettingsSummary,
   onInjury,
   onBringBack,
@@ -89,9 +84,7 @@ export default function MatchView({
   onShowSummary,
   onShowSettings,
   onShowSquadChange,
-  onShowSeason,
   onShowTeamSwitcher,
-  onSignOut,
 }) {
   const totalGameSec = plan[plan.length - 1].endMin * 60;
   const isMatchComplete = elapsedSec >= totalGameSec;
@@ -403,20 +396,6 @@ export default function MatchView({
     }
   };
 
-  const resetClock = () => {
-    setTimerRunning(false);
-    setRunStartedAt(null);
-    setBaseElapsedSec(0);
-    setElapsedSec(0);
-    setSubLog({});
-    // Without this, the clock could show 0:00 while the pitch board still
-    // displayed whatever interval the coach last happened to be browsing
-    // (browsing away from live during play is expected now — see the
-    // auto-follow effect in SubRotationPlanner) — the board should match
-    // "0:00" exactly the same way it matches any other elapsed time.
-    setActiveInterval(0);
-  };
-
   return (
     // No extra bottom padding needed here for the fixed action bar —
     // `main` (SubRotationPlanner.jsx) already reserves bottom clearance
@@ -426,12 +405,6 @@ export default function MatchView({
         <div style={styles.mdHeaderTopRow}>
           <div style={styles.mdCrestOuter}>{crestSrc && <img src={crestSrc} alt="" style={styles.mdCrestImg} />}</div>
           <div style={styles.mdTeamName}>{teamName}</div>
-          {/* Reset — not part of the README spec (it doesn't cover a reset
-              control at all), kept as a pragmatic addition alongside the
-              cog since both are header-level utility actions. */}
-          <button style={styles.mdHeaderResetBtn} onClick={resetClock} title="Reset clock">
-            <RotateCcw size={18} color={tokens.color.deepGreen} />
-          </button>
           <button
             style={{ ...styles.mdCogBtn, ...(cogOrigin ? { ...styles.mdOriginLit, ...styles.mdCogBtnLit } : {}) }}
             onClick={(e) => {
@@ -852,149 +825,76 @@ export default function MatchView({
       )}
 
       {cogOrigin && (
-        // A2d-Menu-anchored: grows from the cog (cogOrigin.top, captured
-        // when it was tapped), dismissed by tapping the scrim, the cog
-        // again, or any row inside it. No standalone close button, same
-        // as the design — that's genuinely all "dismiss" needs here.
-        // "Reset clock" used to have a row here too, but was removed by
-        // explicit request — the header's own reset button (mdHeaderResetBtn,
-        // next to the cog) is now the only way to reset the clock.
+        // A2d-Menu-trimmed (#10a): four rows, no group headers — "holding
+        // only what a coach touches during a game." Season data, Manage
+        // squad, Switch team, Account, and Sign out all moved to
+        // Team & account (#10e), reached through the last row here; the
+        // reset button (previously the header icon next to the cog) came
+        // out of the app entirely rather than being relocated, per the
+        // README's own instruction ("no place in the new information
+        // architecture"). Grows from the cog (cogOrigin.top, captured when
+        // it was tapped), dismissed by tapping the scrim, the cog again,
+        // or any row inside it.
         <>
           <div style={styles.mdScrim} data-testid="scrim" onClick={() => setCogOrigin(null)} />
           <div style={{ ...styles.mdPopover, top: cogOrigin.top }} data-testid="cog-popover">
-            <div style={styles.mdPopoverGroup}>
-              <div style={styles.mdPopoverGroupHeader}>
-                <span style={{ ...styles.mdPopoverGroupDot, background: tokens.color.yellow }} />
-                <span style={styles.mdPopoverGroupLabel}>This game</span>
-                <span style={styles.mdPopoverGroupRule} />
-              </div>
-              <button
-                style={styles.mdPopoverRow}
-                onClick={() => {
-                  setCogOrigin(null);
-                  onShowSummary();
-                }}
-              >
-                <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintYellow }}>
-                  <BarChart2 size={16} color={tokens.color.deepGreen} />
-                </span>
-                <span style={styles.mdPopoverRowLabel}>Minutes so far</span>
-                <span style={styles.mdPopoverRowValue}>{fmtClock(elapsedSec)}</span>
-                <span style={styles.mdPopoverRowChevron}>›</span>
-              </button>
-              <button
-                style={styles.mdPopoverRow}
-                onClick={() => {
-                  setCogOrigin(null);
-                  onShowSquadChange();
-                }}
-              >
-                <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintGreen }}>
-                  <ArrowLeftRight size={16} color={tokens.color.pitchGreen} />
-                </span>
-                <span style={styles.mdPopoverRowLabel}>Squad change</span>
-                {availableCount != null && <span style={styles.mdPopoverRowValue}>{availableCount} in</span>}
-                <span style={styles.mdPopoverRowChevron}>›</span>
-              </button>
-              <button
-                style={styles.mdPopoverRow}
-                onClick={() => {
-                  setCogOrigin(null);
-                  onShowSettings();
-                }}
-              >
-                <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintNeutral }}>
-                  <GearIcon size={16} />
-                </span>
-                <span style={styles.mdPopoverRowLabel}>Game settings</span>
-                {gameSettingsSummary && <span style={styles.mdPopoverRowValue}>{gameSettingsSummary}</span>}
-                <span style={styles.mdPopoverRowChevron}>›</span>
-              </button>
-            </div>
+            <button
+              style={styles.mdCogMenuRow}
+              onClick={() => {
+                setCogOrigin(null);
+                onShowSummary();
+              }}
+            >
+              <span style={{ ...styles.mdCogMenuIconTile, ...styles.mdTintYellow }}>
+                <BarChart2 size={16} color={tokens.color.deepGreen} />
+              </span>
+              <span style={styles.mdCogMenuLabel}>Minutes so far</span>
+              <span style={styles.mdCogMenuValue}>{fmtClock(elapsedSec)}</span>
+              <span style={styles.mdCogMenuChevron}>›</span>
+            </button>
+            <button
+              style={styles.mdCogMenuRow}
+              onClick={() => {
+                setCogOrigin(null);
+                onShowSquadChange();
+              }}
+            >
+              <span style={{ ...styles.mdCogMenuIconTile, ...styles.mdTintGreen }}>
+                <ArrowLeftRight size={16} color={tokens.color.pitchGreen} />
+              </span>
+              <span style={styles.mdCogMenuLabel}>Squad change</span>
+              {availableCount != null && <span style={styles.mdCogMenuValue}>{availableCount} in</span>}
+              <span style={styles.mdCogMenuChevron}>›</span>
+            </button>
+            <button
+              style={styles.mdCogMenuRow}
+              onClick={() => {
+                setCogOrigin(null);
+                onShowSettings();
+              }}
+            >
+              <span style={{ ...styles.mdCogMenuIconTile, ...styles.mdTintNeutral }}>
+                <GearIcon size={16} />
+              </span>
+              <span style={styles.mdCogMenuLabel}>Game settings</span>
+              {gameSettingsSummary && <span style={styles.mdCogMenuValue}>{gameSettingsSummary}</span>}
+              <span style={styles.mdCogMenuChevron}>›</span>
+            </button>
 
-            <div style={styles.mdPopoverGroup}>
-              <div style={styles.mdPopoverGroupHeader}>
-                <span style={{ ...styles.mdPopoverGroupDot, background: tokens.color.pitchGreen }} />
-                <span style={styles.mdPopoverGroupLabel}>Team</span>
-                <span style={styles.mdPopoverGroupRule} />
-              </div>
-              <button
-                style={styles.mdPopoverRow}
-                onClick={() => {
-                  setCogOrigin(null);
-                  onShowSeason();
-                }}
-              >
-                <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintGreen }}>
-                  <BarChart2 size={16} color={tokens.color.pitchGreen} />
-                </span>
-                <span style={styles.mdPopoverRowLabel}>Season data</span>
-                <span style={styles.mdPopoverRowChevron}>›</span>
-              </button>
-              <button
-                style={styles.mdPopoverRow}
-                onClick={() => {
-                  setCogOrigin(null);
-                  onShowSettings();
-                }}
-              >
-                <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintYellow }}>
-                  <Shirt size={16} color={tokens.color.deepGreen} />
-                </span>
-                <span style={styles.mdPopoverRowLabel}>Manage squad</span>
-                {rosterSize != null && <span style={styles.mdPopoverRowValue}>{rosterSize} players</span>}
-                <span style={styles.mdPopoverRowChevron}>›</span>
-              </button>
-              <button
-                style={styles.mdPopoverRow}
-                onClick={() => {
-                  setCogOrigin(null);
-                  onShowTeamSwitcher();
-                }}
-              >
-                <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintNeutral }}>
-                  <Home size={16} color={tokens.color.mutedText} />
-                </span>
-                <span style={styles.mdPopoverRowLabel}>Switch team</span>
-                <span style={styles.mdPopoverRowValue}>{teamName}</span>
-                <span style={styles.mdPopoverRowChevron}>›</span>
-              </button>
-            </div>
+            <div style={styles.mdCogMenuDivider} />
 
-            <div style={styles.mdPopoverGroup}>
-              <div style={styles.mdPopoverGroupHeader}>
-                <span style={{ ...styles.mdPopoverGroupDot, background: tokens.color.chevron }} />
-                <span style={styles.mdPopoverGroupLabel}>App</span>
-                <span style={styles.mdPopoverGroupRule} />
-              </div>
-              <button
-                style={styles.mdPopoverRow}
-                onClick={() => {
-                  setCogOrigin(null);
-                  onShowTeamSwitcher();
-                }}
-              >
-                <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintNeutral }}>
-                  <User size={16} color={tokens.color.mutedText} />
-                </span>
-                <span style={styles.mdPopoverRowLabel}>Account</span>
-                {userEmail && <span style={styles.mdPopoverRowValue}>{userEmail}</span>}
-                <span style={styles.mdPopoverRowChevron}>›</span>
-              </button>
-              <button
-                style={styles.mdPopoverRow}
-                onClick={() => {
-                  setCogOrigin(null);
-                  onSignOut();
-                }}
-              >
-                <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintNeutral }}>
-                  <LogOut size={16} color={tokens.color.mutedText} />
-                </span>
-                <span style={styles.mdPopoverRowLabel}>Sign out</span>
-                <span style={styles.mdPopoverRowChevron}>›</span>
-              </button>
-            </div>
+            <button
+              style={styles.mdCogMenuRow}
+              onClick={() => {
+                setCogOrigin(null);
+                onShowTeamSwitcher();
+              }}
+            >
+              <span style={styles.mdCogMenuCrestIcon}>{crestSrc && <img src={crestSrc} alt="" style={styles.mdCogMenuCrestImg} />}</span>
+              <span style={styles.mdCogMenuLabel}>Team &amp; account</span>
+              <span style={styles.mdCogMenuValue}>{teamName}</span>
+              <span style={styles.mdCogMenuChevron}>›</span>
+            </button>
 
             <div style={styles.mdPopoverFooter}>
               Bench Buddy <span style={styles.mdPopoverFooterVersion}>v0.1.0</span>
