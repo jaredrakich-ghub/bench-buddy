@@ -36,7 +36,11 @@ const styles = {
     minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
     gap: 16, background: colors.chalk, fontFamily: "system-ui, -apple-system, sans-serif",
   },
-  spinnerWrap: { position: "relative", width: 64, height: 64, display: "flex", alignItems: "center", justifyContent: "center" },
+  // 152/132 (spinner/logo) instead of the old 64/44 — sized so the logo
+  // itself matches the sign-in screen's own crest (mdSignInCrest,
+  // styles.js: 132px, "the starter page"), keeping the same ~10px ring
+  // margin around it as before.
+  spinnerWrap: { position: "relative", width: 152, height: 152, display: "flex", alignItems: "center", justifyContent: "center" },
   // Track drawn in a light neutral with just the top edge colored, so
   // rotating it reads as a single arc sweeping around rather than a whole
   // colored ring just spinning in place (which doesn't look like "loading"
@@ -47,7 +51,7 @@ const styles = {
     animation: "bb-spin 0.9s linear infinite",
   },
   logoCrop: {
-    width: 44, height: 44, borderRadius: "50%", overflow: "hidden", boxShadow: "0 0 0 2px rgba(255,255,255,0.7)",
+    width: 132, height: 132, borderRadius: "50%", overflow: "hidden", boxShadow: "0 0 0 2px rgba(255,255,255,0.7)",
   },
   logoImg: { width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 46%", transform: "scale(1.7)" },
   text: { color: colors.grass, fontWeight: 700, fontSize: 14 },
