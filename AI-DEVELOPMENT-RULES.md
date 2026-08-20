@@ -121,3 +121,13 @@ Does it introduce security, privacy, licensing, or data risks?
 Can it be implemented incrementally?
 How will it be tested?
 When in doubt, prefer the option that is simpler, safer, reversible, and easier for the human owner to understand.
+
+14. Avoid the command line where a GUI alternative exists
+The project owner is not comfortable using PowerShell/Command Prompt and prefers not to.
+
+Before asking the owner to run a terminal command, check whether the same result is achievable through a GUI instead — a web console (e.g. the Firebase console's Rules editor instead of `firebase deploy`), a desktop app already in use (e.g. GitHub Desktop instead of `git`/`gh` CLI), or a settings page — and use that path if it exists.
+
+Only ask the owner to open a terminal when there is genuinely no GUI equivalent. When that happens:
+- Say plainly why no GUI option exists for this specific step.
+- Give exact copy-pasteable commands with plain-language explanation of what each one does and what success looks like.
+- Assume no prior command-line familiarity — don't assume the owner knows how to open a terminal, navigate directories, or read command output.
