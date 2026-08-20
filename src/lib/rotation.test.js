@@ -15,7 +15,6 @@ import {
   lastGkId,
   benchPriorityCompare,
   resolveBringBack,
-  describeMinutesNote,
   computeNextChangeBadges,
   pairChanges,
   repairBenchToKeeper,
@@ -868,90 +867,25 @@ describe("computeMinutesSummary", () => {
     });
   });
 
-  it("truncates to capMin instead of the whole plan, splitting a straddled interval correctly", () => {
-    const plan = [
-      { startMin: 0, endMin: 10, onField: [{ id: "p1", isGk: true }, { id: "p2", isGk: false }], bench: ["p3"] },
-      { startMin: 10, endMin: 20, onField: [{ id: "p2", isGk: true }, { id: "p3", isGk: false }], bench: [] },
-    ];
-    // Cap mid-way through the second interval (15 of 10-20) — the first
-    // interval counts in full, the second only for the 5 minutes elapsed.
-    const summary = computeMinutesSummary(plan, ["p1", "p2", "p3"], 15);
-    expect(summary.find((s) => s.id === "p2")).toEqual({
-      id: "p2", outfieldMin: 10, gkMin: 5, benchMin: 0, injuredMin: 0,
-    });
-    expect(summary.find((s) => s.id === "p3")).toEqual({
-      id: "p3", outfieldMin: 5, gkMin: 0, benchMin: 10, injuredMin: 0,
-    });
-  });
-
-  it("omitting capMin keeps the original full-plan behavior (existing callers unaffected)", () => {
-    const plan = [{ startMin: 0, endMin: 10, onField: [{ id: "p1", isGk: false }], bench: [] }];
-    expect(computeMinutesSummary(plan, ["p1"])).toEqual(computeMinutesSummary(plan, ["p1"], undefined));
-  });
-
   // The screen this feeds (README > A5-Minutes) exists to *audit* the
-  // rotation — this is the actual assertion: with 5 on the pitch and 4 off,
-  // at any elapsed time, pitch and bench minutes should each equal
-  // elapsed × 4, and goal minutes should equal elapsed exactly (one
-  // keeper, always filled). A mismatch would mean the rotation lost time
-  // somewhere, not a rounding artefact.
-  it("audit invariant: at any elapsed time, summed pitch/goal/bench minutes match the squad shape exactly", () => {
+  // rotation — this is the actual assertion, over the *full* game: with 5
+  // on the pitch and 4 off, pitch and bench minutes should each equal the
+  // full game length × 4, and goal minutes should equal the full game
+  // length exactly (one keeper, always filled). A mismatch would mean the
+  // rotation lost time somewhere, not a rounding artefact.
+  it("audit invariant: summed pitch/goal/bench minutes match the squad shape exactly, across the full game", () => {
     const availableIds = ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"];
     const { numIntervals } = computeIntervals(40, 5);
     const { intervals: plan } = generatePlan({
       availableIds, gameMinutes: 40, numIntervals, fieldSize: 5, keeperEligibleIds: ["p1", "p2", "p3"],
     });
-    const elapsedMin = 25;
-    const summary = computeMinutesSummary(plan, availableIds, elapsedMin);
+    const summary = computeMinutesSummary(plan, availableIds);
     const totalOutfield = summary.reduce((sum, s) => sum + s.outfieldMin, 0);
     const totalGk = summary.reduce((sum, s) => sum + s.gkMin, 0);
     const totalBench = summary.reduce((sum, s) => sum + s.benchMin, 0);
-    expect(totalGk).toBeCloseTo(elapsedMin, 5);
-    expect(totalOutfield).toBeCloseTo(elapsedMin * 4, 5);
-    expect(totalBench).toBeCloseTo(elapsedMin * 4, 5);
-  });
-});
-
-describe("describeMinutesNote", () => {
-  it("reports the current pitch-time spread across the squad", () => {
-    const summary = [
-      { id: "p1", outfieldMin: 20, gkMin: 0, benchMin: 0, injuredMin: 0 },
-      { id: "p2", outfieldMin: 12, gkMin: 0, benchMin: 8, injuredMin: 0 },
-    ];
-    const result = describeMinutesNote({ summary, plan: null, elapsedMin: 20, keeperEligibleIds: [] });
-    expect(result.spreadMin).toBe(8);
-    expect(result.continuousKeeperId).toBeNull();
-  });
-
-  it("flags a keeper who's been in goal since kickoff and names when their shift ends", () => {
-    const plan = [
-      { startMin: 0, endMin: 10, onField: [{ id: "p1", isGk: true }, { id: "p2", isGk: false }], bench: [] },
-      { startMin: 10, endMin: 20, onField: [{ id: "p1", isGk: true }, { id: "p2", isGk: false }], bench: [] },
-      { startMin: 20, endMin: 30, onField: [{ id: "p2", isGk: true }, { id: "p1", isGk: false }], bench: [] },
-    ];
-    const summary = [
-      { id: "p1", outfieldMin: 0, gkMin: 15, benchMin: 0, injuredMin: 0 },
-      { id: "p2", outfieldMin: 15, gkMin: 0, benchMin: 0, injuredMin: 0 },
-    ];
-    const result = describeMinutesNote({ summary, plan, elapsedMin: 15, keeperEligibleIds: ["p1", "p2"] });
-    expect(result.continuousKeeperId).toBe("p1");
-    expect(result.shiftEndsAt).toBe(20);
-  });
-
-  it("does not flag a keeper who already stepped down, even if their gkMin is high", () => {
-    const plan = [
-      { startMin: 0, endMin: 10, onField: [{ id: "p1", isGk: true }, { id: "p2", isGk: false }], bench: [] },
-      { startMin: 10, endMin: 20, onField: [{ id: "p2", isGk: true }, { id: "p1", isGk: false }], bench: [] },
-    ];
-    const summary = [{ id: "p1", outfieldMin: 5, gkMin: 10, benchMin: 0, injuredMin: 0 }];
-    const result = describeMinutesNote({ summary, plan, elapsedMin: 15, keeperEligibleIds: ["p1"] });
-    expect(result.continuousKeeperId).toBeNull();
-  });
-
-  it("returns zeroed-out data for an empty summary", () => {
-    expect(describeMinutesNote({ summary: [], plan: null, elapsedMin: 0, keeperEligibleIds: [] })).toEqual({
-      spreadMin: 0, continuousKeeperId: null, shiftEndsAt: null,
-    });
+    expect(totalGk).toBeCloseTo(40, 5);
+    expect(totalOutfield).toBeCloseTo(40 * 4, 5);
+    expect(totalBench).toBeCloseTo(40 * 4, 5);
   });
 });
 

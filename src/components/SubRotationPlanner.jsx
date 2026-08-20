@@ -426,7 +426,6 @@ export default function SubRotationPlanner({ user }) {
               nameOf={nameOf}
               numberOf={numberOf}
               keeperEligibleIds={keeperEligibleIds}
-              elapsedSec={elapsedSec}
               onClose={() => setShowSummaryModal(false)}
             />
           </div>
