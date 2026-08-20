@@ -856,9 +856,9 @@ export default function MatchView({
         // when it was tapped), dismissed by tapping the scrim, the cog
         // again, or any row inside it. No standalone close button, same
         // as the design — that's genuinely all "dismiss" needs here.
-        // "Reset clock" has no row in the reference screens (nothing in
-        // this design covers it) — kept in "This game" since that's the
-        // closest existing group, rather than dropped.
+        // "Reset clock" used to have a row here too, but was removed by
+        // explicit request — the header's own reset button (mdHeaderResetBtn,
+        // next to the cog) is now the only way to reset the clock.
         <>
           <div style={styles.mdScrim} data-testid="scrim" onClick={() => setCogOrigin(null)} />
           <div style={{ ...styles.mdPopover, top: cogOrigin.top }} data-testid="cog-popover">
@@ -908,19 +908,6 @@ export default function MatchView({
                 </span>
                 <span style={styles.mdPopoverRowLabel}>Game settings</span>
                 {gameSettingsSummary && <span style={styles.mdPopoverRowValue}>{gameSettingsSummary}</span>}
-                <span style={styles.mdPopoverRowChevron}>›</span>
-              </button>
-              <button
-                style={styles.mdPopoverRow}
-                onClick={() => {
-                  setCogOrigin(null);
-                  resetClock();
-                }}
-              >
-                <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintNeutral }}>
-                  <RotateCcw size={16} color={tokens.color.mutedText} />
-                </span>
-                <span style={styles.mdPopoverRowLabel}>Reset clock</span>
                 <span style={styles.mdPopoverRowChevron}>›</span>
               </button>
             </div>

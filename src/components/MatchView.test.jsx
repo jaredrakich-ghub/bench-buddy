@@ -185,25 +185,26 @@ describe("MatchView — next-sub badges", () => {
 describe("MatchView — cog menu (anchored popover)", () => {
   // A2d-Menu-anchored: no standalone close button by design — dismissed by
   // tapping the cog again (its onClick toggles) or the scrim behind it.
-  // "Reset clock" has no row in the reference screens; kept in "This
-  // game" as the closest existing group rather than dropped.
+  // "Reset clock" used to have a row here too — removed by explicit
+  // request; the header's own reset button (mdHeaderResetBtn, tested
+  // separately below) is now the only way to reset the clock.
   it("opens on tapping the cog, closes on tapping the cog again or the scrim", async () => {
     const user = userEvent.setup();
     render(<MatchView {...baseProps()} />);
-    expect(screen.queryByText("Reset clock")).not.toBeInTheDocument();
+    expect(screen.queryByText("Game settings")).not.toBeInTheDocument();
 
     await user.click(screen.getByTitle("Menu"));
-    expect(screen.getByText("Reset clock")).toBeInTheDocument();
+    expect(screen.getByText("Game settings")).toBeInTheDocument();
     await user.click(screen.getByTitle("Menu")); // toggle closed
-    expect(screen.queryByText("Reset clock")).not.toBeInTheDocument();
+    expect(screen.queryByText("Game settings")).not.toBeInTheDocument();
 
     await user.click(screen.getByTitle("Menu"));
-    expect(screen.getByText("Reset clock")).toBeInTheDocument();
+    expect(screen.getByText("Game settings")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("scrim"));
-    expect(screen.queryByText("Reset clock")).not.toBeInTheDocument();
+    expect(screen.queryByText("Game settings")).not.toBeInTheDocument();
   });
 
-  it("resets the board back to interval 0, not just the clock", async () => {
+  it("resets the board back to interval 0, not just the clock, via the header's reset button", async () => {
     // Regression test: Reset used to rewind the clock/sub-log but leave the
     // board showing whatever interval was last being viewed.
     const setActiveInterval = vi.fn();
@@ -215,8 +216,7 @@ describe("MatchView — cog menu (anchored popover)", () => {
         {...baseProps({ activeInterval: 1, elapsedSec: 400, setActiveInterval, setElapsedSec, setTimerRunning })}
       />
     );
-    await user.click(screen.getByTitle("Menu"));
-    await user.click(screen.getByText("Reset clock"));
+    await user.click(screen.getByTitle("Reset clock"));
     expect(setActiveInterval).toHaveBeenCalledWith(0);
     expect(setElapsedSec).toHaveBeenCalledWith(0);
     expect(setTimerRunning).toHaveBeenCalledWith(false);
@@ -263,7 +263,7 @@ describe("MatchView — cog menu (anchored popover)", () => {
     await user.click(screen.getByTitle("Menu"));
     await user.click(screen.getByText("Minutes so far"));
     expect(onShowSummary).toHaveBeenCalledTimes(1);
-    expect(screen.queryByText("Reset clock")).not.toBeInTheDocument(); // menu closed itself
+    expect(screen.queryByText("Game settings")).not.toBeInTheDocument(); // menu closed itself
 
     await user.click(screen.getByTitle("Menu"));
     await user.click(screen.getByText("Squad change"));
