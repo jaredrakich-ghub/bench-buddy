@@ -90,11 +90,11 @@ export default function SquadChangeScreen({
   };
 
   return (
-    // paddingBottom reserves room for the fixed action bar (mdActionBarOuter,
-    // shared with the match screen — see below) so the last row of the
-    // squad grid never sits underneath it, same reasoning as `main`'s own
-    // paddingBottom in styles.js.
-    <section style={{ paddingBottom: selectedPlayer ? "calc(130px + env(safe-area-inset-bottom, 0px))" : 0 }}>
+    // No extra bottom padding needed for the action bar (mdActionBarOuter,
+    // shared with the match screen — see below) — block 8, part B made it
+    // a normal-flow element, not position:fixed, so it reserves its own
+    // space just by existing; nothing can render underneath it.
+    <section>
       <div style={styles.mdSubHeader}>
         <button style={styles.mdSubHeaderBack} onClick={onClose} title="Back">
           ‹
@@ -164,12 +164,14 @@ export default function SquadChangeScreen({
       </div>
 
       {selectedPlayer && (
-        // Same fixed bottom shell the match screen's own action bar uses
+        // Same normal-flow action-bar shell the match screen uses
         // (mdActionBarOuter/mdActionBar, styles.js) — this screen replaces
         // that bar rather than showing both at once, so reusing it directly
-        // rather than inventing a second near-identical fixed shell.
+        // rather than inventing a second near-identical shell. Stacked
+        // padding variant since this content is a column, not one row
+        // (block 8, part B names this screen explicitly).
         <div style={styles.mdActionBarOuter}>
-          <div style={styles.mdActionBar}>
+          <div style={{ ...styles.mdActionBar, ...styles.mdActionBarStacked }}>
             {confirmRemove ? (
               <div style={styles.mdTeamAcctConfirmCard}>
                 <span style={styles.mdTeamAcctConfirmText}>

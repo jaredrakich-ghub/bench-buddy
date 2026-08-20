@@ -520,17 +520,19 @@ describe("MatchView — tap-to-act token menu", () => {
     expect(screen.getByText(/Mark injured/)).toBeInTheDocument();
   });
 
-  it("shows the player's name, number, and pitch/bench location in the popover header", async () => {
+  it("shows the player's name and time played so far in the sheet header (block 8, part C)", async () => {
+    // 3:00 elapsed, inside interval 1 (0-6') — p2/Bob has been on the pitch
+    // the whole time; p6/Finn has been on the bench the whole time.
     const user = userEvent.setup();
-    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0 })} />);
-    await user.click(tokenButtonFor("Bob")); // p2, on the pitch
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 180 })} />);
+    await user.click(tokenButtonFor("Bob"));
     const popover = within(screen.getByTestId("player-popover"));
     expect(popover.getByText("Bob")).toBeInTheDocument();
-    expect(popover.getByText("#2 · on pitch")).toBeInTheDocument();
+    expect(popover.getByText("3:00 played")).toBeInTheDocument();
 
     await user.click(tokenButtonFor("Bob")); // close
-    await user.click(tokenButtonFor("Finn")); // p6, on the bench
-    expect(within(screen.getByTestId("player-popover")).getByText("#6 · bench")).toBeInTheDocument();
+    await user.click(tokenButtonFor("Finn"));
+    expect(within(screen.getByTestId("player-popover")).getByText("0:00 played")).toBeInTheDocument();
   });
 
   it("previews who the schedule already has coming on when swapping a player who's due off this window", async () => {

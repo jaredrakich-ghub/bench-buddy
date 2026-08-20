@@ -196,31 +196,21 @@ export const styles = {
   // and its own mdTeamAcct* styles).
   teamRow: { display: "flex", alignItems: "center", gap: 6 },
   teamRowMeta: { fontWeight: 600, fontSize: 11, color: "#7C8983" },
-  // paddingBottom is deliberately generous: on mobile browsers the docked
-  // bottom toolbar (back/forward/tabs) isn't reserved space the page knows
-  // about — it just overlaps whatever content happens to end near the
-  // bottom of the page. Without this, the last element on any screen (e.g.
-  // MatchView's "Interval X of Y" nav) sits flush against that chrome.
-  // 96px flat (not just env(safe-area-inset-bottom)) on purpose: that env()
-  // value is really the home-indicator gesture-area inset, not toolbar
-  // height, and while Safari's toolbar happens to roughly track it, Chrome
-  // for iOS's toolbar doesn't — confirmed by a real phone screenshot still
-  // showing the nav cut off in Chrome even with its toolbar auto-hidden. A
-  // flat value that comfortably clears any mobile browser's toolbar is more
-  // reliable than depending on that inset for this. env() is kept additive
-  // on top for the safe-area itself; index.html's viewport-fit=cover is
-  // what makes that env() value non-zero.
-  // paddingBottom reserves room below the page content for MatchView's
-  // fixed action bar so it never sits on top of the bench/injured rows.
-  // Bumped from 96px — real-device feedback: on first load the action bar
-  // overlapped the bench, correcting itself the moment the page scrolled.
-  // That's consistent with a known mobile-Safari quirk where
-  // env(safe-area-inset-bottom) can resolve to 0 on the very first paint
-  // and only settles to its real value after a reflow (e.g. from
-  // scrolling) — this extra static buffer keeps the reserved space
-  // comfortably larger than the action bar's actual height even if the
-  // safe-area part of the calc briefly reads as 0.
-  main: { padding: "12px 16px", paddingBottom: "calc(130px + env(safe-area-inset-bottom, 0px))", maxWidth: 640, margin: "0 auto" },
+  // paddingBottom gives the last element on any screen using `main` some
+  // clearance from a mobile browser's own docked toolbar (back/forward/
+  // tabs), which isn't reserved space the page knows about on its own —
+  // without this, whatever ends up last (MatchView's action bar, Setup's
+  // submit button) would sit flush against that chrome. Used to carry a
+  // much bigger 130px reservation specifically for MatchView's action bar,
+  // back when that bar was position:fixed and needed real document space
+  // saved for it in advance; now that the bar is a normal-flow element
+  // (block 8, part B) that reserves its own space simply by existing, this
+  // is back to a flat, generous-but-modest value, matching the same 24px
+  // the non-match full-screen takeovers already use for their own bottom
+  // clearance (mdFullScreenTakeoverInner) — plus whatever margin the
+  // screen's own last element already carries below it (e.g. the action
+  // bar's own 16px).
+  main: { padding: "12px 16px", paddingBottom: "calc(24px + env(safe-area-inset-bottom, 0px))", maxWidth: 640, margin: "0 auto" },
   headerBtnGroup: { display: "flex", gap: 6 },
   // addRow was TeamSwitcher-exclusive; removed alongside it.
   input: { flex: 1, padding: "10px 12px", borderRadius: 10, border: "1px solid " + colors.border, fontSize: 14 },
@@ -373,8 +363,12 @@ export const styles = {
     marginBottom: tokens.spacing.rhythm,
   },
   mdBenchLabel: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 15, color: tokens.color.mutedText, marginBottom: 8 },
-  mdBenchSubLabel: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 12, color: tokens.color.mutedText, marginBottom: 6 },
-  mdBenchChipRow: { display: "flex", flexWrap: "wrap", gap: 8 },
+  // Block 8, part D — one row, not two: available players first, then a
+  // divider, then anyone injured. Replaces the old separate "Injured"
+  // sub-label + second row (mdBenchSubLabel, now dead — the pink-tinted
+  // chip and cross badge already read as "injured" without a text label).
+  mdBenchChipRow: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 },
+  mdBenchDivider: { width: 2, height: 28, borderRadius: 1, background: "#DCD2B6", margin: "0 2px", flexShrink: 0 },
   mdBenchChip: {
     display: "flex", alignItems: "center", gap: 6, background: "#fff", borderRadius: tokens.radius.chip,
     padding: "4px 12px 4px 4px", border: "none", cursor: "pointer", font: "inherit",
@@ -413,34 +407,26 @@ export const styles = {
     background: tokens.color.injuryRed, border: `2px solid ${tokens.color.creamPaper}`,
     display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none",
   },
-  // Same mdPopover shell as the cog/player-tap popovers, but with the
-  // injury-red border and the flattened corner on the opposite side
-  // (bottom-right, per the handoff's "28px 28px 10px 28px" — pointing
-  // down at the bench chip it grew from, rather than up at a header
-  // control) — a real, deliberate difference from those two, not an
-  // inconsistency.
-  mdBackPopover: {
-    position: "fixed", left: 14, right: 14, zIndex: 46,
-    background: tokens.color.creamPaper, backgroundImage: paperTexture, borderRadius: "28px 28px 10px 28px",
-    border: `3px solid ${tokens.color.injuryRed}`, boxShadow: tokens.shadow.overlay,
-    padding: "14px 14px 12px", maxWidth: 640 - 28, margin: "0 auto",
-  },
-  mdBackPopoverHeader: { display: "flex", alignItems: "center", gap: 12, marginBottom: 12 },
+  // Block 8, part C — the injury sheet (A2i-Back-from-injury) uses the
+  // exact same mdSheet/mdSheetInjury/mdSheetGrabHandle shell as the
+  // player-tap sheet above, in place of its own former anchored-popover
+  // shell (mdBackPopover, now folded into mdSheet).
+  mdBackPopoverHeader: { display: "flex", alignItems: "center", gap: 12, marginBottom: 2 },
   mdBackPopoverCrossBadge: {
-    width: 40, height: 40, borderRadius: "50%", background: tokens.color.injuryRed, flexShrink: 0,
+    width: 38, height: 38, borderRadius: "50%", background: tokens.color.injuryRed, flexShrink: 0,
     display: "flex", alignItems: "center", justifyContent: "center",
   },
-  mdBackPopoverName: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 21, color: tokens.color.deepGreen },
-  mdBackPopoverMeta: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 12, color: tokens.color.mutedText },
+  mdBackPopoverName: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 23, color: tokens.color.deepGreen },
+  mdBackPopoverMeta: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 12.5, color: tokens.color.mutedText },
   mdBackPopoverBtnRow: { display: "flex", gap: 10 },
   mdBackPopoverBtnPrimary: {
-    flex: 1, height: 52, borderRadius: 22, border: "none", background: tokens.color.pitchGreen,
-    color: tokens.color.creamPaper, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 19,
+    flex: 1.3, height: 60, borderRadius: 22, border: "none", background: tokens.color.pitchGreen,
+    color: tokens.color.creamPaper, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 20,
     boxShadow: tokens.shadow.solid(4, tokens.color.greenShadow), cursor: "pointer",
   },
   mdBackPopoverBtnSecondary: {
-    flex: 1, height: 52, borderRadius: 22, border: "none", background: tokens.color.creamDeep,
-    color: tokens.color.actionBar, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 19, cursor: "pointer",
+    flex: 1, height: 60, borderRadius: 22, border: "none", background: tokens.color.creamDeep,
+    color: tokens.color.actionBar, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 20, cursor: "pointer",
   },
 
   // ---- Setup (A3-Setup for first-time setup, A4-Setup-collapsed/expanded
@@ -673,7 +659,11 @@ export const styles = {
 
   // ---- Match-day redesign (Direction A) — header + action bar. See the
   // `tokens` export above and the pitch/shirt/bench styles further up.
-  mdHeader: { background: tokens.color.headerYellow, padding: "18px 20px 20px", borderRadius: "0 0 30px 30px", marginBottom: 12 },
+  // Block 8, part A: inset card, not edge-to-edge/squared-off-at-the-top.
+  // `main` (SubRotationPlanner.jsx) already provides the 16px horizontal
+  // gutter and ~12px top gap this sits in — the only real change here is
+  // rounding all four corners instead of just the bottom two.
+  mdHeader: { background: tokens.color.headerYellow, padding: "18px 20px 20px", borderRadius: 28, marginBottom: 12 },
   mdHeaderTopRow: { display: "flex", alignItems: "center", gap: 10 },
   mdCrestOuter: {
     width: 62, height: 62, borderRadius: "50%", flexShrink: 0, overflow: "hidden",
@@ -724,34 +714,33 @@ export const styles = {
   // Shared shell for all four action-bar states (pre-kickoff, running,
   // paused, and the final-60 sheet reuses these same status/button styles
   // too) — only the label text and which buttons render change per state.
-  // Pinned to the bottom of the viewport (thumb zone) rather than sitting
-  // wherever it falls in document flow after the pitch/bench — real-device
-  // feedback wanted it reachable without scrolling regardless of how far
-  // down the page the coach happens to have scrolled. `main`'s own
-  // pre-existing bottom padding (see the `main` style) already reserves
-  // room below the page content for it, so MatchView.jsx doesn't need any
-  // padding of its own.
   //
-  // Split into an outer positioning shell + this inner visible card,
-  // mirroring `main`'s own box model exactly (same maxWidth/margin/16px
-  // horizontal padding) — a plain position:fixed;left:0;right:0 card would
-  // span the full viewport edge-to-edge, wider than every other card on
-  // the page (all of which sit inset inside `main`'s padding). The outer
-  // shell carries the positioning/inset with a transparent background and
-  // pointerEvents:none (so its side gutters don't swallow taps on
-  // scrolled content behind them); this inner card carries the visible
-  // background/radius/padding and pointerEvents:auto. All four corners
-  // round now (not just the top) and it sits with a small gap off the
-  // true bottom edge, reading as a floating card like the rest of the
-  // screen rather than a flush edge-to-edge sheet.
-  mdActionBarOuter: {
-    position: "fixed", left: 0, right: 0, bottom: "calc(12px + env(safe-area-inset-bottom, 0px))", zIndex: 10,
-    maxWidth: 640, margin: "0 auto", padding: "0 16px", pointerEvents: "none",
-  },
+  // Block 8, part B — a real bug fix, not a redesign for its own sake: the
+  // bar used to be position:fixed, pinned to the viewport regardless of
+  // scroll, on the theory that "always reachable" mattered more than
+  // "never overlaps content". In practice that meant a long bench/squad
+  // list could scroll content *underneath* it — the fixed bar doesn't
+  // reserve real document space, it just floats on top, and `main`'s own
+  // paddingBottom guess at how much space to reserve for it could
+  // mismatch the bar's actual rendered height. Normal flow, as the last
+  // child of the screen, makes that physically impossible: the bar takes
+  // up real space, so nothing can ever render underneath it. `main` no
+  // longer needs (or has) a special bottom-padding reservation for this.
+  //
+  // Still an outer/inner split (not because of positioning anymore — a
+  // plain single div would do that job now — but so every action-bar call
+  // site keeps the same two-level JSX shape it already had, minimizing
+  // the diff). Outer now only carries the margin/gutter; inner carries
+  // the visible card.
+  mdActionBarOuter: { margin: "12px 16px 16px" },
   mdActionBar: {
-    background: tokens.color.actionBar, borderRadius: tokens.radius.card, padding: "14px 16px",
-    pointerEvents: "auto", boxShadow: "0 4px 14px rgba(0,0,0,0.18)",
+    background: tokens.color.actionBar, borderRadius: tokens.radius.card, padding: 16,
+    boxShadow: "0 4px 14px rgba(0,0,0,0.18)",
   },
+  // For the two bars whose content stacks in a column instead of one row
+  // (the match screen's own pre-kickoff state, and Squad change's) —
+  // tighter vertical padding than the inline-row bars get.
+  mdActionBarStacked: { padding: "14px 16px" },
   mdActionBarStatusRow: { display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 },
   // 26px per the reference HTML's own markup for this element (the
   // README's prose text says 24px elsewhere — the HTML is more reliable
@@ -952,23 +941,64 @@ export const styles = {
   mdCogMenuChevron: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 22, color: tokens.color.chevron, paddingLeft: 2 },
   mdCogMenuDivider: { height: 3, background: tokens.color.rule, margin: "3px 6px", borderRadius: 2 },
 
-  // Player-tap popover (A2g-Player-tap) — same mdPopover shell, different
-  // interior: a name/meta header instead of grouped rows, and three (or
-  // one, for an injured player) bigger action rows with a consequence
-  // line under each label rather than a value chip.
-  mdPlayerPopoverHeader: { padding: "0 4px 8px" },
-  mdPlayerPopoverName: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 22, color: tokens.color.deepGreen },
-  mdPlayerPopoverMeta: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 13, color: tokens.color.mutedText },
+  // ---- Block 8, part C — A2g-Player-tap and A2i-Back-from-injury replace
+  // their old anchored popover (grew from the tapped element's own
+  // getBoundingClientRect, mdPopover/mdBackPopover) with a bottom sheet.
+  // Real bug fix, not a redesign for its own sake: a popover anchored to
+  // the tap point can get pushed off the bottom of the screen entirely
+  // when the tapped player is low on the pitch, with no flip-and-clamp
+  // logic to catch it. A sheet pinned to the bottom of the viewport
+  // cannot go out of view no matter where the tap happened, and sits
+  // exactly in thumb reach besides.
+  //
+  // position:fixed, not the reference file's literal position:absolute —
+  // its canvas is a fixed-height (844px), non-scrolling phone frame,
+  // where absolute-relative-to-that-frame and fixed-relative-to-the-
+  // viewport are the same thing. Our real page actually scrolls (a long
+  // squad list, say), so only `fixed` genuinely delivers "cannot go out
+  // of view" here — `absolute` would inherit the exact class of bug this
+  // is fixing, just relative to the page instead of the tap point.
+  mdSheet: {
+    position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 46,
+    maxWidth: 640, margin: "0 auto",
+    background: tokens.color.creamPaper, backgroundImage: paperTexture,
+    borderRadius: "32px 32px 0 0", boxShadow: "0 -16px 44px rgba(20,32,28,.42)",
+    padding: "12px 16px 22px", display: "flex", flexDirection: "column", gap: 10,
+    maxHeight: "calc(100vh - 24px)", overflowY: "auto",
+  },
+  mdSheetPlayerTap: { borderTop: `3px solid ${tokens.color.yellow}` },
+  mdSheetInjury: { borderTop: `3px solid ${tokens.color.injuryRed}` },
+  mdSheetGrabHandle: {
+    width: 44, height: 5, borderRadius: tokens.radius.chip, background: "#DCD2B6", margin: "0 auto 2px", flexShrink: 0,
+  },
+  // Header row: the tapped player's own shirt glyph (small, fixed 40x38 —
+  // not the pitch token's own dynamic tokenSize) with their number, name,
+  // and how long they've played so far pushed to the right.
+  mdPlayerPopoverHeader: { display: "flex", alignItems: "center", gap: 11, padding: "0 4px 2px" },
+  mdPlayerPopoverHeaderShirt: { position: "relative", width: 40, height: 38, flexShrink: 0 },
+  mdPlayerPopoverName: {
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 26, color: tokens.color.deepGreen, lineHeight: 1.1,
+  },
+  mdPlayerPopoverMeta: {
+    marginLeft: "auto", fontFamily: tokens.font.body, fontWeight: 800, fontSize: 13, color: tokens.color.mutedText,
+    whiteSpace: "nowrap",
+  },
+  // No marginBottom on the row itself now — mdSheet's own flex gap (10)
+  // spaces the rows instead, now that they're direct children of the
+  // sheet rather than a separate popover body.
   mdPlayerPopoverRow: {
-    display: "flex", alignItems: "center", gap: 10, width: "100%", background: "#fff", borderRadius: tokens.radius.rowLg,
-    border: "none", padding: "9px 12px 9px 9px", marginBottom: 8, cursor: "pointer", textAlign: "left", font: "inherit",
+    display: "flex", alignItems: "center", gap: 13, width: "100%", background: "#fff", borderRadius: 22,
+    border: "none", padding: "13px 15px", boxShadow: tokens.shadow.solid(3, "rgba(28,58,46,.10)"),
+    cursor: "pointer", textAlign: "left", font: "inherit",
   },
   mdPlayerPopoverIconTile: {
-    width: 36, height: 36, borderRadius: 14, flexShrink: 0,
-    display: "flex", alignItems: "center", justifyContent: "center", fontFamily: tokens.font.display, fontWeight: 800, fontSize: 18,
+    width: 44, height: 44, borderRadius: 16, flexShrink: 0,
+    display: "flex", alignItems: "center", justifyContent: "center", fontFamily: tokens.font.display, fontWeight: 800, fontSize: 21,
   },
-  mdPlayerPopoverRowLabel: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 19, color: tokens.color.deepGreen },
-  mdPlayerPopoverRowConsequence: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 12, color: tokens.color.mutedText },
+  mdPlayerPopoverRowLabel: {
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 20, color: tokens.color.deepGreen, lineHeight: 1.1,
+  },
+  mdPlayerPopoverRowConsequence: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 12.5, color: tokens.color.mutedText },
 
   // "Lit above the scrim" treatment for whichever control opened the
   // popover it's paired with — position:relative lets zIndex actually
@@ -1040,8 +1070,11 @@ export const styles = {
     background: tokens.color.creamPaper, backgroundImage: paperTexture,
   },
   mdFullScreenTakeoverInner: { maxWidth: 640, margin: "0 auto", padding: "0 16px 24px" },
+  // Block 8, part A — same inset-card treatment as mdHeader. This one
+  // needs its own marginTop (mdFullScreenTakeoverInner has no top padding
+  // of its own, unlike `main`, which already gives mdHeader its top gap).
   mdSubHeader: {
-    background: tokens.color.headerYellow, padding: "16px 18px 18px", borderRadius: "0 0 30px 30px",
+    background: tokens.color.headerYellow, padding: "16px 18px 18px", borderRadius: 28, marginTop: 14,
     display: "flex", alignItems: "center", gap: 12, marginBottom: 12,
   },
   mdSubHeaderBack: {

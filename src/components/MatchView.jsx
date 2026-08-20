@@ -182,15 +182,12 @@ export default function MatchView({
     cur: viewedIv, nextIv: viewedNextIv, curGk: viewedGk, nextGk: viewedNextGk, gkChanging: viewedGkChanging,
   });
 
-  // Which token's tap-to-open action popover is currently showing, plus
-  // where it should grow from — purely transient UI state, doesn't need
-  // to live in useMatchState the way swapPickId does (that one has to
-  // survive being read by performSwap). menuOrigin.top is captured from
-  // the tapped element's own getBoundingClientRect() at tap time (see
-  // handleTokenTap) — position:fixed's `top`, so it stays correct
-  // regardless of where in the page this happens to render.
+  // Which token's tap-to-open action sheet is currently showing — purely
+  // transient UI state, doesn't need to live in useMatchState the way
+  // swapPickId does (that one has to survive being read by performSwap).
+  // No origin/rect tracking (block 8, part C) — the sheet is always
+  // pinned to bottom:0, not anchored to wherever the tap happened.
   const [menuPlayerId, setMenuPlayerId] = useState(null);
-  const [menuOrigin, setMenuOrigin] = useState(null);
   const menuOnFieldRecord = menuPlayerId ? viewedIv.onField.find((p) => p.id === menuPlayerId) : null;
   const menuCanMakeKeeper = menuOnFieldRecord && !menuOnFieldRecord.isGk && keeperEligibleIds.includes(menuPlayerId);
 
@@ -213,6 +210,27 @@ export default function MatchView({
   const swapPartnerFor = (id) => {
     const row = viewedSwapRows.find((r) => r.outId === id);
     return row ? row.inId : null;
+  };
+
+  // "12:40 played" in the player-tap sheet's header (block 8, part C) — a
+  // live, elapsed-so-far figure, deliberately computed locally here rather
+  // than by reaching for rotation.js's computeMinutesSummary: that function
+  // was deliberately reverted to a full-game-only total (see SummaryModal.
+  // jsx's own history) after live/elapsed-capped totals turned out not to
+  // be wanted for the Minutes screen. This is a different, narrower need —
+  // one player's on-pitch time (either role) up to right now, for a single
+  // line of context in a sheet — so it stays a small local sum instead of
+  // reopening that decision.
+  const playedMinFor = (id) => {
+    let min = 0;
+    for (const iv of plan) {
+      const ivStartSec = iv.startMin * 60;
+      if (ivStartSec >= elapsedSec) break;
+      if (!iv.onField.some((p) => p.id === id)) continue;
+      const ivEndSec = Math.min(iv.endMin * 60, elapsedSec);
+      min += (ivEndSec - ivStartSec) / 60;
+    }
+    return min;
   };
 
   // A brief "✓ X swapped with Y" note shown in the action sheet right after
@@ -264,38 +282,32 @@ export default function MatchView({
     return true;
   };
 
-  // Pitch shirts and non-injured bench chips: opens (or closes, if
-  // already open) the three-action player-tap popover.
-  const handleTokenTap = (id, e) => {
+  // Pitch shirts and non-injured bench chips: opens (or closes, if already
+  // open) the three-action player-tap sheet. No origin/rect tracking
+  // needed any more (block 8, part C) — the sheet is always pinned to
+  // bottom:0, not anchored to wherever the tapped token happened to be.
+  const handleTokenTap = (id) => {
     if (interactionLocked) return;
     if (trySwapComplete(id)) return;
-    if (menuPlayerId === id) {
-      setMenuPlayerId(null);
-      setMenuOrigin(null);
-      return;
-    }
-    setMenuPlayerId(id);
-    setMenuOrigin({ top: e.currentTarget.getBoundingClientRect().bottom + 8 });
+    setMenuPlayerId((current) => (current === id ? null : id));
   };
 
-  // Injured chips open their own dedicated two-button popover
+  // Injured chips open their own dedicated two-button sheet
   // (A2i-Back-from-injury) instead — a completely different shape/content
   // from the general player-tap menu, not a variant of it, so this is a
   // separate piece of state (injuredPopoverId) rather than menuPlayerId
   // reused with an injured-specific branch.
   const [injuredPopoverId, setInjuredPopoverId] = useState(null);
-  const [injuredPopoverOrigin, setInjuredPopoverOrigin] = useState(null);
-  const handleInjuredChipTap = (id, e) => {
+  const handleInjuredChipTap = (id) => {
     if (interactionLocked) return;
     if (trySwapComplete(id)) return;
-    if (injuredPopoverId === id) {
-      setInjuredPopoverId(null);
-      setInjuredPopoverOrigin(null);
-      return;
-    }
-    setInjuredPopoverId(id);
-    setInjuredPopoverOrigin({ top: e.currentTarget.getBoundingClientRect().bottom + 8 });
+    setInjuredPopoverId((current) => (current === id ? null : id));
   };
+  // Block 8, part C's own "LAYOUT RULE": the action bar is hidden whenever
+  // the player-tap or injury sheet is open, since the sheet covers it
+  // completely anyway (unlike the old anchored popovers, which left the
+  // bar visible underneath them).
+  const sheetOpen = Boolean(menuPlayerId || injuredPopoverId);
 
   const outfielders = viewedIv.onField.filter((p) => !p.isGk);
   const tokenSize = computeTokenSize(outfielders.length);
@@ -341,7 +353,7 @@ export default function MatchView({
         ...(swapPickId && swapPickId !== id && !interactionLocked ? styles.mdBenchChipSwapTarget : {}),
         ...(menuPlayerId === id ? { ...styles.mdOriginLit, ...styles.mdBenchChipLit } : {}),
       }}
-      onClick={(e) => handleTokenTap(id, e)}
+      onClick={() => handleTokenTap(id)}
       disabled={interactionLocked}
     >
       <span style={{ ...styles.mdBenchChipNumber, ...(keeperEligibleIds.includes(id) ? styles.mdBenchChipNumberGk : {}) }}>
@@ -372,7 +384,7 @@ export default function MatchView({
         ...(swapPickId && swapPickId !== id && !interactionLocked ? styles.mdBenchChipSwapTarget : {}),
         ...(injuredPopoverId === id ? { ...styles.mdOriginLit, ...styles.mdInjuredChipLit } : {}),
       }}
-      onClick={(e) => handleInjuredChipTap(id, e)}
+      onClick={() => handleInjuredChipTap(id)}
       disabled={interactionLocked}
     >
       <span style={styles.mdInjuredChipNumber}>{numberOf(id)}</span>
@@ -485,7 +497,7 @@ export default function MatchView({
                 ...(swapPickId && swapPickId !== id && !interactionLocked ? styles.mdShirtBtnSwapTarget : {}),
                 ...(menuPlayerId === id ? { ...styles.mdOriginLit, ...styles.mdShirtBtnLit } : {}),
               }}
-              onClick={(e) => handleTokenTap(id, e)}
+              onClick={() => handleTokenTap(id)}
               disabled={interactionLocked}
             >
               <div style={{ position: "relative", width: shirtWidth, height: shirtHeight }}>
@@ -523,22 +535,19 @@ export default function MatchView({
 
       <div style={styles.mdBenchStrip}>
         <div style={styles.mdBenchLabel}>BENCH</div>
-        {viewedIv.bench.length === 0 ? (
+        {viewedIv.bench.length === 0 && injuredThisGame.length === 0 ? (
           <span style={styles.mdBenchEmpty}>Full squad on field</span>
         ) : (
-          // One row, no "Outfield (waiting)"/"Keeper (waiting)" sub-labels —
-          // renderBenchToken already flips the keeper-eligible player's
-          // number disc gold and shows the 🧤 badge when they're becoming
-          // keeper next interval, which was the whole point of the split;
-          // the labels were redundant with that and cost two lines of
-          // vertical space for what's usually a single extra chip.
-          <div style={styles.mdBenchChipRow}>{viewedIv.bench.map(renderBenchToken)}</div>
-        )}
-        {injuredThisGame.length > 0 && (
-          <>
-            <div style={{ ...styles.mdBenchSubLabel, marginTop: 10 }}>Injured</div>
-            <div style={styles.mdBenchChipRow}>{injuredThisGame.map(renderInjuredChip)}</div>
-          </>
+          // Block 8, part D: one row, two zones — available players first
+          // (where the coach looks first), then a divider, then anyone
+          // injured, rather than a separate "Injured" sub-label and second
+          // row. renderInjuredChip's own pink tint + cross badge already
+          // reads as "injured" without a text label repeating it.
+          <div style={styles.mdBenchChipRow}>
+            {viewedIv.bench.map(renderBenchToken)}
+            {viewedIv.bench.length > 0 && injuredThisGame.length > 0 && <div style={styles.mdBenchDivider} />}
+            {injuredThisGame.map(renderInjuredChip)}
+          </div>
         )}
       </div>
 
@@ -562,35 +571,37 @@ export default function MatchView({
         </div>
       )}
 
-      {!interactionLocked && menuPlayerId && menuOrigin && (
-        // A2g-Player-tap: grows from the tapped token (menuOrigin.top —
-        // see handleTokenTap), dismissed by tapping the scrim, the token
-        // again (handleTokenTap's own toggle), or any action inside it.
+      {!interactionLocked && menuPlayerId && (
+        // Block 8, part C — A2g-Player-tap as a bottom sheet, not an
+        // anchored popover: pinned to the true bottom of the screen
+        // (mdSheet), so it can never get pushed out of view the way the
+        // old tap-anchored version could for a player low on the pitch.
+        // Dismissed by tapping the scrim, the token again (handleTokenTap's
+        // own toggle), or any action inside it. The tapped token itself
+        // stays lit above the scrim (mdShirtBtnLit/mdBenchChipLit,
+        // zIndex 47) — that's what tells the coach who this is about, and
+        // the name in the sheet's own header confirms it.
         <>
           <div
             style={styles.mdScrim}
             data-testid="scrim"
-            onClick={() => {
-              setMenuPlayerId(null);
-              setMenuOrigin(null);
-            }}
+            onClick={() => setMenuPlayerId(null)}
           />
-          <div style={{ ...styles.mdPopover, top: menuOrigin.top }} data-testid="player-popover">
+          <div style={{ ...styles.mdSheet, ...styles.mdSheetPlayerTap }} data-testid="player-popover">
+            <div style={styles.mdSheetGrabHandle} />
             <div style={styles.mdPlayerPopoverHeader}>
-              <div style={styles.mdPlayerPopoverName}>{nameOf(menuPlayerId)}</div>
-              {/* Injured players never reach this popover (see
-                  handleInjuredChipTap/injuredPopoverId below) — every
-                  player who does is by definition on the pitch or bench. */}
-              <div style={styles.mdPlayerPopoverMeta}>
-                #{numberOf(menuPlayerId)} · {menuOnFieldRecord ? "on pitch" : "bench"}
+              <div style={styles.mdPlayerPopoverHeaderShirt}>
+                <KitShirt width={40} height={38} isGk={Boolean(menuOnFieldRecord?.isGk)} />
+                <span style={{ ...styles.mdShirtNumber, top: 15, fontSize: 16 }}>{numberOf(menuPlayerId)}</span>
               </div>
+              <div style={styles.mdPlayerPopoverName}>{nameOf(menuPlayerId)}</div>
+              <div style={styles.mdPlayerPopoverMeta}>{fmtClock(Math.round(playedMinFor(menuPlayerId) * 60))} played</div>
             </div>
             <button
               style={styles.mdPlayerPopoverRow}
               onClick={() => {
                 setSwapPickId(menuPlayerId);
                 setMenuPlayerId(null);
-                setMenuOrigin(null);
               }}
             >
               <span style={{ ...styles.mdPlayerPopoverIconTile, ...styles.mdTintGreen }}>
@@ -612,7 +623,6 @@ export default function MatchView({
                   setConfirmMessage(`${nameOf(menuPlayerId)} is now keeper`);
                   onSwap(menuPlayerId, viewedGk.id);
                   setMenuPlayerId(null);
-                  setMenuOrigin(null);
                 }}
               >
                 <span style={{ ...styles.mdPlayerPopoverIconTile, ...styles.mdTintYellow }}>🧤</span>
@@ -627,7 +637,6 @@ export default function MatchView({
               onClick={() => {
                 onInjury(menuPlayerId);
                 setMenuPlayerId(null);
-                setMenuOrigin(null);
               }}
             >
               <span style={{ ...styles.mdPlayerPopoverIconTile, ...styles.mdTintRed }}>
@@ -642,22 +651,22 @@ export default function MatchView({
         </>
       )}
 
-      {!interactionLocked && injuredPopoverId && injuredPopoverOrigin && (
-        // A2i-Back-from-injury: grows from the tapped injured chip, its
-        // square corner (bottom-right, per mdBackPopover) pointing back
-        // down at it. injuredAt may be missing for a game resumed from
-        // before this session's own tracking existed — falls back to
-        // just "Not counting minutes" rather than showing a broken time.
+      {!interactionLocked && injuredPopoverId && (
+        // Block 8, part C — A2i-Back-from-injury as the same bottom-sheet
+        // shell, injury-red instead of yellow. injuredAt may be missing for
+        // a game resumed from before this session's own tracking existed —
+        // falls back to just "Not counting minutes" rather than showing a
+        // broken time. The injured chip itself stays lit above the scrim
+        // (mdInjuredChipLit) — the element being acted on, same as the
+        // player-tap sheet's own shirt.
         <>
           <div
             style={styles.mdScrim}
             data-testid="scrim"
-            onClick={() => {
-              setInjuredPopoverId(null);
-              setInjuredPopoverOrigin(null);
-            }}
+            onClick={() => setInjuredPopoverId(null)}
           />
-          <div style={{ ...styles.mdBackPopover, top: injuredPopoverOrigin.top }} data-testid="back-popover">
+          <div style={{ ...styles.mdSheet, ...styles.mdSheetInjury }} data-testid="back-popover">
+            <div style={styles.mdSheetGrabHandle} />
             <div style={styles.mdBackPopoverHeader}>
               <span style={styles.mdBackPopoverCrossBadge}>
                 <MedicalCross size={20} color="#fff" />
@@ -677,18 +686,11 @@ export default function MatchView({
                 onClick={() => {
                   onBringBack(injuredPopoverId);
                   setInjuredPopoverId(null);
-                  setInjuredPopoverOrigin(null);
                 }}
               >
                 Back to bench
               </button>
-              <button
-                style={styles.mdBackPopoverBtnSecondary}
-                onClick={() => {
-                  setInjuredPopoverId(null);
-                  setInjuredPopoverOrigin(null);
-                }}
-              >
+              <button style={styles.mdBackPopoverBtnSecondary} onClick={() => setInjuredPopoverId(null)}>
                 Still out
               </button>
             </div>
@@ -710,13 +712,13 @@ export default function MatchView({
           explicitly: sub confirmation happens only in the final-60 sheet
           below, which already names who's coming off/on with room to
           spare — this bar no longer offers an early-confirm shortcut. */}
-      {isPreKickoff && (
+      {isPreKickoff && !sheetOpen && (
         // README > A2e-Prekickoff: this state keeps its own distinct
         // shape — a status line, then ONE full-width "Start match" button
         // — rather than the inline countdown+button pattern every other
         // state uses.
         <div style={styles.mdActionBarOuter}>
-          <div style={styles.mdActionBar}>
+          <div style={{ ...styles.mdActionBar, ...styles.mdActionBarStacked }}>
             <div style={styles.mdActionBarStatusRow}>
               <span style={styles.mdActionBarCountdown}>Ready to go</span>
               {nextIv && <span style={styles.mdActionBarStatus}>first sub at {nextIv.startMin}′</span>}
@@ -728,7 +730,7 @@ export default function MatchView({
         </div>
       )}
 
-      {isPaused && (
+      {isPaused && !sheetOpen && (
         <div style={styles.mdActionBarOuter}>
           <div style={styles.mdActionBar}>
             <div style={styles.mdActionBarInlineRow}>
@@ -744,7 +746,7 @@ export default function MatchView({
         </div>
       )}
 
-      {!isMatchComplete && !isPreKickoff && !isPaused && !inFinal60 && (
+      {!isMatchComplete && !isPreKickoff && !isPaused && !inFinal60 && !sheetOpen && (
         // The plain "running" bar. Mutually exclusive with the final60
         // sheet below (not rendered at the same time) — they'd otherwise
         // show the exact same "Next sub" countdown twice at once, which is
