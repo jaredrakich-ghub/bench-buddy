@@ -22,7 +22,7 @@ function fmtMin(minutes) {
   return totalSec === 0 ? "—" : fmtClock(totalSec);
 }
 
-export default function SummaryModal({ plan, availableIds, nameOf, numberOf, keeperEligibleIds, onClose }) {
+export default function SummaryModal({ plan, availableIds, nameOf, numberOf, onClose }) {
   const totalMin = plan[plan.length - 1].endMin;
   const summary = computeMinutesSummary(plan, availableIds);
 
@@ -64,12 +64,14 @@ export default function SummaryModal({ plan, availableIds, nameOf, numberOf, kee
 
       <div style={styles.mdMinutesList}>
         {rows.map((r) => {
-          const isKeeper = keeperEligibleIds.includes(r.id);
           return (
             <div key={r.id} style={styles.mdMinutesRow}>
-              <span style={{ ...styles.mdMinutesDisc, ...(isKeeper ? styles.mdMinutesDiscKeeper : {}) }}>
-                {numberOf(r.id)}
-              </span>
+              {/* Plain green/white disc for everyone here, no gold
+                  keeper-eligible variant — too much yellow on a page
+                  where several players are often keeper-eligible, per
+                  explicit feedback. Season (#10c) still uses the gold
+                  variant; this is scoped to Minutes only. */}
+              <span style={styles.mdMinutesDisc}>{numberOf(r.id)}</span>
               <span style={styles.mdMinutesName}>{nameOf(r.id)}</span>
               <span style={{ ...styles.mdMinutesValuePitch, ...(r.outfieldMin === 0 ? styles.mdMinutesZero : {}) }}>
                 {fmtMin(r.outfieldMin)}

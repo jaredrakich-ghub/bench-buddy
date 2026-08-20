@@ -42,10 +42,9 @@ const plan = [
   makeInterval(1, 6, 12, ["p1", "p2"], "p2", ["p3"]),
 ];
 const availableIds = ["p1", "p2", "p3"];
-const keeperEligibleIds = ["p1", "p2"];
 
 function baseProps(overrides = {}) {
-  return { plan, availableIds, nameOf, numberOf, keeperEligibleIds, onClose: vi.fn(), ...overrides };
+  return { plan, availableIds, nameOf, numberOf, onClose: vi.fn(), ...overrides };
 }
 
 describe("SummaryModal", () => {
@@ -92,6 +91,17 @@ describe("SummaryModal", () => {
     render(<SummaryModal {...baseProps()} />);
     // p1/p2 both end on 6 outfield minutes, p3 on 0 — spread is 6:00.
     expect(screen.getByText("Pitch time is within 6:00 across the full game.")).toBeInTheDocument();
+  });
+
+  it("gives every player the same plain green disc — no gold keeper-eligible variant, per explicit feedback", () => {
+    render(<SummaryModal {...baseProps()} />);
+    // p1/p2 are both keeper-eligible in the source data this fixture is
+    // drawn from (rotation.js's plan generation) — this screen just
+    // doesn't care, unlike Season (#10c), which still colors keepers gold.
+    const discs = screen.getAllByText(/^[123]$/); // the number-disc spans (Alice=1, Bob=2, Cara=3)
+    discs.forEach((disc) => {
+      expect(disc).toHaveStyle({ backgroundColor: "rgb(46, 125, 83)" }); // tokens.color.pitchGreen
+    });
   });
 
   it("calls onClose when the back button is clicked", async () => {

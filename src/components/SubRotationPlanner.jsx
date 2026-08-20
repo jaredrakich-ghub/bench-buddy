@@ -421,7 +421,6 @@ export default function SubRotationPlanner({ user }) {
               availableIds={availableIds}
               nameOf={nameOf}
               numberOf={numberOf}
-              keeperEligibleIds={keeperEligibleIds}
               onClose={() => setShowSummaryModal(false)}
             />
           </div>
