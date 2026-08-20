@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Plus } from "lucide-react";
 import { styles, tokens } from "./styles.js";
 
 // README > A7-Squad-change (#10d) — "a child arrived late or left early.
@@ -16,11 +17,32 @@ import { styles, tokens } from "./styles.js";
 // unconfirmed tap felt too easy to fire by accident, especially for
 // pulling someone off the pitch mid-game. One player selected at a time;
 // the action bar's button always names who and what it's about to do.
+//
+// "+ Player" (not in the README's own spec either) — a coach adding a
+// brand-new kid who was never on the roster at all shouldn't have to
+// leave this screen to find Game settings' own +Player just to get them
+// onto the sheet, per explicit feedback ("too clunky to have to do this
+// in another place"). Creates the roster entry (onAddRosterPlayer) and
+// immediately selects them as the arrival candidate — same callout/
+// action-bar flow as an existing player toggling back to available, one
+// consistent way to commit an arrival rather than a second instant-add
+// path. onAddRosterPlayer deliberately doesn't touch availability itself
+// — addArrival (below) is what actually threads a new arrival into the
+// plan from now on, and it no-ops if the player already reads as
+// available.
 export default function SquadChangeScreen({
-  roster, availableIds, plan, activeInterval, numberOf, onAddArrival, onRemoveAvailability, onClose,
+  roster, availableIds, plan, activeInterval, numberOf, onAddArrival, onRemoveAvailability, onAddRosterPlayer, onClose,
 }) {
   const [selectedId, setSelectedId] = useState(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  // A brand-new roster entry, not just an existing player toggling back —
+  // "too clunky" to make a coach leave this screen and go find Game
+  // settings' own +Player just to get someone on the sheet at all. Local
+  // to this screen (not the app-level newPlayerName/setNewPlayerName pair
+  // Setup's own +Player uses) since this is a quick mid-game add, not the
+  // pre-game form.
+  const [showAddPlayer, setShowAddPlayer] = useState(false);
+  const [addPlayerName, setAddPlayerName] = useState("");
 
   const cur = plan[activeInterval];
   const onFieldIds = cur.onField.map((p) => p.id);
@@ -42,6 +64,19 @@ export default function SquadChangeScreen({
   const commitRemove = () => {
     onRemoveAvailability(selectedPlayer.id);
     onClose();
+  };
+
+  // Creates the roster entry, then selects them as the arrival candidate —
+  // same callout + "Add X to the game" action-bar button an existing,
+  // currently-unavailable player gets, so there's one consistent way to
+  // actually commit an arrival on this screen rather than a second,
+  // separate instant-add path.
+  const submitAddPlayer = () => {
+    const newId = onAddRosterPlayer(addPlayerName);
+    if (!newId) return;
+    setAddPlayerName("");
+    setShowAddPlayer(false);
+    setSelectedId(newId);
   };
 
   const handleActionBtn = () => {
@@ -107,6 +142,25 @@ export default function SquadChangeScreen({
             </button>
           );
         })}
+        {showAddPlayer ? (
+          <div style={{ ...styles.mdSquadAddRow, gridColumn: "1 / -1" }}>
+            <input
+              autoFocus
+              style={styles.mdSetupInput}
+              placeholder="Player name"
+              value={addPlayerName}
+              onChange={(e) => setAddPlayerName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submitAddPlayer()}
+            />
+            <button style={styles.mdSetupAddBtn} onClick={submitAddPlayer}>
+              Add
+            </button>
+          </div>
+        ) : (
+          <button style={styles.mdSquadAddCard} onClick={() => setShowAddPlayer(true)}>
+            <Plus size={16} /> Player
+          </button>
+        )}
       </div>
 
       {selectedPlayer && (

@@ -193,6 +193,24 @@ export default function SubRotationPlanner({ user }) {
     setNewPlayerName("");
   };
 
+  // Squad-change's own "+ Player" (a brand-new roster entry, not an
+  // existing player toggling back) — deliberately does NOT touch
+  // availableIds the way addPlayer above does. This can fire mid-game,
+  // where "available" has to mean "actually threaded into the plan from
+  // now on", not just a flag — that's addArrival's job (useMatchState.js),
+  // called right after this with the id this returns. addArrival bails
+  // out early if the player is already in availableIds, so doing that here
+  // too would make it a no-op and leave the new player showing as
+  // available while never actually being placed in any interval.
+  const addRosterPlayer = (name) => {
+    const trimmed = name.trim();
+    if (!trimmed) return null;
+    const newId = generateId();
+    const roster = [...teamData.roster, { id: newId, name: trimmed, keeperEligible: true }];
+    saveTeamData({ ...teamData, roster });
+    return newId;
+  };
+
   const removePlayer = (id) => {
     const roster = teamData.roster.filter((p) => p.id !== id);
     saveTeamData({ ...teamData, roster });
@@ -455,6 +473,7 @@ export default function SubRotationPlanner({ user }) {
               numberOf={numberOf}
               onAddArrival={addArrival}
               onRemoveAvailability={removeAvailability}
+              onAddRosterPlayer={addRosterPlayer}
               onClose={() => setShowSquadChange(false)}
             />
           </div>

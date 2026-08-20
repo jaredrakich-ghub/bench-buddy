@@ -1281,6 +1281,20 @@ export const styles = {
   mdSquadChangeBtnDanger: {
     background: tokens.color.injuryRed, color: "#fff", boxShadow: "none",
   },
+  // "+ Player" — a brand-new roster entry, not just an existing player
+  // toggling back to available. Same card footprint as mdSquadCard so it
+  // sits naturally as one more tile in the 2-column grid; dashed border
+  // language borrowed from mdTeamAcctAddCard ("not a record yet").
+  mdSquadAddCard: {
+    display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%",
+    borderRadius: tokens.radius.rowLg, padding: "10px 11px", border: `3px dashed ${tokens.color.disabledBorder}`,
+    background: "transparent", cursor: "pointer", fontFamily: tokens.font.display, fontWeight: 800,
+    fontSize: 15, color: tokens.color.mutedText, minHeight: 54,
+  },
+  // Replaces the add card in place once tapped — spans both grid columns
+  // (gridColumn set at the call site) so the name field isn't squeezed
+  // into one card's width.
+  mdSquadAddRow: { display: "flex", gap: 8 },
 
   // ---- A9-Signin (#10f) — README: "first run only. Magic-link, no
   // password." The real app authenticates via a Google OAuth popup

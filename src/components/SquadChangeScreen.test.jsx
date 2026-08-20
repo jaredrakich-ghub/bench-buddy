@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { useState } from "react";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import "@testing-library/jest-dom/vitest";
 import { render, screen, cleanup } from "@testing-library/react";
@@ -29,8 +30,38 @@ function renderScreen(props = {}) {
       numberOf={numberOf}
       onAddArrival={vi.fn()}
       onRemoveAvailability={vi.fn()}
+      onAddRosterPlayer={vi.fn()}
       onClose={vi.fn()}
       {...props}
+    />
+  );
+}
+
+// A thin stateful wrapper standing in for SubRotationPlanner's real
+// roster state — onAddRosterPlayer alone (a bare mock) can't make the new
+// name actually show up in the grid/callout, since that depends on the
+// `roster` prop growing to include it, the same way the real app's
+// saveTeamData updates local state immediately (see useTeamRegistry.js).
+function StatefulHarness({ onAddArrival, onClose }) {
+  const [roster, setRoster] = useState(ROSTER);
+  const addRosterPlayer = (name) => {
+    const trimmed = name.trim();
+    if (!trimmed) return null;
+    const newId = `new-${trimmed}`;
+    setRoster((prev) => [...prev, { id: newId, name: trimmed }]);
+    return newId;
+  };
+  return (
+    <SquadChangeScreen
+      roster={roster}
+      availableIds={["p1", "p2"]}
+      plan={PLAN}
+      activeInterval={0}
+      numberOf={(id) => NUMBERS[id] ?? "?"}
+      onAddArrival={onAddArrival}
+      onRemoveAvailability={vi.fn()}
+      onAddRosterPlayer={addRosterPlayer}
+      onClose={onClose}
     />
   );
 }
@@ -108,6 +139,48 @@ describe("SquadChangeScreen", () => {
     expect(onRemoveAvailability).not.toHaveBeenCalled();
     // Back to the normal action bar, not stuck on the confirm card.
     expect(screen.getByText("Remove Alice from the game")).toBeInTheDocument();
+  });
+
+  it("shows a + Player card; submitting a blank name is a no-op (onAddRosterPlayer returning null bails out)", async () => {
+    const onAddRosterPlayer = vi.fn(); // default mock return is undefined, same as a real blank-name rejection
+    const user = userEvent.setup();
+    renderScreen({ onAddRosterPlayer });
+
+    await user.click(screen.getByText("Player"));
+    expect(screen.getByPlaceholderText("Player name")).toBeInTheDocument();
+    await user.click(screen.getByText("Add"));
+    expect(onAddRosterPlayer).toHaveBeenCalledWith("");
+    expect(screen.queryByText(/just arrived/)).not.toBeInTheDocument(); // never selected — nothing to show
+  });
+
+  it("adding a brand-new player creates the roster entry and selects them as the arrival candidate", async () => {
+    const onAddArrival = vi.fn();
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(<StatefulHarness onAddArrival={onAddArrival} onClose={onClose} />);
+
+    await user.click(screen.getByText("Player"));
+    await user.type(screen.getByPlaceholderText("Player name"), "Dev");
+    await user.click(screen.getByText("Add"));
+
+    // Same arrival flow an existing-but-unavailable player gets — no
+    // second, separate instant-add path.
+    expect(screen.getByText("Dev just arrived")).toBeInTheDocument();
+    expect(screen.getByText("Add Dev to the game")).toBeInTheDocument();
+
+    await user.click(screen.getByText("Add Dev to the game"));
+    expect(onAddArrival).toHaveBeenCalledWith("new-Dev");
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("pressing Enter in the name field also submits", async () => {
+    const onAddArrival = vi.fn();
+    const user = userEvent.setup();
+    render(<StatefulHarness onAddArrival={onAddArrival} onClose={vi.fn()} />);
+
+    await user.click(screen.getByText("Player"));
+    await user.type(screen.getByPlaceholderText("Player name"), "Eli{Enter}");
+    expect(screen.getByText("Eli just arrived")).toBeInTheDocument();
   });
 
   it("tapping a selected card again deselects it and hides the action bar", async () => {
