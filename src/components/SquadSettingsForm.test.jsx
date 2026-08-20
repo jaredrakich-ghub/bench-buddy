@@ -1,18 +1,4 @@
 // @vitest-environment jsdom
-//
-// Component tests for SquadSettingsForm — a fully controlled form (every
-// value comes from props, every change goes out through a callback prop),
-// so these tests check that the right callback fires with the right value
-// rather than checking the DOM updates itself — the component owns no
-// state of its own to update.
-//
-// fireEvent.change (not userEvent.type) is used on the controlled inputs
-// deliberately: typing character-by-character into an input whose value
-// prop never actually changes (setGameSettings/setNewPlayerName are mocks
-// here, not real state updates) doesn't accumulate the way it would against
-// real app state — each simulated keystroke would just refire against the
-// same starting value. Firing one "changed to this full value" event is
-// what actually exercises the onChange handler correctly here.
 import { describe, it, expect, vi, afterEach } from "vitest";
 import "@testing-library/jest-dom/vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
@@ -25,6 +11,7 @@ const ROSTER = [
   { id: "p1", name: "Alice", keeperEligible: true },
   { id: "p2", name: "Bob", keeperEligible: false },
 ];
+const numberOf = (id) => ({ p1: 1, p2: 2 }[id] ?? "?");
 
 function baseProps(overrides = {}) {
   return {
@@ -40,6 +27,7 @@ function baseProps(overrides = {}) {
     toggleAvailable: vi.fn(),
     toggleKeeperEligible: vi.fn(),
     setPlayerNumber: vi.fn(),
+    numberOf,
     showRestartWarning: false,
     onSubmit: vi.fn(),
     submitLabel: "Generate Rotation",
@@ -58,106 +46,163 @@ function baseProps(overrides = {}) {
 const FAIRNESS_ROSTER = Array.from({ length: 7 }, (_, i) => ({ id: `p${i + 1}`, name: `Player ${i + 1}`, keeperEligible: true }));
 const FAIRNESS_SETTINGS = { fieldSize: 5, gameMinutes: 42, subIntervalMinutes: 6 };
 
-describe("SquadSettingsForm — rendering", () => {
-  it("shows the roster, the available count, and the interval preview", () => {
+describe("SquadSettingsForm — rendering (inline / A3 layout)", () => {
+  it("shows the title with no close button when there's nothing to close to", () => {
     render(<SquadSettingsForm {...baseProps()} />);
-    expect(screen.getByText("Alice")).toBeInTheDocument();
-    expect(screen.getByText("Bob")).toBeInTheDocument();
-    expect(screen.getByText("2 available")).toBeInTheDocument();
-    expect(screen.getByText(/sub windows this game/)).toBeInTheDocument();
+    expect(screen.getByText("Today's game")).toBeInTheDocument();
+    expect(screen.queryByTitle("Close")).not.toBeInTheDocument();
   });
 
-  it("shows an empty-state message when the roster has no players yet", () => {
+  it("shows the three tiles, the squad, and the sub-window preview", () => {
+    render(<SquadSettingsForm {...baseProps()} />);
+    expect(screen.getByText("5")).toBeInTheDocument(); // on pitch
+    expect(screen.getByText("40")).toBeInTheDocument(); // minutes
+    expect(screen.getByText("on pitch")).toBeInTheDocument();
+    expect(screen.getAllByText("Alice").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/sub windows/).length).toBeGreaterThan(0);
+  });
+
+  it("shows an empty-state message in Manage squad when the roster has no players yet", () => {
     render(<SquadSettingsForm {...baseProps({ roster: [], availableIds: [] })} />);
-    expect(screen.getByText("No players yet. Add your squad above.")).toBeInTheDocument();
-  });
-
-  it("mentions the keeper shift interval in the preview once one is set", () => {
-    render(
-      <SquadSettingsForm
-        {...baseProps({ gameSettings: { fieldSize: 5, gameMinutes: 40, subIntervalMinutes: 6, keeperShiftMinutes: 12 } })}
-      />
-    );
-    expect(screen.getByText(/keeper changes every 2 sub windows/)).toBeInTheDocument();
+    expect(screen.getByText("No players yet — add your squad above.")).toBeInTheDocument();
   });
 });
 
-describe("SquadSettingsForm — game settings inputs", () => {
-  it("changing players-on-field calls setGameSettings with the new number", () => {
+describe("SquadSettingsForm — rendering (edit / A4 layout)", () => {
+  it("shows the given title and a close button that calls onClose", async () => {
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(<SquadSettingsForm {...baseProps({ variant: "edit", title: "Edit this game", onClose })} />);
+    expect(screen.getByText("Edit this game")).toBeInTheDocument();
+    await user.click(screen.getByTitle("Close"));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the three advanced sections collapsed to one-line rows carrying their current value", () => {
+    render(<SquadSettingsForm {...baseProps({ variant: "edit" })} />);
+    expect(screen.getByText("In goal today")).toBeInTheDocument();
+    expect(screen.getByText("Random")).toBeInTheDocument(); // no starting keeper picked
+    expect(screen.getByText("Keeper swaps")).toBeInTheDocument();
+    expect(screen.getByText("Every 6′")).toBeInTheDocument(); // defaults to subIntervalMinutes
+    expect(screen.getByText("Breaks")).toBeInTheDocument();
+    expect(screen.getByText("None")).toBeInTheDocument();
+  });
+
+  it("expands a section in place when tapped, and only one at a time", async () => {
+    const user = userEvent.setup();
+    render(<SquadSettingsForm {...baseProps({ variant: "edit" })} />);
+
+    await user.click(screen.getByText("In goal today"));
+    expect(screen.getByText("Tap a name to pick who starts in goal today.")).toBeInTheDocument();
+
+    // Opening Keeper swaps closes the In-goal card back to its one-liner.
+    await user.click(screen.getByText("Keeper swaps"));
+    expect(screen.queryByText("Tap a name to pick who starts in goal today.")).not.toBeInTheDocument();
+    expect(screen.getByText("Leave at the sub length to rotate keepers every window.")).toBeInTheDocument();
+  });
+
+  it("collapses an expanded section back via its chevron", async () => {
+    const user = userEvent.setup();
+    render(<SquadSettingsForm {...baseProps({ variant: "edit" })} />);
+    await user.click(screen.getByText("Breaks"));
+    expect(screen.getAllByText(/sub windows/).length).toBeGreaterThan(0);
+    // The chevron toggle is the "⌄" — collapse it back to the one-line row.
+    await user.click(screen.getByText("⌄"));
+    expect(screen.getByText("Breaks")).toBeInTheDocument();
+    expect(screen.getByText("None")).toBeInTheDocument();
+  });
+});
+
+describe("SquadSettingsForm — number tiles (tap to flip, stepper)", () => {
+  // The Keeper swaps row (further down) has its own always-visible −/+
+  // stepper, so "−"/"+" are never unique on this screen once a tile is
+  // flipped too — tests disambiguate with getAllByText, relying on DOM
+  // order (a flipped tile always renders before the Keeper swaps row in
+  // both layouts) rather than a single getByText match.
+  it("tapping a resting tile flips it and shows a second −/+ stepper", async () => {
+    const user = userEvent.setup();
+    render(<SquadSettingsForm {...baseProps()} />);
+    expect(screen.getAllByText("−")).toHaveLength(1); // just Keeper swaps, at rest
+    await user.click(screen.getByText("on pitch"));
+    expect(screen.getAllByText("−")).toHaveLength(2); // + the newly-flipped tile
+  });
+
+  it("+ steps fieldSize up by 1", async () => {
     const setGameSettings = vi.fn();
+    const user = userEvent.setup();
     render(<SquadSettingsForm {...baseProps({ setGameSettings })} />);
-    fireEvent.change(screen.getByDisplayValue("5"), { target: { value: "6" } });
+    await user.click(screen.getByText("on pitch"));
+    await user.click(screen.getAllByText("+")[0]); // the tile's own +, before Keeper swaps' in DOM order
     expect(setGameSettings).toHaveBeenCalledWith({ fieldSize: 6, gameMinutes: 40, subIntervalMinutes: 6 });
   });
 
-  it("clearing a field to blank stores an empty string, not a stray value", () => {
+  it("steps gameMinutes by 5, not 1", async () => {
     const setGameSettings = vi.fn();
+    const user = userEvent.setup();
     render(<SquadSettingsForm {...baseProps({ setGameSettings })} />);
-    fireEvent.change(screen.getByDisplayValue("40"), { target: { value: "" } });
-    expect(setGameSettings).toHaveBeenCalledWith({ fieldSize: 5, gameMinutes: "", subIntervalMinutes: 6 });
+    await user.click(screen.getByText("minutes"));
+    await user.click(screen.getAllByText("+")[0]);
+    expect(setGameSettings).toHaveBeenCalledWith({ fieldSize: 5, gameMinutes: 45, subIntervalMinutes: 6 });
+  });
+
+  it("won't step below the tile's own minimum", async () => {
+    const setGameSettings = vi.fn();
+    const user = userEvent.setup();
+    render(<SquadSettingsForm {...baseProps({ gameSettings: { fieldSize: 2, gameMinutes: 40, subIntervalMinutes: 6 }, setGameSettings })} />);
+    await user.click(screen.getByText("on pitch"));
+    await user.click(screen.getAllByText("−")[0]);
+    expect(setGameSettings).toHaveBeenCalledWith({ fieldSize: 2, gameMinutes: 40, subIntervalMinutes: 6 });
+  });
+
+  it("tapping the flipped tile's own body settles it back, without changing any value", async () => {
+    const setGameSettings = vi.fn();
+    const user = userEvent.setup();
+    render(<SquadSettingsForm {...baseProps({ setGameSettings })} />);
+    await user.click(screen.getByText("on pitch"));
+    expect(screen.getAllByText("−")).toHaveLength(2);
+    await user.click(screen.getByText("sub every")); // tapping a different resting tile
+    expect(screen.getAllByText("−")).toHaveLength(2); // still exactly one flipped tile + Keeper swaps
+    expect(setGameSettings).not.toHaveBeenCalled();
   });
 });
 
-describe("SquadSettingsForm — squad list", () => {
-  it("adding a player types into the name field and calls addPlayer", async () => {
-    const setNewPlayerName = vi.fn();
-    const addPlayer = vi.fn();
-    const user = userEvent.setup();
-    render(<SquadSettingsForm {...baseProps({ setNewPlayerName, addPlayer })} />);
-    fireEvent.change(screen.getByPlaceholderText("Add player name"), { target: { value: "Cara" } });
-    expect(setNewPlayerName).toHaveBeenCalledWith("Cara");
-    await user.click(screen.getByText("Add"));
-    expect(addPlayer).toHaveBeenCalledTimes(1);
-  });
-
-  it("pressing Enter in the name field also calls addPlayer", () => {
-    const addPlayer = vi.fn();
-    render(<SquadSettingsForm {...baseProps({ addPlayer })} />);
-    fireEvent.keyDown(screen.getByPlaceholderText("Add player name"), { key: "Enter" });
-    expect(addPlayer).toHaveBeenCalledTimes(1);
-  });
-
-  it("removing a player calls removePlayer with that player's id", async () => {
-    const removePlayer = vi.fn();
-    const user = userEvent.setup();
-    render(<SquadSettingsForm {...baseProps({ removePlayer })} />);
-    await user.click(screen.getAllByTitle("Remove from squad")[0]);
-    expect(removePlayer).toHaveBeenCalledWith("p1");
-  });
-
-  it("toggling availability calls toggleAvailable with that player's id", async () => {
+describe("SquadSettingsForm — squad chips (availability)", () => {
+  it("tapping a player's chip calls toggleAvailable with their id", async () => {
     const toggleAvailable = vi.fn();
     const user = userEvent.setup();
+    // Bob isn't keeper-eligible, so his only two appearances are the squad
+    // chip and the Manage-squad row name — no In-goal chip to disambiguate
+    // from, unlike Alice.
     render(<SquadSettingsForm {...baseProps({ toggleAvailable })} />);
-    // Both p1/p2 are available by default (baseProps), so both toggles carry
-    // the "mark unavailable" title — index into them the same way the old
-    // test did (roster order).
-    await user.click(screen.getAllByTitle("Available today — tap to mark unavailable")[1]);
+    await user.click(screen.getAllByText("Bob")[0]);
     expect(toggleAvailable).toHaveBeenCalledWith("p2");
   });
 
-  it("toggling keeper-eligible calls toggleKeeperEligible with that player's id", async () => {
-    const toggleKeeperEligible = vi.fn();
+  it("tapping + Player reveals the add-player input; Enter and the Add button both call addPlayer", async () => {
+    const addPlayer = vi.fn();
+    const setNewPlayerName = vi.fn();
     const user = userEvent.setup();
-    render(<SquadSettingsForm {...baseProps({ toggleKeeperEligible })} />);
-    await user.click(screen.getAllByTitle("Toggle keeper-eligible")[0]);
-    expect(toggleKeeperEligible).toHaveBeenCalledWith("p1");
+    render(<SquadSettingsForm {...baseProps({ addPlayer, setNewPlayerName, newPlayerName: "Cara" })} />);
+    await user.click(screen.getByText("Player"));
+    fireEvent.keyDown(screen.getByPlaceholderText("Player name"), { key: "Enter" });
+    expect(addPlayer).toHaveBeenCalledTimes(1);
   });
 
-  it("marks each player's toggle by their own availability, independent of roster/availableIds order", () => {
-    // Deliberate redesign (match-day redesign step 7): the availability
-    // toggle used to double as a live "your position among today's
-    // available players" counter — a workaround from before real squad
-    // numbers existed (see squadNumber.js). Now that a real number exists,
-    // this is just a plain available/not-available toggle.
-    render(<SquadSettingsForm {...baseProps({ availableIds: ["p2"] })} />); // only Bob available
-    const toggles = screen.getAllByTitle(/available today/i);
-    expect(toggles[0]).toHaveAttribute("title", expect.stringContaining("Not available")); // Alice, p1
-    expect(toggles[1]).toHaveAttribute("title", expect.stringContaining("tap to mark unavailable")); // Bob, p2
+  it("Select all / Clear all toggles the whole roster's availability", async () => {
+    const setAvailableIds = vi.fn();
+    const user = userEvent.setup();
+    render(<SquadSettingsForm {...baseProps({ availableIds: ["p1"], setAvailableIds })} />);
+    await user.click(screen.getByText("Select all"));
+    expect(setAvailableIds).toHaveBeenCalledWith(["p1", "p2"]);
+  });
+
+  it("hides Select all when the roster is empty", () => {
+    render(<SquadSettingsForm {...baseProps({ roster: [], availableIds: [] })} />);
+    expect(screen.queryByText("Select all")).not.toBeInTheDocument();
   });
 });
 
-describe("SquadSettingsForm — squad number", () => {
+describe("SquadSettingsForm — Manage squad (number, keeper-eligible, remove)", () => {
   it("shows a dash for a player with no number set yet, and the real number once one is", () => {
     render(
       <SquadSettingsForm
@@ -165,22 +210,22 @@ describe("SquadSettingsForm — squad number", () => {
       />
     );
     const badges = screen.getAllByTitle("Set squad number");
-    expect(badges[0]).toHaveTextContent("7"); // Alice
-    expect(badges[1]).toHaveTextContent("–"); // Bob, unset
+    expect(badges[0]).toHaveTextContent("7");
+    expect(badges[1]).toHaveTextContent("–");
   });
 
   it("tapping a player's number turns it into an input; typing and blurring calls setPlayerNumber", async () => {
     const setPlayerNumber = vi.fn();
     const user = userEvent.setup();
     render(<SquadSettingsForm {...baseProps({ setPlayerNumber })} />);
-    await user.click(screen.getAllByTitle("Set squad number")[0]); // Alice
+    await user.click(screen.getAllByTitle("Set squad number")[0]);
     const input = document.activeElement;
     fireEvent.change(input, { target: { value: "9" } });
     fireEvent.blur(input);
     expect(setPlayerNumber).toHaveBeenCalledWith("p1", 9);
   });
 
-  it("committing an empty value clears the number back to unset (null), not 0 or NaN", async () => {
+  it("committing an empty value clears the number back to unset (null)", async () => {
     const setPlayerNumber = vi.fn();
     const user = userEvent.setup();
     render(
@@ -204,31 +249,137 @@ describe("SquadSettingsForm — squad number", () => {
     fireEvent.change(input, { target: { value: "9" } });
     fireEvent.keyDown(input, { key: "Escape" });
     expect(setPlayerNumber).not.toHaveBeenCalled();
-    expect(screen.queryByDisplayValue("9")).not.toBeInTheDocument(); // back to the plain badge
+    expect(screen.queryByDisplayValue("9")).not.toBeInTheDocument();
+  });
+
+  it("toggling keeper-eligible calls toggleKeeperEligible with that player's id", async () => {
+    const toggleKeeperEligible = vi.fn();
+    const user = userEvent.setup();
+    render(<SquadSettingsForm {...baseProps({ toggleKeeperEligible })} />);
+    await user.click(screen.getAllByTitle("Toggle keeper-eligible")[0]);
+    expect(toggleKeeperEligible).toHaveBeenCalledWith("p1");
+  });
+
+  it("removing a player calls removePlayer with that player's id", async () => {
+    const removePlayer = vi.fn();
+    const user = userEvent.setup();
+    render(<SquadSettingsForm {...baseProps({ removePlayer })} />);
+    await user.click(screen.getAllByTitle("Remove from squad")[0]);
+    expect(removePlayer).toHaveBeenCalledWith("p1");
   });
 });
 
-describe("SquadSettingsForm — select all / clear all", () => {
-  it("shows 'Select all' and selects every roster id when not everyone is available", async () => {
-    const setAvailableIds = vi.fn();
-    const user = userEvent.setup();
-    render(<SquadSettingsForm {...baseProps({ availableIds: ["p1"], setAvailableIds })} />);
-    await user.click(screen.getByText("Select all"));
-    expect(setAvailableIds).toHaveBeenCalledWith(["p1", "p2"]);
+describe("SquadSettingsForm — In goal today (starting keeper)", () => {
+  it("only lists players who are both available and keeper-eligible", () => {
+    render(<SquadSettingsForm {...baseProps()} />); // Alice eligible, Bob not
+    // Alice appears three times (in-goal chip, squad chip, Manage-squad row)
+    // since she's eligible; Bob only twice (squad chip, Manage-squad row) —
+    // no in-goal chip for him.
+    expect(screen.getAllByText("Alice")).toHaveLength(3);
+    expect(screen.getAllByText("Bob")).toHaveLength(2);
   });
 
-  it("shows 'Clear all' and clears availability when everyone is already available", async () => {
-    const setAvailableIds = vi.fn();
-    const user = userEvent.setup();
-    render(<SquadSettingsForm {...baseProps({ availableIds: ["p1", "p2"], setAvailableIds })} />);
-    await user.click(screen.getByText("Clear all"));
-    expect(setAvailableIds).toHaveBeenCalledWith([]);
+  it("shows a hint instead of an empty card when nobody eligible is available", () => {
+    render(<SquadSettingsForm {...baseProps({ availableIds: ["p2"] })} />); // only Bob, not eligible
+    expect(screen.getByText(/No keeper-eligible players available today/)).toBeInTheDocument();
   });
 
-  it("hides the select-all control entirely when the roster is empty", () => {
-    render(<SquadSettingsForm {...baseProps({ roster: [], availableIds: [] })} />);
-    expect(screen.queryByText("Select all")).not.toBeInTheDocument();
-    expect(screen.queryByText("Clear all")).not.toBeInTheDocument();
+  it("tapping an eligible player's chip sets them as starting keeper", async () => {
+    const setStartingGkId = vi.fn();
+    const user = userEvent.setup();
+    render(<SquadSettingsForm {...baseProps({ setStartingGkId })} />);
+    // The in-goal card renders before the squad chips in both layouts, so
+    // Alice's first appearance is her in-goal chip.
+    await user.click(screen.getAllByText("Alice")[0]);
+    expect(setStartingGkId).toHaveBeenCalledWith("p1");
+  });
+
+  it("tapping the already-starting player's chip again clears the pick", async () => {
+    const setStartingGkId = vi.fn();
+    const user = userEvent.setup();
+    render(<SquadSettingsForm {...baseProps({ startingGkId: "p1", setStartingGkId })} />);
+    await user.click(screen.getByText(/Alice.*\u{1F451}/u));
+    expect(setStartingGkId).toHaveBeenCalledWith(null);
+  });
+
+  it("shows no fairness warning when no manual pick is made", () => {
+    render(<SquadSettingsForm {...baseProps({ roster: FAIRNESS_ROSTER, availableIds: FAIRNESS_ROSTER.map((p) => p.id), gameSettings: FAIRNESS_SETTINGS })} />);
+    expect(screen.queryByText(/more minutes than others today/)).not.toBeInTheDocument();
+  });
+
+  it("warns, naming the player and the spread, for a starting keeper known to make the game unfair", () => {
+    render(
+      <SquadSettingsForm
+        {...baseProps({
+          roster: FAIRNESS_ROSTER, availableIds: FAIRNESS_ROSTER.map((p) => p.id),
+          gameSettings: { ...FAIRNESS_SETTINGS, subIntervalMinutes: 5 }, startingGkId: "p2",
+        })}
+      />
+    );
+    expect(screen.getByText("Starting Player 2 in goal means some players could get up to 6 more minutes than others today.")).toBeInTheDocument();
+  });
+});
+
+describe("SquadSettingsForm — Keeper swaps stepper", () => {
+  it("defaults to the sub interval length when keeperShiftMinutes is unset", () => {
+    render(<SquadSettingsForm {...baseProps()} />);
+    expect(screen.getByText("6′")).toBeInTheDocument();
+  });
+
+  it("+ steps up from the sub interval and records a real override", async () => {
+    const setGameSettings = vi.fn();
+    const user = userEvent.setup();
+    render(<SquadSettingsForm {...baseProps({ setGameSettings })} />);
+    const plusButtons = screen.getAllByText("+");
+    await user.click(plusButtons[plusButtons.length - 1]); // Keeper swaps' own + (tiles' own + only shows once one is flipped)
+    expect(setGameSettings).toHaveBeenCalledWith({ fieldSize: 5, gameMinutes: 40, subIntervalMinutes: 6, keeperShiftMinutes: 7 });
+  });
+
+  it("stepping back down to the sub interval clears the override back to blank", async () => {
+    const setGameSettings = vi.fn();
+    const user = userEvent.setup();
+    render(<SquadSettingsForm {...baseProps({ gameSettings: { fieldSize: 5, gameMinutes: 40, subIntervalMinutes: 6, keeperShiftMinutes: 7 }, setGameSettings })} />);
+    const minusButtons = screen.getAllByText("−");
+    await user.click(minusButtons[minusButtons.length - 1]);
+    expect(setGameSettings).toHaveBeenCalledWith({ fieldSize: 5, gameMinutes: 40, subIntervalMinutes: 6, keeperShiftMinutes: "" });
+  });
+});
+
+describe("SquadSettingsForm — Breaks", () => {
+  it("picking a break option calls setGameSettings with the new segment count", async () => {
+    const setGameSettings = vi.fn();
+    const user = userEvent.setup();
+    render(<SquadSettingsForm {...baseProps({ setGameSettings })} />);
+    await user.click(screen.getByText("Thirds"));
+    expect(setGameSettings).toHaveBeenCalledWith({ fieldSize: 5, gameMinutes: 40, subIntervalMinutes: 6, breakSegments: 3 });
+  });
+});
+
+describe("SquadSettingsForm — sub-interval recommendation", () => {
+  it("stays hidden while there aren't enough available players yet", () => {
+    render(<SquadSettingsForm {...baseProps({ availableIds: ["p1"] })} />);
+    expect(screen.queryByText(/For today's .* available players/)).not.toBeInTheDocument();
+  });
+
+  it("shows a chip per candidate interval, labeled with today's actual available count, once the squad is valid", () => {
+    render(
+      <SquadSettingsForm {...baseProps({ roster: FAIRNESS_ROSTER, availableIds: FAIRNESS_ROSTER.map((p) => p.id), gameSettings: FAIRNESS_SETTINGS })} />
+    );
+    expect(screen.getByText(/For today's 7 available players/)).toBeInTheDocument();
+    expect(screen.getByText("✓ 6")).toBeInTheDocument();
+    expect(screen.getByText("✗ 4")).toBeInTheDocument();
+  });
+
+  it("picking a chip applies that sub interval", async () => {
+    const setGameSettings = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <SquadSettingsForm
+        {...baseProps({ roster: FAIRNESS_ROSTER, availableIds: FAIRNESS_ROSTER.map((p) => p.id), gameSettings: FAIRNESS_SETTINGS, setGameSettings })}
+      />
+    );
+    await user.click(screen.getByText("✓ 6"));
+    expect(setGameSettings).toHaveBeenCalledWith({ ...FAIRNESS_SETTINGS, subIntervalMinutes: 6 });
   });
 });
 
@@ -254,112 +405,5 @@ describe("SquadSettingsForm — validation and submit", () => {
   it("shows the restart warning when regenerating an in-progress game", () => {
     render(<SquadSettingsForm {...baseProps({ showRestartWarning: true })} />);
     expect(screen.getByText(/This will restart the rotation from 0:00/)).toBeInTheDocument();
-  });
-});
-
-describe("SquadSettingsForm — manual starting keeper", () => {
-  it("only offers the 'start in goal' picker for players who are both available and keeper-eligible", () => {
-    // Alice: available + keeper-eligible -> gets the button. Bob: available
-    // but not keeper-eligible -> no button, same as today's roster/props default.
-    render(<SquadSettingsForm {...baseProps()} />);
-    expect(screen.getAllByTitle("Start this player in goal")).toHaveLength(1);
-  });
-
-  it("does not offer the picker for a keeper-eligible player who isn't available today", () => {
-    render(<SquadSettingsForm {...baseProps({ availableIds: ["p2"] })} />); // only Bob (not keeper-eligible) is available
-    expect(screen.queryByTitle("Start this player in goal")).not.toBeInTheDocument();
-  });
-
-  it("picking a player sets them as the starting keeper", async () => {
-    const setStartingGkId = vi.fn();
-    const user = userEvent.setup();
-    render(<SquadSettingsForm {...baseProps({ setStartingGkId })} />);
-    await user.click(screen.getByTitle("Start this player in goal"));
-    expect(setStartingGkId).toHaveBeenCalledWith("p1");
-  });
-
-  it("clicking the already-picked player again clears the pick", async () => {
-    const setStartingGkId = vi.fn();
-    const user = userEvent.setup();
-    render(<SquadSettingsForm {...baseProps({ startingGkId: "p1", setStartingGkId })} />);
-    await user.click(screen.getByTitle("Cancel — don't start in goal"));
-    expect(setStartingGkId).toHaveBeenCalledWith(null);
-  });
-
-  it("shows no fairness warning when no manual pick is made", () => {
-    render(<SquadSettingsForm {...baseProps({ roster: FAIRNESS_ROSTER, availableIds: FAIRNESS_ROSTER.map((p) => p.id), gameSettings: FAIRNESS_SETTINGS })} />);
-    expect(screen.queryByText(/more minutes than others today/)).not.toBeInTheDocument();
-  });
-
-  it("shows no fairness warning for a starting keeper that keeps the game fair", () => {
-    render(
-      <SquadSettingsForm
-        {...baseProps({ roster: FAIRNESS_ROSTER, availableIds: FAIRNESS_ROSTER.map((p) => p.id), gameSettings: FAIRNESS_SETTINGS, startingGkId: "p1" })}
-      />
-    );
-    expect(screen.queryByText(/more minutes than others today/)).not.toBeInTheDocument();
-  });
-
-  it("warns, naming the player and the spread, for a starting keeper known to make the game unfair", () => {
-    // 5 min subs (not FAIRNESS_SETTINGS' usual 6) — verified directly: every
-    // starting choice at 42min/5min-subs for this 7-player roster produces a
-    // real 6-minute spread, so this is a genuine, still-unsafe pick after
-    // the pickGkFrom fairness fix (which resolved the 6-min-sub case
-    // entirely, leaving no unsafe candidate left to test the warning against).
-    render(
-      <SquadSettingsForm
-        {...baseProps({
-          roster: FAIRNESS_ROSTER, availableIds: FAIRNESS_ROSTER.map((p) => p.id),
-          gameSettings: { ...FAIRNESS_SETTINGS, subIntervalMinutes: 5 }, startingGkId: "p2",
-        })}
-      />
-    );
-    expect(screen.getByText("Starting Player 2 in goal means some players could get up to 6 more minutes than others today.")).toBeInTheDocument();
-  });
-});
-
-describe("SquadSettingsForm — sub-interval recommendation", () => {
-  it("stays hidden while there aren't enough available players yet — never judges an in-progress headcount", () => {
-    render(<SquadSettingsForm {...baseProps({ availableIds: ["p1"] })} />); // fails the fieldSize+1 minimum
-    expect(screen.queryByText(/For today's .* available players/)).not.toBeInTheDocument();
-    expect(screen.queryByText("✓ 6")).not.toBeInTheDocument();
-  });
-
-  it("shows a chip per candidate interval, labeled with today's actual available count, once the squad is valid", () => {
-    render(
-      <SquadSettingsForm {...baseProps({ roster: FAIRNESS_ROSTER, availableIds: FAIRNESS_ROSTER.map((p) => p.id), gameSettings: FAIRNESS_SETTINGS })} />
-    );
-    expect(screen.getByText(/For today's 7 available players/)).toBeInTheDocument();
-    // Verified scenario: at 42 min / fieldSize 5 / 7 players, 4, 5, and 8
-    // min subs are candidates where even the best starting keeper can't
-    // stay within one interval; 6 and 7 are fine.
-    expect(screen.getByText("✗ 4")).toBeInTheDocument();
-    expect(screen.getByText("✗ 5")).toBeInTheDocument();
-    expect(screen.getByText("✓ 6")).toBeInTheDocument();
-    expect(screen.getByText("✓ 7")).toBeInTheDocument();
-    expect(screen.getByText("✗ 8")).toBeInTheDocument();
-  });
-
-  it("picking a chip applies that sub interval", async () => {
-    const setGameSettings = vi.fn();
-    const user = userEvent.setup();
-    render(
-      <SquadSettingsForm
-        {...baseProps({ roster: FAIRNESS_ROSTER, availableIds: FAIRNESS_ROSTER.map((p) => p.id), gameSettings: FAIRNESS_SETTINGS, setGameSettings })}
-      />
-    );
-    await user.click(screen.getByText("✓ 6"));
-    expect(setGameSettings).toHaveBeenCalledWith({ ...FAIRNESS_SETTINGS, subIntervalMinutes: 6 });
-  });
-
-  it("re-labels the available count and re-checks fairness when the headcount changes, rather than caching the first answer", () => {
-    const { rerender } = render(
-      <SquadSettingsForm {...baseProps({ roster: FAIRNESS_ROSTER, availableIds: FAIRNESS_ROSTER.map((p) => p.id), gameSettings: FAIRNESS_SETTINGS })} />
-    );
-    expect(screen.getByText(/For today's 7 available players/)).toBeInTheDocument();
-
-    const sixAvailable = FAIRNESS_ROSTER.slice(0, 6).map((p) => p.id);
-    rerender(<SquadSettingsForm {...baseProps({ roster: FAIRNESS_ROSTER, availableIds: sixAvailable, gameSettings: FAIRNESS_SETTINGS })} />);
-    expect(screen.getByText(/For today's 6 available players/)).toBeInTheDocument();
   });
 });

@@ -203,11 +203,6 @@ export const styles = {
   // comfortably larger than the action bar's actual height even if the
   // safe-area part of the calc briefly reads as 0.
   main: { padding: "12px 16px", paddingBottom: "calc(130px + env(safe-area-inset-bottom, 0px))", maxWidth: 640, margin: "0 auto" },
-  // marginTop: 0 matters here — without it, the browser's default <h2> top
-  // margin (not otherwise reset anywhere in this file) throws off
-  // align-items: center wherever this sits alongside something else in a
-  // flex row with no margin of its own.
-  sectionTitle: { fontSize: 17, fontWeight: 900, margin: 0, marginBottom: 8, color: colors.grass, textTransform: "uppercase", letterSpacing: 0.5 },
   headerBtnGroup: { display: "flex", gap: 6 },
   // addRow was TeamSwitcher-exclusive; removed alongside it.
   input: { flex: 1, padding: "10px 12px", borderRadius: 10, border: "1px solid " + colors.border, fontSize: 14 },
@@ -425,27 +420,131 @@ export const styles = {
     color: tokens.color.actionBar, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 19, cursor: "pointer",
   },
 
-  // ---- Setup (A3/A4-Setup), SquadSettingsForm.jsx. A moderate restyle —
-  // new tokens/shapes applied to the existing structure and interactions
-  // (plain number inputs, not the design's dark tap-to-edit tiles with
-  // inline +/-) rather than a full interaction rewrite, given how much of
-  // this form's value is the validation/fairness logic underneath it,
-  // not its chrome. Reuses several pitch-screen patterns directly
-  // (mdPopoverRow's card shape for a squad row, mdBenchChip's number-disc
-  // language for a player's number) rather than inventing parallel ones.
-  mdSetupSectionLabel: {
-    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 15, color: tokens.color.mutedText,
-    textTransform: "uppercase", letterSpacing: 0.3, marginBottom: 8, marginTop: 18,
+  // ---- Setup (A3-Setup for first-time setup, A4-Setup-collapsed/expanded
+  // for editing an existing game's settings), SquadSettingsForm.jsx. Now a
+  // real restyle including the design's tap-to-edit dark-flip number tiles
+  // and the accordion (collapsed one-line row -> expanded dark card) used
+  // by the edit/modal context — see the file-level comment on
+  // SquadSettingsForm.jsx for which context uses which layout and why.
+  // Reuses several pitch-screen patterns directly (mdBenchChip's
+  // number-disc-plus-name pill for a squad/keeper chip) rather than
+  // inventing parallel ones.
+  mdSetupHeaderRow: { display: "flex", alignItems: "center", gap: 10, marginBottom: 18 },
+  mdSetupTitle: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 28, color: tokens.color.deepGreen },
+  mdSetupCloseBtn: {
+    marginLeft: "auto", width: 34, height: 34, borderRadius: tokens.radius.iconTile, border: "none",
+    background: tokens.color.creamDeep, display: "flex", alignItems: "center", justifyContent: "center",
+    cursor: "pointer", color: tokens.color.deepGreen, fontWeight: 800, flexShrink: 0,
   },
-  mdSetupTile: { background: tokens.color.creamDeep, borderRadius: tokens.radius.rowLg, padding: "10px 12px", textAlign: "center" },
+  // "Who's here?" / "Squad" section header — count chip + "tap to drop
+  // out" hint, shared by both layouts.
+  mdSetupSectionTitle: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 22, color: tokens.color.deepGreen },
+  mdSetupHeaderInRow: { display: "flex", alignItems: "center", gap: 10, marginTop: 18, marginBottom: 11, flexWrap: "wrap" },
+  mdSetupInChip: {
+    background: tokens.color.mint, color: tokens.color.pitchGreen, fontFamily: tokens.font.body, fontWeight: 800,
+    fontSize: 13, padding: "4px 10px", borderRadius: tokens.radius.chip,
+  },
+  mdSetupDropOutHint: { marginLeft: "auto", fontFamily: tokens.font.body, fontWeight: 800, fontSize: 13, color: tokens.color.mutedText },
+  // Available-player pill: same shape as mdBenchChip/mdBenchChipNumber
+  // (the match-screen bench strip) reused directly in the component rather
+  // than duplicated here — only the "not available" variant needs its own
+  // dimmed look.
+  mdSetupChipOut: { background: tokens.color.creamDeep, opacity: 0.6 },
+  mdSetupChipOutNumber: { background: tokens.color.disabledBorder, color: tokens.color.benchText },
+  mdSetupAddChip: {
+    display: "inline-flex", alignItems: "center", gap: 6, border: `2px dashed ${tokens.color.disabledBorder}`,
+    borderRadius: tokens.radius.chip, padding: "6px 14px", background: "transparent", cursor: "pointer",
+    fontFamily: tokens.font.body, fontWeight: 800, fontSize: 15, color: tokens.color.mutedText,
+  },
+
+  // The three "on pitch / minutes / sub every" tiles. Resting = plain white
+  // value; tapping flips ONE tile dark with a −/+ stepper either side of
+  // the number (see activeTile state in the component) — "no keyboard,
+  // whole numbers only" per the README, 5-minute steps for game length, 1
+  // for the other two.
+  mdSetupTile: {
+    background: "#fff", borderRadius: tokens.radius.benchStrip, padding: "12px 8px", textAlign: "center", border: "none",
+    cursor: "pointer", font: "inherit", width: "100%",
+  },
   mdSetupTileLabel: {
-    fontFamily: tokens.font.body, fontWeight: 700, fontSize: 11, color: tokens.color.mutedText,
-    textTransform: "uppercase", letterSpacing: 0.3, display: "block", marginBottom: 2, minHeight: 28,
+    fontFamily: tokens.font.body, fontWeight: 800, fontSize: 11, color: tokens.color.mutedText,
+    textTransform: "uppercase", letterSpacing: "0.04em", display: "block",
   },
-  mdSetupTileInput: {
-    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 24, color: tokens.color.deepGreen,
-    background: "transparent", border: "none", textAlign: "center", width: "100%", padding: 0,
+  mdSetupTileValue: {
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 34, color: tokens.color.deepGreen, lineHeight: 1.05,
   },
+  mdSetupTileActive: {
+    background: tokens.color.deepGreen, boxShadow: "0 0 0 4px rgba(28,58,46,.14)",
+  },
+  mdSetupTileActiveLabel: { color: tokens.color.mutedOnDark },
+  mdSetupTileStepRow: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8 },
+  mdSetupTileStepBtn: {
+    width: 38, height: 38, borderRadius: tokens.radius.iconButton, border: "none",
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 26, lineHeight: 1,
+    display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0,
+  },
+  mdSetupTileStepBtnMinus: { background: tokens.color.creamPaper, color: tokens.color.deepGreen },
+  mdSetupTileStepBtnPlus: { background: tokens.color.yellow, color: tokens.color.deepGreen },
+  mdSetupTileStepValue: {
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 34, color: tokens.color.yellow, lineHeight: 1, minWidth: 48,
+  },
+
+  // Accordion row — the collapsed one-line summary used by the edit/modal
+  // (A4-Setup-collapsed) layout: label, current value in plain text, and a
+  // chevron, all on one white row. Tapping expands it into
+  // mdSetupCardDark below (only one section expanded at a time).
+  mdSetupAccordionRow: {
+    display: "flex", alignItems: "center", gap: 12, width: "100%", background: "#fff",
+    borderRadius: tokens.radius.rowLg, border: "none", padding: "15px 16px", cursor: "pointer",
+    textAlign: "left", font: "inherit",
+  },
+  mdSetupAccordionLabel: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 16, color: tokens.color.deepGreen },
+  mdSetupAccordionValue: { marginLeft: "auto", fontFamily: tokens.font.body, fontWeight: 800, fontSize: 16, color: tokens.color.mutedText },
+  mdSetupAccordionChevron: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 18, color: tokens.color.chevron },
+
+  // The expanded "In goal today" / "Keeper swaps" card. White + always-open
+  // in the first-time (A3) layout; dark + only shown when its accordion row
+  // is tapped in the edit (A4-expanded) layout — same shapes, background
+  // and text color swap between the two via the OnDark variants.
+  mdSetupCard: { background: "#fff", borderRadius: tokens.radius.buttonMd, padding: "14px 16px", marginBottom: 9 },
+  mdSetupCardDark: { background: tokens.color.deepGreen },
+  mdSetupCardHeaderRow: { display: "flex", alignItems: "center", gap: 12 },
+  mdSetupCardTitle: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 21, color: tokens.color.deepGreen },
+  mdSetupCardTitleOnDark: { color: tokens.color.creamPaper },
+  // The far-right note on the "In goal today" card header — "👑 starts"
+  // (resting/A3) or "{name} starts" in gold once someone's picked
+  // (A4-expanded); mdSetupAccordionChevron's own on-dark equivalent for
+  // the collapse control.
+  mdSetupCardHint: { marginLeft: "auto", fontFamily: tokens.font.body, fontWeight: 800, fontSize: 13, color: tokens.color.mutedText },
+  mdSetupCardHintOnDark: { color: tokens.color.yellow },
+  mdSetupCardChevronOnDark: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 18, color: tokens.color.mutedOnDark },
+  mdSetupCardCaptionOnDark: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13, color: tokens.color.mutedOnDark, marginTop: 8 },
+
+  // Inline stepper — "Swap every" / "Keeper swaps", a smaller always-on
+  // −/+ pair next to a label (not a flip-to-edit tile like mdSetupTile).
+  mdSetupInlineStepRow: { marginLeft: "auto", display: "flex", alignItems: "center", gap: 9 },
+  mdSetupInlineStepBtn: {
+    width: 36, height: 36, borderRadius: 13, border: "none", fontFamily: tokens.font.display, fontWeight: 800,
+    fontSize: 24, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0,
+  },
+  mdSetupInlineStepBtnMinus: { background: tokens.color.creamDeep, color: tokens.color.deepGreen },
+  mdSetupInlineStepBtnPlus: { background: tokens.color.pitchGreen, color: "#fff" },
+  mdSetupInlineStepBtnMinusOnDark: { background: tokens.color.creamPaper, color: tokens.color.deepGreen },
+  mdSetupInlineStepBtnPlusOnDark: { background: tokens.color.yellow, color: tokens.color.deepGreen },
+  mdSetupInlineStepValue: {
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 26, color: tokens.color.deepGreen, minWidth: 64, textAlign: "center",
+  },
+  mdSetupInlineStepValueOnDark: { color: tokens.color.yellow },
+
+  // Breaks: reuses the existing mdSetupChip/mdSetupChipActive pill row for
+  // None/Halves/Thirds/Quarters, plus a live segment bar showing the sub
+  // windows this produces, divided at each break.
+  mdSetupBreakBar: { display: "flex", alignItems: "center", gap: 5, marginTop: 12 },
+  mdSetupBreakSeg: { flex: 1, height: 22, borderRadius: 3, background: tokens.color.pitchGreen },
+  mdSetupBreakSegFirst: { borderRadius: "8px 3px 3px 8px" },
+  mdSetupBreakSegLast: { borderRadius: "3px 8px 8px 3px" },
+  mdSetupBreakDivider: { width: 14, height: 22, borderRadius: 4, background: tokens.color.yellow, flexShrink: 0 },
+
   mdSetupHint: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 12, color: tokens.color.mutedText, marginTop: 6, lineHeight: 1.4 },
   mdSetupChipRow: { display: "flex", gap: 6, flexWrap: "wrap" },
   mdSetupChip: {
@@ -823,17 +922,6 @@ export const styles = {
   // rather than the generic yellow every other anchored surface uses.
   mdInjuredChipLit: { boxShadow: `0 0 0 3px ${tokens.color.injuryRed}` },
 
-  modalOverlay: {
-    position: "fixed", inset: 0, background: "rgba(15,36,26,0.55)", display: "flex", alignItems: "center",
-    justifyContent: "center", padding: 20, zIndex: 50,
-  },
-  modalCard: {
-    background: colors.cardBg, borderRadius: 16, padding: 20, maxWidth: 480, width: "100%",
-    maxHeight: "85vh", overflowY: "auto", boxShadow: "0 12px 32px rgba(0,0,0,0.3)",
-  },
-  modalHeader: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 },
-  modalTitle: { fontSize: 16, fontWeight: 900, color: colors.grass, textTransform: "uppercase", letterSpacing: 0.4 },
-  modalCloseBtn: { background: colors.border, border: "none", borderRadius: 8, padding: 6, cursor: "pointer", display: "flex", color: colors.ink },
   backupToggle: {
     display: "block", marginTop: 20, background: "transparent", border: "none", color: colors.field,
     fontWeight: 700, fontSize: 12, cursor: "pointer", padding: 0, textDecoration: "underline",

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { X, History } from "lucide-react";
+import { History } from "lucide-react";
 import { intervalAtElapsed } from "../lib/rotation.js";
 import { computeLiveElapsedSec } from "../lib/clock.js";
 import { generateId } from "../lib/id.js";
@@ -302,6 +302,7 @@ export default function SubRotationPlanner({ user }) {
     toggleAvailable,
     toggleKeeperEligible,
     setPlayerNumber,
+    numberOf,
     showRestartWarning: Boolean(plan && (elapsedSec > 0 || Object.keys(subLog).length > 0)),
     startingGkId,
     setStartingGkId,
@@ -345,8 +346,12 @@ export default function SubRotationPlanner({ user }) {
       <main style={styles.main}>
         {!plan && (
           <section>
-            <h2 style={styles.sectionTitle}>Set up today's game</h2>
-            <SquadSettingsForm {...squadSettingsProps} onSubmit={handleGenerate} submitLabel="Generate Rotation" />
+            <SquadSettingsForm
+              {...squadSettingsProps}
+              variant="inline"
+              onSubmit={handleGenerate}
+              submitLabel="Generate Rotation"
+            />
           </section>
         )}
 
@@ -393,16 +398,16 @@ export default function SubRotationPlanner({ user }) {
       </main>
 
       {showSettingsModal && (
-        <div style={styles.modalOverlay} onClick={() => setShowSettingsModal(false)}>
-          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.modalHeader}>
-              <h3 style={styles.modalTitle}>{isMatchComplete ? "Set Up New Game" : "Edit Game Settings"}</h3>
-              <button style={styles.modalCloseBtn} onClick={() => setShowSettingsModal(false)}>
-                <X size={18} />
-              </button>
-            </div>
+        // README > A4-Setup-collapsed/expanded — same full-screen takeover
+        // pattern as every other secondary screen now (was the last
+        // holdout still using the old centered modalOverlay/modalCard).
+        <div style={styles.mdFullScreenTakeoverOuter}>
+          <div style={styles.mdFullScreenTakeoverInner}>
             <SquadSettingsForm
               {...squadSettingsProps}
+              variant="edit"
+              title={isMatchComplete ? "Set up next game" : "Today's game"}
+              onClose={() => setShowSettingsModal(false)}
               onSubmit={handleGenerate}
               submitLabel={isMatchComplete ? "Start Game" : "Save & Regenerate"}
             />
