@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Trash2, Shuffle } from "lucide-react";
+import { Plus, Trash2, Shuffle, ChevronDown, ChevronRight } from "lucide-react";
 import {
   computeIntervals, computeBreakBoundaries, keeperShiftIntervalsFor, generatePlan, computeFairnessSpread, isFairSpread,
   recommendSubIntervals,
@@ -32,6 +32,19 @@ const TILE_ORDER = [
   { key: "gameMinutes", label: "minutes", min: 5, step: 5 },
   { key: "subIntervalMinutes", label: "sub every", min: 2, step: 1 },
 ];
+
+// A small tinted icon badge per edit-layout accordion section — real-use
+// feedback ("it looks pretty boring right now") — reusing the same
+// icon-tile/tint pattern the cog menu already established (MatchView.jsx)
+// rather than inventing a new visual language. One of each of the app's 4
+// pastel tints (mdTintYellow/Green/Neutral/Red, styles.js), so all four
+// sections read as visually distinct at a glance.
+const SECTION_BADGE = {
+  goal: { emoji: "🧤", tint: "mdTintYellow" }, // matches the gold=keeper motif used everywhere else
+  swaps: { emoji: "🔄", tint: "mdTintGreen" },
+  breaks: { emoji: "☕", tint: "mdTintNeutral" },
+  squad: { emoji: "👥", tint: "mdTintRed" },
+};
 
 // README > A3-Setup / A4-Setup (`#3a`, `#4a`, `#4b`). Two layouts, both
 // built here, picked by `variant`:
@@ -187,6 +200,11 @@ export default function SquadSettingsForm({
   };
 
   // ---- Shared pieces --------------------------------------------------
+
+  function sectionBadge(key) {
+    const { emoji, tint } = SECTION_BADGE[key];
+    return <span style={{ ...styles.mdCogMenuIconTile, ...styles[tint], fontSize: 16 }}>{emoji}</span>;
+  }
 
   function renderTiles() {
     return (
@@ -522,16 +540,33 @@ export default function SquadSettingsForm({
 
   // ---- Layouts ----------------------------------------------------------
 
-  const header = (
-    <div style={styles.mdSetupHeaderRow}>
-      <div style={styles.mdSetupTitle}>{title}</div>
-      {onClose && (
-        <button style={styles.mdSetupCloseBtn} onClick={onClose} title="Close">
-          ✕
-        </button>
-      )}
-    </div>
-  );
+  // "edit" gets the same yellow-beveled header/back-button shell Minutes
+  // and Who's here already use (mdSubHeader) — real-use feedback wanted
+  // this screen's own header to match those two, rather than the plain
+  // title-row + ✕ it had before. "inline" (first-time setup, reached
+  // before any screen exists to go "back" to) keeps its own original
+  // header — nothing to be consistent with there, and there's usually no
+  // onClose at all for it to hang a back button off of.
+  const header =
+    variant === "edit" ? (
+      <div style={styles.mdSubHeader}>
+        {onClose && (
+          <button style={styles.mdSubHeaderBack} onClick={onClose} title="Back">
+            ‹
+          </button>
+        )}
+        <div style={styles.mdSubHeaderTitle}>{title}</div>
+      </div>
+    ) : (
+      <div style={styles.mdSetupHeaderRow}>
+        <div style={styles.mdSetupTitle}>{title}</div>
+        {onClose && (
+          <button style={styles.mdSetupCloseBtn} onClick={onClose} title="Close">
+            ✕
+          </button>
+        )}
+      </div>
+    );
 
   if (variant === "edit") {
     return (
@@ -543,55 +578,89 @@ export default function SquadSettingsForm({
             it's fully covered by its own dedicated screen (cog menu's
             "Who's here" row, SquadChangeScreen.jsx). Manage squad below
             keeps its own separate job — number/keeper-eligible/remove,
-            not availability. */}
-        <div style={{ ...styles.mdSetupSectionTitle, marginTop: 14, marginBottom: 11 }}>The game</div>
-        {renderTiles()}
+            not availability.
+
+            "The game" label above the tiles is gone too — real-use
+            feedback: it wasn't earning its own line, and removing it
+            helps the submit button actually stay in view without
+            scrolling. */}
+        <div style={{ marginTop: 14 }}>{renderTiles()}</div>
         {renderIntervalPreview()}
         {renderSubIntervalRecs()}
 
         <div style={{ marginTop: 22, display: "flex", flexDirection: "column", gap: 9 }}>
           {expandedSection === "goal" ? (
             <div style={{ ...styles.mdSetupCard, ...styles.mdSetupCardDark }}>
+              {/* No section badge once expanded — real-device feedback,
+                  didn't look right there. Header row is title + chevron
+                  only, same shape every expanded card uses now — the
+                  value badge moved to its own line below, rather than
+                  competing with the title and a long player name for
+                  space on one line (that combination could wrap the
+                  title onto two lines on a phone-width screen). */}
               <div style={styles.mdSetupCardHeaderRow}>
                 <div style={{ ...styles.mdSetupCardTitle, ...styles.mdSetupCardTitleOnDark }}>First in goal today</div>
-                <span style={{ ...styles.mdSetupCardHint, ...styles.mdSetupCardHintOnDark }}>
-                  {startingGkId ? `${roster.find((p) => p.id === startingGkId)?.name} starts` : "Random"}
-                </span>
                 <span
                   style={styles.mdSetupCardChevronOnDark}
                   onClick={() => setExpandedSection(null)}
                   role="button"
                   tabIndex={0}
+                  title="Collapse"
                 >
-                  ⌄
+                  <ChevronDown size={22} strokeWidth={3} />
                 </span>
               </div>
+              <span style={{ ...styles.mdSetupCardValueBadge, ...(startingGkId ? styles.mdSetupCardValueBadgeSet : {}), marginTop: 10 }}>
+                {startingGkId ? `${roster.find((p) => p.id === startingGkId)?.name} starts` : "Random"}
+              </span>
               <div style={{ marginTop: 12 }}>{renderInGoalChips(true)}</div>
               <div style={styles.mdSetupCardCaptionOnDark}>Tap a name to pick who starts in goal today.</div>
             </div>
           ) : (
             <button style={styles.mdSetupAccordionRow} onClick={() => setExpandedSection("goal")}>
+              {sectionBadge("goal")}
               <span style={styles.mdSetupAccordionLabel}>First in goal today</span>
               <span style={styles.mdSetupAccordionValue}>
                 {startingGkId ? `${roster.find((p) => p.id === startingGkId)?.name} starts` : "Random"}
               </span>
-              <span style={styles.mdSetupAccordionChevron}>›</span>
+              <span style={styles.mdSetupAccordionChevron}>
+                <ChevronRight size={22} strokeWidth={3} />
+              </span>
             </button>
           )}
 
           {expandedSection === "swaps" ? (
             <div style={{ ...styles.mdSetupCard, ...styles.mdSetupCardDark }}>
+              {/* Same "header row = title + chevron only" shape as every
+                  other expanded card now — the stepper moved below rather
+                  than sharing the header row with the chevron (real-
+                  device feedback: adding the chevron alongside the title
+                  and stepper's 3 buttons wrapped "Keeper changes" onto
+                  two lines on a phone-width screen; there just wasn't
+                  room for all of it on one line). */}
               <div style={styles.mdSetupCardHeaderRow}>
                 <div style={{ ...styles.mdSetupCardTitle, ...styles.mdSetupCardTitleOnDark }}>Keeper changes</div>
-                {renderKeeperSwapStepper(true)}
+                <span
+                  style={styles.mdSetupCardChevronOnDark}
+                  onClick={() => setExpandedSection(null)}
+                  role="button"
+                  tabIndex={0}
+                  title="Collapse"
+                >
+                  <ChevronDown size={22} strokeWidth={3} />
+                </span>
               </div>
+              <div style={{ marginTop: 10 }}>{renderKeeperSwapStepper(true)}</div>
               <div style={styles.mdSetupCardCaptionOnDark}>Leave at the sub length to rotate keepers every window.</div>
             </div>
           ) : (
             <button style={styles.mdSetupAccordionRow} onClick={() => setExpandedSection("swaps")}>
+              {sectionBadge("swaps")}
               <span style={styles.mdSetupAccordionLabel}>Keeper changes</span>
               <span style={styles.mdSetupAccordionValue}>Every {keeperSwapValue}′</span>
-              <span style={styles.mdSetupAccordionChevron}>›</span>
+              <span style={styles.mdSetupAccordionChevron}>
+                <ChevronRight size={22} strokeWidth={3} />
+              </span>
             </button>
           )}
 
@@ -599,8 +668,8 @@ export default function SquadSettingsForm({
             <div style={styles.mdSetupCard}>
               <div style={styles.mdSetupCardHeaderRow}>
                 <div style={styles.mdSetupCardTitle}>Breaks</div>
-                <span style={styles.mdSetupAccordionChevron} onClick={() => setExpandedSection(null)} role="button" tabIndex={0}>
-                  ⌄
+                <span style={styles.mdSetupAccordionChevron} onClick={() => setExpandedSection(null)} role="button" tabIndex={0} title="Collapse">
+                  <ChevronDown size={22} strokeWidth={3} />
                 </span>
               </div>
               <div style={{ marginTop: 11 }}>{renderBreaksChips()}</div>
@@ -608,9 +677,12 @@ export default function SquadSettingsForm({
             </div>
           ) : (
             <button style={styles.mdSetupAccordionRow} onClick={() => setExpandedSection("breaks")}>
+              {sectionBadge("breaks")}
               <span style={styles.mdSetupAccordionLabel}>Breaks</span>
               <span style={styles.mdSetupAccordionValue}>{BREAK_VALUE_LABEL[gameSettings.breakSegments || 1]}</span>
-              <span style={styles.mdSetupAccordionChevron}>›</span>
+              <span style={styles.mdSetupAccordionChevron}>
+                <ChevronRight size={22} strokeWidth={3} />
+              </span>
             </button>
           )}
 
@@ -618,17 +690,20 @@ export default function SquadSettingsForm({
             <div style={styles.mdSetupCard}>
               <div style={styles.mdSetupCardHeaderRow}>
                 <div style={styles.mdSetupCardTitle}>Manage squad</div>
-                <span style={styles.mdSetupAccordionChevron} onClick={() => setExpandedSection(null)} role="button" tabIndex={0}>
-                  ⌄
+                <span style={styles.mdSetupAccordionChevron} onClick={() => setExpandedSection(null)} role="button" tabIndex={0} title="Collapse">
+                  <ChevronDown size={22} strokeWidth={3} />
                 </span>
               </div>
               <div style={{ marginTop: 8 }}>{renderManageSquadRows()}</div>
             </div>
           ) : (
             <button style={styles.mdSetupAccordionRow} onClick={() => setExpandedSection("squad")}>
+              {sectionBadge("squad")}
               <span style={styles.mdSetupAccordionLabel}>Manage squad</span>
               <span style={styles.mdSetupAccordionValue}>{roster.length} player{roster.length === 1 ? "" : "s"}</span>
-              <span style={styles.mdSetupAccordionChevron}>›</span>
+              <span style={styles.mdSetupAccordionChevron}>
+                <ChevronRight size={22} strokeWidth={3} />
+              </span>
             </button>
           )}
         </div>

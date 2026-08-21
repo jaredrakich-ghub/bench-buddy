@@ -519,8 +519,22 @@ export const styles = {
     borderRadius: tokens.radius.rowLg, border: "none", padding: "15px 16px", cursor: "pointer",
     textAlign: "left", font: "inherit",
   },
-  mdSetupAccordionLabel: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 16, color: tokens.color.deepGreen },
-  mdSetupAccordionValue: { marginLeft: "auto", fontFamily: tokens.font.body, fontWeight: 800, fontSize: 16, color: tokens.color.mutedText },
+  // flexShrink:0 — without it, a flex row tight on space (the badge +
+  // "First in goal today" + a real player's name + the chevron, all on
+  // one line) shrinks the label down towards its own longest single word,
+  // wrapping it — real-device feedback ("Jack starts" specifically
+  // triggered this once the section badge was added). The label should
+  // never wrap; the value below is what gives way instead.
+  mdSetupAccordionLabel: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 16, color: tokens.color.deepGreen, flexShrink: 0 },
+  // minWidth:0 lets this actually shrink below its own content size (a
+  // flex item's default min-width is auto, i.e. "never smaller than my
+  // content" — without overriding that, overflow/ellipsis below can't
+  // ever kick in); truncates with "…" rather than wrapping or overflowing
+  // the row once the label/badge/chevron have claimed what they need.
+  mdSetupAccordionValue: {
+    marginLeft: "auto", fontFamily: tokens.font.body, fontWeight: 800, fontSize: 16, color: tokens.color.mutedText,
+    minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+  },
   // Bumped from 18px with zero padding — real-device feedback: too small a
   // tap target for the "⌄" collapse control this same style doubles as
   // (Breaks/Manage squad's own expanded cards). The padding matters more
@@ -529,9 +543,14 @@ export const styles = {
   // static "›" indicator (every collapsed row) — those sit inside an
   // already-full-row button, so the extra padding is just a bit more
   // breathing room, not a new tap target.
+  // display:inline-flex + centering so the Lucide ChevronDown/ChevronRight
+  // icon this now wraps (real-device feedback: "thicker arrow" — a plain
+  // text glyph can't get much bolder than 800-weight already was; an SVG
+  // icon gives real strokeWidth control) sits centered in the padded box,
+  // not just baseline-aligned the way a text glyph would.
   mdSetupAccordionChevron: {
-    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 26, lineHeight: 1, color: tokens.color.chevron,
-    padding: 8, cursor: "pointer",
+    display: "inline-flex", alignItems: "center", justifyContent: "center",
+    color: tokens.color.chevron, padding: 8, cursor: "pointer", flexShrink: 0,
   },
 
   // The expanded "In goal today" / "Keeper swaps" card. White + always-open
@@ -541,7 +560,14 @@ export const styles = {
   mdSetupCard: { background: "#fff", borderRadius: tokens.radius.buttonMd, padding: "14px 16px", marginBottom: 9 },
   mdSetupCardDark: { background: tokens.color.deepGreen },
   mdSetupCardHeaderRow: { display: "flex", alignItems: "center", gap: 12 },
-  mdSetupCardTitle: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 21, color: tokens.color.deepGreen },
+  // flex:1 so whatever follows (a value badge, a stepper, a collapse
+  // chevron) always lands flush against the card's own right edge,
+  // regardless of how long this title's own text is — the mechanism that
+  // keeps every section's collapse chevron sitting at the same X position
+  // down the screen (real-device feedback: "all collapse arrows...should
+  // be vertically aligned for consistency"). Inert wherever this isn't
+  // inside a flex row (e.g. the inline layout's own plain Breaks card).
+  mdSetupCardTitle: { flex: 1, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 21, color: tokens.color.deepGreen },
   mdSetupCardTitleOnDark: { color: tokens.color.creamPaper },
   // The far-right note on the "In goal today" card header — "👑 starts"
   // (resting/A3) or "{name} starts" in gold once someone's picked
@@ -549,11 +575,23 @@ export const styles = {
   // the collapse control.
   mdSetupCardHint: { marginLeft: "auto", fontFamily: tokens.font.body, fontWeight: 800, fontSize: 13, color: tokens.color.mutedText },
   mdSetupCardHintOnDark: { color: tokens.color.yellow },
+  // The edit layout's own bigger badge-styled version of the hint above —
+  // real-device feedback wanted "First in goal today"'s own Random/{name}
+  // starts value bigger and reading as a proper tag, not small muted text.
+  // Neutral translucent pill for "Random"; flips solid gold (matching the
+  // gold=keeper motif everywhere else in the app) once someone's actually
+  // picked — mdSetupCardValueBadgeSet layered on top.
+  mdSetupCardValueBadge: {
+    display: "inline-block", fontFamily: tokens.font.body, fontWeight: 800, fontSize: 15, color: tokens.color.creamPaper,
+    background: "rgba(255,255,255,.16)", borderRadius: tokens.radius.chip, padding: "6px 13px",
+    whiteSpace: "nowrap", flexShrink: 0,
+  },
+  mdSetupCardValueBadgeSet: { background: tokens.color.yellow, color: tokens.color.deepGreen },
   // Same bigger-tap-target treatment as mdSetupAccordionChevron above —
-  // this is the "In goal today" card's own collapse control.
+  // this is the "First in goal today" card's own collapse control.
   mdSetupCardChevronOnDark: {
-    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 26, lineHeight: 1, color: tokens.color.mutedOnDark,
-    padding: 8, cursor: "pointer",
+    display: "inline-flex", alignItems: "center", justifyContent: "center",
+    color: tokens.color.mutedOnDark, padding: 8, cursor: "pointer", flexShrink: 0,
   },
   mdSetupCardCaptionOnDark: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13, color: tokens.color.mutedOnDark, marginTop: 8 },
 

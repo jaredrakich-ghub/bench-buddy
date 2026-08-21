@@ -69,13 +69,23 @@ describe("SquadSettingsForm — rendering (inline / A3 layout)", () => {
 });
 
 describe("SquadSettingsForm — rendering (edit / A4 layout)", () => {
-  it("shows the given title and a close button that calls onClose", async () => {
+  // Real-use feedback: this screen's own header should look exactly like
+  // Minutes/Who's here's own (mdSubHeader — yellow beveled bar, white
+  // back button), not its previous plain title-row + ✕. "Back", not
+  // "Close" — same semantics as those two screens' own back buttons.
+  it("shows the given title and a back button that calls onClose", async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
     render(<SquadSettingsForm {...baseProps({ variant: "edit", title: "Edit this game", onClose })} />);
     expect(screen.getByText("Edit this game")).toBeInTheDocument();
-    await user.click(screen.getByTitle("Close"));
+    await user.click(screen.getByTitle("Back"));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("gives the edit layout's header the same yellow-beveled shell as Minutes/Who's here (mdSubHeader)", () => {
+    render(<SquadSettingsForm {...baseProps({ variant: "edit", onClose: vi.fn() })} />);
+    const header = screen.getByTitle("Back").closest("div");
+    expect(header).toHaveStyle({ backgroundColor: "rgb(251, 227, 166)" }); // tokens.color.headerYellow
   });
 
   it("shows the three advanced sections collapsed to one-line rows carrying their current value", () => {
@@ -127,20 +137,53 @@ describe("SquadSettingsForm — rendering (edit / A4 layout)", () => {
     render(<SquadSettingsForm {...baseProps({ variant: "edit" })} />);
     await user.click(screen.getByText("Breaks"));
     expect(screen.getAllByText(/sub windows/).length).toBeGreaterThan(0);
-    // The chevron toggle is the "⌄" — collapse it back to the one-line row.
-    await user.click(screen.getByText("⌄"));
+    // The chevron toggle is icon-only now (ChevronDown, lucide-react) —
+    // queried by its title, same pattern as the app's other icon-only
+    // buttons ("Back", "Remove from squad", etc.).
+    await user.click(screen.getByTitle("Collapse"));
     expect(screen.getByText("Breaks")).toBeInTheDocument();
     expect(screen.getByText("None")).toBeInTheDocument();
   });
 
-  // Real-device feedback: the "⌄" collapse control was too small a tap
-  // target (18px font, no padding). Bumped alongside the rename work.
-  it("gives the collapse chevron a bigger tap target than before", async () => {
+  // Real-device feedback: the old text-glyph "⌄" was too small a tap
+  // target (18px font, no padding) and couldn't get much "thicker" than
+  // 800-weight already was. Both fixed by switching to a real SVG icon
+  // (ChevronDown) with explicit strokeWidth, inside a padded box.
+  it("gives the collapse chevron a bigger, thicker, real tap target than before", async () => {
     const user = userEvent.setup();
     render(<SquadSettingsForm {...baseProps({ variant: "edit" })} />);
     await user.click(screen.getByText("Breaks"));
-    const chevron = screen.getByText("⌄");
-    expect(chevron).toHaveStyle({ fontSize: "26px", padding: "8px" });
+    const chevron = screen.getByTitle("Collapse");
+    expect(chevron).toHaveStyle({ padding: "8px" });
+    const icon = chevron.querySelector("svg");
+    expect(icon).toHaveAttribute("stroke-width", "3");
+  });
+
+  // Real-use feedback: "all collapse arrows...should be vertically
+  // aligned for consistency" — Breaks/Manage squad's own chevrons used to
+  // sit right next to the title instead of flush against the card's
+  // right edge like First in goal today's already did. mdSetupCardTitle's
+  // own flex:1 (styles.js) is what makes this automatic regardless of how
+  // long each section's title text is.
+  it("right-aligns every section's collapse chevron to the same edge", async () => {
+    const user = userEvent.setup();
+    render(<SquadSettingsForm {...baseProps({ variant: "edit" })} />);
+    await user.click(screen.getByText("Breaks"));
+    const row = screen.getByTitle("Collapse").closest("div");
+    expect(row.lastElementChild).toBe(screen.getByTitle("Collapse"));
+  });
+
+  // Real-use feedback: "Keeper Change[s]...we need to add in a collapse
+  // arrow" — its own expanded card had no way to close itself before
+  // (only opening a different section closed it).
+  it("gives Keeper changes its own collapse chevron too", async () => {
+    const user = userEvent.setup();
+    render(<SquadSettingsForm {...baseProps({ variant: "edit" })} />);
+    await user.click(screen.getByText("Keeper changes"));
+    expect(screen.getByText("Leave at the sub length to rotate keepers every window.")).toBeInTheDocument();
+    await user.click(screen.getByTitle("Collapse"));
+    expect(screen.queryByText("Leave at the sub length to rotate keepers every window.")).not.toBeInTheDocument();
+    expect(screen.getByText("Keeper changes")).toBeInTheDocument(); // back to its one-line row
   });
 
   // Manage squad joined the other three accordion rows on real-use feedback
