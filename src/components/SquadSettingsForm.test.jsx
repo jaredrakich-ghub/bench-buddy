@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from "vitest";
 import "@testing-library/jest-dom/vitest";
-import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, cleanup, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import SquadSettingsForm from "./SquadSettingsForm.jsx";
 
@@ -28,7 +28,6 @@ function baseProps(overrides = {}) {
     toggleKeeperEligible: vi.fn(),
     setPlayerNumber: vi.fn(),
     numberOf,
-    showRestartWarning: false,
     onSubmit: vi.fn(),
     submitLabel: "Generate Rotation",
     startingGkId: null,
@@ -459,16 +458,30 @@ describe("SquadSettingsForm — Breaks", () => {
 describe("SquadSettingsForm — sub-interval recommendation", () => {
   it("stays hidden while there aren't enough available players yet", () => {
     render(<SquadSettingsForm {...baseProps({ availableIds: ["p1"] })} />);
-    expect(screen.queryByText(/For today's .* available players/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Even splits for/)).not.toBeInTheDocument();
   });
 
-  it("shows a chip per candidate interval, labeled with today's actual available count, once the squad is valid", () => {
+  // Real-use feedback replaced the old two-line prose + ✓/✗-per-chip
+  // design with a short label and chips showing the minute mark (not a
+  // bare number), highlighting the single best fit — for this fixture
+  // (7 players, 42-minute game), 6′ is the unique smallest-spread option
+  // among 4/5/6/7/8′ (bestSpread 0; every other candidate is non-zero) —
+  // see rotation.test.js's own recommendSubIntervals coverage for the math.
+  it("shows a chip per candidate interval with its minute mark, labeled with today's actual available count, highlighting the single best fit", () => {
     render(
       <SquadSettingsForm {...baseProps({ roster: FAIRNESS_ROSTER, availableIds: FAIRNESS_ROSTER.map((p) => p.id), gameSettings: FAIRNESS_SETTINGS })} />
     );
-    expect(screen.getByText(/For today's 7 available players/)).toBeInTheDocument();
-    expect(screen.getByText("✓ 6")).toBeInTheDocument();
-    expect(screen.getByText("✗ 4")).toBeInTheDocument();
+    expect(screen.getByText("Even splits for 7 players")).toBeInTheDocument();
+    // Queried by title, not text — "6′" also legitimately appears in the
+    // Keeper swaps stepper elsewhere on this (inline-variant) screen,
+    // since this fixture's keeperShiftMinutes falls back to the same
+    // subIntervalMinutes (6) the best-fit chip shows.
+    const bestChip = screen.getByTitle("6 min subs is the fairest split today.");
+    const otherChip = screen.getByTitle(/4 min subs could leave/);
+    expect(bestChip).toHaveTextContent("6′");
+    expect(otherChip).toHaveTextContent("4′");
+    expect(bestChip).toHaveStyle({ backgroundColor: "rgb(46, 125, 83)" }); // tokens.color.pitchGreen
+    expect(otherChip).toHaveStyle({ backgroundColor: "rgb(255, 255, 255)" });
   });
 
   it("picking a chip applies that sub interval", async () => {
@@ -479,7 +492,7 @@ describe("SquadSettingsForm — sub-interval recommendation", () => {
         {...baseProps({ roster: FAIRNESS_ROSTER, availableIds: FAIRNESS_ROSTER.map((p) => p.id), gameSettings: FAIRNESS_SETTINGS, setGameSettings })}
       />
     );
-    await user.click(screen.getByText("✓ 6"));
+    await user.click(screen.getByTitle("6 min subs is the fairest split today."));
     expect(setGameSettings).toHaveBeenCalledWith({ ...FAIRNESS_SETTINGS, subIntervalMinutes: 6 });
   });
 });
@@ -503,8 +516,69 @@ describe("SquadSettingsForm — validation and submit", () => {
     expect(onSubmit).toHaveBeenCalledTimes(1);
   });
 
-  it("shows the restart warning when regenerating an in-progress game", () => {
-    render(<SquadSettingsForm {...baseProps({ showRestartWarning: true })} />);
-    expect(screen.getByText(/This will restart the rotation from 0:00/)).toBeInTheDocument();
+  // Real-use feedback: the old red banner ("This will restart the
+  // rotation from 0:00 and clear this game's progress so far") warned on
+  // *every* visit, even ones with nothing to lose, and its own wording
+  // was wrong — minutes already played are never cleared. Replaced with a
+  // targeted check at submit time: no game in progress builds
+  // immediately; a game in progress opens a confirm sheet instead (edit
+  // layout only — first-time setup never has anything in progress).
+  it("builds immediately, no confirm sheet, when no game is in progress", async () => {
+    const onSubmit = vi.fn();
+    const user = userEvent.setup();
+    const roster = Array.from({ length: 6 }, (_, i) => ({ id: `p${i}`, name: `Player ${i}`, keeperEligible: true }));
+    const availableIds = roster.map((p) => p.id);
+    render(<SquadSettingsForm {...baseProps({ variant: "edit", roster, availableIds, onSubmit, gameInProgress: false, submitLabel: "Build new rotation" })} />);
+    await user.click(screen.getByText("Build new rotation"));
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("rebuild-confirm-sheet")).not.toBeInTheDocument();
+  });
+
+  it("opens a confirm sheet instead of building immediately when a game is in progress, naming the real elapsed time played", async () => {
+    const onSubmit = vi.fn();
+    const user = userEvent.setup();
+    const roster = Array.from({ length: 6 }, (_, i) => ({ id: `p${i}`, name: `Player ${i}`, keeperEligible: true }));
+    const availableIds = roster.map((p) => p.id);
+    render(
+      <SquadSettingsForm {...baseProps({ variant: "edit", roster, availableIds, onSubmit, gameInProgress: true, elapsedSec: 760, submitLabel: "Build new rotation" })} />
+    );
+    await user.click(screen.getByText("Build new rotation"));
+    expect(onSubmit).not.toHaveBeenCalled();
+    const sheet = screen.getByTestId("rebuild-confirm-sheet");
+    expect(within(sheet).getByText("Today's game is running")).toBeInTheDocument();
+    expect(within(sheet).getByText(/The 12:40 already played stays/)).toBeInTheDocument();
+  });
+
+  it("confirming the sheet calls onSubmit and closes it", async () => {
+    const onSubmit = vi.fn();
+    const user = userEvent.setup();
+    const roster = Array.from({ length: 6 }, (_, i) => ({ id: `p${i}`, name: `Player ${i}`, keeperEligible: true }));
+    const availableIds = roster.map((p) => p.id);
+    render(
+      <SquadSettingsForm {...baseProps({ variant: "edit", roster, availableIds, onSubmit, gameInProgress: true, elapsedSec: 760, submitLabel: "Build new rotation" })} />
+    );
+    await user.click(screen.getByText("Build new rotation"));
+    // "Build new rotation" also appears on the sheet's own confirm button —
+    // deliberately the same phrase (real-use feedback: "the coach sees the
+    // phrase they tapped repeated back") — get the *last* match, inside
+    // the sheet, not the main submit button behind it.
+    const buttons = screen.getAllByText("Build new rotation");
+    await user.click(buttons[buttons.length - 1]);
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("rebuild-confirm-sheet")).not.toBeInTheDocument();
+  });
+
+  it("'Keep current' dismisses the sheet without calling onSubmit", async () => {
+    const onSubmit = vi.fn();
+    const user = userEvent.setup();
+    const roster = Array.from({ length: 6 }, (_, i) => ({ id: `p${i}`, name: `Player ${i}`, keeperEligible: true }));
+    const availableIds = roster.map((p) => p.id);
+    render(
+      <SquadSettingsForm {...baseProps({ variant: "edit", roster, availableIds, onSubmit, gameInProgress: true, elapsedSec: 760, submitLabel: "Build new rotation" })} />
+    );
+    await user.click(screen.getByText("Build new rotation"));
+    await user.click(screen.getByText("Keep current"));
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("rebuild-confirm-sheet")).not.toBeInTheDocument();
   });
 });

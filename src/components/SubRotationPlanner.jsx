@@ -304,6 +304,8 @@ export default function SubRotationPlanner({ user }) {
   // SquadSettingsForm lets a coach actually assign one.
   const numberOf = (id) => getSquadNumber(teamData.roster.find((p) => p.id === id) || { id }, teamData.roster);
 
+  const isMatchComplete = Boolean(plan) && elapsedSec >= plan[plan.length - 1].endMin * 60;
+
   // Shared props for SquadSettingsForm — used both for first-time setup
   // (inline) and later edits (modal), so this is built once and reused
   // rather than duplicated at each call site.
@@ -321,12 +323,18 @@ export default function SubRotationPlanner({ user }) {
     toggleKeeperEligible,
     setPlayerNumber,
     numberOf,
-    showRestartWarning: Boolean(plan && (elapsedSec > 0 || Object.keys(subLog).length > 0)),
+    // Drives the edit layout's own "rebuild rotation" confirm sheet —
+    // real-use feedback replaced a blanket restart-warning banner (shown
+    // on *every* visit, even ones with nothing to lose) with this
+    // targeted check. !isMatchComplete matters: a just-finished game's
+    // own elapsedSec/subLog are still both truthy while "Set up next
+    // game" is open, but that old game is *done*, not "in progress" —
+    // nothing at risk, so no confirmation needed there either.
+    gameInProgress: Boolean(plan && !isMatchComplete && (elapsedSec > 0 || Object.keys(subLog).length > 0)),
+    elapsedSec,
     startingGkId,
     setStartingGkId,
   };
-
-  const isMatchComplete = Boolean(plan) && elapsedSec >= plan[plan.length - 1].endMin * 60;
 
   return (
     <div style={styles.app}>
@@ -467,7 +475,10 @@ export default function SubRotationPlanner({ user }) {
               title={isMatchComplete ? "Set up next game" : "Game settings"}
               onClose={() => setShowSettingsModal(false)}
               onSubmit={handleGenerate}
-              submitLabel={isMatchComplete ? "Start Game" : "Save & Regenerate"}
+              // Same label regardless of entry point — matches the confirm
+              // sheet's own button text (SquadSettingsForm.jsx), so a coach
+              // sees the phrase they tapped repeated back.
+              submitLabel="Build new rotation"
             />
           </div>
         </div>

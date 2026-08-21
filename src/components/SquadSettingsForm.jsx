@@ -1,11 +1,68 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Trash2, Shuffle, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Trash2, Shuffle, ChevronDown, Check } from "lucide-react";
 import {
   computeIntervals, computeBreakBoundaries, keeperShiftIntervalsFor, generatePlan, computeFairnessSpread, isFairSpread,
   recommendSubIntervals,
 } from "../lib/rotation.js";
 import { validateGameSettings } from "../lib/validation.js";
+import { fmtClock } from "../lib/clock.js";
 import { styles, tokens } from "./styles.js";
+
+// Drawn (stroke, not solid-fill) icons for the edit layout's own four
+// accordion-section badges, plus the "rebuild rotation" confirm sheet's
+// own header icon — a deliberately different visual family from
+// matchDayIcons.jsx (that file's icons are explicitly solid-fill by
+// design; these are line-drawn tags/badges). Kept local to this file
+// since nothing else uses them yet. fill="none"/round caps+joins on every
+// one, matching the app's one drawn-icon convention.
+function GloveIcon() {
+  return (
+    <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={tokens.color.deepGreen} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M7 12V5.6a1.6 1.6 0 0 1 3.2 0V11" />
+      <path d="M10.2 11V4.4a1.6 1.6 0 0 1 3.2 0V11" />
+      <path d="M13.4 11V6a1.6 1.6 0 0 1 3.2 0v7" />
+      <path d="M16.6 10.4a1.6 1.6 0 0 1 3.2 0V15a6 6 0 0 1-6 6h-2.2a5 5 0 0 1-3.6-1.5L4 15.4a1.7 1.7 0 0 1 2.4-2.4L7 13.6" />
+    </svg>
+  );
+}
+// Two straight opposite-pointing arrows, not a curved/circular swap
+// glyph — a curved pair fuses into a blob at 44px tile size.
+function SwapIcon() {
+  return (
+    <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={tokens.color.pitchGreen} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 8.5H5" />
+      <path d="M8.6 5 5 8.5l3.6 3.5" />
+      <path d="M4 15.5h15" />
+      <path d="M15.4 12l3.6 3.5-3.6 3.5" />
+    </svg>
+  );
+}
+function BreaksIcon() {
+  return (
+    <svg width={21} height={21} viewBox="0 0 24 24" fill="none" stroke={tokens.color.actionBar} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 5v14" />
+      <path d="M15 5v14" />
+    </svg>
+  );
+}
+function SquadIcon() {
+  return (
+    <svg width={23} height={23} viewBox="0 0 24 24" fill="none" stroke={tokens.color.actionBar} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="9" cy="8" r="3.1" />
+      <path d="M3.4 19.4a5.8 5.8 0 0 1 11.2 0" />
+      <circle cx="17.2" cy="9.4" r="2.4" />
+      <path d="M17 14.2a4.6 4.6 0 0 1 3.7 3.4" />
+    </svg>
+  );
+}
+function RotateIcon() {
+  return (
+    <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={tokens.color.deepGreen} strokeWidth={2.1} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 5.5v5h-5" />
+      <path d="M19.5 10.2A8 8 0 1 0 12 20" />
+    </svg>
+  );
+}
 
 // How many groups the match-screen interval tabs get visually split into —
 // "breakSegments" is the group count (2 = halves = 1 divider, 3 = thirds =
@@ -33,17 +90,18 @@ const TILE_ORDER = [
   { key: "subIntervalMinutes", label: "sub every", min: 2, step: 1 },
 ];
 
-// A small tinted icon badge per edit-layout accordion section — real-use
-// feedback ("it looks pretty boring right now") — reusing the same
-// icon-tile/tint pattern the cog menu already established (MatchView.jsx)
-// rather than inventing a new visual language. One of each of the app's 4
-// pastel tints (mdTintYellow/Green/Neutral/Red, styles.js), so all four
-// sections read as visually distinct at a glance.
+// A small tinted icon tile per edit-layout accordion section (collapsed
+// row only — see sectionBadge below) — real-use feedback ("it looks
+// pretty boring right now" first, then the icons themselves went through
+// a design pass replacing the original emoji with these drawn glyphs).
+// Deliberately no red/pink tile in this set — red is reserved for injury
+// across the app. #D6E5E0 is a one-off for Manage squad's own tile, not
+// yet a shared token.
 const SECTION_BADGE = {
-  goal: { emoji: "🧤", tint: "mdTintYellow" }, // matches the gold=keeper motif used everywhere else
-  swaps: { emoji: "🔄", tint: "mdTintGreen" },
-  breaks: { emoji: "☕", tint: "mdTintNeutral" },
-  squad: { emoji: "👥", tint: "mdTintRed" },
+  goal: { Icon: GloveIcon, bg: tokens.color.headerYellow },
+  swaps: { Icon: SwapIcon, bg: tokens.color.mint },
+  breaks: { Icon: BreaksIcon, bg: tokens.color.creamDeep },
+  squad: { Icon: SquadIcon, bg: "#D6E5E0" },
 };
 
 // README > A3-Setup / A4-Setup (`#3a`, `#4a`, `#4b`). Two layouts, both
@@ -95,7 +153,8 @@ export default function SquadSettingsForm({
   toggleKeeperEligible,
   setPlayerNumber,
   numberOf,
-  showRestartWarning,
+  gameInProgress,
+  elapsedSec,
   onSubmit,
   submitLabel,
   startingGkId,
@@ -173,6 +232,22 @@ export default function SquadSettingsForm({
   const [expandedSection, setExpandedSection] = useState(null); // "goal" | "swaps" | "breaks" | "squad" | null
   const [showAddChip, setShowAddChip] = useState(false);
   const [editingNumberId, setEditingNumberId] = useState(null);
+  // The edit layout's own "rebuild rotation" confirm sheet — see
+  // renderWarningsAndSubmit/handleSubmitClick below. Not used by "inline"
+  // (first-time setup never has a game in progress to confirm about).
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  // Real-use feedback: the old restart-warning banner interrupted every
+  // visit, even ones with nothing to lose, and its own wording was wrong
+  // (minutes already played are never cleared). Now: skip the interruption
+  // entirely when there's no game in progress (gameInProgress false —
+  // true first-time setup, or editing before a game's ever been started),
+  // and only ask via the confirm sheet when there's an actual in-progress
+  // game whose remaining plan is about to be rebuilt.
+  const handleSubmitClick = () => {
+    if (gameInProgress) setConfirmOpen(true);
+    else onSubmit();
+  };
 
   const stepTile = (key, dir) => {
     const tile = TILE_ORDER.find((t) => t.key === key);
@@ -202,8 +277,12 @@ export default function SquadSettingsForm({
   // ---- Shared pieces --------------------------------------------------
 
   function sectionBadge(key) {
-    const { emoji, tint } = SECTION_BADGE[key];
-    return <span style={{ ...styles.mdCogMenuIconTile, ...styles[tint], fontSize: 16 }}>{emoji}</span>;
+    const { Icon, bg } = SECTION_BADGE[key];
+    return (
+      <span style={{ ...styles.mdSetupRowIconTile, background: bg }}>
+        <Icon />
+      </span>
+    );
   }
 
   function renderTiles() {
@@ -270,32 +349,40 @@ export default function SquadSettingsForm({
   // interval's own fairness, not a picker) — kept from the original form
   // rather than dropped, same reasoning as Manage squad below: this is
   // real, working functionality the mockup just didn't happen to depict.
+  //
+  // Design pass, real-use feedback: the old two-line "For today's N
+  // players — tap a fairer sub interval, or keep what you've got:" prose
+  // said in two lines what the chips already said on their own — cut to
+  // one short label, and the chips now show the minute mark ("5′" not a
+  // bare "5") and highlight a single best fit (smallest spread across
+  // every candidate) instead of a generic ✓/✗ per chip. No separate
+  // "currently selected" highlight anymore — the "sub every" tile above
+  // already shows the live value; this row is purely "here's what's
+  // fairest," not an echo of the current pick.
   function renderSubIntervalRecs() {
-    if (!subIntervalRecs) return null;
+    if (!subIntervalRecs || subIntervalRecs.length === 0) return null;
+    const bestFitMinutes = subIntervalRecs.reduce((best, r) => (r.bestSpread < best.bestSpread ? r : best)).subIntervalMinutes;
     return (
       <>
-        <div style={styles.mdSetupHint}>
-          For today's {availableIds.length} available players — tap a fairer sub interval, or keep what you've got:
-        </div>
-        <div style={styles.mdSetupChipRow}>
+        <div style={styles.mdSetupEvenSplitsLabel}>Even splits for {availableIds.length} players</div>
+        <div style={styles.mdSetupEvenSplitsRow}>
           {subIntervalRecs.map((r) => {
-            const isSelected = Number(gameSettings.subIntervalMinutes) === r.subIntervalMinutes;
+            const isBestFit = r.subIntervalMinutes === bestFitMinutes;
             return (
               <button
                 key={r.subIntervalMinutes}
-                style={{
-                  ...styles.mdSetupChip,
-                  ...(r.fair ? styles.mdSetupChipFair : {}),
-                  ...(isSelected ? styles.mdSetupChipActive : {}),
-                }}
+                style={{ ...styles.mdSetupSplitChip, ...(isBestFit ? styles.mdSetupSplitChipBest : {}) }}
                 onClick={() => setGameSettings({ ...gameSettings, subIntervalMinutes: r.subIntervalMinutes })}
                 title={
-                  r.fair
-                    ? `${r.subIntervalMinutes} min subs keeps everyone within about one interval of each other today.`
+                  isBestFit
+                    ? `${r.subIntervalMinutes} min subs is the fairest split today.`
+                    : r.fair
+                    ? `${r.subIntervalMinutes} min subs also keeps everyone within about one interval of each other today.`
                     : `${r.subIntervalMinutes} min subs could leave some players up to ${Math.round(r.bestSpread)} min behind others today, even with the fairest possible starting keeper.`
                 }
               >
-                {r.fair ? "✓" : "✗"} {r.subIntervalMinutes}
+                <Check size={isBestFit ? 13 : 12} color={isBestFit ? "#fff" : tokens.color.pitchGreen} />
+                {r.subIntervalMinutes}′
               </button>
             );
           })}
@@ -518,11 +605,9 @@ export default function SquadSettingsForm({
   }
 
   function renderWarningsAndSubmit() {
+    const isEdit = variant === "edit";
     return (
       <>
-        {showRestartWarning && (
-          <div style={styles.mdSetupWarning}>This will restart the rotation from 0:00 and clear this game's progress so far.</div>
-        )}
         {fairnessWarning && <div style={styles.mdSetupWarning}>{fairnessWarning}</div>}
         {!validation.valid && (
           <div style={styles.mdSetupWarning}>
@@ -531,7 +616,14 @@ export default function SquadSettingsForm({
             ))}
           </div>
         )}
-        <button style={{ ...styles.mdSetupSubmitBtn, opacity: validation.valid ? 1 : 0.5 }} disabled={!validation.valid} onClick={onSubmit}>
+        <button
+          style={{
+            ...(isEdit ? styles.mdSetupSubmitBtnPrimary : styles.mdSetupSubmitBtn),
+            opacity: validation.valid ? 1 : 0.5,
+          }}
+          disabled={!validation.valid}
+          onClick={isEdit ? handleSubmitClick : onSubmit}
+        >
           <Shuffle size={16} /> {submitLabel}
         </button>
       </>
@@ -570,7 +662,16 @@ export default function SquadSettingsForm({
 
   if (variant === "edit") {
     return (
-      <>
+      // position:relative anchors the confirm sheet/scrim below (they're
+      // position:absolute — scoped to *this* screen's own content, not
+      // the whole app, unlike the match screen's own position:fixed
+      // sheets). display:flex/flexDirection:column + minHeight:100vh is
+      // what makes the submit button's own margin-top:auto (below) mean
+      // something — pushed to the bottom of a full screen's height rather
+      // than sitting right after the last accordion row on a short page.
+      // paddingBottom reserves the confirm sheet's own height while it's
+      // open, so it never covers the button/content behind it.
+      <div style={{ position: "relative", display: "flex", flexDirection: "column", minHeight: "100vh", paddingBottom: confirmOpen ? 260 : 0 }}>
         {header}
 
         {/* The "Who's here?" chip row (availability toggle + add-player)
@@ -623,9 +724,7 @@ export default function SquadSettingsForm({
               <span style={styles.mdSetupAccordionValue}>
                 {startingGkId ? `${roster.find((p) => p.id === startingGkId)?.name} starts` : "Random"}
               </span>
-              <span style={styles.mdSetupAccordionChevron}>
-                <ChevronRight size={22} strokeWidth={3} />
-              </span>
+              <span style={styles.mdSetupAccordionChevron}>›</span>
             </button>
           )}
 
@@ -658,9 +757,7 @@ export default function SquadSettingsForm({
               {sectionBadge("swaps")}
               <span style={styles.mdSetupAccordionLabel}>Keeper changes</span>
               <span style={styles.mdSetupAccordionValue}>Every {keeperSwapValue}′</span>
-              <span style={styles.mdSetupAccordionChevron}>
-                <ChevronRight size={22} strokeWidth={3} />
-              </span>
+              <span style={styles.mdSetupAccordionChevron}>›</span>
             </button>
           )}
 
@@ -668,7 +765,7 @@ export default function SquadSettingsForm({
             <div style={styles.mdSetupCard}>
               <div style={styles.mdSetupCardHeaderRow}>
                 <div style={styles.mdSetupCardTitle}>Breaks</div>
-                <span style={styles.mdSetupAccordionChevron} onClick={() => setExpandedSection(null)} role="button" tabIndex={0} title="Collapse">
+                <span style={styles.mdSetupCardCollapseBtn} onClick={() => setExpandedSection(null)} role="button" tabIndex={0} title="Collapse">
                   <ChevronDown size={22} strokeWidth={3} />
                 </span>
               </div>
@@ -680,9 +777,7 @@ export default function SquadSettingsForm({
               {sectionBadge("breaks")}
               <span style={styles.mdSetupAccordionLabel}>Breaks</span>
               <span style={styles.mdSetupAccordionValue}>{BREAK_VALUE_LABEL[gameSettings.breakSegments || 1]}</span>
-              <span style={styles.mdSetupAccordionChevron}>
-                <ChevronRight size={22} strokeWidth={3} />
-              </span>
+              <span style={styles.mdSetupAccordionChevron}>›</span>
             </button>
           )}
 
@@ -690,7 +785,7 @@ export default function SquadSettingsForm({
             <div style={styles.mdSetupCard}>
               <div style={styles.mdSetupCardHeaderRow}>
                 <div style={styles.mdSetupCardTitle}>Manage squad</div>
-                <span style={styles.mdSetupAccordionChevron} onClick={() => setExpandedSection(null)} role="button" tabIndex={0} title="Collapse">
+                <span style={styles.mdSetupCardCollapseBtn} onClick={() => setExpandedSection(null)} role="button" tabIndex={0} title="Collapse">
                   <ChevronDown size={22} strokeWidth={3} />
                 </span>
               </div>
@@ -701,15 +796,52 @@ export default function SquadSettingsForm({
               {sectionBadge("squad")}
               <span style={styles.mdSetupAccordionLabel}>Manage squad</span>
               <span style={styles.mdSetupAccordionValue}>{roster.length} player{roster.length === 1 ? "" : "s"}</span>
-              <span style={styles.mdSetupAccordionChevron}>
-                <ChevronRight size={22} strokeWidth={3} />
-              </span>
+              <span style={styles.mdSetupAccordionChevron}>›</span>
             </button>
           )}
         </div>
 
         {renderWarningsAndSubmit()}
-      </>
+
+        {confirmOpen && (
+          // Same sheet mechanism as the match screen's own player-tap/
+          // injury sheets (mdSheet) — grab handle, scrim-dismiss, no ✕ —
+          // just position:absolute/locally-scoped z-index rather than
+          // mdSheet's own position:fixed, since this only ever needs to
+          // cover this screen's own content. Amber top border (caution),
+          // not red (reserved for injury elsewhere in the app).
+          <>
+            <div style={styles.mdSetupConfirmScrim} onClick={() => setConfirmOpen(false)} />
+            <div style={styles.mdSetupConfirmSheet} data-testid="rebuild-confirm-sheet">
+              <div style={styles.mdSheetGrabHandle} />
+              <div style={styles.mdSetupConfirmHeaderRow}>
+                <span style={styles.mdSetupConfirmIconBadge}>
+                  <RotateIcon />
+                </span>
+                <div style={styles.mdSetupConfirmTitle}>Today's game is running</div>
+              </div>
+              <div style={styles.mdSetupConfirmBody}>
+                A new rotation plans from 0:00. The {fmtClock(elapsedSec)} already played stays on each child's minutes — only the
+                plan from here changes.
+              </div>
+              <div style={styles.mdSetupConfirmBtnRow}>
+                <button
+                  style={styles.mdSetupConfirmBtnPrimary}
+                  onClick={() => {
+                    setConfirmOpen(false);
+                    onSubmit();
+                  }}
+                >
+                  Build new rotation
+                </button>
+                <button style={styles.mdSetupConfirmBtnSecondary} onClick={() => setConfirmOpen(false)}>
+                  Keep current
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
     );
   }
 

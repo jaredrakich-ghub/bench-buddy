@@ -511,44 +511,54 @@ export const styles = {
   },
 
   // Accordion row — the collapsed one-line summary used by the edit/modal
-  // (A4-Setup-collapsed) layout: label, current value in plain text, and a
-  // chevron, all on one white row. Tapping expands it into
-  // mdSetupCardDark below (only one section expanded at a time).
+  // (A4-Setup-collapsed) layout: icon tile, label, current value in plain
+  // text, and a chevron, all on one white row. Tapping expands it into
+  // mdSetupCardDark below (only one section expanded at a time). Precise
+  // spec from a design pass: gap 13 (was 12), radius 22 (was rowLg/20),
+  // padding 13/15 (was 15/16), its own explicit shadow.
   mdSetupAccordionRow: {
-    display: "flex", alignItems: "center", gap: 12, width: "100%", background: "#fff",
-    borderRadius: tokens.radius.rowLg, border: "none", padding: "15px 16px", cursor: "pointer",
-    textAlign: "left", font: "inherit",
+    display: "flex", alignItems: "center", gap: 13, width: "100%", background: "#fff",
+    borderRadius: 22, border: "none", padding: "13px 15px", cursor: "pointer",
+    textAlign: "left", font: "inherit", boxShadow: "0 3px 0 rgba(28,58,46,.08)",
   },
-  // flexShrink:0 — without it, a flex row tight on space (the badge +
-  // "First in goal today" + a real player's name + the chevron, all on
-  // one line) shrinks the label down towards its own longest single word,
-  // wrapping it — real-device feedback ("Jack starts" specifically
-  // triggered this once the section badge was added). The label should
-  // never wrap; the value below is what gives way instead.
-  mdSetupAccordionLabel: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 16, color: tokens.color.deepGreen, flexShrink: 0 },
+  // 44x44, radius 16, flex:0 0 auto, centered — one drawn (stroke, not
+  // solid-fill) SVG glyph per section. A different visual family from
+  // matchDayIcons.jsx's icons on purpose — those are explicitly solid-fill
+  // by design, these are line-drawn tags/badges, not match-day stickers.
+  mdSetupRowIconTile: {
+    width: 44, height: 44, borderRadius: 16, flex: "0 0 auto",
+    display: "flex", alignItems: "center", justifyContent: "center",
+  },
+  // Label promoted to the display font (Baloo 2, matching mdSetupCardTitle)
+  // and up to 19px — was the body font at 16px. flexShrink:0 — without it,
+  // a flex row tight on space (the icon tile + a long label + value + the
+  // chevron, all on one line) shrinks the label down towards its own
+  // longest single word, wrapping it — real-device feedback ("Jack
+  // starts" specifically triggered this once the icon tile was added). The
+  // label should never wrap; the value is what gives way instead.
+  mdSetupAccordionLabel: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 19, color: tokens.color.deepGreen, flexShrink: 0 },
   // minWidth:0 lets this actually shrink below its own content size (a
   // flex item's default min-width is auto, i.e. "never smaller than my
   // content" — without overriding that, overflow/ellipsis below can't
   // ever kick in); truncates with "…" rather than wrapping or overflowing
-  // the row once the label/badge/chevron have claimed what they need.
+  // the row once the label/icon/chevron have claimed what they need.
   mdSetupAccordionValue: {
-    marginLeft: "auto", fontFamily: tokens.font.body, fontWeight: 800, fontSize: 16, color: tokens.color.mutedText,
+    marginLeft: "auto", fontFamily: tokens.font.body, fontWeight: 800, fontSize: 15, color: tokens.color.mutedText,
     minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
   },
-  // Bumped from 18px with zero padding — real-device feedback: too small a
-  // tap target for the "⌄" collapse control this same style doubles as
-  // (Breaks/Manage squad's own expanded cards). The padding matters more
-  // than the font-size bump here — it's what actually grows the hit area,
-  // not just how the glyph looks. Harmless where this is only ever the
-  // static "›" indicator (every collapsed row) — those sit inside an
-  // already-full-row button, so the extra padding is just a bit more
-  // breathing room, not a new tap target.
-  // display:inline-flex + centering so the Lucide ChevronDown/ChevronRight
-  // icon this now wraps (real-device feedback: "thicker arrow" — a plain
-  // text glyph can't get much bolder than 800-weight already was; an SVG
-  // icon gives real strokeWidth control) sits centered in the padded box,
-  // not just baseline-aligned the way a text glyph would.
-  mdSetupAccordionChevron: {
+  // Back to a plain text glyph — purely decorative here (sits inside the
+  // already-full-row button, which is what's actually clickable), not its
+  // own separate tap target. See mdSetupCardCollapseBtn below for the
+  // *real* icon-button collapse control the expanded Breaks/Manage squad
+  // cards use — a deliberately different style now that this one is back
+  // to being non-interactive.
+  mdSetupAccordionChevron: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 18, color: tokens.color.chevron },
+  // The expanded Breaks/Manage squad cards' own collapse control — a real
+  // icon button (Lucide ChevronDown, thicker via strokeWidth than a text
+  // glyph can get), padded for an actual tap target rather than just a
+  // bigger-looking glyph. mdSetupCardChevronOnDark is the dark-card
+  // (First in goal today / Keeper changes) equivalent, just below.
+  mdSetupCardCollapseBtn: {
     display: "inline-flex", alignItems: "center", justifyContent: "center",
     color: tokens.color.chevron, padding: 8, cursor: "pointer", flexShrink: 0,
   },
@@ -628,7 +638,31 @@ export const styles = {
     fontFamily: tokens.font.body, fontWeight: 800, fontSize: 13, cursor: "pointer",
   },
   mdSetupChipActive: { background: tokens.color.deepGreen, color: tokens.color.creamPaper },
-  mdSetupChipFair: { color: tokens.color.pitchGreen },
+
+  // The sub-interval recommendation's own chip row (edit layout) — a
+  // design pass replacing the old two-line "For today's N players — tap a
+  // fairer sub interval..." prose + generic ✓/✗ chips. Deliberately its
+  // own style family, not mdSetupChip/mdSetupChipRow above — those are
+  // still Breaks' own None/Halves/Thirds/Quarters chips, untouched here.
+  mdSetupEvenSplitsLabel: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 14, color: tokens.color.groupLabel },
+  // flexWrap stays on regardless of screen width — if these five chips
+  // (4'-8') ever don't fit their one line, shrink the chip padding first;
+  // never drop flex-wrap, or a genuinely narrow screen would push the row
+  // off the right edge instead of wrapping.
+  mdSetupEvenSplitsRow: { marginTop: 9, display: "flex", gap: 7, flexWrap: "wrap" },
+  // Sit directly on the cream page — deliberately not inside a tinted
+  // card (a white chip loses its contrast against creamDeep, the app's
+  // usual card tint).
+  mdSetupSplitChip: {
+    display: "flex", alignItems: "center", gap: 5, background: "#fff", borderRadius: 999, border: "none",
+    padding: "7px 13px", cursor: "pointer", fontFamily: tokens.font.display, fontWeight: 800, fontSize: 17,
+    color: tokens.color.deepGreen,
+  },
+  // The single best-fitting interval (smallest spread across every
+  // candidate, not just "any fair one") — filled so there's one obvious
+  // thing to aim for, rather than every fair option looking the same.
+  mdSetupSplitChipBest: { background: tokens.color.pitchGreen, boxShadow: "0 3px 0 #1C5B3A", padding: "7px 15px", color: "#fff" },
+
   mdSetupAddRow: { display: "flex", gap: 8, marginBottom: 8 },
   // fontSize 16 (not 14) matters here — iOS Safari auto-zooms the whole
   // page on focusing any text input whose font-size computes under 16px,
@@ -683,11 +717,72 @@ export const styles = {
     marginTop: 14, fontSize: 13, fontFamily: tokens.font.body, fontWeight: 700, color: tokens.color.injuryText,
     background: tokens.color.injuryTint, border: `1px solid ${tokens.color.injuryBorder}`, padding: "10px 14px", borderRadius: 14,
   },
+  // Still used by the "inline" first-time-setup layout's own submit —
+  // untouched, not part of this design pass.
   mdSetupSubmitBtn: {
     display: "flex", alignItems: "center", gap: 8, justifyContent: "center", width: "100%", height: 60, marginTop: 20,
     borderRadius: tokens.radius.buttonMd, border: "none", background: tokens.color.yellow, color: tokens.color.deepGreen,
     fontFamily: tokens.font.display, fontWeight: 800, fontSize: 19, cursor: "pointer",
     boxShadow: tokens.shadow.solid(5, tokens.color.yellowShadow),
+  },
+  // The edit layout's own submit — green now, not yellow (real-use
+  // feedback), labeled "Build new rotation" regardless of entry point
+  // (Game settings or Set up next game), the same phrase the confirm
+  // sheet's own button below uses so a coach sees what they tapped
+  // repeated back. margin-top:auto pushes it to the bottom of the
+  // screen's own flex column (see the "edit" variant's wrapping div) on a
+  // short roster/settings page instead of sitting right after the last
+  // accordion row with a gap; margin-top:auto — not flex-grow — is what
+  // actually claims that leftover space, so flex:1 here is mostly inert
+  // (kept for parity with the design spec, harmless either way).
+  mdSetupSubmitBtnPrimary: {
+    display: "flex", alignItems: "center", gap: 8, justifyContent: "center",
+    margin: "12px 16px 16px", marginTop: "auto", flex: 1,
+    background: tokens.color.pitchGreen, borderRadius: 24, padding: 17, textAlign: "center",
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 21, color: "#fff",
+    boxShadow: "0 5px 0 #1C5B3A", border: "none", cursor: "pointer",
+  },
+
+  // ---- The edit layout's own "rebuild the rotation" confirm sheet —
+  // real-use feedback: the old red "This will restart the rotation from
+  // 0:00 and clear this game's progress so far" banner warned on *every*
+  // visit (even ones with nothing to lose) and was actually wrong —
+  // minutes already played are never cleared. Replaced with a check at
+  // submit time: no game in progress builds immediately, a game in
+  // progress opens this sheet instead. Same shell/mechanism as the match
+  // screen's own player-tap/injury sheets (mdSheet, styles.js above) —
+  // position:absolute/a locally-scoped low z-index rather than mdSheet's
+  // own position:fixed/zIndex 47, since this only ever needs to cover
+  // *this* screen's own content (SquadSettingsForm renders inside
+  // mdFullScreenTakeoverInner, which already owns the page's real scroll)
+  // rather than the whole app.
+  mdSetupConfirmScrim: { position: "absolute", inset: 0, background: tokens.color.scrim, zIndex: 5 },
+  mdSetupConfirmSheet: {
+    position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 6,
+    background: tokens.color.creamPaper, borderRadius: "32px 32px 0 0",
+    boxShadow: "0 -16px 44px rgba(20,32,28,.42)", borderTop: `3px solid ${tokens.color.yellow}`,
+    padding: "12px 16px 22px", display: "flex", flexDirection: "column", gap: 12,
+  },
+  // Amber, not red — this is caution ("here's what's about to happen"),
+  // not the app's injury-red, which stays reserved for actual injuries.
+  mdSetupConfirmIconBadge: {
+    width: 40, height: 40, borderRadius: "50%", background: tokens.color.yellow, flexShrink: 0,
+    display: "flex", alignItems: "center", justifyContent: "center",
+  },
+  mdSetupConfirmHeaderRow: { display: "flex", alignItems: "center", gap: 11, padding: "0 4px" },
+  mdSetupConfirmTitle: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 23, color: tokens.color.deepGreen, lineHeight: 1.1 },
+  mdSetupConfirmBody: {
+    fontFamily: tokens.font.body, fontWeight: 700, fontSize: 14.5, color: tokens.color.groupLabel, lineHeight: 1.45, padding: "0 4px",
+  },
+  mdSetupConfirmBtnRow: { display: "flex", gap: 10 },
+  mdSetupConfirmBtnPrimary: {
+    flex: 1.35, height: 60, borderRadius: 22, border: "none", background: tokens.color.pitchGreen,
+    boxShadow: `0 4px 0 ${tokens.color.greenShadow}`, color: tokens.color.creamPaper, fontFamily: tokens.font.display, fontWeight: 800,
+    fontSize: 20, cursor: "pointer",
+  },
+  mdSetupConfirmBtnSecondary: {
+    flex: 1, height: 60, borderRadius: 22, border: "none", background: tokens.color.creamDeep,
+    color: tokens.color.actionBar, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 20, cursor: "pointer",
   },
 
   // Persistent inline note (not the fixed action sheet below) — shown
