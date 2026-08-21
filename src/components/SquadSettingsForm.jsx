@@ -8,7 +8,6 @@ import { validateGameSettings } from "../lib/validation.js";
 import { fmtClock } from "../lib/clock.js";
 import { useSheetDrag } from "../hooks/useSheetDrag.js";
 import { styles, tokens } from "./styles.js";
-import { RotateIcon } from "./strokeIcons.jsx";
 
 // Drawn (stroke, not solid-fill) icons for the edit layout's own four
 // accordion-section badges, plus the "rebuild rotation" confirm sheet's
@@ -57,6 +56,15 @@ function SquadIcon() {
     </svg>
   );
 }
+function RotateIcon() {
+  return (
+    <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={tokens.color.deepGreen} strokeWidth={2.1} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 5.5v5h-5" />
+      <path d="M19.5 10.2A8 8 0 1 0 12 20" />
+    </svg>
+  );
+}
+
 // How many groups the match-screen interval tabs get visually split into —
 // "breakSegments" is the group count (2 = halves = 1 divider, 3 = thirds =
 // 2 dividers, and so on), not the divider count directly. See
@@ -887,25 +895,25 @@ export default function SquadSettingsForm({
           // too, not a locally-scoped absolute. Amber top border
           // (caution), not red (reserved for injury elsewhere in the app).
           <>
-            <div style={styles.mdCautionSheetScrim} onClick={() => setConfirmOpen(false)} />
+            <div style={styles.mdSetupConfirmScrim} onClick={() => setConfirmOpen(false)} />
             <div
-              style={{ ...styles.mdCautionSheet, ...confirmSheetDrag.dragStyle }}
+              style={{ ...styles.mdSetupConfirmSheet, ...confirmSheetDrag.dragStyle }}
               data-testid="rebuild-confirm-sheet"
             >
               <div {...confirmSheetDrag.dragHandleProps}>
                 <div style={styles.mdSheetGrabHandle} />
-                <div style={styles.mdCautionSheetHeaderRow}>
-                  <span style={styles.mdCautionSheetIconBadge}>
+                <div style={styles.mdSetupConfirmHeaderRow}>
+                  <span style={styles.mdSetupConfirmIconBadge}>
                     <RotateIcon />
                   </span>
-                  <div style={styles.mdCautionSheetTitle}>Today's game is running</div>
+                  <div style={styles.mdSetupConfirmTitle}>Today's game is running</div>
                 </div>
               </div>
-              <div style={styles.mdCautionSheetBody}>
+              <div style={styles.mdSetupConfirmBody}>
                 A new rotation plans from 0:00. The {fmtClock(elapsedSec)} already played stays on each child's minutes — only the
                 plan from here changes.
               </div>
-              <div style={styles.mdCautionSheetBtnRow}>
+              <div style={styles.mdSetupConfirmBtnRow}>
                 {/* "Build Rotation" — shorter than the main submit
                     button's own "Build new rotation" on purpose now.
                     Real-use feedback: at this point the coach already
@@ -915,7 +923,7 @@ export default function SquadSettingsForm({
                     this button's own width (flex 1.35 of the row), where
                     the longer phrase wrapped. */}
                 <button
-                  style={styles.mdCautionSheetBtnPrimary}
+                  style={styles.mdSetupConfirmBtnPrimary}
                   onClick={() => {
                     setConfirmOpen(false);
                     onSubmit();
@@ -923,7 +931,7 @@ export default function SquadSettingsForm({
                 >
                   Build Rotation
                 </button>
-                <button style={styles.mdCautionSheetBtnSecondary} onClick={() => setConfirmOpen(false)}>
+                <button style={styles.mdSetupConfirmBtnSecondary} onClick={() => setConfirmOpen(false)}>
                   Keep current
                 </button>
               </div>

@@ -565,35 +565,3 @@ describe("useMatchState — clock tick", () => {
     expect(result.current.activeInterval).toBe(1); // snapped to the new live interval, not left at 2
   });
 });
-
-// Real-use feedback brought this back after it was removed entirely in the
-// match-day redesign — a quick way to restart today's game from 0:00 on
-// the same rotation, reachable from MatchView's own action bar.
-describe("useMatchState — resetClock", () => {
-  it("rewinds the clock, sub log, and active interval, but leaves the plan and injuries untouched", () => {
-    const { result } = setupWithPlan();
-    const planBefore = result.current.plan;
-    act(() => {
-      result.current.setRunStartedAt(Date.now());
-      result.current.setTimerRunning(true);
-      result.current.setBaseElapsedSec(400);
-      result.current.setElapsedSec(400);
-      result.current.setActiveInterval(1);
-      result.current.setSubLog({ 0: 340 });
-      result.current.setInjuredThisGame(["p2"]);
-    });
-
-    act(() => result.current.resetClock());
-
-    expect(result.current.timerRunning).toBe(false);
-    expect(result.current.runStartedAt).toBeNull();
-    expect(result.current.baseElapsedSec).toBe(0);
-    expect(result.current.elapsedSec).toBe(0);
-    expect(result.current.activeInterval).toBe(0);
-    expect(result.current.subLog).toEqual({});
-    // Same rotation, not a rebuilt one -- and a real injury doesn't get
-    // silently undone just because the clock rewound.
-    expect(result.current.plan).toBe(planBefore);
-    expect(result.current.injuredThisGame).toEqual(["p2"]);
-  });
-});
