@@ -238,6 +238,15 @@ export default function SquadSettingsForm({
   // feedback: showing the picker even when the current pick is already
   // fair invites solving a problem that doesn't exist.
   const [fairnessExpanded, setFairnessExpanded] = useState(false);
+  // Real-use feedback: without this reset, expanding the prompt once for
+  // an unfair pick left it expanded for every *later* pick too — so a
+  // second unfair choice skipped straight to the bare chip row with no
+  // "Improve fairness" prompt ever shown for it. Collapse fresh every time
+  // the actual interval changes, so the prompt is what a coach sees first
+  // for whichever pick they're looking at right now.
+  useEffect(() => {
+    setFairnessExpanded(false);
+  }, [gameSettings.subIntervalMinutes]);
   // The edit layout's own "rebuild rotation" confirm sheet — see
   // renderWarningsAndSubmit/handleSubmitClick below. Not used by "inline"
   // (first-time setup never has a game in progress to confirm about).
@@ -343,11 +352,16 @@ export default function SquadSettingsForm({
     // Fair: a short confirmation, not a number to parse — real-use
     // feedback, see renderSubIntervalRecs below for the fuller story.
     // There's nothing to act on here, so nothing more to say.
+    //
+    // Real-use feedback again: "This is already one of the fairest..."
+    // read as odd — "already" implies the coach expected otherwise, when
+    // they've usually just picked this interval fresh. Named what's being
+    // judged (this sub interval) instead of leaning on "already".
     if (currentRec?.fair) {
       return (
         <div style={styles.mdSetupFairnessOk}>
           <Check size={13} strokeWidth={3} color={tokens.color.pitchGreen} />
-          This is already one of the fairest rotations for today.
+          This sub interval gives one of the fairest rotations for today.
         </div>
       );
     }

@@ -476,7 +476,7 @@ describe("SquadSettingsForm — sub-interval recommendation", () => {
     render(
       <SquadSettingsForm {...baseProps({ roster: FAIRNESS_ROSTER, availableIds: FAIRNESS_ROSTER.map((p) => p.id), gameSettings: FAIRNESS_SETTINGS })} />
     );
-    expect(screen.getByText("This is already one of the fairest rotations for today.")).toBeInTheDocument();
+    expect(screen.getByText("This sub interval gives one of the fairest rotations for today.")).toBeInTheDocument();
     expect(screen.queryByText("Improve fairness")).not.toBeInTheDocument();
     expect(screen.queryByTitle(/min subs/)).not.toBeInTheDocument();
   });
@@ -527,6 +527,29 @@ describe("SquadSettingsForm — sub-interval recommendation", () => {
     await user.click(screen.getByText("Improve fairness"));
     await user.click(screen.getByTitle("6 min subs is the fairest split today."));
     expect(setGameSettings).toHaveBeenCalledWith({ ...UNFAIR_SETTINGS, subIntervalMinutes: 6 });
+  });
+
+  // Real-use feedback: expanding the picker once for an unfair pick left
+  // it expanded for every later pick too -- a second, different unfair
+  // choice skipped straight to the bare chip row with no "Improve
+  // fairness" prompt ever shown for it. The prompt should collapse fresh
+  // whenever the actual interval changes.
+  it("collapses back behind the prompt when a different sub interval is picked, rather than staying expanded", () => {
+    const { rerender } = render(
+      <SquadSettingsForm {...baseProps({ roster: FAIRNESS_ROSTER, availableIds: FAIRNESS_ROSTER.map((p) => p.id), gameSettings: UNFAIR_SETTINGS })} />
+    );
+    fireEvent.click(screen.getByText("Improve fairness"));
+    expect(screen.getByTitle("6 min subs is the fairest split today.")).toBeInTheDocument();
+
+    // Same component instance, a different (still unfair) interval --
+    // simulates the coach picking 5' next via the "sub every" tile.
+    rerender(
+      <SquadSettingsForm
+        {...baseProps({ roster: FAIRNESS_ROSTER, availableIds: FAIRNESS_ROSTER.map((p) => p.id), gameSettings: { ...UNFAIR_SETTINGS, subIntervalMinutes: 5 } })}
+      />
+    );
+    expect(screen.getByText("Improve fairness")).toBeInTheDocument();
+    expect(screen.queryByTitle(/min subs/)).not.toBeInTheDocument();
   });
 });
 
