@@ -631,6 +631,23 @@ export const styles = {
   mdSetupBreakDivider: { width: 14, height: 22, borderRadius: 4, background: tokens.color.yellow, flexShrink: 0 },
 
   mdSetupHint: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 12, color: tokens.color.mutedText, marginTop: 6, lineHeight: 1.4 },
+  // Progressive disclosure for the sub-interval fairness picker
+  // (renderSubIntervalRecs, SquadSettingsForm.jsx) — real-use feedback:
+  // showing the picker even when the current pick is already fair invites
+  // solving a problem that doesn't exist.
+  mdSetupFairnessOk: {
+    display: "flex", alignItems: "center", gap: 5, marginTop: 6,
+    fontFamily: tokens.font.body, fontWeight: 800, fontSize: 12.5, color: tokens.color.pitchGreen, lineHeight: 1.3,
+  },
+  // Plain text button, not a card/pill — deliberately lighter-weight than
+  // the chips it reveals, so it reads as an optional aside rather than
+  // another control competing with the tiles/chips around it.
+  mdSetupFairnessPrompt: {
+    display: "block", width: "100%", marginTop: 8, padding: 0, background: "transparent", border: "none",
+    cursor: "pointer", textAlign: "left", font: "inherit", lineHeight: 1.4,
+  },
+  mdSetupFairnessPromptLabel: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 13.5, color: tokens.color.pitchGreen },
+  mdSetupFairnessPromptHint: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 12, color: tokens.color.mutedText },
   mdSetupChipRow: { display: "flex", gap: 6, flexWrap: "wrap" },
   mdSetupChip: {
     flex: "0 0 auto", padding: "8px 14px", borderRadius: tokens.radius.chip, border: "none",

@@ -455,9 +455,40 @@ describe("SquadSettingsForm — Breaks", () => {
   });
 });
 
+// FAIRNESS_SETTINGS' own subIntervalMinutes (6) is already the fixture's
+// unique best fit — used below for the "already fair" branch. UNFAIR_
+// SETTINGS swaps in 4′, one of the non-fair candidates, to exercise the
+// "something to improve" branch instead.
+const UNFAIR_SETTINGS = { ...FAIRNESS_SETTINGS, subIntervalMinutes: 4 };
+
 describe("SquadSettingsForm — sub-interval recommendation", () => {
   it("stays hidden while there aren't enough available players yet", () => {
     render(<SquadSettingsForm {...baseProps({ availableIds: ["p1"] })} />);
+    expect(screen.queryByTitle(/min subs/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Improve fairness")).not.toBeInTheDocument();
+  });
+
+  // Progressive disclosure, real-use feedback: showing a "fix this" picker
+  // when the coach's current pick is already the fairest option invites
+  // solving a problem that doesn't exist. FAIRNESS_SETTINGS' own
+  // subIntervalMinutes (6) is that fixture's unique best fit.
+  it("when the current pick is already fair, shows a plain confirmation instead of the picker", () => {
+    render(
+      <SquadSettingsForm {...baseProps({ roster: FAIRNESS_ROSTER, availableIds: FAIRNESS_ROSTER.map((p) => p.id), gameSettings: FAIRNESS_SETTINGS })} />
+    );
+    expect(screen.getByText("This is already one of the fairest rotations for today.")).toBeInTheDocument();
+    expect(screen.queryByText("Improve fairness")).not.toBeInTheDocument();
+    expect(screen.queryByTitle(/min subs/)).not.toBeInTheDocument();
+  });
+
+  // Unfair: starts collapsed behind the "Improve fairness" prompt, not the
+  // chip picker itself — a guide only, not something in the coach's way.
+  it("when the current pick isn't fair, shows a collapsed 'Improve fairness' prompt instead of the picker", () => {
+    render(
+      <SquadSettingsForm {...baseProps({ roster: FAIRNESS_ROSTER, availableIds: FAIRNESS_ROSTER.map((p) => p.id), gameSettings: UNFAIR_SETTINGS })} />
+    );
+    expect(screen.getByText("Improve fairness")).toBeInTheDocument();
+    expect(screen.getByText(/tap to explore fairer subbing options/i)).toBeInTheDocument();
     expect(screen.queryByTitle(/min subs/)).not.toBeInTheDocument();
   });
 
@@ -467,15 +498,12 @@ describe("SquadSettingsForm — sub-interval recommendation", () => {
   // (7 players, 42-minute game), 6′ is the unique smallest-spread option
   // among 4/5/6/7/8′ (bestSpread 0; every other candidate is non-zero) —
   // see rotation.test.js's own recommendSubIntervals coverage for the math.
-  //
-  // The label itself ("Even splits for N players") was later dropped —
-  // real-device feedback found it unclear jargon and redundant with
-  // renderIntervalPreview's own "N sub windows · fairest for N players"
-  // caption right above it — so this test only checks the chips now.
-  it("shows a chip per candidate interval with its minute mark, highlighting the single best fit", () => {
+  it("tapping 'Improve fairness' reveals a chip per candidate interval with its minute mark, highlighting the single best fit", async () => {
+    const user = userEvent.setup();
     render(
-      <SquadSettingsForm {...baseProps({ roster: FAIRNESS_ROSTER, availableIds: FAIRNESS_ROSTER.map((p) => p.id), gameSettings: FAIRNESS_SETTINGS })} />
+      <SquadSettingsForm {...baseProps({ roster: FAIRNESS_ROSTER, availableIds: FAIRNESS_ROSTER.map((p) => p.id), gameSettings: UNFAIR_SETTINGS })} />
     );
+    await user.click(screen.getByText("Improve fairness"));
     // Queried by title, not text — "6′" also legitimately appears in the
     // Keeper swaps stepper elsewhere on this (inline-variant) screen,
     // since this fixture's keeperShiftMinutes falls back to the same
@@ -493,11 +521,12 @@ describe("SquadSettingsForm — sub-interval recommendation", () => {
     const user = userEvent.setup();
     render(
       <SquadSettingsForm
-        {...baseProps({ roster: FAIRNESS_ROSTER, availableIds: FAIRNESS_ROSTER.map((p) => p.id), gameSettings: FAIRNESS_SETTINGS, setGameSettings })}
+        {...baseProps({ roster: FAIRNESS_ROSTER, availableIds: FAIRNESS_ROSTER.map((p) => p.id), gameSettings: UNFAIR_SETTINGS, setGameSettings })}
       />
     );
+    await user.click(screen.getByText("Improve fairness"));
     await user.click(screen.getByTitle("6 min subs is the fairest split today."));
-    expect(setGameSettings).toHaveBeenCalledWith({ ...FAIRNESS_SETTINGS, subIntervalMinutes: 6 });
+    expect(setGameSettings).toHaveBeenCalledWith({ ...UNFAIR_SETTINGS, subIntervalMinutes: 6 });
   });
 });
 

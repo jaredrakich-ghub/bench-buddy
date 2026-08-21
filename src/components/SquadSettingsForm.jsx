@@ -232,6 +232,12 @@ export default function SquadSettingsForm({
   const [expandedSection, setExpandedSection] = useState(null); // "goal" | "swaps" | "breaks" | "squad" | null
   const [showAddChip, setShowAddChip] = useState(false);
   const [editingNumberId, setEditingNumberId] = useState(null);
+  // Progressive disclosure for the sub-interval fairness picker (see
+  // renderSubIntervalRecs below) — collapsed behind a tappable "Improve
+  // fairness" prompt until a coach actually asks to see it. Real-use
+  // feedback: showing the picker even when the current pick is already
+  // fair invites solving a problem that doesn't exist.
+  const [fairnessExpanded, setFairnessExpanded] = useState(false);
   // The edit layout's own "rebuild rotation" confirm sheet — see
   // renderWarningsAndSubmit/handleSubmitClick below. Not used by "inline"
   // (first-time setup never has a game in progress to confirm about).
@@ -334,10 +340,21 @@ export default function SquadSettingsForm({
   }
 
   function renderIntervalPreview() {
+    // Fair: a short confirmation, not a number to parse — real-use
+    // feedback, see renderSubIntervalRecs below for the fuller story.
+    // There's nothing to act on here, so nothing more to say.
+    if (currentRec?.fair) {
+      return (
+        <div style={styles.mdSetupFairnessOk}>
+          <Check size={13} strokeWidth={3} color={tokens.color.pitchGreen} />
+          This is already one of the fairest rotations for today.
+        </div>
+      );
+    }
     if (currentRec) {
       return (
-        <div style={{ ...styles.mdSetupHint, color: currentRec.fair ? tokens.color.pitchGreen : styles.mdSetupHint.color }}>
-          {currentRec.numIntervals} sub windows · {currentRec.fair ? `fairest for ${availableIds.length} players` : `up to ${Math.round(currentRec.bestSpread)} min apart today`}
+        <div style={styles.mdSetupHint}>
+          {currentRec.numIntervals} sub windows · up to {Math.round(currentRec.bestSpread)} min apart today
         </div>
       );
     }
@@ -366,8 +383,25 @@ export default function SquadSettingsForm({
   // right above this ("N sub windows · fairest for N players") already
   // says the same thing in context. Dropped the label entirely; each
   // chip's own tap title still explains itself.
+  //
+  // Progressive disclosure, real-use feedback: showing this picker
+  // unconditionally — even when the coach's current pick is already fair
+  // — invites solving a problem that doesn't exist. Fair: nothing renders
+  // here at all (renderIntervalPreview's own checkmark line already says
+  // so). Unfair: starts collapsed behind a tappable "Improve fairness"
+  // prompt, only expanding into the actual chip picker once a coach asks
+  // to see it — a guide, not something in their way.
   function renderSubIntervalRecs() {
     if (!subIntervalRecs || subIntervalRecs.length === 0) return null;
+    if (currentRec?.fair) return null;
+    if (!fairnessExpanded) {
+      return (
+        <button style={styles.mdSetupFairnessPrompt} onClick={() => setFairnessExpanded(true)}>
+          <span style={styles.mdSetupFairnessPromptLabel}>Improve fairness</span>
+          <span style={styles.mdSetupFairnessPromptHint}> — tap to explore fairer subbing options&nbsp;›</span>
+        </button>
+      );
+    }
     const bestFitMinutes = subIntervalRecs.reduce((best, r) => (r.bestSpread < best.bestSpread ? r : best)).subIntervalMinutes;
     return (
       <>
