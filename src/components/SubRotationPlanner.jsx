@@ -48,6 +48,13 @@ export default function SubRotationPlanner({ user }) {
 
   const [newPlayerName, setNewPlayerName] = useState("");
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  // Which accordion section Game settings should already have open when it
+  // appears — null for the normal cog-menu entry (nothing pre-expanded, as
+  // before), "squad" when opened via Team & account's own "Manage squad"
+  // row (real-use feedback: that row landed on the general settings screen
+  // with nothing expanded, not the squad list a coach tapped it to reach).
+  // Reset back to null on close so a later normal open doesn't inherit it.
+  const [settingsInitialSection, setSettingsInitialSection] = useState(null);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [showSeasonModal, setShowSeasonModal] = useState(false);
   const [showTeamSwitcher, setShowTeamSwitcher] = useState(false);
@@ -450,7 +457,10 @@ export default function SubRotationPlanner({ user }) {
               onSignOut={signOutUser}
               onDeleteAccount={deleteMyAccount}
               onShowSeason={() => setShowSeasonModal(true)}
-              onShowSettings={() => setShowSettingsModal(true)}
+              onShowSettings={() => {
+                setSettingsInitialSection("squad");
+                setShowSettingsModal(true);
+              }}
               crestSrc={headerMascot}
             />
           </div>
@@ -473,7 +483,11 @@ export default function SubRotationPlanner({ user }) {
               // match-complete case — a genuinely different moment (a fresh
               // game, not editing today's), not reached via that same row.
               title={isMatchComplete ? "Set up next game" : "Game settings"}
-              onClose={() => setShowSettingsModal(false)}
+              initialExpandedSection={settingsInitialSection}
+              onClose={() => {
+                setShowSettingsModal(false);
+                setSettingsInitialSection(null);
+              }}
               onSubmit={handleGenerate}
               // Same label regardless of entry point — matches the confirm
               // sheet's own button text (SquadSettingsForm.jsx), so a coach

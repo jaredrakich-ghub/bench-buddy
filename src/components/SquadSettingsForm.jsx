@@ -162,6 +162,12 @@ export default function SquadSettingsForm({
   variant = "inline",
   title = "Today's game",
   onClose,
+  // Which accordion section (edit variant only) should already be open on
+  // arrival — null for the normal default (nothing expanded). Team &
+  // account's own "Manage squad" row passes "squad" here so tapping it
+  // lands straight on the squad list, not a blank settings screen the
+  // coach then has to expand themselves.
+  initialExpandedSection = null,
 }) {
   const validation = validateGameSettings(gameSettings, availableIds.length);
 
@@ -229,7 +235,7 @@ export default function SquadSettingsForm({
   // keeper-eligible/remove are all edited far less often than availability
   // is, so tucking them behind a tap costs little.
   const [activeTile, setActiveTile] = useState(null);
-  const [expandedSection, setExpandedSection] = useState(null); // "goal" | "swaps" | "breaks" | "squad" | null
+  const [expandedSection, setExpandedSection] = useState(initialExpandedSection); // "goal" | "swaps" | "breaks" | "squad" | null
   const [showAddChip, setShowAddChip] = useState(false);
   const [editingNumberId, setEditingNumberId] = useState(null);
   // Progressive disclosure for the sub-interval fairness picker (see

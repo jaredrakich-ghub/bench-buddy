@@ -784,7 +784,12 @@ export const styles = {
   // higher with a visible gap beneath it.
   mdSetupSubmitBtnPrimary: {
     display: "flex", alignItems: "center", gap: 8, justifyContent: "center",
-    margin: "12px 0 46px", marginTop: "auto", height: 60,
+    // Longhand margins, not a shorthand `margin` + a `marginTop` override —
+    // caught as a real console warning while testing this file's other
+    // changes ("mixing shorthand and non-shorthand properties for the same
+    // value can lead to styling bugs"), the exact footgun subIntervalChip/
+    // intervalTab's own comments already warn about elsewhere in this file.
+    marginTop: "auto", marginRight: 0, marginBottom: 46, marginLeft: 0, height: 60,
     background: tokens.color.pitchGreen, borderRadius: 24, padding: "0 17px", textAlign: "center",
     fontFamily: tokens.font.display, fontWeight: 800, fontSize: 21, color: "#fff",
     boxShadow: "0 5px 0 #1C5B3A", border: "none", cursor: "pointer",

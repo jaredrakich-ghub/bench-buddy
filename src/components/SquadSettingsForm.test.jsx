@@ -98,6 +98,23 @@ describe("SquadSettingsForm — rendering (edit / A4 layout)", () => {
     expect(screen.getByText("None")).toBeInTheDocument();
   });
 
+  // Real-use feedback: Team & account's own "Manage squad" row landed on
+  // this screen with nothing expanded, same as the plain cog-menu entry --
+  // not the squad list a coach tapped that specific row to reach.
+  it("opens straight to the Manage squad card when initialExpandedSection is 'squad'", () => {
+    render(<SquadSettingsForm {...baseProps({ variant: "edit", initialExpandedSection: "squad" })} />);
+    expect(screen.getByTitle("Collapse")).toBeInTheDocument();
+    expect(screen.getAllByTitle("Set squad number").length).toBeGreaterThan(0);
+    // The other three sections stay collapsed -- only one section open at a time.
+    expect(screen.queryByText("Tap a name to pick who starts in goal today.")).not.toBeInTheDocument();
+  });
+
+  it("opens with nothing expanded by default (no initialExpandedSection)", () => {
+    render(<SquadSettingsForm {...baseProps({ variant: "edit" })} />);
+    expect(screen.queryByTitle("Collapse")).not.toBeInTheDocument();
+    expect(screen.queryByTitle("Set squad number")).not.toBeInTheDocument();
+  });
+
   // Real-use feedback: this row used to duplicate SquadChangeScreen.jsx's
   // own job (the cog menu's "Who's here" row) — availability toggling and
   // +Player both live there now, so the edit layout drops its own copy of
