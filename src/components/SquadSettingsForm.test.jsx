@@ -115,6 +115,30 @@ describe("SquadSettingsForm — rendering (edit / A4 layout)", () => {
     expect(screen.queryByTitle("Set squad number")).not.toBeInTheDocument();
   });
 
+  // Real-use feedback: even expanded, Manage squad was still the *last*
+  // thing on the screen -- header, tiles, and three collapsed sections all
+  // sat above it, so a coach arriving via that specific route still had to
+  // scroll past everything else to reach the squad list they came for.
+  // jsdom doesn't implement scrollIntoView at all -- mocked here the same
+  // way real browsers that happen to lack it are already guarded against
+  // in the component itself (a typeof check, not just a null check).
+  it("scrolls the Manage squad card into view on mount when opened via initialExpandedSection, not otherwise", () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    render(<SquadSettingsForm {...baseProps({ variant: "edit", initialExpandedSection: "squad" })} />);
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
+  });
+
+  it("doesn't force a scroll when a coach manually expands Manage squad during a normal visit", async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    const user = userEvent.setup();
+    render(<SquadSettingsForm {...baseProps({ variant: "edit" })} />);
+    await user.click(screen.getByText("Manage squad"));
+    expect(screen.getAllByTitle("Set squad number").length).toBeGreaterThan(0);
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
   // Real-use feedback: this row used to duplicate SquadChangeScreen.jsx's
   // own job (the cog menu's "Who's here" row) — availability toggling and
   // +Player both live there now, so the edit layout drops its own copy of

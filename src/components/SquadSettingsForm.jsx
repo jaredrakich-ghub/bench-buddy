@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Trash2, Shuffle, ChevronDown, Check } from "lucide-react";
 import {
   computeIntervals, computeBreakBoundaries, keeperShiftIntervalsFor, generatePlan, computeFairnessSpread, isFairSpread,
@@ -237,6 +237,25 @@ export default function SquadSettingsForm({
   // is, so tucking them behind a tap costs little.
   const [activeTile, setActiveTile] = useState(null);
   const [expandedSection, setExpandedSection] = useState(initialExpandedSection); // "goal" | "swaps" | "breaks" | "squad" | null
+  // Real-use feedback: arriving here via Team & account's own "Manage
+  // squad" row still landed the coach looking at the top of the screen
+  // (header/tiles/three collapsed sections) with the squad list itself —
+  // the whole reason they tapped that row — sitting last, off the bottom
+  // of the viewport. Scrolls the expanded card into view on mount, but
+  // only for this specific entry route (checks the initial prop, not the
+  // live expandedSection state) — a coach who manually expands Manage
+  // squad during a normal visit shouldn't get yanked around by a forced
+  // scroll they didn't ask for.
+  const squadCardRef = useRef(null);
+  useEffect(() => {
+    // typeof guard, not just a null check — jsdom (this file's own test
+    // suite) doesn't implement scrollIntoView at all, and it's cheap
+    // insurance against any real embedded webview that doesn't either.
+    if (initialExpandedSection === "squad" && typeof squadCardRef.current?.scrollIntoView === "function") {
+      squadCardRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [showAddChip, setShowAddChip] = useState(false);
   const [editingNumberId, setEditingNumberId] = useState(null);
   // Progressive disclosure for the sub-interval fairness picker (see
@@ -859,7 +878,7 @@ export default function SquadSettingsForm({
           )}
 
           {expandedSection === "squad" ? (
-            <div style={styles.mdSetupCard}>
+            <div ref={squadCardRef} style={styles.mdSetupCard}>
               <div style={styles.mdSetupCardHeaderRow}>
                 <div style={styles.mdSetupCardTitle}>Manage squad</div>
                 <span style={styles.mdSetupCardCollapseBtn} onClick={() => setExpandedSection(null)} role="button" tabIndex={0} title="Collapse">
