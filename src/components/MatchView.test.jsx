@@ -22,6 +22,7 @@ import "@testing-library/jest-dom/vitest";
 import { render, screen, cleanup, fireEvent, act, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import MatchView from "./MatchView.jsx";
+import { fmtClock } from "../lib/clock.js";
 
 // RTL's automatic afterEach(cleanup) only registers itself when it detects
 // globals (test.globals in the vitest config) — we deliberately don't turn
@@ -101,6 +102,7 @@ function baseProps(overrides = {}) {
     onInjury: vi.fn(),
     onBringBack: vi.fn(),
     onSwap: vi.fn(),
+    onReset: vi.fn(),
     onShowSummary: vi.fn(),
     onShowSettings: vi.fn(),
     onShowSquadChange: vi.fn(),
@@ -416,6 +418,57 @@ describe("MatchView — paused", () => {
     fireEvent.click(screen.getByText("Resume"));
     expect(setTimerRunning).toHaveBeenCalledWith(true);
     expect(setRunStartedAt).toHaveBeenCalled();
+  });
+});
+
+// Real-use feedback: a dedicated action-bar Reset button "looked
+// terrible" -- replaced with a hidden gesture, tapping the timer display
+// itself, no new visible UI at all. Underlying action (resetClock,
+// useMatchState.js) is unchanged from when it briefly had a button.
+describe("MatchView — hidden reset gesture (tap the timer)", () => {
+  it("resets immediately, no confirm sheet, when there's nothing to lose", () => {
+    const onReset = vi.fn();
+    render(<MatchView {...baseProps({ timerRunning: true, elapsedSec: 0, subLog: {}, onReset })} />);
+    fireEvent.click(screen.getByText(fmtClock(0)));
+    expect(onReset).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("reset-confirm-sheet")).not.toBeInTheDocument();
+  });
+
+  it("opens a confirm sheet instead of resetting immediately once there's real progress, naming the real elapsed time", () => {
+    const onReset = vi.fn();
+    render(<MatchView {...baseProps({ timerRunning: false, elapsedSec: 100, onReset })} />);
+    fireEvent.click(screen.getByText(fmtClock(100)));
+    expect(onReset).not.toHaveBeenCalled();
+    const sheet = screen.getByTestId("reset-confirm-sheet");
+    expect(within(sheet).getByText("Restart this game?")).toBeInTheDocument();
+    expect(within(sheet).getByText(/the 1:40 played so far won't be kept/)).toBeInTheDocument();
+  });
+
+  it("confirming resets and closes the sheet; Cancel closes it without resetting", () => {
+    const onReset = vi.fn();
+    render(<MatchView {...baseProps({ timerRunning: false, elapsedSec: 100, onReset })} />);
+    fireEvent.click(screen.getByText(fmtClock(100)));
+    fireEvent.click(screen.getByText("Cancel"));
+    expect(onReset).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("reset-confirm-sheet")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText(fmtClock(100)));
+    // The sheet's own confirm button -- unambiguous from the timer, which
+    // shows a clock reading, not the word "Reset".
+    fireEvent.click(screen.getByText("Reset"));
+    expect(onReset).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("reset-confirm-sheet")).not.toBeInTheDocument();
+  });
+
+  it("does nothing while a past interval is being browsed (interactionLocked)", () => {
+    const onReset = vi.fn();
+    // elapsedSec 400 puts the live interval at 1 (defaultPlan's interval 1
+    // spans 360-720s); browsing activeInterval 0 makes it a past interval
+    // -- same isPastInterval guard the tap-to-act menu already respects.
+    render(<MatchView {...baseProps({ timerRunning: true, elapsedSec: 400, activeInterval: 0, onReset })} />);
+    fireEvent.click(screen.getByText(fmtClock(400)));
+    expect(onReset).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("reset-confirm-sheet")).not.toBeInTheDocument();
   });
 });
 

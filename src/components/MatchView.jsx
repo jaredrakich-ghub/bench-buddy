@@ -6,6 +6,7 @@ import { getFormationLayout, computeTokenSize } from "../lib/formation.js";
 import { useSheetDrag } from "../hooks/useSheetDrag.js";
 import { styles, tokens } from "./styles.js";
 import { GearIcon, KitShirt, MedicalCross } from "./matchDayIcons.jsx";
+import { RotateIcon } from "./strokeIcons.jsx";
 
 // Hand-drawn-style pitch markings (halfway line + centre circle) as one
 // absolutely-positioned SVG overlay, replacing the old plain CSS
@@ -82,6 +83,7 @@ export default function MatchView({
   onInjury,
   onBringBack,
   onSwap,
+  onReset,
   onShowSummary,
   onShowSettings,
   onShowSquadChange,
@@ -304,11 +306,31 @@ export default function MatchView({
     if (trySwapComplete(id)) return;
     setInjuredPopoverId((current) => (current === id ? null : id));
   };
+  // Reset — restarts today's game from 0:00 on the same rotation (see
+  // resetClock, useMatchState.js). Real-use feedback: a dedicated
+  // action-bar button for this "looked terrible" — this is a hidden
+  // gesture instead, tapping the timer display itself, no new visible UI
+  // at all. Distinct from "Build new rotation" (SquadSettingsForm's own
+  // submit), which rebuilds the plan itself.
+  //
+  // No confirm needed with nothing to lose yet (pre-kickoff, or the
+  // instant right after Start with elapsedSec still at 0). Otherwise
+  // opens the same shared caution-sheet shell SquadSettingsForm's own
+  // rebuild-confirm uses, reusing its own RotateIcon and swipe-to-dismiss.
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+  const hasProgressToReset = elapsedSec > 0 || Object.keys(subLog).length > 0;
+  const handleTimerTap = () => {
+    if (interactionLocked) return;
+    if (hasProgressToReset) setResetConfirmOpen(true);
+    else onReset();
+  };
+
   // Block 8, part C's own "LAYOUT RULE": the action bar is hidden whenever
   // the player-tap or injury sheet is open, since the sheet covers it
   // completely anyway (unlike the old anchored popovers, which left the
-  // bar visible underneath them).
-  const sheetOpen = Boolean(menuPlayerId || injuredPopoverId);
+  // bar visible underneath them). Reset's own confirm sheet follows the
+  // same rule.
+  const sheetOpen = Boolean(menuPlayerId || injuredPopoverId || resetConfirmOpen);
 
   // Swipe-down-to-dismiss for the bottom sheets — the grab handle
   // (mdSheetGrabHandle) is a standard drag affordance, so it needs to
@@ -321,6 +343,7 @@ export default function MatchView({
   // content is a lot more that isn't needed here.
   const playerSheetDrag = useSheetDrag(() => setMenuPlayerId(null));
   const injurySheetDrag = useSheetDrag(() => setInjuredPopoverId(null));
+  const resetSheetDrag = useSheetDrag(() => setResetConfirmOpen(false));
 
   const outfielders = viewedIv.onField.filter((p) => !p.isGk);
   const tokenSize = computeTokenSize(outfielders.length);
@@ -470,9 +493,22 @@ export default function MatchView({
               "Next sub" (README > A2-Match-actionbar > Action bar) — not
               here; an earlier round of real-device feedback had moved it
               up to this row instead, since reverted per an updated README. */}
-          <span style={{ ...styles.mdTimerDisplay, ...(isPaused ? styles.mdTimerDisplayPaused : {}) }}>
+          {/* A hidden gesture, not a visible control — tapping this opens
+              the reset confirm (see handleTimerTap above). No visual
+              affordance is added on purpose (real-use feedback: a
+              dedicated action-bar Reset button "looked terrible") — a
+              <button> only so it's a real, focusable/keyboard-operable
+              tap target, styled to look identical to the plain <span> it
+              replaced. */}
+          <button
+            style={{
+              ...styles.mdTimerDisplay, ...(isPaused ? styles.mdTimerDisplayPaused : {}),
+              border: "none", background: "transparent", padding: 0, cursor: "pointer", font: "inherit", userSelect: "none",
+            }}
+            onClick={handleTimerTap}
+          >
             {fmtClock(elapsedSec)}
-          </span>
+          </button>
           <span style={styles.mdTimerCaption}>of {Math.round(totalGameSec / 60)} min</span>
         </div>
       </div>
@@ -874,17 +910,59 @@ export default function MatchView({
         </>
       )}
 
+      {resetConfirmOpen && (
+        // Same shared caution-sheet shell as SquadSettingsForm's own
+        // "rebuild rotation" confirm (styles.js has the full story on why
+        // it's shared) — grab handle, scrim-dismiss, swipe-to-dismiss, the
+        // same RotateIcon in its header badge. Different copy: this one is
+        // explicit that minutes *aren't* kept, the opposite of the rebuild
+        // sheet's own reassurance, since resetting genuinely does rewind
+        // the clock and sub log — only the rotation plan itself survives.
+        <>
+          <div style={styles.mdCautionSheetScrim} onClick={() => setResetConfirmOpen(false)} />
+          <div style={{ ...styles.mdCautionSheet, ...resetSheetDrag.dragStyle }} data-testid="reset-confirm-sheet">
+            <div {...resetSheetDrag.dragHandleProps}>
+              <div style={styles.mdSheetGrabHandle} />
+              <div style={styles.mdCautionSheetHeaderRow}>
+                <span style={styles.mdCautionSheetIconBadge}>
+                  <RotateIcon />
+                </span>
+                <div style={styles.mdCautionSheetTitle}>Restart this game?</div>
+              </div>
+            </div>
+            <div style={styles.mdCautionSheetBody}>
+              The clock and sub log go back to 0:00 — the {fmtClock(elapsedSec)} played so far won't be kept. Today's
+              rotation stays exactly as it is; this doesn't build a new one.
+            </div>
+            <div style={styles.mdCautionSheetBtnRow}>
+              <button
+                style={styles.mdCautionSheetBtnPrimary}
+                onClick={() => {
+                  setResetConfirmOpen(false);
+                  onReset();
+                }}
+              >
+                Reset
+              </button>
+              <button style={styles.mdCautionSheetBtnSecondary} onClick={() => setResetConfirmOpen(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
       {cogOrigin && (
         // A2d-Menu-trimmed (#10a): four rows, no group headers — "holding
         // only what a coach touches during a game." Season data, Manage
         // squad, Switch team, Account, and Sign out all moved to
-        // Team & account (#10e), reached through the last row here; the
-        // reset button (previously the header icon next to the cog) came
-        // out of the app entirely rather than being relocated, per the
-        // README's own instruction ("no place in the new information
-        // architecture"). Grows from the cog (cogOrigin.top, captured when
-        // it was tapped), dismissed by tapping the scrim, the cog again,
-        // or any row inside it.
+        // Team & account (#10e), reached through the last row here. Reset
+        // is a hidden gesture now (tap the timer display, see
+        // handleTimerTap above) rather than any kind of menu row — real-
+        // use feedback found a dedicated visible control for it "looked
+        // terrible". Grows from the cog (cogOrigin.top, captured when it
+        // was tapped), dismissed by tapping the scrim, the cog again, or
+        // any row inside it.
         <>
           <div style={styles.mdScrim} data-testid="scrim" onClick={() => setCogOrigin(null)} />
           <div style={{ ...styles.mdPopover, top: cogOrigin.top }} data-testid="cog-popover">
