@@ -732,13 +732,22 @@ export const styles = {
   // repeated back. margin-top:auto pushes it to the bottom of the
   // screen's own flex column (see the "edit" variant's wrapping div) on a
   // short roster/settings page instead of sitting right after the last
-  // accordion row with a gap; margin-top:auto — not flex-grow — is what
-  // actually claims that leftover space, so flex:1 here is mostly inert
-  // (kept for parity with the design spec, harmless either way).
+  // accordion row with a gap.
+  //
+  // Real-device feedback: this used to also carry flex:1, on the (wrong)
+  // assumption that margin-top:auto alone claims the column's leftover
+  // space, making flex-grow redundant here. It doesn't — flex-grow runs
+  // first and margin:auto only soaks up whatever's left after that, so
+  // flex:1 was the one actually inflating this button to fill the entire
+  // rest of the (minHeight:100vh) column on a short settings page, making
+  // it look like a giant slab instead of a normal button. Dropped in favor
+  // of an explicit height:60, matching the yellow first-time-setup button
+  // right above (mdSetupSubmitBtn) and every other primary green button
+  // in this file (mdBackPopoverBtnPrimary, mdSetupConfirmBtnPrimary).
   mdSetupSubmitBtnPrimary: {
     display: "flex", alignItems: "center", gap: 8, justifyContent: "center",
-    margin: "12px 16px 16px", marginTop: "auto", flex: 1,
-    background: tokens.color.pitchGreen, borderRadius: 24, padding: 17, textAlign: "center",
+    margin: "12px 16px 16px", marginTop: "auto", height: 60,
+    background: tokens.color.pitchGreen, borderRadius: 24, padding: "0 17px", textAlign: "center",
     fontFamily: tokens.font.display, fontWeight: 800, fontSize: 21, color: "#fff",
     boxShadow: "0 5px 0 #1C5B3A", border: "none", cursor: "pointer",
   },
@@ -749,19 +758,33 @@ export const styles = {
   // visit (even ones with nothing to lose) and was actually wrong —
   // minutes already played are never cleared. Replaced with a check at
   // submit time: no game in progress builds immediately, a game in
-  // progress opens this sheet instead. Same shell/mechanism as the match
-  // screen's own player-tap/injury sheets (mdSheet, styles.js above) —
-  // position:absolute/a locally-scoped low z-index rather than mdSheet's
-  // own position:fixed/zIndex 47, since this only ever needs to cover
-  // *this* screen's own content (SquadSettingsForm renders inside
-  // mdFullScreenTakeoverInner, which already owns the page's real scroll)
-  // rather than the whole app.
-  mdSetupConfirmScrim: { position: "absolute", inset: 0, background: tokens.color.scrim, zIndex: 5 },
+  // progress opens this sheet instead.
+  //
+  // This originally shipped as position:absolute with a locally-scoped
+  // low z-index (5/6), reasoning it only needed to cover this screen's own
+  // content rather than the whole app. Real-device feedback: "completely
+  // off screen". The reasoning was wrong the same way mdSheet's own
+  // comment above already warns about — bottom:0 on an absolutely
+  // positioned sheet anchors to the bottom of its nearest positioned
+  // ancestor (the edit layout's own position:relative wrapper), and that
+  // wrapper's real height on a full roster/settings page runs well past
+  // one viewport, not the minHeight:100vh floor it was sized against here.
+  // So "bottom" landed at the bottom of a long, scrolled-away page, not
+  // the bottom of what was actually on screen. Switched to position:fixed
+  // (viewport-anchored, exactly mdSheet's own pattern) so it always
+  // appears at the bottom of the visible screen regardless of scroll
+  // position or content length. Because fixed positioning escapes the
+  // takeover screen's own stacking context, the z-index has to clear
+  // mdFullScreenTakeoverOuter's own 50 (this sheet lives inside that
+  // takeover) rather than the old locally-scoped 5/6.
+  mdSetupConfirmScrim: { position: "fixed", inset: 0, background: tokens.color.scrim, zIndex: 51 },
   mdSetupConfirmSheet: {
-    position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 6,
+    position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 52,
+    maxWidth: 640, margin: "0 auto",
     background: tokens.color.creamPaper, borderRadius: "32px 32px 0 0",
     boxShadow: "0 -16px 44px rgba(20,32,28,.42)", borderTop: `3px solid ${tokens.color.yellow}`,
     padding: "12px 16px 22px", display: "flex", flexDirection: "column", gap: 12,
+    maxHeight: "calc(100vh - 24px)", overflowY: "auto",
   },
   // Amber, not red — this is caution ("here's what's about to happen"),
   // not the app's injury-red, which stays reserved for actual injuries.
@@ -783,13 +806,15 @@ export const styles = {
   // rather than height:60 being more of a suggestion).
   mdSetupConfirmBtnPrimary: {
     display: "flex", alignItems: "center", justifyContent: "center",
-    flex: 1.35, height: 60, borderRadius: 22, border: "none", background: tokens.color.pitchGreen,
+    flex: 1.3, height: 60, borderRadius: 22, border: "none", background: tokens.color.pitchGreen,
     boxShadow: `0 4px 0 ${tokens.color.greenShadow}`, color: tokens.color.creamPaper, fontFamily: tokens.font.display, fontWeight: 800,
     fontSize: 20, cursor: "pointer",
   },
+  // flex 1.3/1.05, not 1.35/1 — real-device feedback asked for a few
+  // pixels handed from the green button over to this one.
   mdSetupConfirmBtnSecondary: {
     display: "flex", alignItems: "center", justifyContent: "center",
-    flex: 1, height: 60, borderRadius: 22, border: "none", background: tokens.color.creamDeep,
+    flex: 1.05, height: 60, borderRadius: 22, border: "none", background: tokens.color.creamDeep,
     color: tokens.color.actionBar, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 20, cursor: "pointer",
   },
 

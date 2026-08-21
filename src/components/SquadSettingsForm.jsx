@@ -662,16 +662,17 @@ export default function SquadSettingsForm({
 
   if (variant === "edit") {
     return (
-      // position:relative anchors the confirm sheet/scrim below (they're
-      // position:absolute — scoped to *this* screen's own content, not
-      // the whole app, unlike the match screen's own position:fixed
-      // sheets). display:flex/flexDirection:column + minHeight:100vh is
-      // what makes the submit button's own margin-top:auto (below) mean
-      // something — pushed to the bottom of a full screen's height rather
-      // than sitting right after the last accordion row on a short page.
-      // paddingBottom reserves the confirm sheet's own height while it's
-      // open, so it never covers the button/content behind it.
-      <div style={{ position: "relative", display: "flex", flexDirection: "column", minHeight: "100vh", paddingBottom: confirmOpen ? 260 : 0 }}>
+      // display:flex/flexDirection:column + minHeight:100vh is what makes
+      // the submit button's own margin-top:auto (below) mean something —
+      // pushed to the bottom of a full screen's height rather than sitting
+      // right after the last accordion row on a short page.
+      //
+      // The confirm sheet/scrim below are position:fixed (viewport-
+      // anchored, styles.js has the real-device story on why), so they
+      // float over whatever's here rather than needing this wrapper to
+      // reserve space or provide a positioning anchor for them — no
+      // position:relative or open-state paddingBottom needed.
+      <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
         {header}
 
         {/* The "Who's here?" chip row (availability toggle + add-player)
