@@ -631,12 +631,18 @@ export default function SquadSettingsForm({
               }}
             />
           ) : (
-            <button
-              style={{ ...styles.mdSetupNumberBadge, ...(p.number != null ? styles.mdSetupNumberBadgeSet : {}) }}
-              onClick={() => setEditingNumberId(p.id)}
-              title="Set squad number"
-            >
-              {p.number ?? "–"}
+            // numberOf(p.id), not the raw p.number field — real-use
+            // feedback: a bare "–" for anyone without an explicit number
+            // set didn't mean anything to a coach. numberOf already falls
+            // back to a roster-position number when none's been set (the
+            // same fallback the Who's-here screen's own discs show), so
+            // this always displays *some* real number. The edit field
+            // below still starts blank for an unset player though — the
+            // fallback shown here is just a display convenience, not
+            // something a stray tap-and-blur should silently lock in as
+            // this player's actual permanent number.
+            <button style={styles.mdSetupNumberBadge} onClick={() => setEditingNumberId(p.id)} title="Set squad number">
+              {numberOf(p.id)}
             </button>
           )}
           <span style={styles.mdSetupRowName}>{p.name}</span>
@@ -849,6 +855,10 @@ export default function SquadSettingsForm({
                   <ChevronDown size={22} strokeWidth={3} />
                 </span>
               </div>
+              {/* Real-use feedback: the glove toggle in each row below had
+                  no on-screen explanation at all, just a title tooltip
+                  that a phone never shows. */}
+              <div style={styles.mdSetupHint}>Tap 🧤 to mark who's allowed to play in goal.</div>
               <div style={{ marginTop: 8 }}>{renderManageSquadRows()}</div>
             </div>
           ) : (
@@ -948,8 +958,9 @@ export default function SquadSettingsForm({
       </div>
       {renderSquadChips()}
 
-      <div style={{ ...styles.mdSetupSectionTitle, fontSize: 18, marginTop: 22, marginBottom: 8 }}>Manage squad</div>
-      <div>{renderManageSquadRows()}</div>
+      <div style={{ ...styles.mdSetupSectionTitle, fontSize: 18, marginTop: 22 }}>Manage squad</div>
+      <div style={styles.mdSetupHint}>Tap 🧤 to mark who's allowed to play in goal.</div>
+      <div style={{ marginTop: 8 }}>{renderManageSquadRows()}</div>
 
       {renderWarningsAndSubmit()}
     </>

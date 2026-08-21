@@ -4,6 +4,7 @@ import "@testing-library/jest-dom/vitest";
 import { render, screen, fireEvent, cleanup, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import SquadSettingsForm from "./SquadSettingsForm.jsx";
+import { getSquadNumber } from "../lib/squadNumber.js";
 
 afterEach(cleanup);
 
@@ -303,15 +304,21 @@ describe("SquadSettingsForm — squad chips (availability)", () => {
 });
 
 describe("SquadSettingsForm — Manage squad (number, keeper-eligible, remove)", () => {
-  it("shows a dash for a player with no number set yet, and the real number once one is", () => {
-    render(
-      <SquadSettingsForm
-        {...baseProps({ roster: [{ id: "p1", name: "Alice", keeperEligible: true, number: 7 }, ROSTER[1]] })}
-      />
-    );
+  // Real-use feedback: an unset number used to show as a muted, bare "–"
+  // ("I don't really know what it means") -- replaced with numberOf's own
+  // fallback (the same one the Who's-here screen's number discs already
+  // rely on) so the badge always shows a real number, always in the same
+  // solid green/white treatment as Who's-here, whether or not a squad
+  // number has actually been explicitly set.
+  it("always shows a real number in a solid badge, never a bare dash -- an explicit one, or numberOf's own fallback", () => {
+    const roster = [{ id: "p1", name: "Alice", keeperEligible: true, number: 7 }, ROSTER[1]];
+    const testNumberOf = (id) => getSquadNumber(roster.find((p) => p.id === id), roster);
+    render(<SquadSettingsForm {...baseProps({ roster, numberOf: testNumberOf })} />);
     const badges = screen.getAllByTitle("Set squad number");
-    expect(badges[0]).toHaveTextContent("7");
-    expect(badges[1]).toHaveTextContent("–");
+    expect(badges[0]).toHaveTextContent("7"); // Alice's explicit number
+    expect(badges[1]).toHaveTextContent("2"); // Bob has none set -- falls back to his position (2nd) in the roster
+    expect(badges[0]).toHaveStyle({ backgroundColor: "rgb(46, 125, 83)" }); // tokens.color.pitchGreen, same for both
+    expect(badges[1]).toHaveStyle({ backgroundColor: "rgb(46, 125, 83)" });
   });
 
   it("tapping a player's number turns it into an input; typing and blurring calls setPlayerNumber", async () => {

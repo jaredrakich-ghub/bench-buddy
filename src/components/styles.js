@@ -707,13 +707,21 @@ export const styles = {
   mdSetupRowName: { flex: 1, fontFamily: tokens.font.body, fontWeight: 800, fontSize: 15, color: tokens.color.deepGreen, minWidth: 0 },
   // The persistent squad-number editor — a small number disc (same visual
   // language as mdBenchChipNumber) that turns into a real input when tapped.
+  //
+  // Real-use feedback: this used to sit muted (cream/grey) until a real
+  // number was actually set, showing a bare "–" the rest of the time —
+  // "I don't really know what it means". Now always solid green/white,
+  // the same treatment the Who's-here screen's own number discs use
+  // (mdSquadCardDisc) — it displays `numberOf(p.id)` rather than the raw
+  // `p.number` field, so it always shows *some* real number (a squad
+  // number if one's set, otherwise that same roster-position fallback
+  // Who's-here already relies on), never a placeholder dash.
   mdSetupNumberBadge: {
     width: 32, height: 32, borderRadius: "50%", border: "none", flexShrink: 0,
     display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
     fontFamily: tokens.font.display, fontWeight: 800, fontSize: 13,
-    background: tokens.color.creamDeep, color: tokens.color.mutedText,
+    background: tokens.color.pitchGreen, color: "#fff",
   },
-  mdSetupNumberBadgeSet: { background: tokens.color.pitchGreen, color: "#fff" },
   mdSetupNumberInput: {
     width: 32, height: 32, borderRadius: "50%", border: `2px solid ${tokens.color.pitchGreen}`, flexShrink: 0,
     textAlign: "center", padding: 0, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 16, color: tokens.color.deepGreen,
