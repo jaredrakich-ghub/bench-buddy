@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { BarChart2 } from "lucide-react";
 import { intervalAtElapsed } from "../lib/rotation.js";
 import { computeLiveElapsedSec } from "../lib/clock.js";
 import { generateId } from "../lib/id.js";
@@ -9,8 +8,7 @@ import { fetchTeams, createTeamDoc, deleteTeamDoc, fetchMatchState, describeSave
 import { signOutUser, deleteAccount } from "../lib/auth.js";
 import { useTeamRegistry } from "../hooks/useTeamRegistry.js";
 import { useMatchState } from "../hooks/useMatchState.js";
-import { fontStyle, styles, tokens } from "./styles.js";
-import { GearIcon } from "./matchDayIcons.jsx";
+import { fontStyle, styles } from "./styles.js";
 import SummaryModal from "./SummaryModal.jsx";
 import SeasonSummaryModal from "./SeasonSummaryModal.jsx";
 import SquadSettingsForm from "./SquadSettingsForm.jsx";
@@ -60,15 +58,6 @@ export default function SubRotationPlanner({ user }) {
   const [showSeasonModal, setShowSeasonModal] = useState(false);
   const [showTeamSwitcher, setShowTeamSwitcher] = useState(false);
   const [showSquadChange, setShowSquadChange] = useState(false);
-  // Real-use feedback: the pre-match/first-time-setup header (shown only
-  // while !plan — this file's own header below) was the one screen in the
-  // app never touched by the match-day redesign, a leftover dark-green
-  // pill-button bar sitting right above SquadSettingsForm's own already-
-  // redesigned cream/gold content. Rebuilt on MatchView's own crest+cog
-  // header shape (mdHeader/mdCogBtn) — same anchored-popover mechanism,
-  // just this screen's own two rows (Season data, Team & account) instead
-  // of MatchView's four.
-  const [setupCogOrigin, setSetupCogOrigin] = useState(null);
   // Set when a save fails — either a team-registry save or a match-state
   // save — surfaced as a persistent banner rather than swallowed, so a
   // coach isn't silently trusting saves that aren't happening. Whichever
@@ -356,69 +345,18 @@ export default function SubRotationPlanner({ user }) {
   return (
     <div style={styles.app}>
       <style>{fontStyle}</style>
-      {/* MatchView supplies its own team-identity header (crest, name, cog
-          menu) once a match is underway — this app-level header is only
-          for the pre-match/setup screen, so it hides rather than stacking
-          a second header on top of MatchView's. Same shape as MatchView's
-          own header (mdHeader/mdCogBtn) rather than a bespoke one, so the
-          two read as the same screen family — this cog menu's own "Season
-          data"/"Team & account" rows reach the exact same
-          setShowSeasonModal/setShowTeamSwitcher MatchView's cog menu does,
-          so nothing here becomes unreachable once a match starts. */}
-      {!plan && (
-        <div style={styles.mdHeader}>
-          <div style={styles.mdHeaderTopRow}>
-            <div style={styles.mdCrestOuter}>
-              <img src={headerMascot} alt="" style={styles.mdCrestImg} />
-            </div>
-            <div style={styles.mdTeamName}>{teamData.name}</div>
-            <button
-              style={{ ...styles.mdCogBtn, ...(setupCogOrigin ? { ...styles.mdOriginLit, ...styles.mdCogBtnLit } : {}) }}
-              onClick={(e) => {
-                const top = e.currentTarget.getBoundingClientRect().bottom + 8;
-                setSetupCogOrigin((current) => (current ? null : { top }));
-              }}
-              title="Menu"
-            >
-              <GearIcon size={28} />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {setupCogOrigin && (
-        <>
-          <div style={styles.mdScrim} data-testid="setup-scrim" onClick={() => setSetupCogOrigin(null)} />
-          <div style={{ ...styles.mdPopover, top: setupCogOrigin.top }} data-testid="setup-cog-popover">
-            <button
-              style={styles.mdCogMenuRow}
-              onClick={() => {
-                setSetupCogOrigin(null);
-                setShowSeasonModal(true);
-              }}
-            >
-              <span style={{ ...styles.mdCogMenuIconTile, ...styles.mdTintGreen }}>
-                <BarChart2 size={16} color={tokens.color.pitchGreen} />
-              </span>
-              <span style={styles.mdCogMenuLabel}>Season data</span>
-              <span style={styles.mdCogMenuChevron}>›</span>
-            </button>
-            <button
-              style={styles.mdCogMenuRow}
-              onClick={() => {
-                setSetupCogOrigin(null);
-                setShowTeamSwitcher(true);
-              }}
-            >
-              <span style={styles.mdCogMenuCrestIcon}>
-                <img src={headerMascot} alt="" style={styles.mdCogMenuCrestImg} />
-              </span>
-              <span style={styles.mdCogMenuLabel}>Team &amp; account</span>
-              <span style={styles.mdCogMenuChevron}>›</span>
-            </button>
-          </div>
-        </>
-      )}
+      {/* No separate app-level header for the pre-match/setup screen
+          anymore — SquadSettingsForm's own "inline" header now covers
+          this job itself, context-aware for first-team-ever (crest +
+          "Set up new team", no back target) vs. an additional team
+          (the same back-chevron shell "Game settings" uses, returning to
+          Team & account) — see its own `header` const for the full
+          story. Real-use feedback: this used to be a genuinely separate
+          header stacked above SquadSettingsForm's own, doing overlapping
+          jobs ("a lot of the old UI appearing... we only get one chance
+          to make a good first impression"). MatchView still supplies its
+          own team-identity header (crest, name, cog menu) once a match
+          is underway, unaffected by any of this. */}
 
       {saveError && <div style={styles.saveErrorBanner}>⚠️ {saveError}</div>}
 
@@ -428,8 +366,22 @@ export default function SubRotationPlanner({ user }) {
             <SquadSettingsForm
               {...squadSettingsProps}
               variant="inline"
+              title="Set up new team"
+              crestSrc={headerMascot}
+              // Real-use feedback: this screen needed to know which
+              // first-time-setup moment it is. teams.length > 1 means a
+              // coach deliberately added an *additional* team (via Team &
+              // account's own "+ Add a team" row) — a real "back" target
+              // exists (that screen), so hand it a real onClose to
+              // return there and get the same back-chevron header shape
+              // "edit" (Game settings) already uses. A brand-new sign-in
+              // bootstraps exactly one team automatically (see
+              // migration/bootstrap above), so teams.length === 1 here
+              // reliably means "this is that very first team, fresh off
+              // sign-in" — nowhere to go back to, so no onClose at all.
+              onClose={teams.length > 1 ? () => setShowTeamSwitcher(true) : undefined}
               onSubmit={handleGenerate}
-              submitLabel="Generate Rotation"
+              submitLabel="Build new rotation"
             />
           </section>
         )}

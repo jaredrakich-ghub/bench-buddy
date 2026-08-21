@@ -89,13 +89,17 @@ const TILE_ORDER = [
 // pretty boring right now" first, then the icons themselves went through
 // a design pass replacing the original emoji with these drawn glyphs).
 // Deliberately no red/pink tile in this set — red is reserved for injury
-// across the app. #D6E5E0 is a one-off for Manage squad's own tile, not
+// across the app. #D6E5E0 is a one-off for Manage squad's own tile,
+// #EADFC2 likewise for Keepers' (a warm neutral distinct from "goal"'s
+// own headerYellow, even though both reuse the same GloveIcon glyph —
+// the two sections are related, just not visually identical), neither
 // yet a shared token.
 const SECTION_BADGE = {
   goal: { Icon: GloveIcon, bg: tokens.color.headerYellow },
   swaps: { Icon: SwapIcon, bg: tokens.color.mint },
   breaks: { Icon: BreaksIcon, bg: tokens.color.creamDeep },
   squad: { Icon: SquadIcon, bg: "#D6E5E0" },
+  keepers: { Icon: GloveIcon, bg: "#EADFC2" },
 };
 
 // README > A3-Setup / A4-Setup (`#3a`, `#4a`, `#4b`). Two layouts, both
@@ -162,6 +166,10 @@ export default function SquadSettingsForm({
   // lands straight on the squad list, not a blank settings screen the
   // coach then has to expand themselves.
   initialExpandedSection = null,
+  // Only used by the "inline" variant's own crest+title header (see
+  // `header` below) — the very-first-team case, which has no onClose to
+  // hang a back button off of instead.
+  crestSrc,
 }) {
   const validation = validateGameSettings(gameSettings, availableIds.length);
 
@@ -170,6 +178,14 @@ export default function SquadSettingsForm({
     () => roster.filter((p) => availableIds.includes(p.id) && p.keeperEligible),
     [roster, availableIds]
   );
+  // "inline" layout's own Keepers collapsed-row value — see
+  // renderKeeperEligibilityRows below for the full section.
+  const keepersValue =
+    roster.length === 0
+      ? "Add squad first"
+      : keeperEligibleIds.length === roster.length
+      ? "Shared by all"
+      : `${keeperEligibleIds.length} of ${roster.length}`;
 
   // If the currently-picked kid stops being available or loses their glove
   // (unticked mid-setup), the pick would silently go stale until submit —
@@ -268,6 +284,14 @@ export default function SquadSettingsForm({
   }, []);
   const [showAddChip, setShowAddChip] = useState(false);
   const [editingNumberId, setEditingNumberId] = useState(null);
+  // "Keepers" — the "inline" (first-time setup) layout's own dedicated
+  // moment for keeper eligibility (real-use feedback: turning this off
+  // for anyone shouldn't be buried inside the now-collapsed Manage squad
+  // list a coach might not open for a while). Its own independent
+  // collapse state, not folded into expandedSection above — it sits
+  // before that whole group, in the Who's-here part of the screen, not
+  // competing with it for "one thing open at a time".
+  const [keepersExpanded, setKeepersExpanded] = useState(false);
   // Progressive disclosure for the sub-interval fairness picker (see
   // renderSubIntervalRecs below) — collapsed behind a tappable "Improve
   // fairness" prompt until a coach actually asks to see it. Real-use
@@ -704,8 +728,40 @@ export default function SquadSettingsForm({
     });
   }
 
+  // "Keepers" section, "inline" (first-time setup) only — a focused
+  // subset of Manage squad's own rows (name + the same 🧤 toggle, same
+  // styling), deliberately without the number badge or remove button
+  // that row also carries: this moment is only ever about keeper
+  // eligibility, not general roster upkeep.
+  function renderKeeperEligibilityRows() {
+    if (roster.length === 0) return <div style={styles.emptyState}>No players yet — add your squad above.</div>;
+    return roster.map((p) => (
+      <div key={p.id} style={styles.mdSetupRow}>
+        <span style={styles.mdSetupRowName}>{p.name}</span>
+        <button
+          style={{
+            ...styles.mdSetupToggle,
+            ...(p.keeperEligible ? { ...styles.mdSetupToggleActive, background: tokens.color.headerYellow } : {}),
+          }}
+          onClick={() => toggleKeeperEligible(p.id)}
+          title="Toggle keeper-eligible"
+        >
+          🧤
+        </button>
+      </div>
+    ));
+  }
+
+  // Real-use feedback: "inline" (first-time setup) should now "appear
+  // exactly how it does the Game settings screen" — including this
+  // button, so both variants share the one green style/handler rather
+  // than inline keeping its own separate yellow mdSetupSubmitBtn.
+  // handleSubmitClick degrades safely for inline: gameInProgress is
+  // structurally always false there (it's only ever true once a plan
+  // exists, and inline only ever renders before one does), so it always
+  // takes the plain onSubmit() path — the confirm sheet it would
+  // otherwise open is only rendered in "edit"'s own return.
   function renderWarningsAndSubmit() {
-    const isEdit = variant === "edit";
     return (
       <>
         {fairnessWarning && <div style={styles.mdSetupWarning}>{fairnessWarning}</div>}
@@ -717,12 +773,9 @@ export default function SquadSettingsForm({
           </div>
         )}
         <button
-          style={{
-            ...(isEdit ? styles.mdSetupSubmitBtnPrimary : styles.mdSetupSubmitBtn),
-            opacity: validation.valid ? 1 : 0.5,
-          }}
+          style={{ ...styles.mdSetupSubmitBtnPrimary, opacity: validation.valid ? 1 : 0.5 }}
           disabled={!validation.valid}
-          onClick={isEdit ? handleSubmitClick : onSubmit}
+          onClick={handleSubmitClick}
         >
           <Shuffle size={16} /> {submitLabel}
         </button>
@@ -735,12 +788,34 @@ export default function SquadSettingsForm({
   // "edit" gets the same yellow-beveled header/back-button shell Minutes
   // and Who's here already use (mdSubHeader) — real-use feedback wanted
   // this screen's own header to match those two, rather than the plain
-  // title-row + ✕ it had before. "inline" (first-time setup, reached
-  // before any screen exists to go "back" to) keeps its own original
-  // header — nothing to be consistent with there, and there's usually no
-  // onClose at all for it to hang a back button off of.
+  // title-row + ✕ it had before.
+  //
+  // "inline" (first-time setup) used to keep its own separate plain
+  // title-row header, stacked right underneath SubRotationPlanner.jsx's
+  // own app-level header — two headers doing overlapping jobs, one of
+  // them the one screen in the app the match-day redesign never reached.
+  // Real-use feedback ("a lot of the old UI appearing... we only get one
+  // chance to make a good first impression"): consolidated into one
+  // header, now context-aware for *which* first-time-setup moment this
+  // is, and SubRotationPlanner's own outer header dropped entirely (see
+  // its own history) now that this covers the whole job.
+  //   - A genuinely new team with nowhere to go back to (the very first
+  //     team, straight off sign-in — no onClose) gets a crest + title,
+  //     the same shape MatchView's own header uses, so it still reads as
+  //     the same screen family rather than a bespoke one.
+  //   - An *additional* team (reached via Team & account's own "Manage
+  //     squad"... "+ Add a team" row, which passes onClose to actually
+  //     return there) gets the exact same back-chevron shell as "edit" —
+  //     the coach already knows this shape from Game settings.
   const header =
-    variant === "edit" ? (
+    variant === "inline" && !onClose ? (
+      <div style={styles.mdHeader}>
+        <div style={styles.mdHeaderTopRow}>
+          <div style={styles.mdCrestOuter}>{crestSrc && <img src={crestSrc} alt="" style={styles.mdCrestImg} />}</div>
+          <div style={styles.mdTeamName}>{title}</div>
+        </div>
+      </div>
+    ) : (
       <div style={styles.mdSubHeader}>
         {onClose && (
           <button style={styles.mdSubHeaderBack} onClick={onClose} title="Back">
@@ -749,38 +824,25 @@ export default function SquadSettingsForm({
         )}
         <div style={styles.mdSubHeaderTitle}>{title}</div>
       </div>
-    ) : (
-      <div style={styles.mdSetupHeaderRow}>
-        <div style={styles.mdSetupTitle}>{title}</div>
-        {onClose && (
-          <button style={styles.mdSetupCloseBtn} onClick={onClose} title="Close">
-            ✕
-          </button>
-        )}
-      </div>
     );
 
-  if (variant === "edit") {
+  // Tiles + interval preview/fairness chips + the First in goal today /
+  // Keeper changes / Breaks / Manage squad accordion group — shared by
+  // both layouts now. Originally "edit"-only; "inline" (first-time
+  // setup) used to show all of this open flat instead, but real-use
+  // feedback ("appear exactly how it does the Game settings screen")
+  // asked for the identical collapsed shape there too, so this moved out
+  // of the "edit" branch into its own function both can call.
+  function renderGameSettingsAccordion() {
     return (
-      // display:flex/flexDirection:column + minHeight:100vh is what makes
-      // the submit button's own margin-top:auto (below) mean something —
-      // pushed to the bottom of a full screen's height rather than sitting
-      // right after the last accordion row on a short page.
-      //
-      // The confirm sheet/scrim below are position:fixed (viewport-
-      // anchored, styles.js has the real-device story on why), so they
-      // float over whatever's here rather than needing this wrapper to
-      // reserve space or provide a positioning anchor for them — no
-      // position:relative or open-state paddingBottom needed.
-      <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-        {header}
-
+      <>
         {/* The "Who's here?" chip row (availability toggle + add-player)
             used to open here too — dropped on real-use feedback, now that
             it's fully covered by its own dedicated screen (cog menu's
-            "Who's here" row, SquadChangeScreen.jsx). Manage squad below
-            keeps its own separate job — number/keeper-eligible/remove,
-            not availability.
+            "Who's here" row, SquadChangeScreen.jsx) for "edit", and by
+            "inline"'s own Who's-here section further up the page for
+            first-time setup. Manage squad below keeps its own separate
+            job — number/keeper-eligible/remove, not availability.
 
             "The game" label above the tiles is gone too — real-use
             feedback: it wasn't earning its own line, and removing it
@@ -910,6 +972,26 @@ export default function SquadSettingsForm({
             </button>
           )}
         </div>
+      </>
+    );
+  }
+
+  if (variant === "edit") {
+    return (
+      // display:flex/flexDirection:column + minHeight:100vh is what makes
+      // the submit button's own margin-top:auto (below) mean something —
+      // pushed to the bottom of a full screen's height rather than sitting
+      // right after the last accordion row on a short page.
+      //
+      // The confirm sheet/scrim below are position:fixed (viewport-
+      // anchored, styles.js has the real-device story on why), so they
+      // float over whatever's here rather than needing this wrapper to
+      // reserve space or provide a positioning anchor for them — no
+      // position:relative or open-state paddingBottom needed.
+      <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+        {header}
+
+        {renderGameSettingsAccordion()}
 
         {renderWarningsAndSubmit()}
 
@@ -971,46 +1053,61 @@ export default function SquadSettingsForm({
     );
   }
 
-  // "inline" (A3) — everything open.
+  // "inline" (A3) — first-time setup. Real-use feedback restructured this
+  // whole layout ("needs a lot of care as this is the user's first
+  // experience with the app"):
+  //   1. Who's here comes first, always open — the actual first thing a
+  //      coach does is say who showed up today, not stare at number tiles.
+  //   2. Keepers next, its own dedicated moment for keeper eligibility
+  //      (default: everyone eligible) — collapsed, so it doesn't compete
+  //      with Who's here for attention, but surfaced well before First in
+  //      goal today, which depends on it.
+  //   3. Then the exact same tiles+accordion group "edit" (Game settings)
+  //      uses, collapsed the same way, ending in the same green "Build
+  //      new rotation" button — a first-time coach who finishes setup and
+  //      later revisits Game settings should recognize the same screen,
+  //      not have to learn two different layouts for one job.
+  // Same flex-column wrapper as "edit" now too, so the submit button's
+  // own margin-top:auto behaves identically on both.
   return (
-    <>
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
       {header}
 
-      {renderTiles()}
-      {renderIntervalPreview()}
-      {renderSubIntervalRecs()}
-
-      <div style={{ ...styles.mdSetupCard, marginTop: 14 }}>
-        <div style={styles.mdSetupCardHeaderRow}>
-          <div style={styles.mdSetupCardTitle}>First in goal today</div>
-          <span style={styles.mdSetupCardHint}>👑 starts</span>
+      <div style={{ marginTop: 14 }}>
+        <div style={styles.mdSetupHeaderInRow}>
+          <div style={styles.mdSetupSectionTitle}>Who's here</div>
+          <span style={styles.mdSetupInChip}>{availableIds.length} in</span>
+          <span style={styles.mdSetupDropOutHint}>tap to drop out</span>
+          {renderSelectAll()}
         </div>
-        <div style={{ marginTop: 11 }}>{renderInGoalChips(false)}</div>
-        <div style={{ marginTop: 11, display: "flex", alignItems: "center", gap: 10, borderTop: `2px solid ${tokens.color.creamDeep}`, paddingTop: 10 }}>
-          <span style={styles.mdSetupAccordionLabel}>Swap every</span>
-          {renderKeeperSwapStepper(false)}
-        </div>
+        {renderSquadChips()}
       </div>
 
-      <div style={styles.mdSetupCard}>
-        <div style={styles.mdSetupCardTitle}>Breaks</div>
-        <div style={{ marginTop: 11 }}>{renderBreaksChips()}</div>
-        {renderBreaksBar()}
+      <div style={{ marginTop: 18 }}>
+        {keepersExpanded ? (
+          <div style={styles.mdSetupCard}>
+            <div style={styles.mdSetupCardHeaderRow}>
+              <div style={styles.mdSetupCardTitle}>Keepers</div>
+              <span style={styles.mdSetupCardCollapseBtn} onClick={() => setKeepersExpanded(false)} role="button" tabIndex={0} title="Collapse">
+                <ChevronDown size={22} strokeWidth={3} />
+              </span>
+            </div>
+            <div style={styles.mdSetupHint}>Everyone can play in goal by default — turn off anyone who shouldn't.</div>
+            <div style={{ marginTop: 8 }}>{renderKeeperEligibilityRows()}</div>
+          </div>
+        ) : (
+          <button style={styles.mdSetupAccordionRow} onClick={() => setKeepersExpanded(true)}>
+            {sectionBadge("keepers")}
+            <span style={styles.mdSetupAccordionLabel}>Keepers</span>
+            <span style={styles.mdSetupAccordionValue}>{keepersValue}</span>
+            <span style={styles.mdSetupAccordionChevron}>›</span>
+          </button>
+        )}
       </div>
 
-      <div style={styles.mdSetupHeaderInRow}>
-        <div style={styles.mdSetupSectionTitle}>Squad</div>
-        <span style={styles.mdSetupInChip}>{availableIds.length} in</span>
-        <span style={styles.mdSetupDropOutHint}>tap to drop out</span>
-        {renderSelectAll()}
-      </div>
-      {renderSquadChips()}
-
-      <div style={{ ...styles.mdSetupSectionTitle, fontSize: 18, marginTop: 22 }}>Manage squad</div>
-      <div style={styles.mdSetupHint}>Tap 🧤 to mark who's allowed to play in goal.</div>
-      <div style={{ marginTop: 8 }}>{renderManageSquadRows()}</div>
+      {renderGameSettingsAccordion()}
 
       {renderWarningsAndSubmit()}
-    </>
+    </div>
   );
 }

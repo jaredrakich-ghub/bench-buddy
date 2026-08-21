@@ -47,10 +47,25 @@ const FAIRNESS_ROSTER = Array.from({ length: 7 }, (_, i) => ({ id: `p${i + 1}`, 
 const FAIRNESS_SETTINGS = { fieldSize: 5, gameMinutes: 42, subIntervalMinutes: 6 };
 
 describe("SquadSettingsForm — rendering (inline / A3 layout)", () => {
-  it("shows the title with no close button when there's nothing to close to", () => {
-    render(<SquadSettingsForm {...baseProps()} />);
-    expect(screen.getByText("Today's game")).toBeInTheDocument();
-    expect(screen.queryByTitle("Close")).not.toBeInTheDocument();
+  // Real-use feedback ("needs a lot of care as this is the user's first
+  // experience with the app"): this header used to always be a plain
+  // title-row + optional ✕. Now context-aware — no onClose (a genuinely
+  // new team, straight off sign-in) gets the crest+title shell, no back
+  // control at all; onClose (an *additional* team, added via Team &
+  // account) gets the exact same back-chevron shell "edit" uses.
+  it("shows crest+title with no back control for a first-ever team (no onClose)", () => {
+    render(<SquadSettingsForm {...baseProps({ title: "Set up new team" })} />);
+    expect(screen.getByText("Set up new team")).toBeInTheDocument();
+    expect(screen.queryByTitle("Back")).not.toBeInTheDocument();
+  });
+
+  it("shows the same back-chevron header 'edit' uses for an additional team (onClose provided)", async () => {
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(<SquadSettingsForm {...baseProps({ title: "Set up new team", onClose })} />);
+    expect(screen.getByText("Set up new team")).toBeInTheDocument();
+    await user.click(screen.getByTitle("Back"));
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it("shows the three tiles, the squad, and the sub-window preview", () => {
@@ -62,9 +77,73 @@ describe("SquadSettingsForm — rendering (inline / A3 layout)", () => {
     expect(screen.getAllByText(/sub windows/).length).toBeGreaterThan(0);
   });
 
+  // Real-use feedback: "inline" should now "appear exactly how it does
+  // the Game settings screen" — First in goal today, Keeper changes,
+  // Breaks, and Manage squad all collapsed by default here too, not open
+  // flat the way "inline" used to show them.
+  it("collapses First in goal today, Keeper changes, Breaks, and Manage squad by default, same as 'edit'", () => {
+    render(<SquadSettingsForm {...baseProps()} />);
+    expect(screen.getByText("First in goal today")).toBeInTheDocument();
+    expect(screen.getByText("Keeper changes")).toBeInTheDocument();
+    expect(screen.getByText("Breaks")).toBeInTheDocument();
+    expect(screen.getByText("Manage squad")).toBeInTheDocument();
+    expect(screen.queryByTitle("Collapse")).not.toBeInTheDocument(); // nothing expanded
+    expect(screen.queryByText("Tap a name to pick who starts in goal today.")).not.toBeInTheDocument();
+  });
+
+  // Real-use feedback: Who's here should be the very first thing a coach
+  // does, not tiles/settings — DOCUMENT_POSITION_FOLLOWING confirms each
+  // element genuinely comes *after* the previous one in the DOM, not just
+  // that all three happen to be present somewhere.
+  it("orders Who's here, then Keepers, then the settings accordion", () => {
+    render(<SquadSettingsForm {...baseProps()} />);
+    const whosHere = screen.getByText("Who's here");
+    const keepers = screen.getByText("Keepers");
+    const firstInGoal = screen.getByText("First in goal today");
+    expect(whosHere.compareDocumentPosition(keepers) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(keepers.compareDocumentPosition(firstInGoal) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("shows an empty-state message in Manage squad when the roster has no players yet", () => {
-    render(<SquadSettingsForm {...baseProps({ roster: [], availableIds: [] })} />);
+    render(<SquadSettingsForm {...baseProps({ roster: [], availableIds: [], initialExpandedSection: "squad" })} />);
     expect(screen.getByText("No players yet — add your squad above.")).toBeInTheDocument();
+  });
+});
+
+describe("SquadSettingsForm — Keepers (inline / A3 layout only)", () => {
+  it("defaults to collapsed, its value reflecting who's actually eligible", () => {
+    render(<SquadSettingsForm {...baseProps()} />); // ROSTER: Alice eligible, Bob not
+    expect(screen.getByText("Keepers")).toBeInTheDocument();
+    expect(screen.getByText("1 of 2")).toBeInTheDocument();
+    expect(screen.queryByTitle("Toggle keeper-eligible")).not.toBeInTheDocument(); // collapsed
+  });
+
+  it("reads 'Shared by all' once every player is actually eligible", () => {
+    const allEligible = [{ id: "p1", name: "Alice", keeperEligible: true }, { id: "p2", name: "Bob", keeperEligible: true }];
+    render(<SquadSettingsForm {...baseProps({ roster: allEligible })} />);
+    expect(screen.getByText("Shared by all")).toBeInTheDocument();
+  });
+
+  it("reads 'Add squad first' when the roster is empty", () => {
+    render(<SquadSettingsForm {...baseProps({ roster: [], availableIds: [] })} />);
+    expect(screen.getByText("Add squad first")).toBeInTheDocument();
+  });
+
+  it("expands to show a toggle row per player; tapping one calls toggleKeeperEligible with their id", async () => {
+    const toggleKeeperEligible = vi.fn();
+    const user = userEvent.setup();
+    render(<SquadSettingsForm {...baseProps({ toggleKeeperEligible })} />);
+    await user.click(screen.getByText("Keepers"));
+    expect(screen.getByText("Everyone can play in goal by default — turn off anyone who shouldn't.")).toBeInTheDocument();
+    await user.click(screen.getAllByTitle("Toggle keeper-eligible")[0]);
+    expect(toggleKeeperEligible).toHaveBeenCalledWith("p1");
+  });
+
+  // "edit" (Game settings) has no Keepers section at all — that decision
+  // stays reachable there via Manage squad's own 🧤 toggle, unchanged.
+  it("doesn't appear in the 'edit' layout", () => {
+    render(<SquadSettingsForm {...baseProps({ variant: "edit" })} />);
+    expect(screen.queryByText("Keepers")).not.toBeInTheDocument();
   });
 });
 
@@ -256,17 +335,16 @@ describe("SquadSettingsForm — rendering (edit / A4 layout)", () => {
 });
 
 describe("SquadSettingsForm — number tiles (tap to flip, stepper)", () => {
-  // The Keeper swaps row (further down) has its own always-visible −/+
-  // stepper, so "−"/"+" are never unique on this screen once a tile is
-  // flipped too — tests disambiguate with getAllByText, relying on DOM
-  // order (a flipped tile always renders before the Keeper swaps row in
-  // both layouts) rather than a single getByText match.
-  it("tapping a resting tile flips it and shows a second −/+ stepper", async () => {
+  // Keeper changes (further down) starts collapsed by default in both
+  // layouts now, so it doesn't contribute its own −/+ here unless a test
+  // explicitly expands it — no disambiguation needed for a plain resting
+  // vs. flipped check.
+  it("tapping a resting tile flips it and shows a −/+ stepper", async () => {
     const user = userEvent.setup();
     render(<SquadSettingsForm {...baseProps()} />);
-    expect(screen.getAllByText("−")).toHaveLength(1); // just Keeper swaps, at rest
+    expect(screen.queryByText("−")).not.toBeInTheDocument();
     await user.click(screen.getByText("on pitch"));
-    expect(screen.getAllByText("−")).toHaveLength(2); // + the newly-flipped tile
+    expect(screen.getAllByText("−")).toHaveLength(1);
   });
 
   it("+ steps fieldSize up by 1", async () => {
@@ -274,7 +352,7 @@ describe("SquadSettingsForm — number tiles (tap to flip, stepper)", () => {
     const user = userEvent.setup();
     render(<SquadSettingsForm {...baseProps({ setGameSettings })} />);
     await user.click(screen.getByText("on pitch"));
-    await user.click(screen.getAllByText("+")[0]); // the tile's own +, before Keeper swaps' in DOM order
+    await user.click(screen.getAllByText("+")[0]);
     expect(setGameSettings).toHaveBeenCalledWith({ fieldSize: 6, gameMinutes: 40, subIntervalMinutes: 6 });
   });
 
@@ -301,9 +379,9 @@ describe("SquadSettingsForm — number tiles (tap to flip, stepper)", () => {
     const user = userEvent.setup();
     render(<SquadSettingsForm {...baseProps({ setGameSettings })} />);
     await user.click(screen.getByText("on pitch"));
-    expect(screen.getAllByText("−")).toHaveLength(2);
+    expect(screen.getAllByText("−")).toHaveLength(1);
     await user.click(screen.getByText("sub every")); // tapping a different resting tile
-    expect(screen.getAllByText("−")).toHaveLength(2); // still exactly one flipped tile + Keeper swaps
+    expect(screen.getAllByText("−")).toHaveLength(1); // still exactly one flipped tile
     expect(setGameSettings).not.toHaveBeenCalled();
   });
 
@@ -368,10 +446,15 @@ describe("SquadSettingsForm — Manage squad (number, keeper-eligible, remove)",
   // rely on) so the badge always shows a real number, always in the same
   // solid green/white treatment as Who's-here, whether or not a squad
   // number has actually been explicitly set.
+  // Manage squad is a collapsed accordion row by default in both layouts
+  // now (real-use feedback moved keeper eligibility itself to "inline"'s
+  // own dedicated Keepers section instead — see that describe block
+  // further down) — these tests open straight to it via
+  // initialExpandedSection, same as the "rendering (edit / A4)" tests do.
   it("always shows a real number in a solid badge, never a bare dash -- an explicit one, or numberOf's own fallback", () => {
     const roster = [{ id: "p1", name: "Alice", keeperEligible: true, number: 7 }, ROSTER[1]];
     const testNumberOf = (id) => getSquadNumber(roster.find((p) => p.id === id), roster);
-    render(<SquadSettingsForm {...baseProps({ roster, numberOf: testNumberOf })} />);
+    render(<SquadSettingsForm {...baseProps({ variant: "edit", initialExpandedSection: "squad", roster, numberOf: testNumberOf })} />);
     const badges = screen.getAllByTitle("Set squad number");
     expect(badges[0]).toHaveTextContent("7"); // Alice's explicit number
     expect(badges[1]).toHaveTextContent("2"); // Bob has none set -- falls back to his position (2nd) in the roster
@@ -382,7 +465,7 @@ describe("SquadSettingsForm — Manage squad (number, keeper-eligible, remove)",
   it("tapping a player's number turns it into an input; typing and blurring calls setPlayerNumber", async () => {
     const setPlayerNumber = vi.fn();
     const user = userEvent.setup();
-    render(<SquadSettingsForm {...baseProps({ setPlayerNumber })} />);
+    render(<SquadSettingsForm {...baseProps({ variant: "edit", initialExpandedSection: "squad", setPlayerNumber })} />);
     await user.click(screen.getAllByTitle("Set squad number")[0]);
     const input = document.activeElement;
     fireEvent.change(input, { target: { value: "9" } });
@@ -395,7 +478,10 @@ describe("SquadSettingsForm — Manage squad (number, keeper-eligible, remove)",
     const user = userEvent.setup();
     render(
       <SquadSettingsForm
-        {...baseProps({ roster: [{ id: "p1", name: "Alice", keeperEligible: true, number: 7 }, ROSTER[1]], setPlayerNumber })}
+        {...baseProps({
+          variant: "edit", initialExpandedSection: "squad",
+          roster: [{ id: "p1", name: "Alice", keeperEligible: true, number: 7 }, ROSTER[1]], setPlayerNumber,
+        })}
       />
     );
     await user.click(screen.getAllByTitle("Set squad number")[0]);
@@ -408,7 +494,7 @@ describe("SquadSettingsForm — Manage squad (number, keeper-eligible, remove)",
   it("pressing Escape while editing discards the edit without calling setPlayerNumber", async () => {
     const setPlayerNumber = vi.fn();
     const user = userEvent.setup();
-    render(<SquadSettingsForm {...baseProps({ setPlayerNumber })} />);
+    render(<SquadSettingsForm {...baseProps({ variant: "edit", initialExpandedSection: "squad", setPlayerNumber })} />);
     await user.click(screen.getAllByTitle("Set squad number")[0]);
     const input = document.activeElement;
     fireEvent.change(input, { target: { value: "9" } });
@@ -420,7 +506,7 @@ describe("SquadSettingsForm — Manage squad (number, keeper-eligible, remove)",
   it("toggling keeper-eligible calls toggleKeeperEligible with that player's id", async () => {
     const toggleKeeperEligible = vi.fn();
     const user = userEvent.setup();
-    render(<SquadSettingsForm {...baseProps({ toggleKeeperEligible })} />);
+    render(<SquadSettingsForm {...baseProps({ variant: "edit", initialExpandedSection: "squad", toggleKeeperEligible })} />);
     await user.click(screen.getAllByTitle("Toggle keeper-eligible")[0]);
     expect(toggleKeeperEligible).toHaveBeenCalledWith("p1");
   });
@@ -428,41 +514,41 @@ describe("SquadSettingsForm — Manage squad (number, keeper-eligible, remove)",
   it("removing a player calls removePlayer with that player's id", async () => {
     const removePlayer = vi.fn();
     const user = userEvent.setup();
-    render(<SquadSettingsForm {...baseProps({ removePlayer })} />);
+    render(<SquadSettingsForm {...baseProps({ variant: "edit", initialExpandedSection: "squad", removePlayer })} />);
     await user.click(screen.getAllByTitle("Remove from squad")[0]);
     expect(removePlayer).toHaveBeenCalledWith("p1");
   });
 });
 
 describe("SquadSettingsForm — In goal today (starting keeper)", () => {
+  // First in goal today is a collapsed accordion row by default in both
+  // layouts now — these open straight to it via initialExpandedSection,
+  // same as the "rendering (edit / A4)" tests do.
   it("only lists players who are both available and keeper-eligible", () => {
-    render(<SquadSettingsForm {...baseProps()} />); // Alice eligible, Bob not
-    // Alice appears three times (in-goal chip, squad chip, Manage-squad row)
-    // since she's eligible; Bob only twice (squad chip, Manage-squad row) —
-    // no in-goal chip for him.
-    expect(screen.getAllByText("Alice")).toHaveLength(3);
-    expect(screen.getAllByText("Bob")).toHaveLength(2);
+    render(<SquadSettingsForm {...baseProps({ variant: "edit", initialExpandedSection: "goal" })} />); // Alice eligible, Bob not
+    // Just Alice's own in-goal chip — no Who's-here chip row or Manage
+    // squad list in the "edit" layout to duplicate her name elsewhere.
+    expect(screen.getAllByText("Alice")).toHaveLength(1);
+    expect(screen.queryByText("Bob")).not.toBeInTheDocument();
   });
 
   it("shows a hint instead of an empty card when nobody eligible is available", () => {
-    render(<SquadSettingsForm {...baseProps({ availableIds: ["p2"] })} />); // only Bob, not eligible
+    render(<SquadSettingsForm {...baseProps({ variant: "edit", initialExpandedSection: "goal", availableIds: ["p2"] })} />); // only Bob, not eligible
     expect(screen.getByText(/No keeper-eligible players available today/)).toBeInTheDocument();
   });
 
   it("tapping an eligible player's chip sets them as starting keeper", async () => {
     const setStartingGkId = vi.fn();
     const user = userEvent.setup();
-    render(<SquadSettingsForm {...baseProps({ setStartingGkId })} />);
-    // The in-goal card renders before the squad chips in both layouts, so
-    // Alice's first appearance is her in-goal chip.
-    await user.click(screen.getAllByText("Alice")[0]);
+    render(<SquadSettingsForm {...baseProps({ variant: "edit", initialExpandedSection: "goal", setStartingGkId })} />);
+    await user.click(screen.getByText("Alice"));
     expect(setStartingGkId).toHaveBeenCalledWith("p1");
   });
 
   it("tapping the already-starting player's chip again clears the pick", async () => {
     const setStartingGkId = vi.fn();
     const user = userEvent.setup();
-    render(<SquadSettingsForm {...baseProps({ startingGkId: "p1", setStartingGkId })} />);
+    render(<SquadSettingsForm {...baseProps({ variant: "edit", initialExpandedSection: "goal", startingGkId: "p1", setStartingGkId })} />);
     await user.click(screen.getByText(/Alice.*\u{1F451}/u));
     expect(setStartingGkId).toHaveBeenCalledWith(null);
   });
@@ -485,27 +571,35 @@ describe("SquadSettingsForm — In goal today (starting keeper)", () => {
   });
 });
 
+// Keeper changes and Breaks are collapsed accordion rows by default in
+// both layouts now — these open straight to them via
+// initialExpandedSection, same as the "rendering (edit / A4)" tests do.
 describe("SquadSettingsForm — Keeper swaps stepper", () => {
   it("defaults to the sub interval length when keeperShiftMinutes is unset", () => {
-    render(<SquadSettingsForm {...baseProps()} />);
+    render(<SquadSettingsForm {...baseProps({ variant: "edit", initialExpandedSection: "swaps" })} />);
     expect(screen.getByText("6′")).toBeInTheDocument();
   });
 
   it("+ steps up from the sub interval and records a real override", async () => {
     const setGameSettings = vi.fn();
     const user = userEvent.setup();
-    render(<SquadSettingsForm {...baseProps({ setGameSettings })} />);
-    const plusButtons = screen.getAllByText("+");
-    await user.click(plusButtons[plusButtons.length - 1]); // Keeper swaps' own + (tiles' own + only shows once one is flipped)
+    render(<SquadSettingsForm {...baseProps({ variant: "edit", initialExpandedSection: "swaps", setGameSettings })} />);
+    await user.click(screen.getByText("+"));
     expect(setGameSettings).toHaveBeenCalledWith({ fieldSize: 5, gameMinutes: 40, subIntervalMinutes: 6, keeperShiftMinutes: 7 });
   });
 
   it("stepping back down to the sub interval clears the override back to blank", async () => {
     const setGameSettings = vi.fn();
     const user = userEvent.setup();
-    render(<SquadSettingsForm {...baseProps({ gameSettings: { fieldSize: 5, gameMinutes: 40, subIntervalMinutes: 6, keeperShiftMinutes: 7 }, setGameSettings })} />);
-    const minusButtons = screen.getAllByText("−");
-    await user.click(minusButtons[minusButtons.length - 1]);
+    render(
+      <SquadSettingsForm
+        {...baseProps({
+          variant: "edit", initialExpandedSection: "swaps",
+          gameSettings: { fieldSize: 5, gameMinutes: 40, subIntervalMinutes: 6, keeperShiftMinutes: 7 }, setGameSettings,
+        })}
+      />
+    );
+    await user.click(screen.getByText("−"));
     expect(setGameSettings).toHaveBeenCalledWith({ fieldSize: 5, gameMinutes: 40, subIntervalMinutes: 6, keeperShiftMinutes: "" });
   });
 });
@@ -514,7 +608,7 @@ describe("SquadSettingsForm — Breaks", () => {
   it("picking a break option calls setGameSettings with the new segment count", async () => {
     const setGameSettings = vi.fn();
     const user = userEvent.setup();
-    render(<SquadSettingsForm {...baseProps({ setGameSettings })} />);
+    render(<SquadSettingsForm {...baseProps({ variant: "edit", initialExpandedSection: "breaks", setGameSettings })} />);
     await user.click(screen.getByText("Thirds"));
     expect(setGameSettings).toHaveBeenCalledWith({ fieldSize: 5, gameMinutes: 40, subIntervalMinutes: 6, breakSegments: 3 });
   });

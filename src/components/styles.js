@@ -427,13 +427,11 @@ export const styles = {
   // Reuses several pitch-screen patterns directly (mdBenchChip's
   // number-disc-plus-name pill for a squad/keeper chip) rather than
   // inventing parallel ones.
-  mdSetupHeaderRow: { display: "flex", alignItems: "center", gap: 10, marginBottom: 18 },
-  mdSetupTitle: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 28, color: tokens.color.deepGreen },
-  mdSetupCloseBtn: {
-    marginLeft: "auto", width: 34, height: 34, borderRadius: tokens.radius.iconTile, border: "none",
-    background: tokens.color.creamDeep, display: "flex", alignItems: "center", justifyContent: "center",
-    cursor: "pointer", color: tokens.color.deepGreen, fontWeight: 800, flexShrink: 0,
-  },
+  // mdSetupHeaderRow/mdSetupTitle/mdSetupCloseBtn removed — the "inline"
+  // variant's own plain title-row+✕ header they built, superseded by a
+  // context-aware header shared with "edit" (see SquadSettingsForm.jsx's
+  // own `header` const for the full story).
+  //
   // "Who's here?" / "Squad" section header — count chip + "tap to drop
   // out" hint, shared by both layouts.
   mdSetupSectionTitle: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 22, color: tokens.color.deepGreen },
@@ -556,12 +554,12 @@ export const styles = {
   // inside a flex row (e.g. the inline layout's own plain Breaks card).
   mdSetupCardTitle: { flex: 1, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 21, color: tokens.color.deepGreen },
   mdSetupCardTitleOnDark: { color: tokens.color.creamPaper },
-  // The far-right note on the "In goal today" card header — "👑 starts"
-  // (resting/A3) or "{name} starts" in gold once someone's picked
-  // (A4-expanded); mdSetupAccordionChevron's own on-dark equivalent for
-  // the collapse control.
-  mdSetupCardHint: { marginLeft: "auto", fontFamily: tokens.font.body, fontWeight: 800, fontSize: 13, color: tokens.color.mutedText },
-  mdSetupCardHintOnDark: { color: tokens.color.yellow },
+  // mdSetupCardHint/mdSetupCardHintOnDark removed — the far-right "👑
+  // starts" note on "inline" (first-time setup)'s own old always-open
+  // "First in goal today" card, before that card became the same
+  // collapsed accordion row "edit" already used (see
+  // renderGameSettingsAccordion, SquadSettingsForm.jsx).
+  //
   // The edit layout's own bigger badge-styled version of the hint above —
   // real-device feedback wanted "First in goal today"'s own Random/{name}
   // starts value bigger and reading as a proper tag, not small muted text.
@@ -718,17 +716,12 @@ export const styles = {
     marginTop: 14, fontSize: 13, fontFamily: tokens.font.body, fontWeight: 700, color: tokens.color.injuryText,
     background: tokens.color.injuryTint, border: `1px solid ${tokens.color.injuryBorder}`, padding: "10px 14px", borderRadius: 14,
   },
-  // Still used by the "inline" first-time-setup layout's own submit —
-  // untouched, not part of this design pass.
-  mdSetupSubmitBtn: {
-    display: "flex", alignItems: "center", gap: 8, justifyContent: "center", width: "100%", height: 60, marginTop: 20,
-    borderRadius: tokens.radius.buttonMd, border: "none", background: tokens.color.yellow, color: tokens.color.deepGreen,
-    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 19, cursor: "pointer",
-    boxShadow: tokens.shadow.solid(5, tokens.color.yellowShadow),
-  },
-  // The edit layout's own submit — green now, not yellow (real-use
-  // feedback), labeled "Build new rotation" regardless of entry point
-  // (Game settings or Set up next game), the same phrase the confirm
+  // mdSetupSubmitBtn (the old yellow "inline"-only submit) removed —
+  // "inline" now shares this same green button, both style and copy, with
+  // "edit" (real-use feedback: "appear exactly how it does the Game
+  // settings screen"). Labeled "Build new rotation" regardless of entry
+  // point (Game settings, Set up next game, or first-time setup), the
+  // same phrase the confirm
   // sheet's own button below uses so a coach sees what they tapped
   // repeated back. margin-top:auto pushes it to the bottom of the
   // screen's own flex column (see the "edit" variant's wrapping div) on a
@@ -742,8 +735,7 @@ export const styles = {
   // flex:1 was the one actually inflating this button to fill the entire
   // rest of the (minHeight:100vh) column on a short settings page, making
   // it look like a giant slab instead of a normal button. Dropped in favor
-  // of an explicit height:60, matching the yellow first-time-setup button
-  // right above (mdSetupSubmitBtn) and every other primary green button
+  // of an explicit height:60, matching every other primary green button
   // in this file (mdBackPopoverBtnPrimary, mdCautionSheetBtnPrimary).
   //
   // Real-device feedback again: even at the right height, this still sat
