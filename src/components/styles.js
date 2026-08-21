@@ -1612,9 +1612,15 @@ export const styles = {
     fontFamily: tokens.font.display, fontWeight: 800, fontSize: 42, color: tokens.color.deepGreen,
     lineHeight: 1, marginTop: 16, textAlign: "center",
   },
+  // Real-use feedback: "I really like that slogan" — was plain body-copy
+  // gray, reading as a throwaway caption under the wordmark rather than
+  // something worth noticing. Baloo 2 (the same display font the wordmark
+  // itself uses, not body copy) and pitchGreen (not mutedText) instead, so
+  // the two read as one cohesive two-tone lockup — dark wordmark, bright
+  // green tagline — rather than a headline with a caption underneath.
   mdSignInTagline: {
-    fontFamily: tokens.font.body, fontWeight: 700, fontSize: 15.5, color: tokens.color.mutedText,
-    marginTop: 8, textAlign: "center",
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 18, color: tokens.color.pitchGreen,
+    marginTop: 6, textAlign: "center", letterSpacing: 0.2,
   },
   mdSignInForm: { width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", gap: 14, alignItems: "stretch" },
   // Green/white, not yellow — real-use feedback: yellow "didn't feel
@@ -1627,10 +1633,6 @@ export const styles = {
     borderRadius: tokens.radius.buttonLg, border: "none", background: tokens.color.pitchGreen, color: tokens.color.creamPaper,
     fontFamily: tokens.font.display, fontWeight: 800, fontSize: 25,
     boxShadow: tokens.shadow.solid(5, tokens.color.greenShadow), cursor: "pointer",
-  },
-  mdSignInReassurance: {
-    fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13.5, color: tokens.color.mutedText,
-    textAlign: "center", marginTop: 4, lineHeight: 1.4,
   },
   mdSignInError: {
     fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13, color: tokens.color.injuryText,

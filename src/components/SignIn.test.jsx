@@ -24,6 +24,9 @@ describe("SignIn", () => {
     // README > A9-Signin describes an email field for a magic-link flow —
     // this app only has Google sign-in, so there should be no email input.
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    // Real-use feedback: dropped this reassurance line entirely — a coach
+    // signing in with Google already knows how that works.
+    expect(screen.queryByText(/no password to create or remember/)).not.toBeInTheDocument();
   });
 
   it("calls signInWithGoogle when the button is tapped, showing a signing-in state meanwhile", async () => {

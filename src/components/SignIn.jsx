@@ -12,7 +12,10 @@ import headerMascot from "../assets/header-mascot.jpg";
 // than build a non-functional email field to match the mockup literally,
 // this restyles around the real flow: same lockup/button/footer shapes and
 // sizes the README specifies, "Sign in with Google" where it says "Send me
-// a link", and a reassurance line that's actually true of what happens.
+// a link". Had a reassurance line under the button too ("One tap with your
+// Google account — no password to create or remember") — real-use
+// feedback: dropped it, a coach signing in with Google already knows how
+// that works.
 export default function SignIn() {
   const [error, setError] = useState("");
   const [signingIn, setSigningIn] = useState(false);
@@ -49,9 +52,6 @@ export default function SignIn() {
           <GoogleIcon />
           {signingIn ? "Signing in…" : "Sign in with Google"}
         </button>
-        <p style={styles.mdSignInReassurance}>
-          One tap with your Google account — no password to create or remember.
-        </p>
         {error && <div style={styles.mdSignInError}>{error}</div>}
       </div>
 
