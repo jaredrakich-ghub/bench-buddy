@@ -157,39 +157,17 @@ export const styles = {
     fontFamily: "system-ui, -apple-system, sans-serif", background: tokens.color.creamPaper,
     backgroundImage: paperTexture, minHeight: 500, color: colors.ink,
   },
-  header: {
-    background: `linear-gradient(135deg, ${colors.grass} 0%, ${colors.grassLight} 100%)`,
-    borderBottom: "3px solid " + colors.gk, boxShadow: "0 2px 8px rgba(0,0,0,0.25)", padding: "10px 16px",
-  },
-  headerInner: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 },
-  headerLogoGroup: { display: "flex", alignItems: "center", gap: 10, minWidth: 0 },
-  // The source image (a licensed Vecteezy illustration — see README for
-  // attribution) is a mascot on a yellow circle badge with white margin
-  // around it. logoMark is a fixed-size clipping window (overflow:hidden is
-  // what actually crops it — border-radius alone doesn't clip an oversized
-  // transformed child); logoMarkImg is scaled up and repositioned inside it
-  // so only the circular badge shows, cropping the white margin away.
-  logoMark: {
-    width: 34, height: 34, borderRadius: "50%", flexShrink: 0, overflow: "hidden",
-    boxShadow: "0 0 0 2px rgba(255,255,255,0.25)",
-  },
-  logoMarkImg: {
-    width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 46%", transform: "scale(1.7)",
-  },
-  headerTitle: { color: colors.chalk, fontWeight: 900, letterSpacing: 2, fontSize: 16, textTransform: "uppercase" },
-  teamSwitcherTrigger: {
-    display: "flex", alignItems: "center", gap: 4, background: "rgba(255,255,255,0.12)", color: colors.chalk,
-    border: "none", borderRadius: 999, padding: "5px 10px", fontWeight: 700, fontSize: 12, cursor: "pointer",
-    maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flexShrink: 0,
-  },
-  // Same pill treatment as teamSwitcherTrigger (same header, same dark-green
-  // background) so the two read as a matched pair rather than one looking
-  // like an afterthought next to the other.
-  seasonBtn: {
-    display: "flex", alignItems: "center", gap: 4, background: "rgba(255,255,255,0.12)", color: colors.chalk,
-    border: "none", borderRadius: 999, padding: "5px 10px", fontWeight: 700, fontSize: 12, cursor: "pointer",
-    flexShrink: 0,
-  },
+  // header/headerInner/headerLogoGroup/logoMark/logoMarkImg/headerTitle/
+  // teamSwitcherTrigger/seasonBtn/headerBtnGroup (below) all removed —
+  // this was the pre-match/first-time-setup screen's own app-level
+  // header, the one screen never touched by the match-day redesign: a
+  // leftover dark-green gradient bar with tiny caps text sitting right
+  // above SquadSettingsForm's own already-redesigned cream/gold content.
+  // Real-use feedback caught the seam ("a lot of the old UI appearing").
+  // Replaced in SubRotationPlanner.jsx with MatchView's own header shape
+  // (mdHeader/mdCogBtn) instead of a bespoke design, so the two read as
+  // the same screen family.
+  //
   // teamRow/teamRowMeta stay — SeasonSummaryModal's game-history list
   // reuses them. teamList/teamRowBtn/teamRowBtnActive were TeamSwitcher-
   // exclusive; removed alongside it (superseded by TeamAccountScreen.jsx
@@ -211,7 +189,6 @@ export const styles = {
   // screen's own last element already carries below it (e.g. the action
   // bar's own 16px).
   main: { padding: "12px 16px", paddingBottom: "calc(24px + env(safe-area-inset-bottom, 0px))", maxWidth: 640, margin: "0 auto" },
-  headerBtnGroup: { display: "flex", gap: 6 },
   // addRow was TeamSwitcher-exclusive; removed alongside it.
   input: { flex: 1, padding: "10px 12px", borderRadius: 10, border: "1px solid " + colors.border, fontSize: 14 },
   primaryBtn: {

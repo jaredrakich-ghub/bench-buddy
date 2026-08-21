@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { History } from "lucide-react";
+import { BarChart2 } from "lucide-react";
 import { intervalAtElapsed } from "../lib/rotation.js";
 import { computeLiveElapsedSec } from "../lib/clock.js";
 import { generateId } from "../lib/id.js";
@@ -9,7 +9,8 @@ import { fetchTeams, createTeamDoc, deleteTeamDoc, fetchMatchState, describeSave
 import { signOutUser, deleteAccount } from "../lib/auth.js";
 import { useTeamRegistry } from "../hooks/useTeamRegistry.js";
 import { useMatchState } from "../hooks/useMatchState.js";
-import { fontStyle, styles } from "./styles.js";
+import { fontStyle, styles, tokens } from "./styles.js";
+import { GearIcon } from "./matchDayIcons.jsx";
 import SummaryModal from "./SummaryModal.jsx";
 import SeasonSummaryModal from "./SeasonSummaryModal.jsx";
 import SquadSettingsForm from "./SquadSettingsForm.jsx";
@@ -59,6 +60,15 @@ export default function SubRotationPlanner({ user }) {
   const [showSeasonModal, setShowSeasonModal] = useState(false);
   const [showTeamSwitcher, setShowTeamSwitcher] = useState(false);
   const [showSquadChange, setShowSquadChange] = useState(false);
+  // Real-use feedback: the pre-match/first-time-setup header (shown only
+  // while !plan — this file's own header below) was the one screen in the
+  // app never touched by the match-day redesign, a leftover dark-green
+  // pill-button bar sitting right above SquadSettingsForm's own already-
+  // redesigned cream/gold content. Rebuilt on MatchView's own crest+cog
+  // header shape (mdHeader/mdCogBtn) — same anchored-popover mechanism,
+  // just this screen's own two rows (Season data, Team & account) instead
+  // of MatchView's four.
+  const [setupCogOrigin, setSetupCogOrigin] = useState(null);
   // Set when a save fails — either a team-registry save or a match-state
   // save — surfaced as a persistent banner rather than swallowed, so a
   // coach isn't silently trusting saves that aren't happening. Whichever
@@ -349,29 +359,65 @@ export default function SubRotationPlanner({ user }) {
       {/* MatchView supplies its own team-identity header (crest, name, cog
           menu) once a match is underway — this app-level header is only
           for the pre-match/setup screen, so it hides rather than stacking
-          a second header on top of MatchView's. The cog menu's "Switch
-          team"/"Season data" rows (see MatchView.jsx) reach the same
-          setShowSeasonModal/setShowTeamSwitcher this header's own buttons
-          call, so nothing here becomes unreachable once a match starts. */}
+          a second header on top of MatchView's. Same shape as MatchView's
+          own header (mdHeader/mdCogBtn) rather than a bespoke one, so the
+          two read as the same screen family — this cog menu's own "Season
+          data"/"Team & account" rows reach the exact same
+          setShowSeasonModal/setShowTeamSwitcher MatchView's cog menu does,
+          so nothing here becomes unreachable once a match starts. */}
       {!plan && (
-        <header style={styles.header}>
-          <div style={styles.headerInner}>
-            <div style={styles.headerLogoGroup}>
-              <div style={styles.logoMark}>
-                <img src={headerMascot} alt="" style={styles.logoMarkImg} />
-              </div>
-              <div style={styles.headerTitle}>BENCH BUDDY</div>
+        <div style={styles.mdHeader}>
+          <div style={styles.mdHeaderTopRow}>
+            <div style={styles.mdCrestOuter}>
+              <img src={headerMascot} alt="" style={styles.mdCrestImg} />
             </div>
-            <div style={styles.headerBtnGroup}>
-              <button style={styles.seasonBtn} onClick={() => setShowSeasonModal(true)} title="View season history">
-                <History size={14} /> Season
-              </button>
-              <button style={styles.teamSwitcherTrigger} onClick={() => setShowTeamSwitcher(true)} title="Switch teams">
-                {teamData.name} ▾
-              </button>
-            </div>
+            <div style={styles.mdTeamName}>{teamData.name}</div>
+            <button
+              style={{ ...styles.mdCogBtn, ...(setupCogOrigin ? { ...styles.mdOriginLit, ...styles.mdCogBtnLit } : {}) }}
+              onClick={(e) => {
+                const top = e.currentTarget.getBoundingClientRect().bottom + 8;
+                setSetupCogOrigin((current) => (current ? null : { top }));
+              }}
+              title="Menu"
+            >
+              <GearIcon size={28} />
+            </button>
           </div>
-        </header>
+        </div>
+      )}
+
+      {setupCogOrigin && (
+        <>
+          <div style={styles.mdScrim} data-testid="setup-scrim" onClick={() => setSetupCogOrigin(null)} />
+          <div style={{ ...styles.mdPopover, top: setupCogOrigin.top }} data-testid="setup-cog-popover">
+            <button
+              style={styles.mdCogMenuRow}
+              onClick={() => {
+                setSetupCogOrigin(null);
+                setShowSeasonModal(true);
+              }}
+            >
+              <span style={{ ...styles.mdCogMenuIconTile, ...styles.mdTintGreen }}>
+                <BarChart2 size={16} color={tokens.color.pitchGreen} />
+              </span>
+              <span style={styles.mdCogMenuLabel}>Season data</span>
+              <span style={styles.mdCogMenuChevron}>›</span>
+            </button>
+            <button
+              style={styles.mdCogMenuRow}
+              onClick={() => {
+                setSetupCogOrigin(null);
+                setShowTeamSwitcher(true);
+              }}
+            >
+              <span style={styles.mdCogMenuCrestIcon}>
+                <img src={headerMascot} alt="" style={styles.mdCogMenuCrestImg} />
+              </span>
+              <span style={styles.mdCogMenuLabel}>Team &amp; account</span>
+              <span style={styles.mdCogMenuChevron}>›</span>
+            </button>
+          </div>
+        </>
       )}
 
       {saveError && <div style={styles.saveErrorBanner}>⚠️ {saveError}</div>}
