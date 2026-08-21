@@ -306,6 +306,23 @@ describe("SquadSettingsForm — number tiles (tap to flip, stepper)", () => {
     expect(screen.getAllByText("−")).toHaveLength(2); // still exactly one flipped tile + Keeper swaps
     expect(setGameSettings).not.toHaveBeenCalled();
   });
+
+  // Real-use feedback: settling a flipped tile back used to only work by
+  // tapping dead centre on the tile's own body -- tapping anywhere else on
+  // the page (another section entirely, not just a different tile) left
+  // it stuck open.
+  it("tapping outside the tiles row settles a flipped tile back too, not just tapping its own body", async () => {
+    const user = userEvent.setup();
+    render(<SquadSettingsForm {...baseProps({ variant: "edit" })} />);
+    await user.click(screen.getByText("on pitch"));
+    // Keeper changes' own stepper isn't in the DOM yet in the edit layout
+    // (that section starts collapsed) -- just this tile's own "-" here.
+    expect(screen.getAllByText("−")).toHaveLength(1);
+    // Tapping a wholly unrelated section, not another tile.
+    await user.click(screen.getByText("First in goal today"));
+    expect(screen.queryByText("−")).not.toBeInTheDocument(); // the tile settled back
+    expect(screen.getByTitle("Collapse")).toBeInTheDocument(); // the outside tap's own action still happened
+  });
 });
 
 describe("SquadSettingsForm — squad chips (availability)", () => {

@@ -229,6 +229,23 @@ export default function SquadSettingsForm({
   // keeper-eligible/remove are all edited far less often than availability
   // is, so tucking them behind a tap costs little.
   const [activeTile, setActiveTile] = useState(null);
+  // Real-use feedback: a flipped tile only settled back on a tap dead
+  // centre on its own body — tapping anywhere else on the page (another
+  // section, the header, blank space) left it stuck open. Listens for a
+  // pointerdown anywhere while a tile's flipped and closes it unless the
+  // tap landed inside the tiles row itself — tapping a *different* tile
+  // there already switches activeTile directly (see renderTiles' own
+  // onClick), so this only needs to catch genuinely outside taps, not
+  // fight that existing in-row switch.
+  const tilesRowRef = useRef(null);
+  useEffect(() => {
+    if (!activeTile) return;
+    const handlePointerDown = (e) => {
+      if (tilesRowRef.current && !tilesRowRef.current.contains(e.target)) setActiveTile(null);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [activeTile]);
   const [expandedSection, setExpandedSection] = useState(initialExpandedSection); // "goal" | "swaps" | "breaks" | "squad" | null
   // Real-use feedback: arriving here via Team & account's own "Manage
   // squad" row still landed the coach looking at the top of the screen
@@ -325,7 +342,7 @@ export default function SquadSettingsForm({
 
   function renderTiles() {
     return (
-      <div style={styles.settingsGrid}>
+      <div ref={tilesRowRef} style={styles.settingsGrid}>
         {TILE_ORDER.map(({ key, label }) => {
           const isActive = activeTile === key;
           const value = gameSettings[key];
