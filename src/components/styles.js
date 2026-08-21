@@ -644,7 +644,6 @@ export const styles = {
   // fairer sub interval..." prose + generic ✓/✗ chips. Deliberately its
   // own style family, not mdSetupChip/mdSetupChipRow above — those are
   // still Breaks' own None/Halves/Thirds/Quarters chips, untouched here.
-  mdSetupEvenSplitsLabel: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 14, color: tokens.color.groupLabel },
   // flexWrap stays on regardless of screen width — if these five chips
   // (4'-8') ever don't fit their one line, shrink the chip padding first;
   // never drop flex-wrap, or a genuinely narrow screen would push the row
@@ -744,9 +743,23 @@ export const styles = {
   // of an explicit height:60, matching the yellow first-time-setup button
   // right above (mdSetupSubmitBtn) and every other primary green button
   // in this file (mdBackPopoverBtnPrimary, mdSetupConfirmBtnPrimary).
+  //
+  // Real-device feedback again: even at the right height, this still sat
+  // partly below the visible screen — margin-top:auto pushes it flush
+  // with the very bottom of the minHeight:100vh column, and mobile
+  // Safari's own collapsing toolbar means the *actual* visible viewport is
+  // shorter than 100vh reports. No horizontal margin now either — it used
+  // to carry its own extra 16px on top of the page's existing 16px
+  // padding, making it narrower than the accordion rows above; removing
+  // it lines the button up edge-to-edge with them, same width as every
+  // other row on this screen. The extra 30px of bottom margin (roughly
+  // half this button's own height) is what actually lifts it up into
+  // view — it comes out of the same auto-margin's leftover space above,
+  // so the column's total height is unaffected, the button just settles
+  // higher with a visible gap beneath it.
   mdSetupSubmitBtnPrimary: {
     display: "flex", alignItems: "center", gap: 8, justifyContent: "center",
-    margin: "12px 16px 16px", marginTop: "auto", height: 60,
+    margin: "12px 0 46px", marginTop: "auto", height: 60,
     background: tokens.color.pitchGreen, borderRadius: 24, padding: "0 17px", textAlign: "center",
     fontFamily: tokens.font.display, fontWeight: 800, fontSize: 21, color: "#fff",
     boxShadow: "0 5px 0 #1C5B3A", border: "none", cursor: "pointer",

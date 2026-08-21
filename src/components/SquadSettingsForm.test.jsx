@@ -458,7 +458,7 @@ describe("SquadSettingsForm — Breaks", () => {
 describe("SquadSettingsForm — sub-interval recommendation", () => {
   it("stays hidden while there aren't enough available players yet", () => {
     render(<SquadSettingsForm {...baseProps({ availableIds: ["p1"] })} />);
-    expect(screen.queryByText(/Even splits for/)).not.toBeInTheDocument();
+    expect(screen.queryByTitle(/min subs/)).not.toBeInTheDocument();
   });
 
   // Real-use feedback replaced the old two-line prose + ✓/✗-per-chip
@@ -467,11 +467,15 @@ describe("SquadSettingsForm — sub-interval recommendation", () => {
   // (7 players, 42-minute game), 6′ is the unique smallest-spread option
   // among 4/5/6/7/8′ (bestSpread 0; every other candidate is non-zero) —
   // see rotation.test.js's own recommendSubIntervals coverage for the math.
-  it("shows a chip per candidate interval with its minute mark, labeled with today's actual available count, highlighting the single best fit", () => {
+  //
+  // The label itself ("Even splits for N players") was later dropped —
+  // real-device feedback found it unclear jargon and redundant with
+  // renderIntervalPreview's own "N sub windows · fairest for N players"
+  // caption right above it — so this test only checks the chips now.
+  it("shows a chip per candidate interval with its minute mark, highlighting the single best fit", () => {
     render(
       <SquadSettingsForm {...baseProps({ roster: FAIRNESS_ROSTER, availableIds: FAIRNESS_ROSTER.map((p) => p.id), gameSettings: FAIRNESS_SETTINGS })} />
     );
-    expect(screen.getByText("Even splits for 7 players")).toBeInTheDocument();
     // Queried by title, not text — "6′" also legitimately appears in the
     // Keeper swaps stepper elsewhere on this (inline-variant) screen,
     // since this fixture's keeperShiftMinutes falls back to the same

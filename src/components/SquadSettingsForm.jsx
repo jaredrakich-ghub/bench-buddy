@@ -359,12 +359,18 @@ export default function SquadSettingsForm({
   // "currently selected" highlight anymore — the "sub every" tile above
   // already shows the live value; this row is purely "here's what's
   // fairest," not an echo of the current pick.
+  //
+  // Real-device feedback: even that one-line "Even splits for N players"
+  // label was unclear jargon on its own ("I don't actually know what that
+  // means") and, worse, redundant — renderIntervalPreview's own caption
+  // right above this ("N sub windows · fairest for N players") already
+  // says the same thing in context. Dropped the label entirely; each
+  // chip's own tap title still explains itself.
   function renderSubIntervalRecs() {
     if (!subIntervalRecs || subIntervalRecs.length === 0) return null;
     const bestFitMinutes = subIntervalRecs.reduce((best, r) => (r.bestSpread < best.bestSpread ? r : best)).subIntervalMinutes;
     return (
       <>
-        <div style={styles.mdSetupEvenSplitsLabel}>Even splits for {availableIds.length} players</div>
         <div style={styles.mdSetupEvenSplitsRow}>
           {subIntervalRecs.map((r) => {
             const isBestFit = r.subIntervalMinutes === bestFitMinutes;
@@ -690,7 +696,12 @@ export default function SquadSettingsForm({
         {renderIntervalPreview()}
         {renderSubIntervalRecs()}
 
-        <div style={{ marginTop: 22, display: "flex", flexDirection: "column", gap: 9 }}>
+        {/* marginBottom is a fixed floor, not the auto margin the submit
+            button below uses to reach the bottom of the screen — on a
+            tall roster, that auto margin can shrink close to nothing, so
+            without this the button could end up sitting right against
+            "Manage squad" with no breathing room. */}
+        <div style={{ marginTop: 22, marginBottom: 20, display: "flex", flexDirection: "column", gap: 9 }}>
           {expandedSection === "goal" ? (
             <div style={{ ...styles.mdSetupCard, ...styles.mdSetupCardDark }}>
               {/* No section badge once expanded — real-device feedback,
@@ -806,11 +817,11 @@ export default function SquadSettingsForm({
 
         {confirmOpen && (
           // Same sheet mechanism as the match screen's own player-tap/
-          // injury sheets (mdSheet) — grab handle, scrim-dismiss, no ✕ —
-          // just position:absolute/locally-scoped z-index rather than
-          // mdSheet's own position:fixed, since this only ever needs to
-          // cover this screen's own content. Amber top border (caution),
-          // not red (reserved for injury elsewhere in the app).
+          // injury sheets (mdSheet) — grab handle, scrim-dismiss, no ✕,
+          // and (styles.js has the real-device story) the same
+          // position:fixed/viewport-anchored positioning too, not a
+          // locally-scoped absolute. Amber top border (caution), not red
+          // (reserved for injury elsewhere in the app).
           <>
             <div style={styles.mdSetupConfirmScrim} onClick={() => setConfirmOpen(false)} />
             <div style={styles.mdSetupConfirmSheet} data-testid="rebuild-confirm-sheet">
