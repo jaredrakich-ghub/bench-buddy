@@ -6,6 +6,7 @@ import {
 } from "../lib/rotation.js";
 import { validateGameSettings } from "../lib/validation.js";
 import { fmtClock } from "../lib/clock.js";
+import { useSheetDrag } from "../hooks/useSheetDrag.js";
 import { styles, tokens } from "./styles.js";
 
 // Drawn (stroke, not solid-fill) icons for the edit layout's own four
@@ -257,6 +258,10 @@ export default function SquadSettingsForm({
   // renderWarningsAndSubmit/handleSubmitClick below. Not used by "inline"
   // (first-time setup never has a game in progress to confirm about).
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // Real-use feedback: this looked like every other bottom sheet in the
+  // app (mdSheet's own grab handle) but didn't swipe-dismiss like one —
+  // same shared hook the match screen's player-tap/injury sheets use.
+  const confirmSheetDrag = useSheetDrag(() => setConfirmOpen(false));
 
   // Real-use feedback: the old restart-warning banner interrupted every
   // visit, even ones with nothing to lose, and its own wording was wrong
@@ -882,19 +887,27 @@ export default function SquadSettingsForm({
         {confirmOpen && (
           // Same sheet mechanism as the match screen's own player-tap/
           // injury sheets (mdSheet) — grab handle, scrim-dismiss, no ✕,
-          // and (styles.js has the real-device story) the same
-          // position:fixed/viewport-anchored positioning too, not a
-          // locally-scoped absolute. Amber top border (caution), not red
-          // (reserved for injury elsewhere in the app).
+          // swipe-down-to-dismiss (useSheetDrag, extracted from MatchView.
+          // jsx once this sheet needed the identical behavior — real-use
+          // feedback: it looked like every other bottom sheet but didn't
+          // swipe-dismiss like one), and (styles.js has the real-device
+          // story) the same position:fixed/viewport-anchored positioning
+          // too, not a locally-scoped absolute. Amber top border
+          // (caution), not red (reserved for injury elsewhere in the app).
           <>
             <div style={styles.mdSetupConfirmScrim} onClick={() => setConfirmOpen(false)} />
-            <div style={styles.mdSetupConfirmSheet} data-testid="rebuild-confirm-sheet">
-              <div style={styles.mdSheetGrabHandle} />
-              <div style={styles.mdSetupConfirmHeaderRow}>
-                <span style={styles.mdSetupConfirmIconBadge}>
-                  <RotateIcon />
-                </span>
-                <div style={styles.mdSetupConfirmTitle}>Today's game is running</div>
+            <div
+              style={{ ...styles.mdSetupConfirmSheet, ...confirmSheetDrag.dragStyle }}
+              data-testid="rebuild-confirm-sheet"
+            >
+              <div {...confirmSheetDrag.dragHandleProps}>
+                <div style={styles.mdSheetGrabHandle} />
+                <div style={styles.mdSetupConfirmHeaderRow}>
+                  <span style={styles.mdSetupConfirmIconBadge}>
+                    <RotateIcon />
+                  </span>
+                  <div style={styles.mdSetupConfirmTitle}>Today's game is running</div>
+                </div>
               </div>
               <div style={styles.mdSetupConfirmBody}>
                 A new rotation plans from 0:00. The {fmtClock(elapsedSec)} already played stays on each child's minutes — only the
