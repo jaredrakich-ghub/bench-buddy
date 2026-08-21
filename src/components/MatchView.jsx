@@ -503,7 +503,16 @@ export default function MatchView({
           <button
             style={{
               ...styles.mdTimerDisplay, ...(isPaused ? styles.mdTimerDisplayPaused : {}),
-              border: "none", background: "transparent", padding: 0, cursor: "pointer", font: "inherit", userSelect: "none",
+              // No font:"inherit" here — that's the CSS shorthand for
+              // family/size/weight/style/line-height all at once, so
+              // adding it *after* the mdTimerDisplay spread above silently
+              // wiped out its own fontSize:66/Baloo 2/800 weight in favor
+              // of whatever this button inherited from its parent (a much
+              // smaller body-text size) — real-device feedback: the timer
+              // rendered "super tiny". mdTimerDisplay already sets every
+              // font property this needs explicitly, so there's nothing
+              // left for a button's own default font to leak through.
+              border: "none", background: "transparent", padding: 0, cursor: "pointer", userSelect: "none",
             }}
             onClick={handleTimerTap}
           >

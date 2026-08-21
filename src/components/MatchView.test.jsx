@@ -144,6 +144,19 @@ describe("MatchView — basic rendering", () => {
     expect(screen.getByText("Gus")).toBeInTheDocument();
   });
 
+  // Real-device feedback: the timer became a <button> (the hidden reset
+  // gesture) with a `font: "inherit"` meant only to reset button chrome,
+  // but that CSS shorthand also wiped out the fontSize:66/Baloo 2/800
+  // weight the mdTimerDisplay spread just before it had set, rendering as
+  // tiny inherited body text instead. Locks in that it still renders at
+  // its actual designed size.
+  it("keeps the timer at its full 66px display size now that it's a button", () => {
+    render(<MatchView {...baseProps()} />);
+    const timer = screen.getByText("0:00");
+    expect(timer.tagName).toBe("BUTTON");
+    expect(timer).toHaveStyle({ fontSize: "66px", fontWeight: 800 });
+  });
+
   it("shows each player's squad number from numberOf", () => {
     render(<MatchView {...baseProps()} />);
     // p1/Alice on the pitch (number 1) and p6/Finn on the bench (number 6).
