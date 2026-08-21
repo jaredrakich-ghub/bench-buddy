@@ -464,6 +464,31 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
     setSwapPickId(null);
   };
 
+  // Restarts today's game from 0:00 on the SAME rotation plan — clock, sub
+  // log, and which interval the board's showing all rewind, nothing about
+  // the plan itself changes. Deliberately doesn't touch injuries: a real
+  // injury already happened, and rewinding the clock shouldn't quietly
+  // un-injure someone.
+  //
+  // This existed pre-match-day-redesign (a header icon next to the cog),
+  // removed entirely during that redesign per the design doc's own call
+  // ("no place in the new information architecture"). Real-use feedback
+  // brought it back — a quick way to restart the same game, distinct from
+  // "Build new rotation" (SquadSettingsForm's own submit, which rebuilds a
+  // fresh plan and lives behind Game settings, not the action bar).
+  const resetClock = () => {
+    setTimerRunning(false);
+    setRunStartedAt(null);
+    setBaseElapsedSec(0);
+    setElapsedSec(0);
+    setSubLog({});
+    // Without this, the clock could show 0:00 while the pitch board still
+    // displayed whatever interval the coach last happened to be browsing —
+    // same reasoning as startPlanning's own reset above.
+    lastLiveIntervalRef.current = 0;
+    setActiveInterval(0);
+  };
+
   return {
     availableIds, setAvailableIds,
     gameSettings, setGameSettings,
@@ -481,6 +506,6 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
     startingGkId, setStartingGkId,
     saveError, setSaveError,
     keeperEligibleIds,
-    startPlanning, handleInjury, bringBack, performSwap, addArrival, removeAvailability,
+    startPlanning, handleInjury, bringBack, performSwap, addArrival, removeAvailability, resetClock,
   };
 }

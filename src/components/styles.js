@@ -767,7 +767,7 @@ export const styles = {
   // it look like a giant slab instead of a normal button. Dropped in favor
   // of an explicit height:60, matching the yellow first-time-setup button
   // right above (mdSetupSubmitBtn) and every other primary green button
-  // in this file (mdBackPopoverBtnPrimary, mdSetupConfirmBtnPrimary).
+  // in this file (mdBackPopoverBtnPrimary, mdCautionSheetBtnPrimary).
   //
   // Real-device feedback again: even at the right height, this still sat
   // partly below the visible screen — margin-top:auto pushes it flush
@@ -795,13 +795,19 @@ export const styles = {
     boxShadow: "0 5px 0 #1C5B3A", border: "none", cursor: "pointer",
   },
 
-  // ---- The edit layout's own "rebuild the rotation" confirm sheet —
-  // real-use feedback: the old red "This will restart the rotation from
-  // 0:00 and clear this game's progress so far" banner warned on *every*
-  // visit (even ones with nothing to lose) and was actually wrong —
-  // minutes already played are never cleared. Replaced with a check at
-  // submit time: no game in progress builds immediately, a game in
-  // progress opens this sheet instead.
+  // ---- The app's shared "caution" confirm sheet — a lighter-weight,
+  // amber-bordered cousin of mdSheet (below) for "here's what's about to
+  // happen, confirm or back out" moments, as opposed to mdSheet's own job
+  // (a menu of actions to pick from). Originally built for the edit
+  // layout's own "rebuild the rotation" confirm sheet — real-use feedback:
+  // the old red "This will restart the rotation from 0:00 and clear this
+  // game's progress so far" banner warned on *every* visit (even ones with
+  // nothing to lose) and was actually wrong — minutes already played are
+  // never cleared. Replaced with a check at submit time: no game in
+  // progress builds immediately, a game in progress opens this sheet
+  // instead. Reused as-is (different copy, same shell) by MatchView's own
+  // "Reset" confirm — genuinely the same shape of moment, not a
+  // coincidence worth two near-duplicate style blocks over.
   //
   // This originally shipped as position:absolute with a locally-scoped
   // low z-index (5/6), reasoning it only needed to cover this screen's own
@@ -820,8 +826,8 @@ export const styles = {
   // takeover screen's own stacking context, the z-index has to clear
   // mdFullScreenTakeoverOuter's own 50 (this sheet lives inside that
   // takeover) rather than the old locally-scoped 5/6.
-  mdSetupConfirmScrim: { position: "fixed", inset: 0, background: tokens.color.scrim, zIndex: 51 },
-  mdSetupConfirmSheet: {
+  mdCautionSheetScrim: { position: "fixed", inset: 0, background: tokens.color.scrim, zIndex: 51 },
+  mdCautionSheet: {
     position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 52,
     maxWidth: 640, margin: "0 auto",
     background: tokens.color.creamPaper, borderRadius: "32px 32px 0 0",
@@ -831,23 +837,23 @@ export const styles = {
   },
   // Amber, not red — this is caution ("here's what's about to happen"),
   // not the app's injury-red, which stays reserved for actual injuries.
-  mdSetupConfirmIconBadge: {
+  mdCautionSheetIconBadge: {
     width: 40, height: 40, borderRadius: "50%", background: tokens.color.yellow, flexShrink: 0,
     display: "flex", alignItems: "center", justifyContent: "center",
   },
-  mdSetupConfirmHeaderRow: { display: "flex", alignItems: "center", gap: 11, padding: "0 4px" },
-  mdSetupConfirmTitle: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 23, color: tokens.color.deepGreen, lineHeight: 1.1 },
-  mdSetupConfirmBody: {
+  mdCautionSheetHeaderRow: { display: "flex", alignItems: "center", gap: 11, padding: "0 4px" },
+  mdCautionSheetTitle: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 23, color: tokens.color.deepGreen, lineHeight: 1.1 },
+  mdCautionSheetBody: {
     fontFamily: tokens.font.body, fontWeight: 700, fontSize: 14.5, color: tokens.color.groupLabel, lineHeight: 1.45, padding: "0 4px",
   },
-  mdSetupConfirmBtnRow: { display: "flex", gap: 10 },
+  mdCautionSheetBtnRow: { display: "flex", gap: 10 },
   // display:flex/alignItems/justifyContent on both — without it, a
   // block-level button's own content can push its rendered height past
   // the explicit height:60 (real-device feedback: "Keep current" and
   // "Build Rotation" weren't the same height — this is what actually
   // enforces it as a strict, centered box regardless of label length,
   // rather than height:60 being more of a suggestion).
-  mdSetupConfirmBtnPrimary: {
+  mdCautionSheetBtnPrimary: {
     display: "flex", alignItems: "center", justifyContent: "center",
     flex: 1.3, height: 60, borderRadius: 22, border: "none", background: tokens.color.pitchGreen,
     boxShadow: `0 4px 0 ${tokens.color.greenShadow}`, color: tokens.color.creamPaper, fontFamily: tokens.font.display, fontWeight: 800,
@@ -855,7 +861,7 @@ export const styles = {
   },
   // flex 1.3/1.05, not 1.35/1 — real-device feedback asked for a few
   // pixels handed from the green button over to this one.
-  mdSetupConfirmBtnSecondary: {
+  mdCautionSheetBtnSecondary: {
     display: "flex", alignItems: "center", justifyContent: "center",
     flex: 1.05, height: 60, borderRadius: 22, border: "none", background: tokens.color.creamDeep,
     color: tokens.color.actionBar, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 20, cursor: "pointer",
@@ -1004,8 +1010,18 @@ export const styles = {
   // button label) measured as pushing the button ~26px past the right
   // edge of the viewport at 26px/full padding — verified by measuring
   // actual rendered rects, not by eye.
+  // flexShrink/minWidth:0/ellipsis, not just nowrap — real-device feedback
+  // (adding the Reset icon button to this same row, mdActionBarBtnGroup)
+  // reopened the exact overflow class of bug the 26px->22px tuning above
+  // already fixed once: a fixed-width nowrap label plus a now-wider
+  // button group no longer both fit at every real viewport width. Letting
+  // this text shrink and truncate first — never the buttons, which stay
+  // flexShrink:0 — means it degrades gracefully on a genuinely narrow
+  // screen instead of needing another one-off magic-number retune the
+  // next time anything in this row's width changes.
   mdActionBarCountdown: {
-    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 22, color: tokens.color.yellow, whiteSpace: "nowrap",
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 22, color: tokens.color.yellow,
+    whiteSpace: "nowrap", flexShrink: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis",
   },
   // The compact single-row layout (label left, action button right) used
   // by the pre-kickoff/paused/running bars — the final-60 sheet keeps its
@@ -1047,6 +1063,24 @@ export const styles = {
   },
   // "cream #F1E9D2 with dark text ... while running" (Pause).
   mdActionBarClockBtnRunning: { background: tokens.color.creamDeep, color: tokens.color.deepGreen },
+  // Groups the Reset icon button with the Resume/Pause clock button as one
+  // flex item, so mdActionBarInlineRow's own space-between still reads as
+  // "status text | the pair of buttons", not three separately-spaced items.
+  mdActionBarBtnGroup: { display: "flex", alignItems: "center", gap: 8, flexShrink: 0 },
+  // Real-use feedback: brought back after being removed entirely in the
+  // match-day redesign — same neutral cream treatment as Pause (not
+  // yellow, which stays reserved for the primary Start/Resume action).
+  // Square-ish rather than pill-shaped, same 66px height as the clock
+  // button beside it so the pair reads as one aligned group. Briefly
+  // trimmed to 46px to fix the mdActionBarCountdown overflow class of bug
+  // (see its own comment) — real-device feedback called that cramped, so
+  // widened back to 56 once "Paused" (shorter than "Clock stopped")
+  // freed the room back up.
+  mdActionBarResetBtn: {
+    width: 56, height: 66, borderRadius: tokens.radius.buttonMd, border: "none",
+    background: tokens.color.creamDeep, display: "flex", alignItems: "center", justifyContent: "center",
+    cursor: "pointer", flexShrink: 0,
+  },
   // Shared full-screen dim layer — final60, the cog menu, and the
   // player-tap popover are mutually exclusive (never shown two at once,
   // see MatchView.jsx), so one scrim style serves all three rather than

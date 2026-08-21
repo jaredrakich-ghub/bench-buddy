@@ -101,6 +101,7 @@ function baseProps(overrides = {}) {
     onInjury: vi.fn(),
     onBringBack: vi.fn(),
     onSwap: vi.fn(),
+    onReset: vi.fn(),
     onShowSummary: vi.fn(),
     onShowSettings: vi.fn(),
     onShowSquadChange: vi.fn(),
@@ -358,7 +359,6 @@ describe("MatchView — pre-kickoff", () => {
     expect(screen.getByText("Ready to go")).toBeInTheDocument();
     expect(screen.getByText("Start match")).toBeInTheDocument();
     expect(screen.queryByText(/Next sub/)).not.toBeInTheDocument();
-    expect(screen.queryByText("Clock stopped")).not.toBeInTheDocument();
     expect(screen.queryByText("Paused")).not.toBeInTheDocument();
   });
 
@@ -393,13 +393,14 @@ describe("MatchView — pre-kickoff", () => {
 
 describe("MatchView — paused", () => {
   // !timerRunning && elapsedSec > 0 — was running, now stopped.
-  it("shows the greyed timer, Clock stopped, and the action bar's Resume button — no redundant Paused text chip, no Sub now", () => {
+  it("shows the greyed timer, the action bar's own Paused status text and Resume button, no Sub now", () => {
     render(<MatchView {...baseProps({ timerRunning: false, elapsedSec: 100 })} />);
-    // The Play/Pause icon button already communicates the state; a
-    // separate "Paused" text chip was dropped (real-device feedback: it
-    // forced the timer row to stack vertically and threw off alignment).
-    expect(screen.queryByText("Paused")).not.toBeInTheDocument();
-    expect(screen.getByText("Clock stopped")).toBeInTheDocument();
+    // This bar's own status label — was "Clock stopped", shortened to
+    // "Paused" once the Reset button (real-use feedback) made the row
+    // tighter. Not the same thing as the separate "Paused" text CHIP
+    // dropped elsewhere near the timer a while back (forced the timer row
+    // to stack vertically) — that removal was about a different element.
+    expect(screen.getByText("Paused")).toBeInTheDocument();
     // "Sub now" removed entirely (README > A2-Match-actionbar > Action
     // bar, confirmed explicitly) — the final-60 sheet is the only place a
     // sub gets confirmed now.
@@ -416,6 +417,59 @@ describe("MatchView — paused", () => {
     fireEvent.click(screen.getByText("Resume"));
     expect(setTimerRunning).toHaveBeenCalledWith(true);
     expect(setRunStartedAt).toHaveBeenCalled();
+  });
+});
+
+// Real-use feedback brought this back after it was removed entirely in the
+// match-day redesign — a quick way to restart today's game from 0:00 on
+// the same rotation, next to Resume/Pause in the action bar. Distinct from
+// "Build new rotation" (SquadSettingsForm's own submit), which isn't
+// covered by this file.
+describe("MatchView — Reset", () => {
+  it("shows next to Resume while paused, and next to Pause while running", () => {
+    const { rerender } = render(<MatchView {...baseProps({ timerRunning: false, elapsedSec: 100 })} />);
+    expect(screen.getByTitle("Reset")).toBeInTheDocument();
+    rerender(<MatchView {...baseProps({ timerRunning: true, elapsedSec: 100 })} />);
+    expect(screen.getByTitle("Reset")).toBeInTheDocument();
+  });
+
+  it("doesn't show pre-kickoff — nothing to reset yet", () => {
+    render(<MatchView {...baseProps({ timerRunning: false, elapsedSec: 0 })} />);
+    expect(screen.queryByTitle("Reset")).not.toBeInTheDocument();
+  });
+
+  it("resets immediately, no confirm sheet, when there's nothing to lose (elapsedSec 0, empty sub log, but already running)", () => {
+    const onReset = vi.fn();
+    render(<MatchView {...baseProps({ timerRunning: true, elapsedSec: 0, subLog: {}, onReset })} />);
+    fireEvent.click(screen.getByTitle("Reset"));
+    expect(onReset).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("reset-confirm-sheet")).not.toBeInTheDocument();
+  });
+
+  it("opens a confirm sheet instead of resetting immediately once there's real progress, naming the real elapsed time", () => {
+    const onReset = vi.fn();
+    render(<MatchView {...baseProps({ timerRunning: false, elapsedSec: 100, onReset })} />);
+    fireEvent.click(screen.getByTitle("Reset"));
+    expect(onReset).not.toHaveBeenCalled();
+    const sheet = screen.getByTestId("reset-confirm-sheet");
+    expect(within(sheet).getByText("Restart this game?")).toBeInTheDocument();
+    expect(within(sheet).getByText(/the 1:40 played so far won't be kept/)).toBeInTheDocument();
+  });
+
+  it("confirming resets and closes the sheet; Cancel closes it without resetting", () => {
+    const onReset = vi.fn();
+    render(<MatchView {...baseProps({ timerRunning: false, elapsedSec: 100, onReset })} />);
+    fireEvent.click(screen.getByTitle("Reset"));
+    fireEvent.click(screen.getByText("Cancel"));
+    expect(onReset).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("reset-confirm-sheet")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTitle("Reset"));
+    // The sheet's own confirm button — unambiguous from the action bar's
+    // icon-only Reset button, which has no visible text of its own.
+    fireEvent.click(screen.getByText("Reset"));
+    expect(onReset).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("reset-confirm-sheet")).not.toBeInTheDocument();
   });
 });
 
