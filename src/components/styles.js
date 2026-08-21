@@ -775,12 +775,20 @@ export const styles = {
     fontFamily: tokens.font.body, fontWeight: 700, fontSize: 14.5, color: tokens.color.groupLabel, lineHeight: 1.45, padding: "0 4px",
   },
   mdSetupConfirmBtnRow: { display: "flex", gap: 10 },
+  // display:flex/alignItems/justifyContent on both — without it, a
+  // block-level button's own content can push its rendered height past
+  // the explicit height:60 (real-device feedback: "Keep current" and
+  // "Build Rotation" weren't the same height — this is what actually
+  // enforces it as a strict, centered box regardless of label length,
+  // rather than height:60 being more of a suggestion).
   mdSetupConfirmBtnPrimary: {
+    display: "flex", alignItems: "center", justifyContent: "center",
     flex: 1.35, height: 60, borderRadius: 22, border: "none", background: tokens.color.pitchGreen,
     boxShadow: `0 4px 0 ${tokens.color.greenShadow}`, color: tokens.color.creamPaper, fontFamily: tokens.font.display, fontWeight: 800,
     fontSize: 20, cursor: "pointer",
   },
   mdSetupConfirmBtnSecondary: {
+    display: "flex", alignItems: "center", justifyContent: "center",
     flex: 1, height: 60, borderRadius: 22, border: "none", background: tokens.color.creamDeep,
     color: tokens.color.actionBar, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 20, cursor: "pointer",
   },

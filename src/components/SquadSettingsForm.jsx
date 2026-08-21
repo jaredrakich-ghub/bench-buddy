@@ -825,6 +825,14 @@ export default function SquadSettingsForm({
                 plan from here changes.
               </div>
               <div style={styles.mdSetupConfirmBtnRow}>
+                {/* "Build Rotation" — shorter than the main submit
+                    button's own "Build new rotation" on purpose now.
+                    Real-use feedback: at this point the coach already
+                    tapped "Build new rotation" to get here, so this is
+                    just confirming that same action, not naming it fresh
+                    — and the shorter label actually fits on one line at
+                    this button's own width (flex 1.35 of the row), where
+                    the longer phrase wrapped. */}
                 <button
                   style={styles.mdSetupConfirmBtnPrimary}
                   onClick={() => {
@@ -832,7 +840,7 @@ export default function SquadSettingsForm({
                     onSubmit();
                   }}
                 >
-                  Build new rotation
+                  Build Rotation
                 </button>
                 <button style={styles.mdSetupConfirmBtnSecondary} onClick={() => setConfirmOpen(false)}>
                   Keep current

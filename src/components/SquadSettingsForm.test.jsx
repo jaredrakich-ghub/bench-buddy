@@ -558,12 +558,12 @@ describe("SquadSettingsForm — validation and submit", () => {
       <SquadSettingsForm {...baseProps({ variant: "edit", roster, availableIds, onSubmit, gameInProgress: true, elapsedSec: 760, submitLabel: "Build new rotation" })} />
     );
     await user.click(screen.getByText("Build new rotation"));
-    // "Build new rotation" also appears on the sheet's own confirm button —
-    // deliberately the same phrase (real-use feedback: "the coach sees the
-    // phrase they tapped repeated back") — get the *last* match, inside
-    // the sheet, not the main submit button behind it.
-    const buttons = screen.getAllByText("Build new rotation");
-    await user.click(buttons[buttons.length - 1]);
+    // The sheet's own confirm button reads "Build Rotation" — shorter
+    // than the main submit button's "Build new rotation" on purpose
+    // (real-use feedback: it's just confirming the action already named
+    // on the screen behind it, and the full phrase wrapped onto two
+    // lines at this button's own width).
+    await user.click(screen.getByText("Build Rotation"));
     expect(onSubmit).toHaveBeenCalledTimes(1);
     expect(screen.queryByTestId("rebuild-confirm-sheet")).not.toBeInTheDocument();
   });
