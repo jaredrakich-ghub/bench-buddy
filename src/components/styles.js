@@ -1294,8 +1294,14 @@ export const styles = {
   // Block 8, part A — same inset-card treatment as mdHeader. This one
   // needs its own marginTop (mdFullScreenTakeoverInner has no top padding
   // of its own, unlike `main`, which already gives mdHeader its top gap).
+  // marginTop:12 matches `main`'s own padding-top exactly (styles.main)
+  // — real-use feedback: this family of screens (Today's Minutes, Set up
+  // next game/Game settings, Who's here, Team & account, ...) sat a
+  // couple pixels lower than the crest-header screens (mdHeader); this is
+  // the whole family moving up to match, not one screen singled out —
+  // every screen sharing this style shifts together.
   mdSubHeader: {
-    background: tokens.color.headerYellow, padding: "16px 18px 18px", borderRadius: 28, marginTop: 14,
+    background: tokens.color.headerYellow, padding: "16px 18px 18px", borderRadius: 28, marginTop: 12,
     display: "flex", alignItems: "center", gap: 12, marginBottom: 12,
   },
   mdSubHeaderBack: {
@@ -1310,7 +1316,10 @@ export const styles = {
   // style rather than editing the cog menu's, which stays exactly as it
   // already is (out of scope here).
   mdTeamAcctGroupLabel: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 16, color: tokens.color.groupLabel },
-  mdTeamAcctList: { display: "flex", flexDirection: "column", gap: 8, marginBottom: 4 },
+  // marginBottom real-use feedback: "add some more padding between the
+  // field where you enter a new team name and the fields above it" — 4px
+  // read as barely any gap at all next to the team cards above it.
+  mdTeamAcctList: { display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 },
   mdTeamAcctCard: {
     display: "flex", alignItems: "center", gap: 12, width: "100%", background: "#fff",
     borderRadius: tokens.radius.rowLg, border: "none", padding: "11px 14px 11px 11px",

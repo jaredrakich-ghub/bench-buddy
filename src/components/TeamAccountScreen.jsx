@@ -197,7 +197,7 @@ export default function TeamAccountScreen({
       <div style={styles.mdPopoverGroup}>
         <div style={styles.mdPopoverGroupHeader}>
           <span style={{ ...styles.mdPopoverGroupDot, background: tokens.color.goldText }} />
-          <span style={styles.mdTeamAcctGroupLabel}>Records</span>
+          <span style={styles.mdTeamAcctGroupLabel}>Squad</span>
           <span style={styles.mdPopoverGroupRule} />
         </div>
         {/* Season data moved out of here entirely, real-use feedback —
