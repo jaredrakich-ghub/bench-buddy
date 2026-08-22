@@ -107,8 +107,11 @@ export default function SeasonSummaryModal({ teamId, numberOf, onClose }) {
         <button style={styles.mdSubHeaderBack} onClick={onClose} title="Back">
           ‹
         </button>
+        {/* Real-use feedback: the game-count chip here, paired with the
+            longer "Season Minutes" title, pushed the header onto two
+            lines — dropped so this matches every other screen's
+            title-only header. */}
         <div style={styles.mdSubHeaderTitle}>Season Minutes</div>
-        {games !== null && !error && <span style={styles.mdSubHeaderChip}>{games.length} game{games.length === 1 ? "" : "s"}</span>}
       </div>
 
       {games === null && !error && <p style={styles.backupHint}>Loading season history…</p>}

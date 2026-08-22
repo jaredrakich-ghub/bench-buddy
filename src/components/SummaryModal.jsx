@@ -12,8 +12,10 @@ import { styles } from "./styles.js";
 // (capped to elapsed time), but that was a deliberate behavior change from
 // what the app had always shown, and it turned out that wasn't wanted —
 // reverted back to the full plan, same as before. No elapsedSec dependency
-// here at all now; the header's context chip shows the game's total
-// length instead of how far into it play currently is.
+// here at all now. The header's own context chip (the game's total
+// length) is gone too — real-use feedback: paired with the longer
+// "Today's Minutes" title it pushed the header onto two lines; every
+// other screen's header is title-only, this one now matches.
 // Convert straight to seconds and let fmtClock round to the nearest
 // second — rounding to the nearest whole *minute* first (as an earlier
 // version of this did) throws away real precision.
@@ -23,7 +25,6 @@ function fmtMin(minutes) {
 }
 
 export default function SummaryModal({ plan, availableIds, nameOf, numberOf, onClose }) {
-  const totalMin = plan[plan.length - 1].endMin;
   const summary = computeMinutesSummary(plan, availableIds);
 
   const outfieldValues = summary.map((s) => s.outfieldMin);
@@ -51,7 +52,6 @@ export default function SummaryModal({ plan, availableIds, nameOf, numberOf, onC
           ‹
         </button>
         <div style={styles.mdSubHeaderTitle}>Today's Minutes</div>
-        <span style={styles.mdSubHeaderChip}>{fmtClock(totalMin * 60)}</span>
       </div>
 
       <div style={styles.mdMinutesNote}>Pitch time is within {fmtMin(spreadMin)} across the full game.</div>

@@ -1006,7 +1006,13 @@ export default function SquadSettingsForm({
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
       {header}
 
-      <div style={{ marginTop: 14 }}>
+      {/* Real-use feedback: "a considerable amount of space between the
+          header and the Who's here section" — this wrapper's own
+          marginTop stacks with mdHeader's own marginBottom:8 (margins
+          between flex children don't collapse, unlike normal block
+          siblings), so the two together were adding up to more gap than
+          intended. Trimmed to match. */}
+      <div style={{ marginTop: 6 }}>
         <div style={styles.mdSetupHeaderInRow}>
           <div style={styles.mdSetupSectionTitle}>Who's here</div>
           <span style={styles.mdSetupInChip}>{availableIds.length} in</span>
