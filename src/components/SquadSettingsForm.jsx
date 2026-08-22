@@ -149,6 +149,7 @@ export default function SquadSettingsForm({
   removePlayer,
   toggleAvailable,
   toggleKeeperEligible,
+  setAllKeeperEligible,
   setPlayerNumber,
   numberOf,
   gameInProgress,
@@ -1088,6 +1089,23 @@ export default function SquadSettingsForm({
           <div style={styles.mdSetupCard}>
             <div style={styles.mdSetupCardHeaderRow}>
               <div style={styles.mdSetupCardTitle}>Keepers</div>
+              {/* Real-use feedback: everyone's already eligible by
+                  default, so this exists for restoring that after turning
+                  some off. One tap both confirms the whole squad and moves
+                  on — it also collapses the card back down, the same way
+                  finishing this step naturally hands off to the settings
+                  group below it. */}
+              {roster.length > 0 && (
+                <button
+                  style={{ ...styles.selectAllBtn, marginLeft: 0 }}
+                  onClick={() => {
+                    setAllKeeperEligible(true);
+                    setKeepersExpanded(false);
+                  }}
+                >
+                  Select all
+                </button>
+              )}
               <span style={styles.mdSetupCardCollapseBtn} onClick={() => setKeepersExpanded(false)} role="button" tabIndex={0} title="Collapse">
                 <ChevronDown size={22} strokeWidth={3} />
               </span>

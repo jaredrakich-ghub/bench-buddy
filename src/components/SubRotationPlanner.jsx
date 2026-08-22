@@ -232,6 +232,15 @@ export default function SubRotationPlanner({ user }) {
     saveTeamData({ ...teamData, roster });
   };
 
+  // Bulk sibling to toggleKeeperEligible above — the new-team-setup
+  // Keepers section's own "Select all" (real-use feedback: everyone's
+  // already eligible by default, so this exists for restoring that after
+  // turning some off, not for a from-scratch pick).
+  const setAllKeeperEligible = (value) => {
+    const roster = teamData.roster.map((p) => ({ ...p, keeperEligible: value }));
+    saveTeamData({ ...teamData, roster });
+  };
+
   // A real, coach-assignable squad number — added for the match-day
   // redesign (previously every shirt just showed roster position, see
   // getSquadNumber's own comment in squadNumber.js). `null` clears it back
@@ -327,6 +336,7 @@ export default function SubRotationPlanner({ user }) {
     removePlayer,
     toggleAvailable,
     toggleKeeperEligible,
+    setAllKeeperEligible,
     setPlayerNumber,
     numberOf,
     // Drives the edit layout's own "rebuild rotation" confirm sheet —

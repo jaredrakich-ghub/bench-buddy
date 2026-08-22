@@ -3,7 +3,7 @@ import { defaultSettings, normalizeTeam, createTeam, migrateLegacyTeam, findTeam
 
 describe("defaultSettings", () => {
   it("returns the expected defaults", () => {
-    expect(defaultSettings()).toEqual({ fieldSize: 5, gameMinutes: 40, subIntervalMinutes: 6 });
+    expect(defaultSettings()).toEqual({ fieldSize: 5, gameMinutes: 45, subIntervalMinutes: 5 });
   });
 });
 
@@ -29,7 +29,7 @@ describe("normalizeTeam", () => {
 
   it("merges settings over the defaults rather than replacing them wholesale", () => {
     const team = normalizeTeam({ roster: [], settings: { gameMinutes: 60 } });
-    expect(team.settings).toEqual({ fieldSize: 5, gameMinutes: 60, subIntervalMinutes: 6 });
+    expect(team.settings).toEqual({ fieldSize: 5, gameMinutes: 60, subIntervalMinutes: 5 });
   });
 
   it("handles a completely empty input", () => {

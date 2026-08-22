@@ -27,6 +27,7 @@ function baseProps(overrides = {}) {
     removePlayer: vi.fn(),
     toggleAvailable: vi.fn(),
     toggleKeeperEligible: vi.fn(),
+    setAllKeeperEligible: vi.fn(),
     setPlayerNumber: vi.fn(),
     numberOf,
     onSubmit: vi.fn(),
@@ -137,6 +138,24 @@ describe("SquadSettingsForm — Keepers (inline / A3 layout only)", () => {
     expect(screen.getByText("Everyone can play in goal by default — turn off anyone who shouldn't.")).toBeInTheDocument();
     await user.click(screen.getAllByTitle("Toggle keeper-eligible")[0]);
     expect(toggleKeeperEligible).toHaveBeenCalledWith("p1");
+  });
+
+  it("expanded, offers Select all, which marks everyone eligible and collapses the card back down", async () => {
+    const setAllKeeperEligible = vi.fn();
+    const user = userEvent.setup();
+    render(<SquadSettingsForm {...baseProps({ setAllKeeperEligible })} />);
+    await user.click(screen.getByText("Keepers"));
+    await user.click(screen.getByText("Select all"));
+    expect(setAllKeeperEligible).toHaveBeenCalledWith(true);
+    // Back to collapsed — the toggle rows are gone again.
+    expect(screen.queryByTitle("Toggle keeper-eligible")).not.toBeInTheDocument();
+  });
+
+  it("doesn't offer Select all when the roster is empty", async () => {
+    const user = userEvent.setup();
+    render(<SquadSettingsForm {...baseProps({ roster: [], availableIds: [] })} />);
+    await user.click(screen.getByText("Keepers"));
+    expect(screen.queryByText("Select all")).not.toBeInTheDocument();
   });
 
   // "edit" (Game settings) has no Keepers section at all — that decision

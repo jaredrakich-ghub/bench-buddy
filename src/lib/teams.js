@@ -7,7 +7,7 @@ import { generateId } from "./id.js";
 
 // The default settings a brand-new team starts with.
 export function defaultSettings() {
-  return { fieldSize: 5, gameMinutes: 40, subIntervalMinutes: 6 };
+  return { fieldSize: 5, gameMinutes: 45, subIntervalMinutes: 5 };
 }
 
 // Normalizes a raw/loaded team object into the shape the rest of the app
