@@ -14,6 +14,7 @@ import SeasonSummaryModal from "./SeasonSummaryModal.jsx";
 import SquadSettingsForm from "./SquadSettingsForm.jsx";
 import MatchView from "./MatchView.jsx";
 import TeamAccountScreen from "./TeamAccountScreen.jsx";
+import ManageSquadScreen from "./ManageSquadScreen.jsx";
 import SquadChangeScreen from "./SquadChangeScreen.jsx";
 import LoadingScreen from "./LoadingScreen.jsx";
 import headerMascot from "../assets/header-mascot.jpg";
@@ -47,17 +48,17 @@ export default function SubRotationPlanner({ user }) {
 
   const [newPlayerName, setNewPlayerName] = useState("");
   const [showSettingsModal, setShowSettingsModal] = useState(false);
-  // Which accordion section Game settings should already have open when it
-  // appears — null for the normal cog-menu entry (nothing pre-expanded, as
-  // before), "squad" when opened via Team & account's own "Manage squad"
-  // row (real-use feedback: that row landed on the general settings screen
-  // with nothing expanded, not the squad list a coach tapped it to reach).
-  // Reset back to null on close so a later normal open doesn't inherit it.
-  const [settingsInitialSection, setSettingsInitialSection] = useState(null);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [showSeasonModal, setShowSeasonModal] = useState(false);
   const [showTeamSwitcher, setShowTeamSwitcher] = useState(false);
   const [showSquadChange, setShowSquadChange] = useState(false);
+  // Team & account's own "Manage squad" row — a dedicated screen now
+  // (ManageSquadScreen.jsx), not a pre-expanded section inside Game
+  // settings. Real-use feedback: Game settings/new-team setup no longer
+  // need this at all (Who's here already covers add/availability, the new
+  // Keepers section already covers eligibility) — number/name/delete
+  // moved here instead, reachable any time, not tied to a specific game.
+  const [showManageSquad, setShowManageSquad] = useState(false);
   // Set when a save fails — either a team-registry save or a match-state
   // save — surfaced as a persistent banner rather than swallowed, so a
   // coach isn't silently trusting saves that aren't happening. Whichever
@@ -251,6 +252,23 @@ export default function SubRotationPlanner({ user }) {
     saveTeamData({ ...teamData, roster });
   };
 
+  // Manage squad's own new name-edit capability (Team & account, real-use
+  // feedback: "we may want to give the ability to edit existing kids
+  // names"). Safe against every player already being keyed by `id`, not
+  // name, everywhere minutes are tracked — aggregateSeasonSummary
+  // (rotation.js) already rolls totals up by id and already prefers
+  // whichever name a player's *most recent* archived game recorded, so a
+  // rename here shows up as their current name going forward without
+  // touching any past game's own snapshot of who they were called then.
+  // Blank/whitespace-only guarded the same way SquadChangeScreen's own
+  // add-player flow is — never silently commit an empty name.
+  const renamePlayer = (id, name) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const roster = teamData.roster.map((p) => (p.id === id ? { ...p, name: trimmed } : p));
+    saveTeamData({ ...teamData, roster });
+  };
+
   const switchTeam = (id) => {
     const team = findTeam(teams, id);
     if (team) activateTeam(team);
@@ -333,11 +351,9 @@ export default function SubRotationPlanner({ user }) {
     newPlayerName,
     setNewPlayerName,
     addPlayer,
-    removePlayer,
     toggleAvailable,
     toggleKeeperEligible,
     setAllKeeperEligible,
-    setPlayerNumber,
     numberOf,
     // Drives the edit layout's own "rebuild rotation" confirm sheet —
     // real-use feedback replaced a blanket restart-warning banner (shown
@@ -440,9 +456,9 @@ export default function SubRotationPlanner({ user }) {
         // modal (see mdFullScreenTakeover* in styles.js for why it's split
         // into an outer/inner wrapper).
         //
-        // Rendered FIRST among these five overlays, deliberately — its own
+        // Rendered FIRST among these six overlays, deliberately — its own
         // "Season data"/"Manage squad" rows open showSeasonModal/
-        // showSettingsModal *without* closing this screen underneath them
+        // showManageSquad *without* closing this screen underneath them
         // (so its own back arrow returns here, not straight to the match
         // screen — a proper drill-down, not a screen swap). All of these
         // sibling overlays share the same fixed z-index (mdFullScreenTake
@@ -466,10 +482,7 @@ export default function SubRotationPlanner({ user }) {
               onSignOut={signOutUser}
               onDeleteAccount={deleteMyAccount}
               onShowSeason={() => setShowSeasonModal(true)}
-              onShowSettings={() => {
-                setSettingsInitialSection("squad");
-                setShowSettingsModal(true);
-              }}
+              onShowManageSquad={() => setShowManageSquad(true)}
               crestSrc={headerMascot}
             />
           </div>
@@ -492,16 +505,33 @@ export default function SubRotationPlanner({ user }) {
               // match-complete case — a genuinely different moment (a fresh
               // game, not editing today's), not reached via that same row.
               title={isMatchComplete ? "Set up next game" : "Game settings"}
-              initialExpandedSection={settingsInitialSection}
-              onClose={() => {
-                setShowSettingsModal(false);
-                setSettingsInitialSection(null);
-              }}
+              onClose={() => setShowSettingsModal(false)}
               onSubmit={handleGenerate}
               // Same label regardless of entry point — matches the confirm
               // sheet's own button text (SquadSettingsForm.jsx), so a coach
               // sees the phrase they tapped repeated back.
               submitLabel="Build new rotation"
+            />
+          </div>
+        </div>
+      )}
+
+      {showManageSquad && (
+        // Same full-screen takeover pattern as every sibling overlay here.
+        // Reached only from Team & account's own "Manage squad" row now —
+        // real-use feedback moved this out of Game settings/new-team setup
+        // entirely (Who's here already covers add/availability, Keepers
+        // already covers eligibility), so it's a standalone, durable-roster
+        // screen rather than a pre-expanded section of a per-game form.
+        <div style={styles.mdFullScreenTakeoverOuter}>
+          <div style={styles.mdFullScreenTakeoverInner}>
+            <ManageSquadScreen
+              roster={teamData.roster}
+              numberOf={numberOf}
+              setPlayerNumber={setPlayerNumber}
+              renamePlayer={renamePlayer}
+              removePlayer={removePlayer}
+              onClose={() => setShowManageSquad(false)}
             />
           </div>
         </div>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Trash2, Shuffle, ChevronDown, Check } from "lucide-react";
+import { Plus, Shuffle, ChevronDown, Check } from "lucide-react";
 import {
   computeIntervals, computeBreakBoundaries, keeperShiftIntervalsFor, generatePlan, computeFairnessSpread, isFairSpread,
   recommendSubIntervals,
@@ -47,17 +47,6 @@ function BreaksIcon() {
     </svg>
   );
 }
-function SquadIcon() {
-  return (
-    <svg width={23} height={23} viewBox="0 0 24 24" fill="none" stroke={tokens.color.actionBar} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="9" cy="8" r="3.1" />
-      <path d="M3.4 19.4a5.8 5.8 0 0 1 11.2 0" />
-      <circle cx="17.2" cy="9.4" r="2.4" />
-      <path d="M17 14.2a4.6 4.6 0 0 1 3.7 3.4" />
-    </svg>
-  );
-}
-
 // How many groups the match-screen interval tabs get visually split into —
 // "breakSegments" is the group count (2 = halves = 1 divider, 3 = thirds =
 // 2 dividers, and so on), not the divider count directly. See
@@ -89,16 +78,14 @@ const TILE_ORDER = [
 // pretty boring right now" first, then the icons themselves went through
 // a design pass replacing the original emoji with these drawn glyphs).
 // Deliberately no red/pink tile in this set — red is reserved for injury
-// across the app. #D6E5E0 is a one-off for Manage squad's own tile,
-// #EADFC2 likewise for Keepers' (a warm neutral distinct from "goal"'s
-// own headerYellow, even though both reuse the same GloveIcon glyph —
-// the two sections are related, just not visually identical), neither
-// yet a shared token.
+// across the app. #EADFC2 is a one-off for Keepers' own tile (a warm
+// neutral distinct from "goal"'s own headerYellow, even though both reuse
+// the same GloveIcon glyph — the two sections are related, just not
+// visually identical), not yet a shared token.
 const SECTION_BADGE = {
   goal: { Icon: GloveIcon, bg: tokens.color.headerYellow },
   swaps: { Icon: SwapIcon, bg: tokens.color.mint },
   breaks: { Icon: BreaksIcon, bg: tokens.color.creamDeep },
-  squad: { Icon: SquadIcon, bg: "#D6E5E0" },
   keepers: { Icon: GloveIcon, bg: "#EADFC2" },
 };
 
@@ -116,14 +103,13 @@ const SECTION_BADGE = {
 // picker, keeper-swap stepper, and breaks control underneath — only the
 // wrapper around them differs.
 //
-// This also doubles as squad management — add, remove, assign a squad
-// number, mark keeper-eligible — same as before. The design's own squad
-// section is just a flat list of name chips with no room for any of that,
-// so rather than drop real, working functionality to match the mockup
-// literally, availability now lives on the chip row itself (tap to drop
-// out, matching the design) and everything else (number, keeper-eligible,
-// remove) stays as a trimmed detail-row list underneath, headed "Manage
-// squad" so its purpose next to the quick chip row above is clear.
+// Squad roster management (add, remove, assign a squad number, rename) no
+// longer lives here at all — real-use feedback moved it to a standalone
+// screen (ManageSquadScreen.jsx, reached from Team & account) once this
+// form's own Who's-here chip row already covered add/availability and the
+// Keepers section below covered eligibility, leaving nothing left in a
+// "Manage squad" section here worth keeping. Availability lives on the
+// chip row itself (tap to drop out).
 //
 // Keeper eligibility itself: the design's "In goal today" chips look like
 // three states (starting / included / not included), but this app only
@@ -132,11 +118,11 @@ const SECTION_BADGE = {
 // a third, this-game-only "in the pool today" concept, the "In goal today"
 // list only ever shows players who are already keeper-eligible (tap =
 // pick/un-pick as today's starter); granting or revoking eligibility
-// itself stays a deliberate, permanent action via 🧤 in the squad list
-// below. Confirmed with the user: reuse the existing flag rather than
-// build new per-game state, since a coach visits this screen every single
-// game and would see (and could fix) a stale "permanent" exclusion right
-// away, not lose track of it.
+// itself stays a deliberate, permanent action via 🧤 in the Keepers
+// section (renderKeepersSection below). Confirmed with the user: reuse the
+// existing flag rather than build new per-game state, since a coach visits
+// this screen every single game and would see (and could fix) a stale
+// "permanent" exclusion right away, not lose track of it.
 export default function SquadSettingsForm({
   roster,
   gameSettings,
@@ -146,11 +132,9 @@ export default function SquadSettingsForm({
   newPlayerName,
   setNewPlayerName,
   addPlayer,
-  removePlayer,
   toggleAvailable,
   toggleKeeperEligible,
   setAllKeeperEligible,
-  setPlayerNumber,
   numberOf,
   gameInProgress,
   elapsedSec,
@@ -162,10 +146,8 @@ export default function SquadSettingsForm({
   title = "Today's game",
   onClose,
   // Which accordion section (edit variant only) should already be open on
-  // arrival — null for the normal default (nothing expanded). Team &
-  // account's own "Manage squad" row passes "squad" here so tapping it
-  // lands straight on the squad list, not a blank settings screen the
-  // coach then has to expand themselves.
+  // arrival — "goal" | "swaps" | "breaks" | null. null for the normal
+  // default (nothing expanded).
   initialExpandedSection = null,
   // Only used by the "inline" variant's own crest+title header (see
   // `header` below) — the very-first-team case, which has no onClose to
@@ -236,15 +218,9 @@ export default function SquadSettingsForm({
 
   // Which tile ("fieldSize" | "gameMinutes" | "subIntervalMinutes") is
   // flipped dark with its stepper showing — one at a time. Which of the
-  // four accordion sections is expanded in the "edit" layout — also one
+  // three accordion sections is expanded in the "edit" layout — also one
   // at a time, same "one thing open" shape used elsewhere in this app
-  // (e.g. the match screen's own player-tap menu). "squad" (Manage squad)
-  // joined the other three on real-use feedback ("too much going on"
-  // that page) — every player's name/number was already shown once in
-  // the Who's here chip row above, so the full one-row-per-player detail
-  // list underneath was pure duplication sitting open by default. Number/
-  // keeper-eligible/remove are all edited far less often than availability
-  // is, so tucking them behind a tap costs little.
+  // (e.g. the match screen's own player-tap menu).
   const [activeTile, setActiveTile] = useState(null);
   // Real-use feedback: a flipped tile only settled back on a tap dead
   // centre on its own body — tapping anywhere else on the page (another
@@ -263,35 +239,15 @@ export default function SquadSettingsForm({
     document.addEventListener("pointerdown", handlePointerDown);
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [activeTile]);
-  const [expandedSection, setExpandedSection] = useState(initialExpandedSection); // "goal" | "swaps" | "breaks" | "squad" | null
-  // Real-use feedback: arriving here via Team & account's own "Manage
-  // squad" row still landed the coach looking at the top of the screen
-  // (header/tiles/three collapsed sections) with the squad list itself —
-  // the whole reason they tapped that row — sitting last, off the bottom
-  // of the viewport. Scrolls the expanded card into view on mount, but
-  // only for this specific entry route (checks the initial prop, not the
-  // live expandedSection state) — a coach who manually expands Manage
-  // squad during a normal visit shouldn't get yanked around by a forced
-  // scroll they didn't ask for.
-  const squadCardRef = useRef(null);
-  useEffect(() => {
-    // typeof guard, not just a null check — jsdom (this file's own test
-    // suite) doesn't implement scrollIntoView at all, and it's cheap
-    // insurance against any real embedded webview that doesn't either.
-    if (initialExpandedSection === "squad" && typeof squadCardRef.current?.scrollIntoView === "function") {
-      squadCardRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const [expandedSection, setExpandedSection] = useState(initialExpandedSection); // "goal" | "swaps" | "breaks" | null
   const [showAddChip, setShowAddChip] = useState(false);
-  const [editingNumberId, setEditingNumberId] = useState(null);
-  // "Keepers" — the "inline" (first-time setup) layout's own dedicated
-  // moment for keeper eligibility (real-use feedback: turning this off
-  // for anyone shouldn't be buried inside the now-collapsed Manage squad
-  // list a coach might not open for a while). Its own independent
-  // collapse state, not folded into expandedSection above — it sits
-  // before that whole group, in the Who's-here part of the screen, not
-  // competing with it for "one thing open at a time".
+  // "Keepers" — shared by both layouts now (real-use feedback: turning
+  // this off for anyone shouldn't be buried inside a Manage squad list a
+  // coach might not open for a while — and Manage squad itself no longer
+  // even lives here, see renderKeepersSection/ManageSquadScreen.jsx). Its
+  // own independent collapse state, not folded into expandedSection above
+  // — it sits before that whole group, not competing with it for "one
+  // thing open at a time".
   const [keepersExpanded, setKeepersExpanded] = useState(false);
   // Progressive disclosure for the sub-interval fairness picker (see
   // renderSubIntervalRecs below) — collapsed behind a tappable "Improve
@@ -340,12 +296,6 @@ export default function SquadSettingsForm({
     const floor = gameSettings.subIntervalMinutes || 2;
     const next = Math.max(floor, keeperSwapValue + dir);
     setGameSettings({ ...gameSettings, keeperShiftMinutes: next === floor ? "" : next });
-  };
-
-  const commitNumber = (id, raw) => {
-    const trimmed = raw.trim();
-    setPlayerNumber(id, trimmed === "" ? null : Number(trimmed));
-    setEditingNumberId(null);
   };
 
   const submitAddChip = () => {
@@ -443,8 +393,8 @@ export default function SquadSettingsForm({
 
   // Not part of the design file at all (it only shows the current sub
   // interval's own fairness, not a picker) — kept from the original form
-  // rather than dropped, same reasoning as Manage squad below: this is
-  // real, working functionality the mockup just didn't happen to depict.
+  // rather than dropped: this is real, working functionality the mockup
+  // just didn't happen to depict.
   //
   // Design pass, real-use feedback: the old two-line "For today's N
   // players — tap a fairer sub interval, or keep what you've got:" prose
@@ -514,7 +464,7 @@ export default function SquadSettingsForm({
     if (inGoalCandidates.length === 0) {
       return (
         <div style={onDark ? styles.mdSetupCardCaptionOnDark : styles.mdSetupHint}>
-          No keeper-eligible players available today — mark someone 🧤 in Manage squad below.
+          No keeper-eligible players available today — mark someone 🧤 in Keepers above.
         </div>
       );
     }
@@ -674,66 +624,11 @@ export default function SquadSettingsForm({
     );
   }
 
-  // Trimmed from the original all-in-one row: availability and
-  // starting-keeper moved to the chip rows above, so each row here is just
-  // number / name / keeper-eligible / remove.
-  function renderManageSquadRows() {
-    if (roster.length === 0) return <div style={styles.emptyState}>No players yet — add your squad above.</div>;
-    return roster.map((p) => {
-      const isEditingNumber = editingNumberId === p.id;
-      return (
-        <div key={p.id} style={styles.mdSetupRow}>
-          {isEditingNumber ? (
-            <input
-              autoFocus
-              type="number"
-              style={styles.mdSetupNumberInput}
-              defaultValue={p.number ?? ""}
-              onBlur={(e) => commitNumber(p.id, e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") commitNumber(p.id, e.target.value);
-                if (e.key === "Escape") setEditingNumberId(null);
-              }}
-            />
-          ) : (
-            // numberOf(p.id), not the raw p.number field — real-use
-            // feedback: a bare "–" for anyone without an explicit number
-            // set didn't mean anything to a coach. numberOf already falls
-            // back to a roster-position number when none's been set (the
-            // same fallback the Who's-here screen's own discs show), so
-            // this always displays *some* real number. The edit field
-            // below still starts blank for an unset player though — the
-            // fallback shown here is just a display convenience, not
-            // something a stray tap-and-blur should silently lock in as
-            // this player's actual permanent number.
-            <button style={styles.mdSetupNumberBadge} onClick={() => setEditingNumberId(p.id)} title="Set squad number">
-              {numberOf(p.id)}
-            </button>
-          )}
-          <span style={styles.mdSetupRowName}>{p.name}</span>
-          <button
-            style={{
-              ...styles.mdSetupToggle,
-              ...(p.keeperEligible ? { ...styles.mdSetupToggleActive, background: tokens.color.headerYellow } : {}),
-            }}
-            onClick={() => toggleKeeperEligible(p.id)}
-            title="Toggle keeper-eligible"
-          >
-            🧤
-          </button>
-          <button style={styles.mdSetupRemoveBtn} onClick={() => removePlayer(p.id)} title="Remove from squad">
-            <Trash2 size={14} />
-          </button>
-        </div>
-      );
-    });
-  }
-
-  // "Keepers" section, "inline" (first-time setup) only — a focused
-  // subset of Manage squad's own rows (name + the same 🧤 toggle, same
-  // styling), deliberately without the number badge or remove button
-  // that row also carries: this moment is only ever about keeper
-  // eligibility, not general roster upkeep.
+  // A focused subset of Manage squad's own old rows (name + the same 🧤
+  // toggle, same styling), deliberately without the number badge or
+  // remove button that row also carried: this moment is only ever about
+  // keeper eligibility, not general roster upkeep (that lives in
+  // ManageSquadScreen.jsx now, reached from Team & account).
   function renderKeeperEligibilityRows() {
     if (roster.length === 0) return <div style={styles.emptyState}>No players yet — add your squad above.</div>;
     return roster.map((p) => (
@@ -751,6 +646,56 @@ export default function SquadSettingsForm({
         </button>
       </div>
     ));
+  }
+
+  // "Keepers" — shared by both layouts now (real-use feedback: "This
+  // should be available under Set up a New Team Screen and Set Up Next
+  // Game" — extended to every "edit" render, not just the match-complete
+  // one, so a coach flipping eligibility mid-season via plain Game
+  // settings doesn't lose the only place that was ever reachable, now
+  // that Manage squad's own 🧤 toggle is gone). Always positioned right
+  // before First in goal today, which depends on it.
+  function renderKeepersSection() {
+    return (
+      <div style={{ marginTop: 18 }}>
+        {keepersExpanded ? (
+          <div style={styles.mdSetupCard}>
+            <div style={styles.mdSetupCardHeaderRow}>
+              <div style={styles.mdSetupCardTitle}>Keepers</div>
+              {/* Real-use feedback: everyone's already eligible by
+                  default, so this exists for restoring that after turning
+                  some off. One tap both confirms the whole squad and moves
+                  on — it also collapses the card back down, the same way
+                  finishing this step naturally hands off to the settings
+                  group below it. */}
+              {roster.length > 0 && (
+                <button
+                  style={{ ...styles.selectAllBtn, marginLeft: 0 }}
+                  onClick={() => {
+                    setAllKeeperEligible(true);
+                    setKeepersExpanded(false);
+                  }}
+                >
+                  Select all
+                </button>
+              )}
+              <span style={styles.mdSetupCardCollapseBtn} onClick={() => setKeepersExpanded(false)} role="button" tabIndex={0} title="Collapse">
+                <ChevronDown size={22} strokeWidth={3} />
+              </span>
+            </div>
+            <div style={styles.mdSetupHint}>Everyone can play in goal by default — turn off anyone who shouldn't.</div>
+            <div style={{ marginTop: 8 }}>{renderKeeperEligibilityRows()}</div>
+          </div>
+        ) : (
+          <button style={styles.mdSetupAccordionRow} onClick={() => setKeepersExpanded(true)}>
+            {sectionBadge("keepers")}
+            <span style={styles.mdSetupAccordionLabel}>Keepers</span>
+            <span style={styles.mdSetupAccordionValue}>{keepersValue}</span>
+            <span style={styles.mdSetupAccordionChevron}>›</span>
+          </button>
+        )}
+      </div>
+    );
   }
 
   // Real-use feedback: "inline" (first-time setup) should now "appear
@@ -828,12 +773,12 @@ export default function SquadSettingsForm({
     );
 
   // Tiles + interval preview/fairness chips + the First in goal today /
-  // Keeper changes / Breaks / Manage squad accordion group — shared by
-  // both layouts now. Originally "edit"-only; "inline" (first-time
-  // setup) used to show all of this open flat instead, but real-use
-  // feedback ("appear exactly how it does the Game settings screen")
-  // asked for the identical collapsed shape there too, so this moved out
-  // of the "edit" branch into its own function both can call.
+  // Keeper changes / Breaks accordion group — shared by both layouts now.
+  // Originally "edit"-only; "inline" (first-time setup) used to show all
+  // of this open flat instead, but real-use feedback ("appear exactly how
+  // it does the Game settings screen") asked for the identical collapsed
+  // shape there too, so this moved out of the "edit" branch into its own
+  // function both can call.
   function renderGameSettingsAccordion() {
     return (
       <>
@@ -842,8 +787,7 @@ export default function SquadSettingsForm({
             it's fully covered by its own dedicated screen (cog menu's
             "Who's here" row, SquadChangeScreen.jsx) for "edit", and by
             "inline"'s own Who's-here section further up the page for
-            first-time setup. Manage squad below keeps its own separate
-            job — number/keeper-eligible/remove, not availability.
+            first-time setup.
 
             "The game" label above the tiles is gone too — real-use
             feedback: it wasn't earning its own line, and removing it
@@ -857,7 +801,7 @@ export default function SquadSettingsForm({
             button below uses to reach the bottom of the screen — on a
             tall roster, that auto margin can shrink close to nothing, so
             without this the button could end up sitting right against
-            "Manage squad" with no breathing room. */}
+            the submit button with no breathing room. */}
         <div style={{ marginTop: 22, marginBottom: 20, display: "flex", flexDirection: "column", gap: 9 }}>
           {expandedSection === "goal" ? (
             <div style={{ ...styles.mdSetupCard, ...styles.mdSetupCardDark }}>
@@ -949,29 +893,6 @@ export default function SquadSettingsForm({
               <span style={styles.mdSetupAccordionChevron}>›</span>
             </button>
           )}
-
-          {expandedSection === "squad" ? (
-            <div ref={squadCardRef} style={styles.mdSetupCard}>
-              <div style={styles.mdSetupCardHeaderRow}>
-                <div style={styles.mdSetupCardTitle}>Manage squad</div>
-                <span style={styles.mdSetupCardCollapseBtn} onClick={() => setExpandedSection(null)} role="button" tabIndex={0} title="Collapse">
-                  <ChevronDown size={22} strokeWidth={3} />
-                </span>
-              </div>
-              {/* Real-use feedback: the glove toggle in each row below had
-                  no on-screen explanation at all, just a title tooltip
-                  that a phone never shows. */}
-              <div style={styles.mdSetupHint}>Tap 🧤 to mark who's allowed to play in goal.</div>
-              <div style={{ marginTop: 8 }}>{renderManageSquadRows()}</div>
-            </div>
-          ) : (
-            <button style={styles.mdSetupAccordionRow} onClick={() => setExpandedSection("squad")}>
-              {sectionBadge("squad")}
-              <span style={styles.mdSetupAccordionLabel}>Manage squad</span>
-              <span style={styles.mdSetupAccordionValue}>{roster.length} player{roster.length === 1 ? "" : "s"}</span>
-              <span style={styles.mdSetupAccordionChevron}>›</span>
-            </button>
-          )}
         </div>
       </>
     );
@@ -991,6 +912,8 @@ export default function SquadSettingsForm({
       // position:relative or open-state paddingBottom needed.
       <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
         {header}
+
+        {renderKeepersSection()}
 
         {renderGameSettingsAccordion()}
 
@@ -1084,44 +1007,7 @@ export default function SquadSettingsForm({
         {renderSquadChips()}
       </div>
 
-      <div style={{ marginTop: 18 }}>
-        {keepersExpanded ? (
-          <div style={styles.mdSetupCard}>
-            <div style={styles.mdSetupCardHeaderRow}>
-              <div style={styles.mdSetupCardTitle}>Keepers</div>
-              {/* Real-use feedback: everyone's already eligible by
-                  default, so this exists for restoring that after turning
-                  some off. One tap both confirms the whole squad and moves
-                  on — it also collapses the card back down, the same way
-                  finishing this step naturally hands off to the settings
-                  group below it. */}
-              {roster.length > 0 && (
-                <button
-                  style={{ ...styles.selectAllBtn, marginLeft: 0 }}
-                  onClick={() => {
-                    setAllKeeperEligible(true);
-                    setKeepersExpanded(false);
-                  }}
-                >
-                  Select all
-                </button>
-              )}
-              <span style={styles.mdSetupCardCollapseBtn} onClick={() => setKeepersExpanded(false)} role="button" tabIndex={0} title="Collapse">
-                <ChevronDown size={22} strokeWidth={3} />
-              </span>
-            </div>
-            <div style={styles.mdSetupHint}>Everyone can play in goal by default — turn off anyone who shouldn't.</div>
-            <div style={{ marginTop: 8 }}>{renderKeeperEligibilityRows()}</div>
-          </div>
-        ) : (
-          <button style={styles.mdSetupAccordionRow} onClick={() => setKeepersExpanded(true)}>
-            {sectionBadge("keepers")}
-            <span style={styles.mdSetupAccordionLabel}>Keepers</span>
-            <span style={styles.mdSetupAccordionValue}>{keepersValue}</span>
-            <span style={styles.mdSetupAccordionChevron}>›</span>
-          </button>
-        )}
-      </div>
+      {renderKeepersSection()}
 
       {renderGameSettingsAccordion()}
 

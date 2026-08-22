@@ -4,7 +4,6 @@ import "@testing-library/jest-dom/vitest";
 import { render, screen, fireEvent, cleanup, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import SquadSettingsForm from "./SquadSettingsForm.jsx";
-import { getSquadNumber } from "../lib/squadNumber.js";
 
 afterEach(cleanup);
 
@@ -24,11 +23,9 @@ function baseProps(overrides = {}) {
     newPlayerName: "",
     setNewPlayerName: vi.fn(),
     addPlayer: vi.fn(),
-    removePlayer: vi.fn(),
     toggleAvailable: vi.fn(),
     toggleKeeperEligible: vi.fn(),
     setAllKeeperEligible: vi.fn(),
-    setPlayerNumber: vi.fn(),
     numberOf,
     onSubmit: vi.fn(),
     submitLabel: "Generate Rotation",
@@ -79,15 +76,17 @@ describe("SquadSettingsForm — rendering (inline / A3 layout)", () => {
   });
 
   // Real-use feedback: "inline" should now "appear exactly how it does
-  // the Game settings screen" — First in goal today, Keeper changes,
-  // Breaks, and Manage squad all collapsed by default here too, not open
-  // flat the way "inline" used to show them.
-  it("collapses First in goal today, Keeper changes, Breaks, and Manage squad by default, same as 'edit'", () => {
+  // the Game settings screen" — First in goal today, Keeper changes, and
+  // Breaks all collapsed by default here too, not open flat the way
+  // "inline" used to show them. Manage squad no longer lives in this
+  // accordion at all (moved to ManageSquadScreen.jsx, reached from Team &
+  // account) — nothing here to collapse.
+  it("collapses First in goal today, Keeper changes, and Breaks by default, same as 'edit'", () => {
     render(<SquadSettingsForm {...baseProps()} />);
     expect(screen.getByText("First in goal today")).toBeInTheDocument();
     expect(screen.getByText("Keeper changes")).toBeInTheDocument();
     expect(screen.getByText("Breaks")).toBeInTheDocument();
-    expect(screen.getByText("Manage squad")).toBeInTheDocument();
+    expect(screen.queryByText("Manage squad")).not.toBeInTheDocument();
     expect(screen.queryByTitle("Collapse")).not.toBeInTheDocument(); // nothing expanded
     expect(screen.queryByText("Tap a name to pick who starts in goal today.")).not.toBeInTheDocument();
   });
@@ -105,10 +104,6 @@ describe("SquadSettingsForm — rendering (inline / A3 layout)", () => {
     expect(keepers.compareDocumentPosition(firstInGoal) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("shows an empty-state message in Manage squad when the roster has no players yet", () => {
-    render(<SquadSettingsForm {...baseProps({ roster: [], availableIds: [], initialExpandedSection: "squad" })} />);
-    expect(screen.getByText("No players yet — add your squad above.")).toBeInTheDocument();
-  });
 });
 
 describe("SquadSettingsForm — Keepers (inline / A3 layout only)", () => {
@@ -151,18 +146,26 @@ describe("SquadSettingsForm — Keepers (inline / A3 layout only)", () => {
     expect(screen.queryByTitle("Toggle keeper-eligible")).not.toBeInTheDocument();
   });
 
-  it("doesn't offer Select all when the roster is empty", async () => {
+  it("doesn't offer Select all when the roster is empty, showing the empty state instead", async () => {
     const user = userEvent.setup();
     render(<SquadSettingsForm {...baseProps({ roster: [], availableIds: [] })} />);
     await user.click(screen.getByText("Keepers"));
     expect(screen.queryByText("Select all")).not.toBeInTheDocument();
+    expect(screen.getByText("No players yet — add your squad above.")).toBeInTheDocument();
   });
 
-  // "edit" (Game settings) has no Keepers section at all — that decision
-  // stays reachable there via Manage squad's own 🧤 toggle, unchanged.
-  it("doesn't appear in the 'edit' layout", () => {
-    render(<SquadSettingsForm {...baseProps({ variant: "edit" })} />);
-    expect(screen.queryByText("Keepers")).not.toBeInTheDocument();
+  // Real-use feedback: "This should be available under Set up a New Team
+  // Screen and Set Up Next Game" — extended to every "edit" render (not
+  // just the match-complete one), since Manage squad's own 🧤 toggle is
+  // gone from there too now and plain Game settings needs somewhere to
+  // reach eligibility just as much as the other two contexts do.
+  it("also appears in the 'edit' layout, directly after the header", () => {
+    render(<SquadSettingsForm {...baseProps({ variant: "edit", title: "Game settings" })} />);
+    const header = screen.getByText("Game settings");
+    const keepers = screen.getByText("Keepers");
+    expect(header.compareDocumentPosition(keepers) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const firstInGoal = screen.getByText("First in goal today");
+    expect(keepers.compareDocumentPosition(firstInGoal) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });
 
@@ -196,52 +199,15 @@ describe("SquadSettingsForm — rendering (edit / A4 layout)", () => {
     expect(screen.getByText("None")).toBeInTheDocument();
   });
 
-  // Real-use feedback: Team & account's own "Manage squad" row landed on
-  // this screen with nothing expanded, same as the plain cog-menu entry --
-  // not the squad list a coach tapped that specific row to reach.
-  it("opens straight to the Manage squad card when initialExpandedSection is 'squad'", () => {
-    render(<SquadSettingsForm {...baseProps({ variant: "edit", initialExpandedSection: "squad" })} />);
-    expect(screen.getByTitle("Collapse")).toBeInTheDocument();
-    expect(screen.getAllByTitle("Set squad number").length).toBeGreaterThan(0);
-    // The other three sections stay collapsed -- only one section open at a time.
-    expect(screen.queryByText("Tap a name to pick who starts in goal today.")).not.toBeInTheDocument();
-  });
-
   it("opens with nothing expanded by default (no initialExpandedSection)", () => {
     render(<SquadSettingsForm {...baseProps({ variant: "edit" })} />);
     expect(screen.queryByTitle("Collapse")).not.toBeInTheDocument();
-    expect(screen.queryByTitle("Set squad number")).not.toBeInTheDocument();
-  });
-
-  // Real-use feedback: even expanded, Manage squad was still the *last*
-  // thing on the screen -- header, tiles, and three collapsed sections all
-  // sat above it, so a coach arriving via that specific route still had to
-  // scroll past everything else to reach the squad list they came for.
-  // jsdom doesn't implement scrollIntoView at all -- mocked here the same
-  // way real browsers that happen to lack it are already guarded against
-  // in the component itself (a typeof check, not just a null check).
-  it("scrolls the Manage squad card into view on mount when opened via initialExpandedSection, not otherwise", () => {
-    const scrollIntoView = vi.fn();
-    Element.prototype.scrollIntoView = scrollIntoView;
-    render(<SquadSettingsForm {...baseProps({ variant: "edit", initialExpandedSection: "squad" })} />);
-    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
-  });
-
-  it("doesn't force a scroll when a coach manually expands Manage squad during a normal visit", async () => {
-    const scrollIntoView = vi.fn();
-    Element.prototype.scrollIntoView = scrollIntoView;
-    const user = userEvent.setup();
-    render(<SquadSettingsForm {...baseProps({ variant: "edit" })} />);
-    await user.click(screen.getByText("Manage squad"));
-    expect(screen.getAllByTitle("Set squad number").length).toBeGreaterThan(0);
-    expect(scrollIntoView).not.toHaveBeenCalled();
   });
 
   // Real-use feedback: this row used to duplicate SquadChangeScreen.jsx's
   // own job (the cog menu's "Who's here" row) — availability toggling and
   // +Player both live there now, so the edit layout drops its own copy of
-  // that section entirely. Manage squad (further down) keeps its own,
-  // different job — number/keeper-eligible/remove, not availability.
+  // that section entirely.
   it("has no Who's here availability section — that's SquadChangeScreen's own job now", () => {
     render(<SquadSettingsForm {...baseProps({ variant: "edit" })} />);
     expect(screen.queryByText("Who's here?")).not.toBeInTheDocument();
@@ -325,32 +291,6 @@ describe("SquadSettingsForm — rendering (edit / A4 layout)", () => {
     expect(screen.getByText("Keeper changes")).toBeInTheDocument(); // back to its one-line row
   });
 
-  // Manage squad joined the other three accordion rows on real-use feedback
-  // ("too much going on" that page) — every player's name/number was
-  // already shown once in the Who's here chip row, so the detail list
-  // (number/keeper-eligible/remove) sitting open by default was pure
-  // duplication. Only the "edit" layout gets this treatment — "inline"
-  // (first-time setup) still shows everything open, per its own README-
-  // cited rationale ("nothing already answered yet to skim past").
-  it("collapses Manage squad to a one-line row carrying the player count", () => {
-    render(<SquadSettingsForm {...baseProps({ variant: "edit" })} />);
-    expect(screen.getByText("Manage squad")).toBeInTheDocument();
-    expect(screen.getByText("2 players")).toBeInTheDocument();
-    expect(screen.queryByTitle("Set squad number")).not.toBeInTheDocument();
-  });
-
-  it("expands Manage squad to show the number/keeper-eligible/remove rows, and collapses the other sections", async () => {
-    const user = userEvent.setup();
-    render(<SquadSettingsForm {...baseProps({ variant: "edit" })} />);
-    await user.click(screen.getByText("First in goal today"));
-    expect(screen.getByText("Tap a name to pick who starts in goal today.")).toBeInTheDocument();
-
-    await user.click(screen.getByText("Manage squad"));
-    expect(screen.queryByText("Tap a name to pick who starts in goal today.")).not.toBeInTheDocument();
-    expect(screen.getAllByTitle("Set squad number")).toHaveLength(2);
-    expect(screen.getAllByTitle("Toggle keeper-eligible")).toHaveLength(2);
-    expect(screen.getAllByTitle("Remove from squad")).toHaveLength(2);
-  });
 });
 
 describe("SquadSettingsForm — number tiles (tap to flip, stepper)", () => {
@@ -455,87 +395,6 @@ describe("SquadSettingsForm — squad chips (availability)", () => {
   it("hides Select all when the roster is empty", () => {
     render(<SquadSettingsForm {...baseProps({ roster: [], availableIds: [] })} />);
     expect(screen.queryByText("Select all")).not.toBeInTheDocument();
-  });
-});
-
-describe("SquadSettingsForm — Manage squad (number, keeper-eligible, remove)", () => {
-  // Real-use feedback: an unset number used to show as a muted, bare "–"
-  // ("I don't really know what it means") -- replaced with numberOf's own
-  // fallback (the same one the Who's-here screen's number discs already
-  // rely on) so the badge always shows a real number, always in the same
-  // solid green/white treatment as Who's-here, whether or not a squad
-  // number has actually been explicitly set.
-  // Manage squad is a collapsed accordion row by default in both layouts
-  // now (real-use feedback moved keeper eligibility itself to "inline"'s
-  // own dedicated Keepers section instead — see that describe block
-  // further down) — these tests open straight to it via
-  // initialExpandedSection, same as the "rendering (edit / A4)" tests do.
-  it("always shows a real number in a solid badge, never a bare dash -- an explicit one, or numberOf's own fallback", () => {
-    const roster = [{ id: "p1", name: "Alice", keeperEligible: true, number: 7 }, ROSTER[1]];
-    const testNumberOf = (id) => getSquadNumber(roster.find((p) => p.id === id), roster);
-    render(<SquadSettingsForm {...baseProps({ variant: "edit", initialExpandedSection: "squad", roster, numberOf: testNumberOf })} />);
-    const badges = screen.getAllByTitle("Set squad number");
-    expect(badges[0]).toHaveTextContent("7"); // Alice's explicit number
-    expect(badges[1]).toHaveTextContent("2"); // Bob has none set -- falls back to his position (2nd) in the roster
-    expect(badges[0]).toHaveStyle({ backgroundColor: "rgb(46, 125, 83)" }); // tokens.color.pitchGreen, same for both
-    expect(badges[1]).toHaveStyle({ backgroundColor: "rgb(46, 125, 83)" });
-  });
-
-  it("tapping a player's number turns it into an input; typing and blurring calls setPlayerNumber", async () => {
-    const setPlayerNumber = vi.fn();
-    const user = userEvent.setup();
-    render(<SquadSettingsForm {...baseProps({ variant: "edit", initialExpandedSection: "squad", setPlayerNumber })} />);
-    await user.click(screen.getAllByTitle("Set squad number")[0]);
-    const input = document.activeElement;
-    fireEvent.change(input, { target: { value: "9" } });
-    fireEvent.blur(input);
-    expect(setPlayerNumber).toHaveBeenCalledWith("p1", 9);
-  });
-
-  it("committing an empty value clears the number back to unset (null)", async () => {
-    const setPlayerNumber = vi.fn();
-    const user = userEvent.setup();
-    render(
-      <SquadSettingsForm
-        {...baseProps({
-          variant: "edit", initialExpandedSection: "squad",
-          roster: [{ id: "p1", name: "Alice", keeperEligible: true, number: 7 }, ROSTER[1]], setPlayerNumber,
-        })}
-      />
-    );
-    await user.click(screen.getAllByTitle("Set squad number")[0]);
-    const input = screen.getByDisplayValue("7");
-    fireEvent.change(input, { target: { value: "" } });
-    fireEvent.blur(input);
-    expect(setPlayerNumber).toHaveBeenCalledWith("p1", null);
-  });
-
-  it("pressing Escape while editing discards the edit without calling setPlayerNumber", async () => {
-    const setPlayerNumber = vi.fn();
-    const user = userEvent.setup();
-    render(<SquadSettingsForm {...baseProps({ variant: "edit", initialExpandedSection: "squad", setPlayerNumber })} />);
-    await user.click(screen.getAllByTitle("Set squad number")[0]);
-    const input = document.activeElement;
-    fireEvent.change(input, { target: { value: "9" } });
-    fireEvent.keyDown(input, { key: "Escape" });
-    expect(setPlayerNumber).not.toHaveBeenCalled();
-    expect(screen.queryByDisplayValue("9")).not.toBeInTheDocument();
-  });
-
-  it("toggling keeper-eligible calls toggleKeeperEligible with that player's id", async () => {
-    const toggleKeeperEligible = vi.fn();
-    const user = userEvent.setup();
-    render(<SquadSettingsForm {...baseProps({ variant: "edit", initialExpandedSection: "squad", toggleKeeperEligible })} />);
-    await user.click(screen.getAllByTitle("Toggle keeper-eligible")[0]);
-    expect(toggleKeeperEligible).toHaveBeenCalledWith("p1");
-  });
-
-  it("removing a player calls removePlayer with that player's id", async () => {
-    const removePlayer = vi.fn();
-    const user = userEvent.setup();
-    render(<SquadSettingsForm {...baseProps({ variant: "edit", initialExpandedSection: "squad", removePlayer })} />);
-    await user.click(screen.getAllByTitle("Remove from squad")[0]);
-    expect(removePlayer).toHaveBeenCalledWith("p1");
   });
 });
 

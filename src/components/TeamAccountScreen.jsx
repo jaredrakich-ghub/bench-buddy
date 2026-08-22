@@ -22,7 +22,7 @@ import { styles, tokens } from "./styles.js";
 // happen to show it.
 export default function TeamAccountScreen({
   teams, activeTeamId, onSwitch, onAdd, onRename, onDelete, onClose,
-  userEmail, onSignOut, onDeleteAccount, onShowSeason, onShowSettings, crestSrc,
+  userEmail, onSignOut, onDeleteAccount, onShowSeason, onShowManageSquad, crestSrc,
 }) {
   const [showAddInput, setShowAddInput] = useState(false);
   const [addName, setAddName] = useState("");
@@ -207,7 +207,7 @@ export default function TeamAccountScreen({
           <span style={styles.mdPopoverRowLabel}>Season data</span>
           <span style={styles.mdPopoverRowChevron}>›</span>
         </button>
-        <button style={styles.mdPopoverRow} onClick={onShowSettings}>
+        <button style={styles.mdPopoverRow} onClick={onShowManageSquad}>
           <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintYellow }}>
             <Shirt size={16} color={tokens.color.deepGreen} />
           </span>
