@@ -50,7 +50,7 @@ export default function SummaryModal({ plan, availableIds, nameOf, numberOf, onC
         <button style={styles.mdSubHeaderBack} onClick={onClose} title="Back">
           ‹
         </button>
-        <div style={styles.mdSubHeaderTitle}>Minutes</div>
+        <div style={styles.mdSubHeaderTitle}>Today's Minutes</div>
         <span style={styles.mdSubHeaderChip}>{fmtClock(totalMin * 60)}</span>
       </div>
 

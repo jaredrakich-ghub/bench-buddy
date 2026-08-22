@@ -423,6 +423,24 @@ describe("SquadSettingsForm — In goal today (starting keeper)", () => {
     expect(setStartingGkId).toHaveBeenCalledWith("p1");
   });
 
+  // Real-use feedback: "Player name starts" read oddly next to "Random" —
+  // just the name reads as the plain fact it is, both in the collapsed
+  // row's own value and the expanded card's value badge.
+  it("shows just the player's name once picked, not 'name starts'", () => {
+    render(<SquadSettingsForm {...baseProps({ variant: "edit", initialExpandedSection: "goal", startingGkId: "p1" })} />);
+    // getByText's default exact-match means this alone already rules out
+    // "Alice starts" as the actual text — a looser /starts/ document-wide
+    // check would false-positive on the caption below ("...who starts in
+    // goal today"), which is unrelated static copy.
+    expect(screen.getByText("Alice")).toBeInTheDocument();
+    expect(screen.queryByText("Alice starts")).not.toBeInTheDocument();
+
+    cleanup();
+    render(<SquadSettingsForm {...baseProps({ variant: "edit", startingGkId: "p1" })} />); // collapsed row
+    expect(screen.getByText("Alice")).toBeInTheDocument();
+    expect(screen.queryByText("Alice starts")).not.toBeInTheDocument();
+  });
+
   it("tapping the already-starting player's chip again clears the pick", async () => {
     const setStartingGkId = vi.fn();
     const user = userEvent.setup();

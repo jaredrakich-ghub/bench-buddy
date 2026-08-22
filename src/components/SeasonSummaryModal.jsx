@@ -107,7 +107,7 @@ export default function SeasonSummaryModal({ teamId, numberOf, onClose }) {
         <button style={styles.mdSubHeaderBack} onClick={onClose} title="Back">
           ‹
         </button>
-        <div style={styles.mdSubHeaderTitle}>Season</div>
+        <div style={styles.mdSubHeaderTitle}>Season Minutes</div>
         {games !== null && !error && <span style={styles.mdSubHeaderChip}>{games.length} game{games.length === 1 ? "" : "s"}</span>}
       </div>
 

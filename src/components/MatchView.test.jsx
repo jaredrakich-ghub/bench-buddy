@@ -104,6 +104,7 @@ function baseProps(overrides = {}) {
     onSwap: vi.fn(),
     onReset: vi.fn(),
     onShowSummary: vi.fn(),
+    onShowSeason: vi.fn(),
     onShowSettings: vi.fn(),
     onShowSquadChange: vi.fn(),
     onShowTeamSwitcher: vi.fn(),
@@ -215,11 +216,12 @@ describe("MatchView — next-sub badges", () => {
 });
 
 describe("MatchView — cog menu (anchored popover, trimmed / #10a)", () => {
-  // A2d-Menu-trimmed (#10a): 4 rows, no group headers — Season data,
-  // Manage squad, Switch team, Account, and Sign out all moved to
-  // Team & account (#10e); the reset button came out of the app entirely
-  // rather than being relocated (no standalone close button either, by
-  // design — dismissed by tapping the cog again, the scrim, or any row).
+  // A2d-Menu-trimmed (#10a): no group headers — Manage squad, Switch team,
+  // Account, and Sign out all moved to Team & account (#10e); the reset
+  // button came out of the app entirely rather than being relocated (no
+  // standalone close button either, by design — dismissed by tapping the
+  // cog again, the scrim, or any row). Season Minutes moved back out of
+  // Team & account and in here instead, real-use feedback.
   it("opens on tapping the cog, closes on tapping the cog again or the scrim", async () => {
     const user = userEvent.setup();
     render(<MatchView {...baseProps()} />);
@@ -236,16 +238,16 @@ describe("MatchView — cog menu (anchored popover, trimmed / #10a)", () => {
     expect(screen.queryByText("Game settings")).not.toBeInTheDocument();
   });
 
-  it("shows only the 4 rows this trim keeps — nothing that moved to Team & account", async () => {
+  it("shows only the 5 rows this trim keeps — nothing that moved to Team & account", async () => {
     const user = userEvent.setup();
     render(<MatchView {...baseProps()} />);
     await user.click(screen.getByTitle("Menu"));
     const popover = within(screen.getByTestId("cog-popover"));
-    expect(popover.getByText("Minutes")).toBeInTheDocument();
+    expect(popover.getByText("Today's Minutes")).toBeInTheDocument();
+    expect(popover.getByText("Season Minutes")).toBeInTheDocument();
     expect(popover.getByText("Who's here")).toBeInTheDocument();
     expect(popover.getByText("Game settings")).toBeInTheDocument();
     expect(popover.getByText("Team & account")).toBeInTheDocument();
-    expect(popover.queryByText("Season data")).not.toBeInTheDocument();
     expect(popover.queryByText("Manage squad")).not.toBeInTheDocument();
     expect(popover.queryByText("Switch team")).not.toBeInTheDocument();
     expect(popover.queryByText("Account")).not.toBeInTheDocument();
@@ -270,16 +272,21 @@ describe("MatchView — cog menu (anchored popover, trimmed / #10a)", () => {
 
   it("every row calls its own callback and closes the menu", async () => {
     const onShowSummary = vi.fn();
+    const onShowSeason = vi.fn();
     const onShowSettings = vi.fn();
     const onShowSquadChange = vi.fn();
     const onShowTeamSwitcher = vi.fn();
     const user = userEvent.setup();
-    render(<MatchView {...baseProps({ onShowSummary, onShowSettings, onShowSquadChange, onShowTeamSwitcher })} />);
+    render(<MatchView {...baseProps({ onShowSummary, onShowSeason, onShowSettings, onShowSquadChange, onShowTeamSwitcher })} />);
 
     await user.click(screen.getByTitle("Menu"));
-    await user.click(screen.getByText("Minutes"));
+    await user.click(screen.getByText("Today's Minutes"));
     expect(onShowSummary).toHaveBeenCalledTimes(1);
     expect(screen.queryByText("Game settings")).not.toBeInTheDocument(); // menu closed itself
+
+    await user.click(screen.getByTitle("Menu"));
+    await user.click(screen.getByText("Season Minutes"));
+    expect(onShowSeason).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByTitle("Menu"));
     await user.click(screen.getByText("Who's here"));

@@ -1,19 +1,19 @@
 import { useState } from "react";
-import { Pencil, Trash2, Plus, BarChart2, Shirt, User, LogOut } from "lucide-react";
+import { Pencil, Trash2, Plus, Shirt, User, LogOut } from "lucide-react";
 import { styles, tokens } from "./styles.js";
 
 // README > A8-Team-account (#10e) — "everything that is not match-day."
 // Absorbs the old TeamSwitcher modal's team list/switch/rename/delete/add
 // logic (kept as-is — this screen restyles it, it doesn't re-model it) and
-// adds two rows that used to be direct cog-menu entries (Season data,
-// Manage squad), now reached from here instead.
+// adds a "Manage squad" row, reached from here instead of a direct
+// cog-menu entry. Season data lives only in the cog menu now (its own
+// "Season Minutes" row, MatchView.jsx, real-use feedback moved it out of
+// here entirely rather than keeping it reachable both ways).
 //
 // Reached from the cog menu's existing "Switch team" row rather than a
 // dedicated menu row — the README assumes the menu itself gets trimmed to
 // make room for a "Team & account" row, but that trim is explicitly out of
 // scope for now, so this rides on the entry point that already exists.
-// "Season data"/"Manage squad" stay as their own direct cog-menu rows too
-// (untouched) — reachable two ways until, if ever, the trim happens.
 //
 // "Delete my account" isn't in the README's A8 spec at all (the design's
 // own Account group only shows Signed in / Sign out) but it's real,
@@ -22,7 +22,7 @@ import { styles, tokens } from "./styles.js";
 // happen to show it.
 export default function TeamAccountScreen({
   teams, activeTeamId, onSwitch, onAdd, onRename, onDelete, onClose,
-  userEmail, onSignOut, onDeleteAccount, onShowSeason, onShowManageSquad, crestSrc,
+  userEmail, onSignOut, onDeleteAccount, onShowManageSquad, crestSrc,
 }) {
   const [showAddInput, setShowAddInput] = useState(false);
   const [addName, setAddName] = useState("");
@@ -200,13 +200,10 @@ export default function TeamAccountScreen({
           <span style={styles.mdTeamAcctGroupLabel}>Records</span>
           <span style={styles.mdPopoverGroupRule} />
         </div>
-        <button style={styles.mdPopoverRow} onClick={onShowSeason}>
-          <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintGreen }}>
-            <BarChart2 size={16} color={tokens.color.pitchGreen} />
-          </span>
-          <span style={styles.mdPopoverRowLabel}>Season data</span>
-          <span style={styles.mdPopoverRowChevron}>›</span>
-        </button>
+        {/* Season data moved out of here entirely, real-use feedback —
+            "take Season Minutes out of the Team & Account menu and put it
+            below Minutes Today in the main menu." See MatchView.jsx's own
+            cog menu, "Season Minutes" row. */}
         <button style={styles.mdPopoverRow} onClick={onShowManageSquad}>
           <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintYellow }}>
             <Shirt size={16} color={tokens.color.deepGreen} />

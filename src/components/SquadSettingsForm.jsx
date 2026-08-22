@@ -825,7 +825,7 @@ export default function SquadSettingsForm({
                 </span>
               </div>
               <span style={{ ...styles.mdSetupCardValueBadge, ...(startingGkId ? styles.mdSetupCardValueBadgeSet : {}), marginTop: 10 }}>
-                {startingGkId ? `${roster.find((p) => p.id === startingGkId)?.name} starts` : "Random"}
+                {startingGkId ? roster.find((p) => p.id === startingGkId)?.name : "Random"}
               </span>
               <div style={{ marginTop: 12 }}>{renderInGoalChips(true)}</div>
               <div style={styles.mdSetupCardCaptionOnDark}>Tap a name to pick who starts in goal today.</div>
@@ -835,7 +835,7 @@ export default function SquadSettingsForm({
               {sectionBadge("goal")}
               <span style={styles.mdSetupAccordionLabel}>First in goal today</span>
               <span style={styles.mdSetupAccordionValue}>
-                {startingGkId ? `${roster.find((p) => p.id === startingGkId)?.name} starts` : "Random"}
+                {startingGkId ? roster.find((p) => p.id === startingGkId)?.name : "Random"}
               </span>
               <span style={styles.mdSetupAccordionChevron}>›</span>
             </button>

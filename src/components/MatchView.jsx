@@ -85,6 +85,7 @@ export default function MatchView({
   onSwap,
   onReset,
   onShowSummary,
+  onShowSeason,
   onShowSettings,
   onShowSquadChange,
   onShowTeamSwitcher,
@@ -962,10 +963,12 @@ export default function MatchView({
       )}
 
       {cogOrigin && (
-        // A2d-Menu-trimmed (#10a): four rows, no group headers — "holding
-        // only what a coach touches during a game." Season data, Manage
-        // squad, Switch team, Account, and Sign out all moved to
-        // Team & account (#10e), reached through the last row here. Reset
+        // A2d-Menu-trimmed (#10a): no group headers — "holding only what a
+        // coach touches during a game." Manage squad, Switch team, Account,
+        // and Sign out all moved to Team & account (#10e), reached through
+        // the last row here — Season Minutes moved back out of there and
+        // in here instead (real-use feedback, paired directly under
+        // Today's Minutes). Reset
         // is a hidden gesture now (tap the timer display, see
         // handleTimerTap above) rather than any kind of menu row — real-
         // use feedback found a dedicated visible control for it "looked
@@ -988,11 +991,33 @@ export default function MatchView({
                   SummaryModal.jsx's own header comment) — "so far" hasn't
                   described what it opens for a while, and the elapsed-time
                   chip was never actually a preview of that screen's content
-                  in the first place. Real-use feedback caught both. */}
+                  in the first place. Real-use feedback caught both.
+                  "Today's Minutes" (not bare "Minutes") — real-use
+                  feedback, once Season Minutes sat right below it the two
+                  needed to read as clearly distinct at a glance. */}
               <span style={{ ...styles.mdCogMenuIconTile, ...styles.mdTintYellow }}>
                 <BarChart2 size={16} color={tokens.color.deepGreen} />
               </span>
-              <span style={styles.mdCogMenuLabel}>Minutes</span>
+              <span style={styles.mdCogMenuLabel}>Today's Minutes</span>
+              <span style={styles.mdCogMenuChevron}>›</span>
+            </button>
+            <button
+              style={styles.mdCogMenuRow}
+              onClick={() => {
+                setCogOrigin(null);
+                onShowSeason();
+              }}
+            >
+              {/* Real-use feedback: moved out of Team & account entirely
+                  (not just linked here too) — "take Season Minutes out of
+                  the Team & Account menu and put it below Minutes Today in
+                  the main menu." Same yellow tint as Today's Minutes right
+                  above it — the two are a deliberate pair, distinguished by
+                  icon (History, not BarChart2) rather than color. */}
+              <span style={{ ...styles.mdCogMenuIconTile, ...styles.mdTintYellow }}>
+                <History size={16} color={tokens.color.deepGreen} />
+              </span>
+              <span style={styles.mdCogMenuLabel}>Season Minutes</span>
               <span style={styles.mdCogMenuChevron}>›</span>
             </button>
             <button

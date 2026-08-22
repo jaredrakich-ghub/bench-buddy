@@ -444,6 +444,7 @@ export default function SubRotationPlanner({ user }) {
             onSwap={performSwap}
             onReset={resetClock}
             onShowSummary={() => setShowSummaryModal(true)}
+            onShowSeason={() => setShowSeasonModal(true)}
             onShowSettings={() => setShowSettingsModal(true)}
             onShowSquadChange={() => setShowSquadChange(true)}
             onShowTeamSwitcher={() => setShowTeamSwitcher(true)}
@@ -457,17 +458,19 @@ export default function SubRotationPlanner({ user }) {
         // into an outer/inner wrapper).
         //
         // Rendered FIRST among these six overlays, deliberately — its own
-        // "Season data"/"Manage squad" rows open showSeasonModal/
-        // showManageSquad *without* closing this screen underneath them
-        // (so its own back arrow returns here, not straight to the match
-        // screen — a proper drill-down, not a screen swap). All of these
-        // sibling overlays share the same fixed z-index (mdFullScreenTake
-        // overOuter), so with equal z-index it's DOM order that decides
-        // which one paints on top — this used to be declared *last*, which
-        // meant it silently painted over Season/Settings instead of the
-        // other way around, making "Season data"/"Manage squad" look
-        // broken (the state flipped correctly; nothing ever became
-        // visible). Keep this first if any more rows like these are added.
+        // "Manage squad" row opens showManageSquad *without* closing this
+        // screen underneath it (so its own back arrow returns here, not
+        // straight to the match screen — a proper drill-down, not a screen
+        // swap). All of these sibling overlays share the same fixed
+        // z-index (mdFullScreenTakeoverOuter), so with equal z-index it's
+        // DOM order that decides which one paints on top — this used to be
+        // declared *last*, which meant it silently painted over
+        // Season/Settings instead of the other way around, making
+        // "Season data"/"Manage squad" look broken (the state flipped
+        // correctly; nothing ever became visible). Keep this first if any
+        // more rows like this are added. (Season data itself moved out of
+        // here entirely — see the cog menu's own "Season Minutes" row,
+        // MatchView.jsx.)
         <div style={styles.mdFullScreenTakeoverOuter}>
           <div style={styles.mdFullScreenTakeoverInner}>
             <TeamAccountScreen
@@ -481,7 +484,6 @@ export default function SubRotationPlanner({ user }) {
               userEmail={user.email}
               onSignOut={signOutUser}
               onDeleteAccount={deleteMyAccount}
-              onShowSeason={() => setShowSeasonModal(true)}
               onShowManageSquad={() => setShowManageSquad(true)}
               crestSrc={headerMascot}
             />
@@ -500,8 +502,9 @@ export default function SubRotationPlanner({ user }) {
               variant="edit"
               // "Game settings" — matches the cog menu's own row label that
               // opens this screen (real-use feedback: same expectation as
-              // "Minutes" and "Who's here", whose own headers already match
-              // their menu rows). "Set up next game" stays distinct for the
+              // "Today's Minutes" and "Who's here", whose own headers
+              // already match their menu rows). "Set up next game" stays
+              // distinct for the
               // match-complete case — a genuinely different moment (a fresh
               // game, not editing today's), not reached via that same row.
               title={isMatchComplete ? "Set up next game" : "Game settings"}
