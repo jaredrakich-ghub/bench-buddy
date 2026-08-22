@@ -246,7 +246,8 @@ export default function SquadSettingsForm({
   // coach might not open for a while — and Manage squad itself no longer
   // even lives here, see renderKeepersSection/ManageSquadScreen.jsx). Its
   // own independent collapse state, not folded into expandedSection above
-  // — it sits before that whole group, not competing with it for "one
+  // — it sits alongside that group (real-use feedback: directly against
+  // First in goal today, which it feeds), not competing with it for "one
   // thing open at a time".
   const [keepersExpanded, setKeepersExpanded] = useState(false);
   // Progressive disclosure for the sub-interval fairness picker (see
@@ -372,11 +373,15 @@ export default function SquadSettingsForm({
     // read as odd — "already" implies the coach expected otherwise, when
     // they've usually just picked this interval fresh. Named what's being
     // judged (this sub interval) instead of leaning on "already".
+    //
+    // Real-device feedback: the longer original wording ("This sub
+    // interval gives one of the fairest rotations for today.") wrapped to
+    // two lines on a phone-width screen. Shortened to fit on one.
     if (currentRec?.fair) {
       return (
         <div style={styles.mdSetupFairnessOk}>
           <Check size={13} strokeWidth={3} color={tokens.color.pitchGreen} />
-          This sub interval gives one of the fairest rotations for today.
+          These sub settings provide a fair rotation.
         </div>
       );
     }
@@ -653,11 +658,15 @@ export default function SquadSettingsForm({
   // Game" — extended to every "edit" render, not just the match-complete
   // one, so a coach flipping eligibility mid-season via plain Game
   // settings doesn't lose the only place that was ever reachable, now
-  // that Manage squad's own 🧤 toggle is gone). Always positioned right
-  // before First in goal today, which depends on it.
+  // that Manage squad's own 🧤 toggle is gone). Called from inside
+  // renderGameSettingsAccordion below, as the first card in the same
+  // flex-column stack as First in goal today/Keeper changes/Breaks — real
+  // -use feedback wanted it sitting directly against the section it
+  // depends on, not separated from it by the tiles/fairness note above
+  // (no own margin here; the flex column's own gap handles spacing).
   function renderKeepersSection() {
     return (
-      <div style={{ marginTop: 18 }}>
+      <>
         {keepersExpanded ? (
           <div style={styles.mdSetupCard}>
             <div style={styles.mdSetupCardHeaderRow}>
@@ -694,7 +703,7 @@ export default function SquadSettingsForm({
             <span style={styles.mdSetupAccordionChevron}>›</span>
           </button>
         )}
-      </div>
+      </>
     );
   }
 
@@ -803,6 +812,8 @@ export default function SquadSettingsForm({
             without this the button could end up sitting right against
             the submit button with no breathing room. */}
         <div style={{ marginTop: 22, marginBottom: 20, display: "flex", flexDirection: "column", gap: 9 }}>
+          {renderKeepersSection()}
+
           {expandedSection === "goal" ? (
             <div style={{ ...styles.mdSetupCard, ...styles.mdSetupCardDark }}>
               {/* No section badge once expanded — real-device feedback,
@@ -913,8 +924,6 @@ export default function SquadSettingsForm({
       <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
         {header}
 
-        {renderKeepersSection()}
-
         {renderGameSettingsAccordion()}
 
         {renderWarningsAndSubmit()}
@@ -1006,8 +1015,6 @@ export default function SquadSettingsForm({
         </div>
         {renderSquadChips()}
       </div>
-
-      {renderKeepersSection()}
 
       {renderGameSettingsAccordion()}
 

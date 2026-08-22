@@ -94,13 +94,17 @@ describe("SquadSettingsForm — rendering (inline / A3 layout)", () => {
   // Real-use feedback: Who's here should be the very first thing a coach
   // does, not tiles/settings — DOCUMENT_POSITION_FOLLOWING confirms each
   // element genuinely comes *after* the previous one in the DOM, not just
-  // that all three happen to be present somewhere.
-  it("orders Who's here, then Keepers, then the settings accordion", () => {
+  // that all three happen to be present somewhere. Keepers itself moved
+  // again on later feedback: it now sits right against First in goal
+  // today (after the tiles), not immediately after Who's here.
+  it("orders Who's here, then the tiles, then Keepers directly against First in goal today", () => {
     render(<SquadSettingsForm {...baseProps()} />);
     const whosHere = screen.getByText("Who's here");
+    const tile = screen.getByText("on pitch");
     const keepers = screen.getByText("Keepers");
     const firstInGoal = screen.getByText("First in goal today");
-    expect(whosHere.compareDocumentPosition(keepers) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(whosHere.compareDocumentPosition(tile) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(tile.compareDocumentPosition(keepers) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(keepers.compareDocumentPosition(firstInGoal) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
@@ -531,7 +535,7 @@ describe("SquadSettingsForm — sub-interval recommendation", () => {
     render(
       <SquadSettingsForm {...baseProps({ roster: FAIRNESS_ROSTER, availableIds: FAIRNESS_ROSTER.map((p) => p.id), gameSettings: FAIRNESS_SETTINGS })} />
     );
-    expect(screen.getByText("This sub interval gives one of the fairest rotations for today.")).toBeInTheDocument();
+    expect(screen.getByText("These sub settings provide a fair rotation.")).toBeInTheDocument();
     expect(screen.queryByText("Improve fairness")).not.toBeInTheDocument();
     expect(screen.queryByTitle(/min subs/)).not.toBeInTheDocument();
   });
