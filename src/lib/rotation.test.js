@@ -6,6 +6,7 @@ import {
   buildCarryState,
   generatePlan,
   computeFairnessSpread,
+  computeAveragePitchMinutes,
   isFairSpread,
   pickFairStartingGk,
   recommendSubIntervals,
@@ -752,6 +753,21 @@ describe("computeFairnessSpread / isFairSpread", () => {
     expect(isFairSpread(6, 6)).toBe(true); // exactly one interval — fine
     expect(isFairSpread(6.5, 6)).toBe(true); // small rounding buffer — fine
     expect(isFairSpread(12, 6)).toBe(false); // two intervals' worth — not fine
+  });
+});
+
+describe("computeAveragePitchMinutes", () => {
+  it("averages the same per-player totals computeFairnessSpread itself builds", () => {
+    const intervals = [
+      { startMin: 0, endMin: 6, onField: [{ id: "p1" }] },
+      { startMin: 6, endMin: 12, onField: [{ id: "p1" }] },
+    ];
+    // p1 played both 6-min intervals (12 total), p2 played neither (0 total) — average 6.
+    expect(computeAveragePitchMinutes(intervals, ["p1", "p2"])).toBe(6);
+  });
+
+  it("returns 0 for no available players", () => {
+    expect(computeAveragePitchMinutes([], [])).toBe(0);
   });
 });
 

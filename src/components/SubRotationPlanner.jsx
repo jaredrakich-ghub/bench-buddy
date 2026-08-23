@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { intervalAtElapsed } from "../lib/rotation.js";
+import { intervalAtElapsed, computeFairnessSpread, computeAveragePitchMinutes } from "../lib/rotation.js";
 import { computeLiveElapsedSec } from "../lib/clock.js";
 import { generateId } from "../lib/id.js";
 import { getSquadNumber } from "../lib/squadNumber.js";
@@ -17,6 +17,7 @@ import TeamAccountScreen from "./TeamAccountScreen.jsx";
 import ManageSquadScreen from "./ManageSquadScreen.jsx";
 import SquadChangeScreen from "./SquadChangeScreen.jsx";
 import LoadingScreen from "./LoadingScreen.jsx";
+import RotationProgressOverlay from "./RotationProgressOverlay.jsx";
 import headerMascot from "../assets/header-mascot.jpg";
 
 // Both of these are now read-only, used exactly once each: migrating an
@@ -324,12 +325,36 @@ export default function SubRotationPlanner({ user }) {
     // component out for the sign-in screen.
   };
 
+  // Real-use feedback: tapping "Build my rotation" used to jump straight
+  // from settings to the match screen with no acknowledgement of what
+  // just happened. Now it opens RotationProgressOverlay instead, and the
+  // settings screen underneath only actually closes once that overlay's
+  // own "View my rotation" is tapped (onContinue below) — not the instant
+  // the plan itself is ready.
+  //
   // startPlanning reports back whether it actually generated a plan (it
-  // bails out on invalid settings) — only close the modal on success, same
-  // as it always did back when this and the modal flag lived together.
+  // bails out on invalid settings); pendingOverlayRef flags "a plan was
+  // just built, compute the overlay's own stats from it once it lands" —
+  // a ref, not state, since nothing here needs to re-render on its own.
+  // It has to wait for the *next* render to read the real plan:
+  // startPlanning() only schedules the setPlan update, it doesn't return
+  // the built plan itself, so `plan` in this same call is still the old
+  // (or absent) one.
+  const pendingOverlayRef = useRef(false);
+  const [rotationOverlayStats, setRotationOverlayStats] = useState(null);
+
   const handleGenerate = () => {
-    if (startPlanning()) setShowSettingsModal(false);
+    if (startPlanning()) pendingOverlayRef.current = true;
   };
+
+  useEffect(() => {
+    if (!pendingOverlayRef.current || !plan) return;
+    pendingOverlayRef.current = false;
+    setRotationOverlayStats({
+      averageMinutes: Math.round(computeAveragePitchMinutes(plan, availableIds)),
+      maxDifference: Math.round(computeFairnessSpread(plan, availableIds)),
+    });
+  }, [plan, availableIds]);
 
   const nameOf = (id) => teamData.roster.find((p) => p.id === id)?.name || "?";
   // Squad numbers are new (match-day redesign) — see getSquadNumber's own
@@ -366,6 +391,12 @@ export default function SubRotationPlanner({ user }) {
     elapsedSec,
     startingGkId,
     setStartingGkId,
+    // While RotationProgressOverlay is up, this screen sits behind its
+    // scrim — aria-hidden, and its own submit button specifically
+    // disabled/untabbable too (aria-hidden alone doesn't reliably keep
+    // every browser's Tab key out of a hidden-but-still-focusable
+    // control), so the build sequence can't be restarted underneath it.
+    overlayOpen: Boolean(rotationOverlayStats),
   };
 
   return (
@@ -386,7 +417,17 @@ export default function SubRotationPlanner({ user }) {
 
       {saveError && <div style={styles.saveErrorBanner}>⚠️ {saveError}</div>}
 
-      <main style={styles.main}>
+      {/* aria-hidden while RotationProgressOverlay is up — startPlanning()
+          sets `plan` immediately (before the overlay's own fade-in even
+          starts), which swaps this from the settings form straight to
+          MatchView underneath the scrim; hiding the whole of `main`
+          covers whichever of the two actually ends up mounted there,
+          rather than only the settings form specifically (see
+          squadSettingsProps' own overlayOpen for that belt-and-suspenders
+          CTA-specific disable, which still matters for the "edit"/Game-
+          settings route, where the form stays mounted underneath the
+          whole time). */}
+      <main style={styles.main} aria-hidden={Boolean(rotationOverlayStats)}>
         {!plan && (
           <section>
             <SquadSettingsForm
@@ -432,6 +473,7 @@ export default function SubRotationPlanner({ user }) {
             injuredThisGame={injuredThisGame}
             injuredAt={injuredAt}
             keeperEligibleIds={keeperEligibleIds}
+            availableIds={availableIds}
             breakSegments={gameSettings.breakSegments || 1}
             nameOf={nameOf}
             numberOf={numberOf}
@@ -588,6 +630,24 @@ export default function SubRotationPlanner({ user }) {
             />
           </div>
         </div>
+      )}
+
+      {rotationOverlayStats && (
+        // Its own z-index (51/52, styles.js's mdCautionSheet* precedent —
+        // see RotationProgressOverlay's own comment) already clears every
+        // other overlay here, including the settings modal it's reached
+        // from, so this doesn't need nesting inside that modal's own
+        // wrapper to render on top of it — one call site covers both the
+        // inline (first-time-setup) and modal (Game settings/Set up next
+        // game) routes into it.
+        <RotationProgressOverlay
+          averageMinutes={rotationOverlayStats.averageMinutes}
+          maxDifference={rotationOverlayStats.maxDifference}
+          onContinue={() => {
+            setRotationOverlayStats(null);
+            setShowSettingsModal(false);
+          }}
+        />
       )}
     </div>
   );

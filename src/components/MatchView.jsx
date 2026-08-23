@@ -1,12 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Play, Pause, BarChart2, History, ArrowDown, ArrowUp, ArrowLeftRight } from "lucide-react";
-import { intervalAtElapsed, computeNextChangeBadges, computeBreakBoundaries, pairChanges } from "../lib/rotation.js";
+import { intervalAtElapsed, computeNextChangeBadges, computeBreakBoundaries, pairChanges, computeFairnessSpread } from "../lib/rotation.js";
+import { getFairnessState } from "../lib/fairness.js";
 import { computeLiveElapsedSec, fmtClock } from "../lib/clock.js";
 import { getFormationLayout, computeTokenSize } from "../lib/formation.js";
 import { useSheetDrag } from "../hooks/useSheetDrag.js";
 import { styles, tokens } from "./styles.js";
 import { GearIcon, KitShirt, MedicalCross } from "./matchDayIcons.jsx";
 import { RotateIcon } from "./strokeIcons.jsx";
+import FairnessMark from "./FairnessMark.jsx";
 
 // Hand-drawn-style pitch markings (halfway line + centre circle) as one
 // absolutely-positioned SVG overlay, replacing the old plain CSS
@@ -50,6 +52,46 @@ function PitchMarkings({ height }) {
   );
 }
 
+// The mid-match fairness toast (see the header's own `key={toastTriggerCount}`
+// call site) — a fresh instance of this mounts per trigger rather than one
+// shared, reused element, so its own "revealed" flip always has a genuine
+// hidden-first frame to transition from (same reasoning as
+// RotationProgressOverlay's own `mounted` flag — flipping straight to the
+// "shown" styles in the very same commit that mounts a node paints right
+// into the end state with nothing to animate away from). Owns its full
+// life on its own: reveals itself, holds ~3s, fades out — the parent never
+// has to track visibility, only whether to render one at all.
+function FairnessToastPill({ spreadMin }) {
+  const [revealed, setRevealed] = useState(false);
+  useEffect(() => {
+    const showRaf = requestAnimationFrame(() => setRevealed(true));
+    const hideTimer = setTimeout(() => setRevealed(false), 3000);
+    return () => {
+      cancelAnimationFrame(showRaf);
+      clearTimeout(hideTimer);
+    };
+  }, []);
+  return (
+    <div
+      aria-live="polite"
+      style={{
+        position: "absolute", right: 18, bottom: 22, pointerEvents: "none",
+        background: tokens.color.actionBar, borderRadius: 999, padding: "7px 14px 7px 7px",
+        boxShadow: "0 5px 14px rgba(20,32,28,.3)",
+        display: "flex", flexDirection: "row", alignItems: "center", gap: 9,
+        opacity: revealed ? 1 : 0,
+        transform: revealed ? "translateX(0) scale(1)" : "translateX(18px) scale(.94)",
+        transition: "opacity .28s ease, transform .42s cubic-bezier(.22,.9,.3,1)",
+      }}
+    >
+      <FairnessMark spreadMin={spreadMin} size={32} ringWidth={2.5} glyphSize={17} />
+      <span style={{ fontFamily: tokens.font.display, fontWeight: 800, fontSize: 16, color: tokens.color.creamPaper, whiteSpace: "nowrap" }}>
+        {getFairnessState(spreadMin).toast}
+      </span>
+    </div>
+  );
+}
+
 // The live match screen: clock, current sub-window status, interval tabs,
 // pitch board (formation + bench + injured), and interval navigation.
 // Everything here is about "what's happening in the game right now" —
@@ -73,6 +115,7 @@ export default function MatchView({
   injuredThisGame,
   injuredAt,
   keeperEligibleIds,
+  availableIds,
   breakSegments,
   nameOf,
   numberOf,
@@ -92,6 +135,34 @@ export default function MatchView({
 }) {
   const totalGameSec = plan[plan.length - 1].endMin * 60;
   const isMatchComplete = elapsedSec >= totalGameSec;
+
+  // Mid-match fairness toast — flashes the fairness mark whenever
+  // something changes the remaining rotation (a swap, a late arrival, an
+  // injury, a squad change), an unprompted reminder that what's left is
+  // still fair. All four of those mutations funnel through this same
+  // `plan` reference one level up (useMatchState/SubRotationPlanner), so
+  // watching *that* change is a reliable single trigger point rather than
+  // wiring a bespoke event through every individual mutation — and
+  // recomputing the spread fresh each time means this always reflects
+  // the game from here on, not a stale snapshot from kickoff.
+  const spreadMin = computeFairnessSpread(plan, availableIds);
+  const [toastTriggerCount, setToastTriggerCount] = useState(0); // 0 = never triggered yet, so nothing renders on first mount
+  // Primed with the CURRENT plan, not a bare "have we run yet" boolean —
+  // real-device bug caught testing this in the actual app (not visible in
+  // the Vitest/jsdom suite, since RTL's render() doesn't wrap in
+  // StrictMode by default the way main.jsx's real tree does): StrictMode
+  // deliberately runs every effect twice on mount. A boolean flag flipped
+  // false by the first of those two runs was already false by the second,
+  // so that "only skip once" guard fired the toast immediately on
+  // load — comparing against the actual last-seen plan instead survives
+  // the duplicate run fine, since `plan` itself hasn't changed between
+  // StrictMode's two synthetic invocations, only across a genuine update.
+  const lastPlanRef = useRef(plan);
+  useEffect(() => {
+    if (plan === lastPlanRef.current) return;
+    lastPlanRef.current = plan;
+    setToastTriggerCount((n) => n + 1);
+  }, [plan]);
   // Purely visual — which interval tabs get a grouping gap before them for
   // a half-time/third-time/quarter-time break. See computeBreakBoundaries's
   // own comment: this has no effect on the plan itself, only this row.
@@ -477,7 +548,10 @@ export default function MatchView({
     // `main` (SubRotationPlanner.jsx) already reserves bottom clearance
     // for exactly this on every screen it renders.
     <section>
-      <div style={styles.mdHeader}>
+      {/* position:relative added here specifically (not on the shared
+          mdHeader token itself, which SquadSettingsForm's own crest
+          header also uses) — anchors the fairness toast below. */}
+      <div style={{ ...styles.mdHeader, position: "relative" }}>
         <div style={styles.mdHeaderTopRow}>
           <div style={styles.mdCrestOuter}>{crestSrc && <img src={crestSrc} alt="" style={styles.mdCrestImg} />}</div>
           <div style={styles.mdTeamName}>{teamName}</div>
@@ -529,6 +603,14 @@ export default function MatchView({
           </button>
           <span style={styles.mdTimerCaption}>of {Math.round(totalGameSec / 60)} min</span>
         </div>
+
+        {/* key={toastTriggerCount}: forces a brand-new instance on every
+            fresh trigger (rather than reusing one across triggers), so a
+            second change landing while the first toast is still fading
+            still gets its own full enter transition and its own aria-live
+            announcement, instead of silently no-op'ing because the
+            underlying visibility flag was already "shown". */}
+        {toastTriggerCount > 0 && <FairnessToastPill key={toastTriggerCount} spreadMin={spreadMin} />}
       </div>
       {/* Reclaimed header height (caption moved beside the timer instead of
           under it) is spent on a taller pitch below, not left as empty

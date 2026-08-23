@@ -437,6 +437,25 @@ export function computeFairnessSpread(intervals, availableIds) {
   return values.length === 0 ? 0 : Math.max(...values) - Math.min(...values);
 }
 
+// The average of the exact same per-player on-field totals
+// computeFairnessSpread itself builds (gk + outfield combined, "pitch
+// time" in the app's own wording) — deliberately mirrors that function's
+// totals calc rather than refactoring it to share code, so
+// computeFairnessSpread's own existing behavior/tests stay untouched.
+// Feeds the rotation-progress success card's "Average pitch time" line.
+export function computeAveragePitchMinutes(intervals, availableIds) {
+  const totals = {};
+  availableIds.forEach((id) => (totals[id] = 0));
+  intervals.forEach((iv) => {
+    const len = iv.endMin - iv.startMin;
+    iv.onField.forEach((p) => {
+      if (totals[p.id] !== undefined) totals[p.id] += len;
+    });
+  });
+  const values = Object.values(totals);
+  return values.length === 0 ? 0 : values.reduce((a, b) => a + b, 0) / values.length;
+}
+
 // One interval's worth of minutes, plus a small rounding buffer, is the
 // threshold generatePlan's own fairness test already treats as "normal,
 // expected spread" for a plan generated the usual way. Reused here as the

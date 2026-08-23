@@ -153,6 +153,10 @@ export default function SquadSettingsForm({
   // `header` below) — the very-first-team case, which has no onClose to
   // hang a back button off of instead.
   crestSrc,
+  // True while RotationProgressOverlay is showing over this screen —
+  // disables the submit button (see renderWarningsAndSubmit) so the build
+  // sequence can't be restarted underneath the overlay's own scrim.
+  overlayOpen = false,
 }) {
   const validation = validateGameSettings(gameSettings, availableIds.length);
 
@@ -728,8 +732,14 @@ export default function SquadSettingsForm({
           </div>
         )}
         <button
-          style={{ ...styles.mdSetupSubmitBtnPrimary, opacity: validation.valid ? 1 : 0.5 }}
-          disabled={!validation.valid}
+          style={{ ...styles.mdSetupSubmitBtnPrimary, opacity: validation.valid && !overlayOpen ? 1 : 0.5 }}
+          disabled={!validation.valid || overlayOpen}
+          // Real-use spec: RotationProgressOverlay's own aria-hidden
+          // scrim isn't reliably enough on its own to keep every
+          // browser's Tab key off a hidden-but-still-focusable control —
+          // explicitly pulling this out of tab order too is what actually
+          // stops the build sequence from being restarted underneath it.
+          tabIndex={overlayOpen ? -1 : undefined}
           onClick={handleSubmitClick}
         >
           <Shuffle size={16} /> {submitLabel}

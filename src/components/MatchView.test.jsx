@@ -17,7 +17,7 @@
 // button and the standalone Reset-clock button (moved into the cog's
 // interim quick menu), and the separate "Interval X of Y ◀ ▶" nav (dropped
 // — the sub-window chips are now the only interval navigation).
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import "@testing-library/jest-dom/vitest";
 import { render, screen, cleanup, fireEvent, act, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -95,6 +95,7 @@ function baseProps(overrides = {}) {
     injuredThisGame: [],
     injuredAt: {},
     keeperEligibleIds: Object.keys(NAMES),
+    availableIds: Object.keys(NAMES),
     nameOf,
     numberOf,
     teamName: "Scorpions",
@@ -960,5 +961,51 @@ describe("MatchView — match complete", () => {
     render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0 })} />);
     expect(screen.getByText(/Next sub/)).toBeInTheDocument();
     expect(screen.queryByText(/Match complete/)).not.toBeInTheDocument();
+  });
+});
+
+// Whatever actually changes `plan` (a swap, a late arrival, an injury, a
+// squad change) all funnel through this same prop, so these drive the
+// toast the same way: a fresh plan reference landing after the initial
+// mount, via rerender.
+describe("MatchView — mid-match fairness toast", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("shows nothing on first mount — only an actual change triggers it", () => {
+    render(<MatchView {...baseProps()} />);
+    expect(screen.queryByText(/Subs still fair|Nearly even|Evening it up/)).not.toBeInTheDocument();
+  });
+
+  it("flashes the fairness mark once the plan actually changes, holding an aria-live announcement", () => {
+    const { rerender } = render(<MatchView {...baseProps()} />);
+    rerender(<MatchView {...baseProps({ plan: planWithP7Injured })} />);
+    act(() => vi.advanceTimersByTime(16)); // flush the entrance rAF
+
+    // defaultPlan/planWithP7Injured: p7 never appears on either interval's
+    // onField list in either fixture, so their spread against all 7
+    // available players is 12 (p1/p2/p3/p5 at 12 min each vs. p7 at 0) —
+    // "needs attention" either way, same toast copy for both plans.
+    const toast = screen.getByText("Evening it up");
+    expect(toast.closest('[aria-live="polite"]')).toBeInTheDocument();
+  });
+
+  it("fades out on its own after ~3s, without needing a tap to dismiss", () => {
+    const { rerender } = render(<MatchView {...baseProps()} />);
+    rerender(<MatchView {...baseProps({ plan: planWithP7Injured })} />);
+    act(() => vi.advanceTimersByTime(16));
+    const toast = screen.getByText("Evening it up").closest('[aria-live="polite"]');
+    expect(toast).toHaveStyle({ opacity: "1" });
+
+    act(() => vi.advanceTimersByTime(3000));
+    expect(toast).toHaveStyle({ opacity: "0" });
+  });
+
+  it("never requires a dismiss tap — the pill itself ignores pointer events", () => {
+    const { rerender } = render(<MatchView {...baseProps()} />);
+    rerender(<MatchView {...baseProps({ plan: planWithP7Injured })} />);
+    act(() => vi.advanceTimersByTime(16));
+    const toast = screen.getByText("Evening it up").closest('[aria-live="polite"]');
+    expect(toast).toHaveStyle({ pointerEvents: "none" });
   });
 });
