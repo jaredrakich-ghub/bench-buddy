@@ -3,11 +3,14 @@ import react from "@vitejs/plugin-react";
 
 // https://vite.dev/config/
 export default defineConfig({
-  // GitHub Pages serves this as a project site at /bench-buddy/, not the
-  // domain root, so built asset URLs need that prefix baked in. Doesn't
-  // affect `npm run dev` in a way that matters — Vite serves under the same
-  // base locally too.
-  base: "/bench-buddy/",
+  // Custom domain (benchbuddysports.com) now points straight at this
+  // GitHub Pages site, which serves it from the domain root, not the old
+  // /bench-buddy/ project-page subpath — asset URLs need to match that or
+  // they 404 (confirmed live: index.html loaded fine, but its own script/
+  // style tags requested /bench-buddy/assets/... on the custom domain,
+  // which doesn't exist there). Doesn't affect `npm run dev` in a way that
+  // matters — Vite serves under the same base locally too.
+  base: "/",
   plugins: [react()],
   test: {
     // "node" by default keeps the pure-logic tests (the majority) fast and
