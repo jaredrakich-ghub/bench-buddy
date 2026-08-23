@@ -70,6 +70,15 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
   useEffect(() => {
     if (!timerRunning || !plan) return;
     const capSec = plan[plan.length - 1].endMin * 60;
+    // Plain local, not React state: setInterval's own callback (sync,
+    // below) fires synchronously and repeatedly within a single burst of
+    // fake-timer (or a slow real) ticks, all sharing this one effect's
+    // closure well before React gets a chance to re-render and tear the
+    // interval down via timerRunning flipping false. A state-based guard
+    // read the same stale value on every one of those ticks; this plain
+    // variable is mutated immediately and synchronously the first time,
+    // so every tick after that correctly sees it's already archived.
+    let archived = false;
 
     const sync = () => {
       const live = computeLiveElapsedSec(baseElapsedSec, runStartedAt, capSec);
@@ -79,6 +88,28 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
         setBaseElapsedSec(capSec);
         setRunStartedAt(null);
         setTimerRunning(false);
+
+        // Archive the just-finished game to season history right as it
+        // actually ends, not whenever the coach next happens to open
+        // settings for the next one — real-use feedback: checking season
+        // data between games used to show the just-finished game as if it
+        // never happened, since archiving used to live in startPlanning
+        // (only reached by tapping "Build new rotation" for the *next*
+        // game). Fire-and-forget (not awaited) so freezing the clock isn't
+        // stuck waiting on a network write; a failure here surfaces
+        // through the same saveError banner as everything else, same as
+        // before. A fresh game gets its own effect invocation (plan is a
+        // dependency below), so `archived` naturally resets per game —
+        // no risk of an old game's own already-fired flag suppressing a
+        // later one's.
+        if (!archived && activeTeamId) {
+          archived = true;
+          const summary = computeMinutesSummary(plan, availableIds);
+          const players = summary.map((s) => ({ ...(teamData?.roster.find((p) => p.id === s.id) || {}), ...s }));
+          archiveGame(activeTeamId, { date: Date.now(), settings: gameSettings, players }).catch((err) => {
+            setSaveError(describeSaveError(err));
+          });
+        }
       }
     };
 
@@ -120,22 +151,11 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
     // which would otherwise hang the tab in an infinite loop.
     if (!validateGameSettings(gameSettings, availableIds.length).valid) return false;
 
-    // Archive the just-finished game to season history before regenerating.
-    // Fire-and-forget (not awaited) so the coach isn't stuck waiting on a
-    // network write just to set up the next game — a failure here surfaces
-    // through the same saveError banner as everything else, but never blocks
-    // starting the new game. Only archives a game that actually reached full
-    // time: editing settings mid-game (the "Save & Regenerate" flow, same
-    // button/function, different moment) already warns it restarts the
-    // rotation, and archiving there too would flood history with abandoned
-    // partial games rather than real completed ones.
-    if (plan && activeTeamId && elapsedSec >= plan[plan.length - 1].endMin * 60) {
-      const summary = computeMinutesSummary(plan, availableIds);
-      const players = summary.map((s) => ({ ...(teamData?.roster.find((p) => p.id === s.id) || {}), ...s }));
-      archiveGame(activeTeamId, { date: Date.now(), settings: gameSettings, players }).catch((err) => {
-        setSaveError(describeSaveError(err));
-      });
-    }
+    // Archiving the just-finished game to season history used to happen
+    // here — moved to the clock's own tick effect above, firing right at
+    // the moment full time is actually reached instead of waiting for the
+    // coach to get this far into setting up the next game. See that
+    // effect's own comment for the full story and the double-archive guard.
 
     const settings = { ...gameSettings };
     saveTeamData({ ...teamData, settings });

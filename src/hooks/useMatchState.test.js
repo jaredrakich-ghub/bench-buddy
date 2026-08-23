@@ -126,23 +126,38 @@ describe("useMatchState — manual starting keeper", () => {
   });
 });
 
+// Archiving moved out of startPlanning and into the clock's own tick
+// effect (real-use feedback: checking season data between games used to
+// show the just-finished game as if it never happened, since archiving
+// only fired once the coach got as far as tapping "Build new rotation"
+// for the *next* game). Needs the clock actually running, so these use
+// fake timers the same way "useMatchState — clock tick" below does.
 describe("useMatchState — archiving to season history", () => {
-  it("does not archive when starting the very first game (no outgoing plan to archive)", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("does not archive when starting the very first game (nothing has run yet)", () => {
     setupWithPlan();
     expect(archiveGame).not.toHaveBeenCalled();
   });
 
-  it("does not archive when regenerating mid-game (clock hasn't reached full time)", () => {
-    const { result } = setupWithPlan();
-    // elapsedSec (0) is well short of the 720s cap for this 12-minute game.
-    act(() => result.current.startPlanning());
+  it("does not archive while the clock is still running below the cap", () => {
+    const { result } = setupWithPlan(); // 12-minute game -> 720 sec cap
+    act(() => {
+      result.current.setRunStartedAt(Date.now());
+      result.current.setTimerRunning(true);
+    });
+    act(() => vi.advanceTimersByTime(5000)); // nowhere near the 720s cap
     expect(archiveGame).not.toHaveBeenCalled();
   });
 
-  it("archives the outgoing game when starting a new one after the previous game reached full time", () => {
+  it("archives the game the moment the clock actually reaches full time", () => {
     const { result } = setupWithPlan(); // 12-minute game -> 720 sec cap
-    act(() => result.current.setElapsedSec(720));
-    act(() => result.current.startPlanning());
+    act(() => {
+      result.current.setRunStartedAt(Date.now());
+      result.current.setTimerRunning(true);
+    });
+    act(() => vi.advanceTimersByTime(800_000)); // well past the 720s cap
 
     expect(archiveGame).toHaveBeenCalledTimes(1);
     const [teamId, game] = archiveGame.mock.calls[0];
@@ -152,27 +167,35 @@ describe("useMatchState — archiving to season history", () => {
     expect(game.players[0]).toMatchObject({ id: "p0", name: "Player 0", keeperEligible: true });
   });
 
-  it("surfaces a friendly error if archiving fails, without blocking the new game from starting", async () => {
+  it("doesn't archive a second time once frozen, even across further ticks or a later startPlanning call", () => {
     const { result } = setupWithPlan();
-    act(() => result.current.setElapsedSec(720));
+    act(() => {
+      result.current.setRunStartedAt(Date.now());
+      result.current.setTimerRunning(true);
+    });
+    act(() => vi.advanceTimersByTime(800_000)); // crosses full time once
+    expect(archiveGame).toHaveBeenCalledTimes(1);
 
-    // Also reject the ordinary match-state persist for this test, so its
-    // success can't race with (and silently clear) the archive failure —
-    // both effects share the same saveError state, and only the archive
-    // failure is what this test is actually about.
-    saveMatchState.mockRejectedValue({ code: "unavailable" });
+    act(() => vi.advanceTimersByTime(10_000)); // further ticks while already frozen
+    act(() => result.current.startPlanning()); // coach sets up the next game
+    expect(archiveGame).toHaveBeenCalledTimes(1); // still just the one archive
+  });
+
+  it("surfaces a friendly error if archiving fails, without blocking the clock from freezing", async () => {
+    const { result } = setupWithPlan();
+    saveMatchState.mockRejectedValue({ code: "unavailable" }); // same reasoning as before: keeps the ordinary persist's success from racing the archive failure
     archiveGame.mockRejectedValueOnce({ code: "unavailable" });
 
-    let ok;
     act(() => {
-      ok = result.current.startPlanning();
+      result.current.setRunStartedAt(Date.now());
+      result.current.setTimerRunning(true);
     });
+    act(() => vi.advanceTimersByTime(800_000));
 
-    // The new game starts immediately regardless — archiving is fire-and-
-    // forget, not awaited — and only afterward does the rejection surface.
-    expect(ok).toBe(true);
-    expect(result.current.plan).not.toBeNull();
-
+    // The clock still froze immediately regardless — archiving is fire-
+    // and-forget, not awaited — and only afterward does the rejection
+    // surface, once its own microtask actually gets to run.
+    expect(result.current.elapsedSec).toBe(720);
     await act(async () => {
       await Promise.resolve();
       await Promise.resolve();
