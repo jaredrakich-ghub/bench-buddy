@@ -193,7 +193,15 @@ export default function MatchView({
   // pinned to bottom:0, not anchored to wherever the tap happened.
   const [menuPlayerId, setMenuPlayerId] = useState(null);
   const menuOnFieldRecord = menuPlayerId ? viewedIv.onField.find((p) => p.id === menuPlayerId) : null;
-  const menuCanMakeKeeper = menuOnFieldRecord && !menuOnFieldRecord.isGk && keeperEligibleIds.includes(menuPlayerId);
+  // Real-use feedback / confirmed bug: this used to require
+  // `menuOnFieldRecord &&` up front, which silently excluded every bench
+  // player from ever seeing "Make keeper" regardless of eligibility — a
+  // bench player only ever saw Swap + Mark injured. performSwap
+  // (useMatchState.js) already handles a bench player correctly taking
+  // over the keeper role (same guard, same rebuild path a bench↔field
+  // swap already used) — this was purely a menu-visibility check that was
+  // stricter than the thing it was gating actually needed.
+  const menuCanMakeKeeper = keeperEligibleIds.includes(menuPlayerId) && !menuOnFieldRecord?.isGk;
 
   // The player-tap popover's "Swap player" row previews who the schedule
   // already has lined up to come on for this specific player, the same

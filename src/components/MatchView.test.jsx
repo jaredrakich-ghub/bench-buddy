@@ -682,6 +682,32 @@ describe("MatchView — tap-to-act token menu", () => {
     expect(screen.queryByText("Make keeper")).not.toBeInTheDocument();
   });
 
+  // Confirmed bug (real-use feedback: "only see 2 options available" for a
+  // bench player): the menu used to require the tapped player to already
+  // be on the field before it would even consider offering Make keeper,
+  // silently excluding every keeper-eligible bench player from the option
+  // regardless of eligibility.
+  it("offers Make keeper for a keeper-eligible bench player too, not just on-field ones", async () => {
+    const onSwap = vi.fn();
+    const user = userEvent.setup();
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0, onSwap })} />);
+    await user.click(tokenButtonFor("Finn")); // p6, bench, keeper-eligible by default
+    expect(screen.getByText("Swap player")).toBeInTheDocument();
+    expect(screen.getByText("Make keeper")).toBeInTheDocument();
+    expect(screen.getByText(/Mark injured/)).toBeInTheDocument();
+    expect(screen.getByText("Alice moves out")).toBeInTheDocument(); // p1 is the current keeper
+
+    await user.click(screen.getByText("Make keeper"));
+    expect(onSwap).toHaveBeenCalledWith("p6", "p1");
+  });
+
+  it("still doesn't offer Make keeper for a bench player who isn't keeper-eligible", async () => {
+    const user = userEvent.setup();
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0, keeperEligibleIds: ["p1", "p2", "p3", "p4", "p5", "p7"] })} />); // p6/Finn not eligible
+    await user.click(tokenButtonFor("Finn"));
+    expect(screen.queryByText("Make keeper")).not.toBeInTheDocument();
+  });
+
   it("choosing Swap enters swap-picking mode rather than immediately calling onSwap", async () => {
     const setSwapPickId = vi.fn();
     const onSwap = vi.fn();
