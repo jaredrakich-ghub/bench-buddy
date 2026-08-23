@@ -187,6 +187,31 @@ export default function SubRotationPlanner({ user }) {
     })();
   }, [user, activateTeam, setTeams, setLoading]);
 
+  // These two live here, above the loading guard below, not next to
+  // handleGenerate/the effect that actually uses them (their more natural
+  // home) — React error #310, confirmed the hard way: every hook in a
+  // component has to run on *every* render of it, including the ones that
+  // bail out early to <LoadingScreen/> below. Placed after that guard
+  // instead, these simply never ran on a loading render, then did once
+  // loading resolved — a different hook count between two renders of the
+  // same component instance, which is exactly what that error means.
+  // Switching teams re-triggers loading, so this reliably crashed on
+  // every switch once the app had already rendered past this guard once.
+  const pendingOverlayRef = useRef(false);
+  const [rotationOverlayStats, setRotationOverlayStats] = useState(null);
+
+  // Waits for the *next* render to read the real plan: startPlanning()
+  // only schedules the setPlan update, it doesn't return the built plan
+  // itself, so `plan` in that same call is still the old (or absent) one.
+  useEffect(() => {
+    if (!pendingOverlayRef.current || !plan) return;
+    pendingOverlayRef.current = false;
+    setRotationOverlayStats({
+      averageMinutes: Math.round(computeAveragePitchMinutes(plan, availableIds)),
+      maxDifference: Math.round(computeFairnessSpread(plan, availableIds)),
+    });
+  }, [plan, availableIds]);
+
   if (loading || !teamData) {
     return <LoadingScreen message="Loading squad…" />;
   }
@@ -336,25 +361,9 @@ export default function SubRotationPlanner({ user }) {
   // bails out on invalid settings); pendingOverlayRef flags "a plan was
   // just built, compute the overlay's own stats from it once it lands" —
   // a ref, not state, since nothing here needs to re-render on its own.
-  // It has to wait for the *next* render to read the real plan:
-  // startPlanning() only schedules the setPlan update, it doesn't return
-  // the built plan itself, so `plan` in this same call is still the old
-  // (or absent) one.
-  const pendingOverlayRef = useRef(false);
-  const [rotationOverlayStats, setRotationOverlayStats] = useState(null);
-
   const handleGenerate = () => {
     if (startPlanning()) pendingOverlayRef.current = true;
   };
-
-  useEffect(() => {
-    if (!pendingOverlayRef.current || !plan) return;
-    pendingOverlayRef.current = false;
-    setRotationOverlayStats({
-      averageMinutes: Math.round(computeAveragePitchMinutes(plan, availableIds)),
-      maxDifference: Math.round(computeFairnessSpread(plan, availableIds)),
-    });
-  }, [plan, availableIds]);
 
   const nameOf = (id) => teamData.roster.find((p) => p.id === id)?.name || "?";
   // Squad numbers are new (match-day redesign) — see getSquadNumber's own
