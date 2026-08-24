@@ -749,17 +749,22 @@ export const styles = {
   //
   // Real-device feedback again: even at the right height, this still sat
   // partly below the visible screen — margin-top:auto pushes it flush
-  // with the very bottom of the minHeight:100vh column, and mobile
-  // Safari's own collapsing toolbar means the *actual* visible viewport is
-  // shorter than 100vh reports. No horizontal margin now either — it used
-  // to carry its own extra 16px on top of the page's existing 16px
-  // padding, making it narrower than the accordion rows above; removing
-  // it lines the button up edge-to-edge with them, same width as every
-  // other row on this screen. The extra 30px of bottom margin (roughly
-  // half this button's own height) is what actually lifts it up into
-  // view — it comes out of the same auto-margin's leftover space above,
-  // so the column's total height is unaffected, the button just settles
-  // higher with a visible gap beneath it.
+  // with the very bottom of its own flex column, and mobile Safari's own
+  // collapsing toolbar meant the *actual* visible viewport was shorter
+  // than that column reported. Fixed at the root (the wrapping div uses
+  // minHeight:100dvh now, not 100vh — see its own comment), so
+  // marginBottom below is back to being a plain, deliberate visual gap —
+  // not a fudge factor propping the button up into view. No horizontal
+  // margin either — it used to carry its own extra 16px on top of the
+  // page's existing 16px padding, making it narrower than the accordion
+  // rows above; removing it lines the button up edge-to-edge with them,
+  // same width as every other row on this screen. The bottom margin comes
+  // out of the same auto-margin's leftover space above, so the column's
+  // total height is unaffected either way — more of it means more gap
+  // below the button (and it settles higher); less means less gap (and
+  // it settles lower, closer to the true bottom edge). Real-use feedback
+  // moved this from 46 to 30 once the dvh fix meant it was a pure
+  // preference again, not correcting for anything.
   mdSetupSubmitBtnPrimary: {
     display: "flex", alignItems: "center", gap: 8, justifyContent: "center",
     // Longhand margins, not a shorthand `margin` + a `marginTop` override —
@@ -767,7 +772,7 @@ export const styles = {
     // changes ("mixing shorthand and non-shorthand properties for the same
     // value can lead to styling bugs"), the exact footgun subIntervalChip/
     // intervalTab's own comments already warn about elsewhere in this file.
-    marginTop: "auto", marginRight: 0, marginBottom: 46, marginLeft: 0, height: 60,
+    marginTop: "auto", marginRight: 0, marginBottom: 30, marginLeft: 0, height: 60,
     background: tokens.color.pitchGreen, borderRadius: 24, padding: "0 17px", textAlign: "center",
     fontFamily: tokens.font.display, fontWeight: 800, fontSize: 21, color: "#fff",
     boxShadow: "0 5px 0 #1C5B3A", border: "none", cursor: "pointer",
