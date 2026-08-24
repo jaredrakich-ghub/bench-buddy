@@ -25,14 +25,21 @@ const SUCCESS_AT_MS = 1800;
 // queue finite.
 const MEASURE_RETRY_LIMIT = 40;
 
+// The result layer's bottom-most element ("View my rotation") has a
+// solid drop-shadow (boxShadow: "0 4px 0 …") that paints 4px below its
+// own layout box. scrollHeight only measures layout, not paint effects
+// like box-shadow, so without this buffer the stage's own height (and
+// its overflow:hidden clip) always lands a few px short — not a timing
+// issue, a measurement one, so no transition duration can fix it. Fixes
+// real-use feedback: the button's shadow was still visibly clipped even
+// once the height/content transitions were no longer racing each other.
+const RESULT_HEIGHT_BUFFER = 6;
+
 // The fairness mark is the hero of the reveal, not just another piece of
 // it — its own card (not the pitch-time line/average chip/button below
 // it) waits this long before starting its own entrance, so it visibly
 // arrives from its own centre after the rest of the result has already
-// settled, rather than everything appearing in one flat batch. The FLIP
-// handoff below (the last checklist tick becoming the mark) is delayed by
-// this same amount, so what actually plays out once the card appears is
-// that handoff itself, not an already-finished mark popping in.
+// settled, rather than everything appearing in one flat batch.
 const FAIRNESS_REVEAL_DELAY_MS = 380;
 
 const CONFETTI_COLORS = ["#F5B93B", "#2E7D53", "#FBE3A6", "#CBE8D6", "#123F3D"]; // no red — red is injury, everywhere else in this app
@@ -101,7 +108,7 @@ export default function RotationProgressOverlay({ averageMinutes, maxDifference,
         raf = requestAnimationFrame(measure);
         return;
       }
-      setHeights({ checklist, result });
+      setHeights({ checklist, result: result ? result + RESULT_HEIGHT_BUFFER : result });
     };
     raf = requestAnimationFrame(measure);
     return () => cancelAnimationFrame(raf);
@@ -199,111 +206,6 @@ export default function RotationProgressOverlay({ averageMinutes, maxDifference,
 
   const transition = (css) => (reducedMotion ? "none" : css);
   const fairness = getFairnessState(maxDifference, intervalLen);
-
-  // The last tick becomes the fairness mark — a FLIP handoff, not a second
-  // circle fading in. step3DiscRef is the third checklist step's own tick
-  // disc; fairnessWrapRef is a plain 44x44 positioning box around the
-  // real, untouched <FairnessMark> below; flipDiscRef/beamGlyphRef/
-  // tickGlyphRef belong to a duplicate disc stacked on top of it that this
-  // effect drives by hand and hides again once it settles — FairnessMark
-  // itself never changes, so the mark the coach sees for the rest of the
-  // match really is "the same fairness mark", not a copy.
-  const step3DiscRef = useRef(null);
-  const fairnessWrapRef = useRef(null);
-  const flipDiscRef = useRef(null);
-  const beamGlyphRef = useRef(null);
-  const tickGlyphRef = useRef(null);
-
-  useEffect(() => {
-    if (phase !== "success" || reducedMotion) return;
-    const tickEl = step3DiscRef.current;
-    const flipEl = flipDiscRef.current;
-    const beamEl = beamGlyphRef.current;
-    const tickGlyphEl = tickGlyphRef.current;
-    const fairnessBox = fairnessWrapRef.current;
-    if (!tickEl || !flipEl || !beamEl || !tickGlyphEl || !fairnessBox) return;
-
-    let raf;
-    let settle;
-
-    // Held back by FAIRNESS_REVEAL_DELAY_MS — the fairness card itself
-    // (see its own style below) waits out this same delay before it
-    // starts scaling in, so this is the thing that actually plays out
-    // once the coach can see it, not a handoff that already finished
-    // behind an invisible box.
-    const start = setTimeout(() => {
-      const tickRect = tickEl.getBoundingClientRect();
-      const fairnessRect = fairnessBox.getBoundingClientRect();
-      // Both rects are real, laid-out boxes in a browser; jsdom's tests
-      // don't lay anything out at all, so this bails out cleanly there
-      // rather than animating from a nonsense 0/0 scale.
-      if (!tickRect.width || !fairnessRect.width) return;
-
-      const dx = tickRect.left + tickRect.width / 2 - (fairnessRect.left + fairnessRect.width / 2);
-      const dy = tickRect.top + tickRect.height / 2 - (fairnessRect.top + fairnessRect.height / 2);
-      const s = tickRect.width / fairnessRect.width;
-
-      // Step 3 — reset to (and start from) the tick disc's own place,
-      // size, and colours, transition none. Every field touched here
-      // gets reset explicitly rather than assumed, so a second build (a
-      // fresh mount, but belt-and-suspenders) always animates from the
-      // same clean start.
-      flipEl.style.transition = "none";
-      flipEl.style.display = "grid";
-      flipEl.style.transform = `translate(${dx}px, ${dy}px) scale(${s})`;
-      flipEl.style.background = tokens.color.pitchGreen;
-      flipEl.style.borderColor = "#1C5B3A";
-      flipEl.style.boxShadow = "0 3px 0 #1C5B3A";
-      beamEl.style.transition = "none";
-      beamEl.style.opacity = "0";
-      tickGlyphEl.style.transition = "none";
-      tickGlyphEl.style.opacity = "1";
-
-      // Only one disc on screen at a time — the step's own tick fades
-      // out fast as the handoff starts. It's academic by now (the
-      // checklist layer itself is long since faded fully out at this
-      // point), but kept for the same "reset explicitly" reasoning above.
-      tickEl.style.transition = "opacity .16s ease";
-      tickEl.style.opacity = "0";
-
-      // Force a reflow so the "from" styles above actually commit before
-      // the "to" styles get scheduled — without this the browser can
-      // (and will) coalesce both into one paint and there's nothing to
-      // animate.
-      void flipEl.offsetHeight;
-
-      raf = requestAnimationFrame(() => {
-        flipEl.style.transform = "translate(0, 0) scale(1)";
-        flipEl.style.transition =
-          "transform .62s cubic-bezier(.22,.9,.3,1), background-color .38s ease .2s, border-color .38s ease .2s, box-shadow .38s ease .2s";
-        flipEl.style.background = tokens.color.creamPaper;
-        flipEl.style.borderColor = fairness.ring;
-        flipEl.style.boxShadow = "none";
-
-        beamEl.style.transition = "opacity .3s ease .34s";
-        beamEl.style.opacity = "1";
-
-        tickGlyphEl.style.transition = "opacity .24s ease .26s";
-        tickGlyphEl.style.opacity = "0";
-      });
-
-      // Once the handoff disc's own transition has fully settled it's
-      // pixel-identical to the plain FairnessMark sitting underneath it
-      // — hide it rather than leave a second, now-invisible disc stacked
-      // there forever. .62s is the longest transition above; the extra
-      // buffer covers timer drift, not any further animation.
-      settle = setTimeout(() => {
-        flipEl.style.display = "none";
-      }, 700);
-    }, FAIRNESS_REVEAL_DELAY_MS);
-
-    return () => {
-      clearTimeout(start);
-      cancelAnimationFrame(raf);
-      clearTimeout(settle);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, reducedMotion]);
 
   return (
     <>
@@ -403,7 +305,6 @@ export default function RotationProgressOverlay({ averageMinutes, maxDifference,
                   }}
                 >
                   <div
-                    ref={i === 2 ? step3DiscRef : undefined}
                     style={{
                       width: 38, height: 38, borderRadius: "50%", flexShrink: 0,
                       display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18,
@@ -457,13 +358,17 @@ export default function RotationProgressOverlay({ averageMinutes, maxDifference,
                 arriving from its own centre after everything else has
                 settled rather than appearing in the same flat batch. This
                 box's own opacity/transform is separate from the result
-                layer's fade-up, delayed by FAIRNESS_REVEAL_DELAY_MS so it
-                starts once that's basically done; the FLIP handoff effect
-                above is delayed by that same amount, so what plays out as
-                this box scales in is that handoff itself, not an already-
-                settled mark. transform-origin is the box's own centre by
-                default (nothing to set) — scaling down/up from there is
-                what gives the "grows from a central point" feel. */}
+                layer's fade-up above, delayed by FAIRNESS_REVEAL_DELAY_MS
+                so it starts once that's basically done. transform-origin
+                is the box's own centre by default (nothing to set) —
+                scaling up from there, in place, is what gives the "grows
+                from a central point" feel. Earlier version of this tried
+                to have the mark travel in from the last checklist tick's
+                position (a FLIP animation) — real-use feedback was that
+                the travel itself read as the mark being "sucked" from one
+                spot to another, so that's gone; FairnessMark below is
+                just the plain, single mark, doing nothing but this
+                fade/scale-in. */}
             <div
               style={{
                 background: "#fff", borderRadius: 22, padding: "14px 10px 16px",
@@ -479,46 +384,7 @@ export default function RotationProgressOverlay({ averageMinutes, maxDifference,
               <span style={{ fontFamily: tokens.font.body, fontWeight: 800, fontSize: 11, color: tokens.color.mutedText, textTransform: "uppercase", letterSpacing: "0.07em" }}>
                 Fairness
               </span>
-              <div ref={fairnessWrapRef} style={{ position: "relative", width: 44, height: 44 }}>
-                <FairnessMark spreadMin={maxDifference} intervalLen={intervalLen} size={44} ringWidth={3} glyphSize={22} />
-                {/* The FLIP handoff disc — a duplicate stacked exactly over
-                    the real mark above, hidden until the effect above
-                    drives it, and hidden again once it settles. Never the
-                    thing the coach actually reads; that's always the real
-                    FairnessMark underneath. */}
-                <div
-                  ref={flipDiscRef}
-                  aria-hidden="true"
-                  style={{
-                    position: "absolute", inset: 0, display: "none", placeItems: "center",
-                    borderRadius: "50%", boxSizing: "border-box", border: "3px solid #1C5B3A",
-                    background: tokens.color.pitchGreen, pointerEvents: "none",
-                  }}
-                >
-                  <svg
-                    ref={beamGlyphRef}
-                    width={22} height={22} viewBox="0 0 24 24" fill="none"
-                    stroke={tokens.color.deepGreen} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
-                    style={{ gridArea: "1 / 1", opacity: 0 }}
-                  >
-                    <g transform={`rotate(${fairness.tilt} 12 8)`}>
-                      <path d="M4 8h16" />
-                      <circle cx="4" cy="8" r="1.5" />
-                      <circle cx="20" cy="8" r="1.5" />
-                    </g>
-                    <path d="M12 8v7" />
-                    <path d="M8.5 19l3.5-4 3.5 4z" />
-                  </svg>
-                  <svg
-                    ref={tickGlyphRef}
-                    width={19} height={19} viewBox="0 0 24 24" fill="none"
-                    stroke={tokens.color.creamPaper} strokeWidth={3.6} strokeLinecap="round" strokeLinejoin="round"
-                    style={{ gridArea: "1 / 1", opacity: 1 }}
-                  >
-                    <path d="M4 12.5l5 5L20 6.5" />
-                  </svg>
-                </div>
-              </div>
+              <FairnessMark spreadMin={maxDifference} intervalLen={intervalLen} size={44} ringWidth={3} glyphSize={22} />
               <span style={{ fontFamily: tokens.font.display, fontWeight: 800, fontSize: 17, color: tokens.color.deepGreen }}>{fairness.label}</span>
             </div>
 
