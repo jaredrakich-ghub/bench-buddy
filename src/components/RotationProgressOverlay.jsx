@@ -16,16 +16,23 @@ const STEPS = [
 // headerYellow "active" disc — a yellow icon on a yellow background.
 // Hand-drawn instead, like every other custom icon in this app
 // (matchDayIcons.jsx, strokeIcons.jsx) — two 4-point sparkle stars in two
-// different, deliberately-not-pale colours (deepGreen, a near-black
-// green, and the app's own saturated yellow token, not the pale
-// headerYellow this sits on) so it reads clearly against both this
-// step's own possible disc backgrounds (headerYellow active, creamDeep
-// pending) rather than just one flat glyph colour.
-function SparkleIcon({ size = 20 }) {
+// different, deliberately-not-pale colours so it reads clearly against
+// both this step's own possible disc backgrounds (headerYellow active,
+// creamDeep pending), not just one flat glyph colour: the big star is
+// pitchGreen, the same green every primary button in this app already
+// uses (not deepGreen — real-use feedback that deepGreen read as
+// "basically black" here, too dark to register as green at this size),
+// the small accent star stays the app's own saturated yellow token.
+// Real-use feedback again: bigger overall, and the big star centred in
+// its own right — it used to sit off toward the viewBox's top-left
+// (its own centre well short of (12,12), the viewBox's true centre);
+// now genuinely centred there, with a larger radius so it still reads
+// clearly at the bigger rendered size.
+function SparkleIcon({ size = 26 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M9 2L10.4 7.6 16 9 10.4 10.4 9 16 7.6 10.4 2 9 7.6 7.6Z" fill={tokens.color.deepGreen} />
-      <path d="M18 2.5L18.7 5.3 21.5 6 18.7 6.7 18 9.5 17.3 6.7 14.5 6 17.3 5.3Z" fill={tokens.color.yellow} />
+      <path d="M11 3L13.1 9.9 20 12 13.1 14.1 11 21 8.9 14.1 2 12 8.9 9.9Z" fill={tokens.color.pitchGreen} />
+      <path d="M19 1.5L19.85 4.15 22.5 5 19.85 5.85 19 8.5 18.15 5.85 15.5 5 18.15 4.15Z" fill={tokens.color.yellow} />
     </svg>
   );
 }
