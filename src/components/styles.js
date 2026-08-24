@@ -898,9 +898,26 @@ export const styles = {
     display: "flex", alignItems: "center", justifyContent: "center",
   },
   mdCrestImg: { width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 46%", transform: "scale(1.7)" },
+  // Backlog #9: real-use feedback that the team name wasn't obviously a
+  // team name — a small "TEAM" eyebrow above it now, on both places this
+  // crest+name pairing appears (MatchView's own header and
+  // SquadSettingsForm's first-team-setup header, which already share
+  // mdHeader/mdCrestOuter/mdTeamName). alignSelf:flex-start is the actual
+  // alignment decision, not an afterthought: mdHeaderTopRow centres its
+  // children (alignItems:center), and the 62px crest is the tallest thing
+  // in that row, so the crest's own top edge *is* the row's top edge with
+  // zero slack. Opting this stack out of that centring and pinning it to
+  // the row's top instead is what makes "TEAM" line up with the top of
+  // the crest specifically, rather than landing wherever a centred block
+  // of this particular height happens to fall.
+  mdTeamNameStack: { flex: 1, minWidth: 0, alignSelf: "flex-start" },
+  mdTeamNameLabel: {
+    fontFamily: tokens.font.body, fontWeight: 800, fontSize: 11, color: tokens.color.mutedText,
+    textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2,
+  },
   mdTeamName: {
-    flex: 1, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 21, color: tokens.color.deepGreen,
-    minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 21, color: tokens.color.deepGreen,
+    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
   },
   // README > A2-Match-actionbar > Header: "Cog button top right: 54x54
   // white disc inside a matching 4px solid #2E7D53 ring, so it balances

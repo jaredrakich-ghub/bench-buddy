@@ -788,7 +788,10 @@ export default function SquadSettingsForm({
       <div style={styles.mdHeader}>
         <div style={styles.mdHeaderTopRow}>
           <div style={styles.mdCrestOuter}>{crestSrc && <img src={crestSrc} alt="" style={styles.mdCrestImg} />}</div>
-          <div style={styles.mdTeamName}>{title}</div>
+          <div style={styles.mdTeamNameStack}>
+            <div style={styles.mdTeamNameLabel}>Team</div>
+            <div style={styles.mdTeamName}>{title}</div>
+          </div>
         </div>
       </div>
     ) : (

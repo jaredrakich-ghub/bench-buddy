@@ -10,6 +10,14 @@ import { GearIcon, KitShirt, MedicalCross } from "./matchDayIcons.jsx";
 import { RotateIcon } from "./strokeIcons.jsx";
 import FairnessMark from "./FairnessMark.jsx";
 
+// Full-time celebration (backlog #4) — same palette RotationProgressOverlay
+// already uses for its own success-state confetti, duplicated locally
+// rather than imported (components in this app don't reach into each
+// other's modules for shared constants; see usePrefersReducedMotion just
+// below for the same call already made once in this file). No red — red
+// is injury, everywhere else in this app.
+const CONFETTI_COLORS = ["#F5B93B", "#2E7D53", "#FBE3A6", "#CBE8D6", "#123F3D"];
+
 // Hand-drawn-style pitch markings (halfway line + centre circle) as one
 // absolutely-positioned SVG overlay, replacing the old plain CSS
 // border-circle/border-line. viewBox uses a fixed representative width
@@ -172,6 +180,39 @@ export default function MatchView({
   const totalGameSec = plan[plan.length - 1].endMin * 60;
   const isMatchComplete = elapsedSec >= totalGameSec;
 
+  // Full-time celebration (backlog #4) — a one-time confetti burst over
+  // the match-complete banner. confettiFiredRef, not just isMatchComplete
+  // itself, is what makes this fire once: nothing here needs to
+  // distinguish "just turned true" from "already was true when this
+  // screen mounted" (e.g. navigating back to an already-finished game) —
+  // either way, the coach seeing this banner for the first time this
+  // mount is the moment worth marking, and it should never replay on a
+  // later re-render while the banner's still showing.
+  const reducedMotion = usePrefersReducedMotion();
+  const confettiFiredRef = useRef(false);
+  const [confettiPieces, setConfettiPieces] = useState([]);
+  useEffect(() => {
+    if (!isMatchComplete || reducedMotion || confettiFiredRef.current) return;
+    confettiFiredRef.current = true;
+    const pieces = Array.from({ length: 16 }, (_, i) => ({
+      id: i,
+      isCircle: i % 2 === 0,
+      left: Math.round(5 + Math.random() * 90),
+      drift: Math.round(Math.random() * 54 - 27),
+      spin: Math.round(300 + Math.random() * 360),
+      duration: (1.25 + Math.random() * 0.54).toFixed(2),
+      delay: (Math.random() * 0.39).toFixed(2),
+      color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+    }));
+    setConfettiPieces(pieces);
+    // Longest possible piece duration (1.79s) + delay (.39s) + a small
+    // buffer — matches the same "clean up after the animation finishes,
+    // don't leave 16 spent nodes in the DOM forever" reasoning
+    // RotationProgressOverlay's own confetti settle-timeout uses.
+    const timer = setTimeout(() => setConfettiPieces([]), 2400);
+    return () => clearTimeout(timer);
+  }, [isMatchComplete, reducedMotion]);
+
   // Mid-match fairness toast — flashes the fairness mark whenever
   // something changes the remaining rotation (a swap, a late arrival, an
   // injury, a squad change), an unprompted reminder that what's left is
@@ -290,6 +331,7 @@ export default function MatchView({
   const isPastInterval = activeInterval < cur.index;
 
   const viewedIv = plan[activeInterval];
+  const benchEmpty = viewedIv.bench.length === 0 && injuredThisGame.length === 0;
   const viewedNextIv = plan[activeInterval + 1];
   const viewedGk = viewedIv.onField.find((p) => p.isGk);
   const viewedNextGk = viewedNextIv?.onField.find((p) => p.isGk);
@@ -592,7 +634,10 @@ export default function MatchView({
       <div style={styles.mdHeader}>
         <div style={styles.mdHeaderTopRow}>
           <div style={styles.mdCrestOuter}>{crestSrc && <img src={crestSrc} alt="" style={styles.mdCrestImg} />}</div>
-          <div style={styles.mdTeamName}>{teamName}</div>
+          <div style={styles.mdTeamNameStack}>
+            <div style={styles.mdTeamNameLabel}>Team</div>
+            <div style={styles.mdTeamName}>{teamName}</div>
+          </div>
           <button
             style={{ ...styles.mdCogBtn, ...(cogOrigin ? { ...styles.mdOriginLit, ...styles.mdCogBtnLit } : {}) }}
             onClick={(e) => {
@@ -663,13 +708,44 @@ export default function MatchView({
         // change squad/settings and regenerate), just surfaced as its own
         // obvious call-to-action right when it becomes relevant. Full-time
         // itself isn't part of this redesign yet (see the handoff's "not
-        // yet designed" list) — this banner keeps its pre-redesign look.
-        <div style={styles.matchCompleteBanner}>
-          <span>🏁 Match complete</span>
-          <button style={styles.confirmBtn} onClick={onShowSettings}>
-            Start new game
-          </button>
+        // yet designed" list) — this banner keeps its pre-redesign look,
+        // aside from the confetti burst (backlog #4) layered over it.
+        <div style={{ position: "relative" }}>
+          <div style={styles.matchCompleteBanner}>
+            <span>🏁 Match complete</span>
+            <button style={styles.confirmBtn} onClick={onShowSettings}>
+              Start new game
+            </button>
+          </div>
+          {confettiPieces.length > 0 && (
+            <div aria-hidden="true" style={{ position: "absolute", inset: 0, overflow: "visible", pointerEvents: "none", zIndex: 5 }}>
+              {confettiPieces.map((p) => (
+                <div
+                  key={p.id}
+                  style={{
+                    position: "absolute", left: `${p.left}%`, top: 0,
+                    width: p.isCircle ? 8 : 7, height: p.isCircle ? 8 : 12,
+                    borderRadius: p.isCircle ? "50%" : 2,
+                    background: p.color,
+                    "--mv-confetti-drift": `${p.drift}px`,
+                    "--mv-confetti-spin": `${p.spin}deg`,
+                    animation: `mvConfettiFall ${p.duration}s ${p.delay}s ease-in forwards`,
+                  }}
+                />
+              ))}
+            </div>
+          )}
         </div>
+      )}
+
+      {confettiPieces.length > 0 && (
+        <style>{`
+          @keyframes mvConfettiFall {
+            0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+            85% { opacity: 1; }
+            100% { transform: translate(var(--mv-confetti-drift), 300px) rotate(var(--mv-confetti-spin)); opacity: 0; }
+          }
+        `}</style>
       )}
 
       <div style={styles.intervalTabsWrap}>
@@ -740,9 +816,19 @@ export default function MatchView({
         ))}
       </div>
 
-      <div style={styles.mdBenchStrip}>
-        <div style={styles.mdBenchLabel}>BENCH</div>
-        {viewedIv.bench.length === 0 && injuredThisGame.length === 0 ? (
+      {/* Real-use feedback: the empty-bench message read as misaligned
+          against "BENCH". mdBenchStrip's own alignItems:"flex-start" (and
+          mdBenchLabel's own paddingTop:5) are tuned for the chip-row case
+          below — that padding compensates for the label sitting beside a
+          much taller row of number-disc chips, pinning it to their first
+          line. Neither reason applies to a plain one-line text message of
+          a similar size to the label itself, so this case gets its own
+          treatment instead of inheriting numbers tuned for a different
+          row: centred alignment, and the label's own padding zeroed out
+          rather than reused. */}
+      <div style={{ ...styles.mdBenchStrip, alignItems: benchEmpty ? "center" : "flex-start" }}>
+        <div style={{ ...styles.mdBenchLabel, ...(benchEmpty ? { paddingTop: 0 } : {}) }}>BENCH</div>
+        {benchEmpty ? (
           <span style={styles.mdBenchEmpty}>Full squad on field</span>
         ) : (
           // Block 8, part D: one row, two zones — available players first

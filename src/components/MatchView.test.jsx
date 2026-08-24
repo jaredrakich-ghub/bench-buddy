@@ -146,6 +146,20 @@ describe("MatchView — basic rendering", () => {
     expect(screen.getByText("Gus")).toBeInTheDocument();
   });
 
+  // Real-use feedback: "Full squad on field" read as misaligned against
+  // "BENCH" — mdBenchStrip/mdBenchLabel's own alignItems/paddingTop are
+  // tuned for the (taller) chip-row case, not a plain one-line message.
+  it("centres the empty-bench message against its BENCH label, not the chip row's own top-alignment", () => {
+    const zeroBenchPlan = [makeInterval(0, 0, 12, ["p1", "p2", "p3", "p4", "p5", "p6", "p7"], "p1", [])];
+    render(<MatchView {...baseProps({ plan: zeroBenchPlan, availableIds: Object.keys(NAMES) })} />);
+    const message = screen.getByText("Full squad on field");
+    expect(message).toBeInTheDocument();
+    const strip = message.closest("div");
+    expect(strip).toHaveStyle({ alignItems: "center" });
+    const label = screen.getByText("BENCH");
+    expect(label).toHaveStyle({ paddingTop: "0px" });
+  });
+
   // Real-device feedback: the timer became a <button> (the hidden reset
   // gesture) with a `font: "inherit"` meant only to reset button chrome,
   // but that CSS shorthand also wiped out the fontSize:66/Baloo 2/800
@@ -961,6 +975,15 @@ describe("MatchView — match complete", () => {
     render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0 })} />);
     expect(screen.getByText(/Next sub/)).toBeInTheDocument();
     expect(screen.queryByText(/Match complete/)).not.toBeInTheDocument();
+  });
+
+  // Backlog #4: a one-time confetti burst over the match-complete banner.
+  it("bursts confetti over the match-complete banner", () => {
+    const { container } = render(<MatchView {...baseProps({ activeInterval: 1, elapsedSec: 12 * 60 })} />);
+    expect(screen.getByText(/Match complete/)).toBeInTheDocument();
+    // 16 pieces, each carrying the animation this file's own keyframe drives.
+    const pieces = [...container.querySelectorAll("div")].filter((d) => d.getAttribute("style")?.includes("mvConfettiFall"));
+    expect(pieces).toHaveLength(16);
   });
 });
 
