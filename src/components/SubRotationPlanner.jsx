@@ -310,15 +310,33 @@ export default function SubRotationPlanner({ user }) {
   // hitting "+ Add Team" is about to start setting up that team's squad.
   // Firestore assigns the real id, so this has to wait for the write to
   // come back before it can add the team locally or switch to it.
+  //
+  // Deliberately NOT the same "close the screen immediately, let the work
+  // finish in the background" pattern switchTeam/deleteTeamById use below —
+  // those act on a team that's already sitting in local `teams` state, so
+  // there's real data to show the instant the screen closes. A brand-new
+  // team has nothing to show until Firestore hands back an id, so closing
+  // early here just meant the coach watched the *old* team's screen sit
+  // there with no sign anything was happening, then flip over once the
+  // write finally landed -- on a slow connection, indistinguishable from
+  // the app having hung. Real-use feedback ("it just hangs when creating a
+  // new team"). TeamAccountScreen keeps its own "Creating…" state on the
+  // Create button while this is in flight and only clears the input on a
+  // true return; Team & account itself stays open on failure too, so the
+  // save-error banner (now visible above every screen, see its own
+  // comment in styles.js) explains what went wrong instead of the screen
+  // just closing on it.
   const addNewTeam = async (name) => {
-    setShowTeamSwitcher(false);
     try {
       const team = await createTeamDoc(user.uid, createTeam(name));
       setTeams((prev) => addTeam(prev, team));
       await activateTeam(team);
       teamRegistry.setSaveError(null);
+      setShowTeamSwitcher(false);
+      return true;
     } catch (err) {
       teamRegistry.setSaveError(describeSaveError(err));
+      return false;
     }
   };
 

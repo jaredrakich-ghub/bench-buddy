@@ -26,6 +26,15 @@ export default function TeamAccountScreen({
 }) {
   const [showAddInput, setShowAddInput] = useState(false);
   const [addName, setAddName] = useState("");
+  // Real-use feedback: creating a team gave no sign anything was
+  // happening -- the screen just sat there until the Firestore write came
+  // back, which read as a hang on a slow connection. onAdd now resolves to
+  // true/false (see addNewTeam in SubRotationPlanner.jsx); this flag drives
+  // a "Creating…" state on the button meanwhile, and the input/screen only
+  // clear on success -- on failure it stays put, typed name intact, so a
+  // retry doesn't mean starting over, and the save-error banner (now
+  // visible above every screen) explains what went wrong.
+  const [creatingTeam, setCreatingTeam] = useState(false);
   const [renamingId, setRenamingId] = useState(null);
   const [renameValue, setRenameValue] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
@@ -62,11 +71,15 @@ export default function TeamAccountScreen({
     setRenamingId(null);
   };
 
-  const submitAdd = () => {
-    if (!addName.trim()) return;
-    onAdd(addName.trim());
-    setAddName("");
-    setShowAddInput(false);
+  const submitAdd = async () => {
+    if (!addName.trim() || creatingTeam) return;
+    setCreatingTeam(true);
+    const ok = await onAdd(addName.trim());
+    setCreatingTeam(false);
+    if (ok) {
+      setAddName("");
+      setShowAddInput(false);
+    }
   };
 
   return (
@@ -178,12 +191,13 @@ export default function TeamAccountScreen({
               value={addName}
               onChange={(e) => setAddName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && submitAdd()}
+              disabled={creatingTeam}
               autoFocus
             />
-            <button style={styles.mdTeamAcctBtnCancel} disabled={!addName.trim()} onClick={submitAdd}>
-              Create
+            <button style={styles.mdTeamAcctBtnCancel} disabled={!addName.trim() || creatingTeam} onClick={submitAdd}>
+              {creatingTeam ? "Creating…" : "Create"}
             </button>
-            <button style={styles.mdTeamAcctBtnCancel} onClick={() => setShowAddInput(false)}>
+            <button style={styles.mdTeamAcctBtnCancel} disabled={creatingTeam} onClick={() => setShowAddInput(false)}>
               Cancel
             </button>
           </div>

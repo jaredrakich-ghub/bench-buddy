@@ -1267,7 +1267,20 @@ export const styles = {
   modalWarning: {
     marginTop: 14, fontSize: 12, color: colors.danger, background: "#FBEAE4", padding: "8px 12px", borderRadius: 8, fontWeight: 600,
   },
+  // position:fixed + zIndex:53 (not the naive "just render it up top") --
+  // same reasoning as mdCautionSheet's own 51/52 (see that comment): this
+  // banner sits in normal flow as the first child of styles.app, above
+  // every full-screen takeover (zIndex:50) in DOM order, but those
+  // takeovers are position:fixed/inset:0 with their own stacking context,
+  // so with no zIndex of its own this banner was painted OVER regardless
+  // of source order -- a save error firing while any takeover (Team &
+  // account, Game settings, etc.) is open was invisible until the coach
+  // happened to close back out to the plain match/setup screen. Needed now
+  // more than before: addNewTeam only closes Team & account on success,
+  // so a failed team creation surfaces its error here, banner still open,
+  // not after the screen's already gone.
   saveErrorBanner: {
+    position: "fixed", top: 0, left: 0, right: 0, zIndex: 53,
     background: colors.danger, color: "#fff", fontSize: 12, fontWeight: 700, textAlign: "center",
     padding: "8px 16px", lineHeight: 1.4,
   },
