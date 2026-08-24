@@ -73,7 +73,32 @@ describe("RotationProgressOverlay", () => {
     const dialog = screen.getByRole("dialog");
     expect(dialog).toHaveAttribute("aria-busy", "false");
     expect(screen.getByText("✨ Rotation ready!")).toBeInTheDocument();
-    expect(screen.queryByText("Checking playing time")).not.toBeInTheDocument();
+    // Real-use feedback: the checklist used to unmount here, which snapped
+    // the card's height straight to the result's and made it lurch. It
+    // stays mounted now (crossfading out, not disappearing) — hidden from
+    // the accessibility tree and click-through, not removed from the DOM.
+    const checklistLayer = screen.getByText("Checking playing time").closest('[aria-hidden]');
+    expect(checklistLayer).toHaveAttribute("aria-hidden", "true");
+    expect(checklistLayer).toHaveStyle({ opacity: "0", pointerEvents: "none" });
+  });
+
+  it("never unmounts either layer — both stay in the DOM the whole time, only crossfading via opacity", () => {
+    render(<RotationProgressOverlay averageMinutes={22} maxDifference={2} intervalLen={5} onContinue={() => {}} />);
+    // Building: the result layer already exists, just hidden.
+    const resultLayer = screen.getByText("Average pitch time").closest('[aria-hidden]');
+    expect(resultLayer).toHaveAttribute("aria-hidden", "true");
+    expect(resultLayer).toHaveStyle({ opacity: "0", pointerEvents: "none" });
+    // Its "View my rotation" button is present but never focusable early —
+    // { hidden: true } because it's inside an aria-hidden ancestor right
+    // now, which getByRole excludes by default.
+    expect(screen.getByRole("button", { name: "View my rotation", hidden: true })).toHaveAttribute("tabindex", "-1");
+
+    act(() => vi.advanceTimersByTime(1800));
+    // Success: same result-layer node, now revealed — and the checklist
+    // (asserted above) is still there too, just hidden the other way.
+    expect(resultLayer).toHaveAttribute("aria-hidden", "false");
+    expect(resultLayer).toHaveStyle({ opacity: "1", pointerEvents: "auto" });
+    expect(screen.getByRole("button", { name: "View my rotation" })).not.toHaveAttribute("tabindex", "-1");
   });
 
   it("shows the fairness mark, the supporting pitch-time line, and the average row", () => {
