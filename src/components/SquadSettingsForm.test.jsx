@@ -237,6 +237,31 @@ describe("SquadSettingsForm — rendering (edit / A4 layout)", () => {
     expect(screen.queryByText("Select all")).not.toBeInTheDocument();
   });
 
+  // Backlog #1, corrected: starting a new game should confirm who's here
+  // today, same as first-time setup — confirmAvailability is the one
+  // exception to the test right above it.
+  it("shows the same Who's-here confirmation as first-time setup when confirmAvailability is on, prefilled from availableIds", async () => {
+    const toggleAvailable = vi.fn();
+    const user = userEvent.setup();
+    render(<SquadSettingsForm {...baseProps({ variant: "edit", confirmAvailability: true, availableIds: ["p1"], toggleAvailable })} />);
+    expect(screen.getByText("Who's here")).toBeInTheDocument();
+    expect(screen.getByText("1 in")).toBeInTheDocument();
+    expect(screen.getByText("tap to drop out")).toBeInTheDocument();
+
+    // Alice (p1, available) reads normally; Bob (p2, not available this
+    // game) gets the same greyed treatment used everywhere else in the
+    // app for "not here today" — not a new visual, the existing one.
+    expect(screen.getByText("Alice").closest("button")).not.toHaveStyle({ opacity: "0.6" });
+    expect(screen.getByText("Bob").closest("button")).toHaveStyle({ opacity: "0.6" });
+
+    // The same +Player control is here too, for a new arrival who isn't
+    // on the roster at all yet.
+    expect(screen.getByText("Player")).toBeInTheDocument();
+
+    await user.click(screen.getByText("Bob"));
+    expect(toggleAvailable).toHaveBeenCalledWith("p2");
+  });
+
   // Real-use feedback: wanted the Breaks row to read as one phrase
   // ("Breaks" + "Every third"), matching how "Keeper changes" + "Every 4′"
   // already reads.

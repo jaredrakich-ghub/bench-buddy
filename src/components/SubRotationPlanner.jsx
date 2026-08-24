@@ -589,6 +589,10 @@ export default function SubRotationPlanner({ user }) {
               // behind this modal already makes the team unambiguous.
               crestSrc={isMatchComplete ? headerMascot : undefined}
               teamName={isMatchComplete ? teamData.name : undefined}
+              // Backlog #1, corrected: also confirm who's actually here
+              // today when starting the next game — same moment as the
+              // crest+name row above, so the same condition.
+              confirmAvailability={isMatchComplete}
               onClose={() => setShowSettingsModal(false)}
               onSubmit={handleGenerate}
               // Same label regardless of entry point — matches the confirm

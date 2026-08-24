@@ -164,6 +164,16 @@ export default function SquadSettingsForm({
   // boolean, is what decides whether the header's small crest+name row
   // renders at all.
   teamName,
+  // Backlog #1, corrected: starting a new game should confirm who's
+  // actually here today, the same as a brand-new team's first-ever setup
+  // already does — not silently reuse whichever availableIds happens to
+  // be left over from the last game. Gated separately from teamName
+  // (rather than reusing that same presence check) since the two ended
+  // up being asked for together but aren't the same thing — a future
+  // "edit" call could plausibly want one without the other. Only
+  // SubRotationPlanner's "Set up next game" call passes this true; plain
+  // mid-match "Game settings" leaves it false, same as before.
+  confirmAvailability = false,
   // True while RotationProgressOverlay is showing over this screen —
   // disables the submit button (see renderWarningsAndSubmit) so the build
   // sequence can't be restarted underneath the overlay's own scrim.
@@ -955,6 +965,30 @@ export default function SquadSettingsForm({
       // position:relative or open-state paddingBottom needed.
       <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
         {header}
+
+        {/* Backlog #1, corrected: the same "Who's here" block the
+            first-time-setup layout opens with below — availableIds is
+            already prefilled with whoever was marked available last
+            game (nothing resets it between games), so this reads as
+            "confirm, don't re-decide from scratch": already-available
+            players show selected, the rest of the squad shows the same
+            greyed-out treatment SquadChangeScreen/first-time-setup
+            already use for "not here today", and the same +Player
+            control is here too for a new arrival who isn't on the
+            roster yet. Real-use feedback: this should show every time a
+            new game is being set up, not just for the very first team
+            ever. */}
+        {confirmAvailability && (
+          <div style={{ marginTop: 6 }}>
+            <div style={styles.mdSetupHeaderInRow}>
+              <div style={styles.mdSetupSectionTitle}>Who's here</div>
+              <span style={styles.mdSetupInChip}>{availableIds.length} in</span>
+              <span style={styles.mdSetupDropOutHint}>tap to drop out</span>
+              {renderSelectAll()}
+            </div>
+            {renderSquadChips()}
+          </div>
+        )}
 
         {renderGameSettingsAccordion()}
 
