@@ -19,7 +19,8 @@
 // — the sub-window chips are now the only interval navigation).
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import "@testing-library/jest-dom/vitest";
-import { render, screen, cleanup, fireEvent, act, within } from "@testing-library/react";
+import { useState } from "react";
+import { render, screen, cleanup, fireEvent, act, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import MatchView from "./MatchView.jsx";
 import { fmtClock } from "../lib/clock.js";
@@ -583,10 +584,15 @@ describe("MatchView — final60 sheet", () => {
     expect(tokenButtonFor("Finn")).toBeDisabled();
   });
 
-  it("Sub done in the sheet writes to subLog for the live interval", () => {
+  it("Sub done in the sheet writes to subLog for the live interval", async () => {
     const setSubLog = vi.fn();
     render(<MatchView {...baseProps({ timerRunning: true, activeInterval: 0, elapsedSec: 340, setSubLog })} />);
     fireEvent.click(within(screen.getByTestId("final60-sheet")).getByText("Sub done ✓"));
+    // The swap-animation trigger (MatchView block: motion for committed
+    // swaps) defers the actual commit by one rAF past the tap, so the
+    // browser has a genuine "from" frame to transition away from — see
+    // beginSwap's own comment. setSubLog fires on that same tick.
+    await waitFor(() => expect(setSubLog).toHaveBeenCalled());
     const updater = setSubLog.mock.calls[0][0];
     expect(updater({})).toEqual({ 0: 340 });
   });
@@ -713,7 +719,9 @@ describe("MatchView — tap-to-act token menu", () => {
     expect(screen.getByText("Alice moves out")).toBeInTheDocument(); // p1 is the current keeper
 
     await user.click(screen.getByText("Make keeper"));
-    expect(onSwap).toHaveBeenCalledWith("p6", "p1");
+    // Deferred one rAF past the tap by the swap-animation trigger — see
+    // "Sub done in the sheet writes to subLog" above for why.
+    await waitFor(() => expect(onSwap).toHaveBeenCalledWith("p6", "p1"));
   });
 
   it("still doesn't offer Make keeper for a bench player who isn't keeper-eligible", async () => {
@@ -740,7 +748,9 @@ describe("MatchView — tap-to-act token menu", () => {
     render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0, onSwap })} />);
     await user.click(tokenButtonFor("Bob")); // p2
     await user.click(screen.getByText("Make keeper"));
-    expect(onSwap).toHaveBeenCalledWith("p2", "p1"); // p1 is the current keeper
+    // Deferred one rAF past the tap — see the earlier Make-keeper test's
+    // own comment on why.
+    await waitFor(() => expect(onSwap).toHaveBeenCalledWith("p2", "p1")); // p1 is the current keeper
   });
 
   it("choosing Mark injured calls onInjury and closes the menu", async () => {
@@ -758,7 +768,9 @@ describe("MatchView — tap-to-act token menu", () => {
     const user = userEvent.setup();
     render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0, swapPickId: "p2", onSwap })} />);
     await user.click(tokenButtonFor("Finn")); // p6, bench
-    expect(onSwap).toHaveBeenCalledWith("p2", "p6");
+    // Deferred one rAF past the tap — see the Make-keeper tests' own
+    // comment on why.
+    await waitFor(() => expect(onSwap).toHaveBeenCalledWith("p2", "p6"));
   });
 
   it("tapping the same player again toggles their menu closed", async () => {
@@ -1040,5 +1052,101 @@ describe("MatchView — mid-match fairness toast", () => {
     act(() => vi.advanceTimersByTime(16));
     const toast = screen.getByText("Nearly even").closest('[aria-live="polite"]');
     expect(toast).toHaveStyle({ pointerEvents: "none" });
+  });
+});
+
+describe("MatchView — swap-animation dual-mount + gold hold marker (Backlog: motion for committed swaps)", () => {
+  beforeEach(() => vi.useFakeTimers());
+
+  // A minimal stand-in for useMatchState's real performSwap, scoped to
+  // this test's own 2-interval fixture: takes whichever of the two ids
+  // is on the bench and swaps them into interval 0's onField (the other
+  // going the other way), or trades isGk in place if both are already on
+  // the field. Just enough real data-flip behaviour for beginSwap's own
+  // ghost-node logic (MatchView.jsx) to have something genuine to react
+  // to — the actual swap *algorithm* is rotation.js's job and already has
+  // its own thorough tests; this only exists to prove the animation layer
+  // wired on top of it behaves once the data really does change under it.
+  function Harness({ onSwapSpy }) {
+    const [plan, setPlan] = useState(() => JSON.parse(JSON.stringify(defaultPlan)));
+    const [swapPickId, setSwapPickId] = useState("p2");
+    const onSwap = (aId, bId) => {
+      onSwapSpy(aId, bId);
+      setPlan((prev) => {
+        const next = JSON.parse(JSON.stringify(prev));
+        const iv = next[0];
+        const aOnField = iv.onField.find((p) => p.id === aId);
+        const bOnField = iv.onField.find((p) => p.id === bId);
+        if (aOnField && !bOnField) {
+          iv.onField = iv.onField.map((p) => (p.id === aId ? { ...p, id: bId } : p));
+          iv.bench = iv.bench.map((id) => (id === bId ? aId : id));
+        } else if (bOnField && !aOnField) {
+          iv.onField = iv.onField.map((p) => (p.id === bId ? { ...p, id: aId } : p));
+          iv.bench = iv.bench.map((id) => (id === aId ? bId : id));
+        } else if (aOnField && bOnField) {
+          const aIsGk = aOnField.isGk;
+          aOnField.isGk = bOnField.isGk;
+          bOnField.isGk = aIsGk;
+        }
+        return next;
+      });
+    };
+    return <MatchView {...baseProps({ plan, activeInterval: 0, elapsedSec: 0, swapPickId, setSwapPickId, onSwap })} />;
+  }
+
+  it("keeps both players mounted through the travel, then clears everything once the gold hold is done", () => {
+    const onSwapSpy = vi.fn();
+    render(<Harness onSwapSpy={onSwapSpy} />);
+    fireEvent.click(tokenButtonFor("Finn")); // p6, bench — completes the pending swapPickId=p2 (Bob) swap
+
+    // Pending frame: data hasn't flipped yet, the real commit hasn't run.
+    expect(onSwapSpy).not.toHaveBeenCalled();
+
+    // One rAF later, beginSwap's own pending->active effect fires the
+    // real commit and the data flips.
+    act(() => vi.advanceTimersByTime(16));
+    expect(onSwapSpy).toHaveBeenCalledWith("p2", "p6");
+
+    // Mid-travel: Bob (left the pitch, arriving at the bench) and Finn
+    // (left the bench, arriving on the pitch) both still have a token on
+    // screen — the whole point of part A's dual-mount.
+    const nameSpans = (text) => screen.getAllByText(text).filter((el) => el.tagName === "SPAN");
+    expect(nameSpans("Bob").length).toBeGreaterThan(0);
+    expect(nameSpans("Finn").length).toBeGreaterThan(0);
+
+    // Past the full window (travel + 140ms delay + gold fade-in + 2000ms
+    // hold + gold fade-out + margin), activeSwap clears itself — each
+    // name is back down to exactly the one real token it actually has.
+    act(() => vi.advanceTimersByTime(650 + 140 + 220 + 2000 + 520 + 200));
+    expect(nameSpans("Bob").length).toBe(1);
+    expect(nameSpans("Finn").length).toBe(1);
+  });
+
+  it("under prefers-reduced-motion, still shows both ends and still clears — just without the travel curves", () => {
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = (query) => ({
+      matches: query.includes("prefers-reduced-motion"),
+      media: query, addEventListener: () => {}, removeEventListener: () => {},
+    });
+    const onSwapSpy = vi.fn();
+    render(<Harness onSwapSpy={onSwapSpy} />);
+    fireEvent.click(tokenButtonFor("Finn"));
+    act(() => vi.advanceTimersByTime(16));
+    expect(onSwapSpy).toHaveBeenCalledWith("p2", "p6");
+
+    // Reduced-motion's own travel is only 160ms, but the gold hold itself
+    // is never shortened (part E, explicit) — clearing still waits out
+    // the full 2000ms hold plus its fades.
+    act(() => vi.advanceTimersByTime(160 + 140 + 220 + 1000));
+    const nameSpans = (text) => screen.getAllByText(text).filter((el) => el.tagName === "SPAN");
+    // Still mid-hold — both real tokens present, nothing has cleared yet.
+    expect(nameSpans("Bob").length).toBeGreaterThan(0);
+    expect(nameSpans("Finn").length).toBeGreaterThan(0);
+
+    act(() => vi.advanceTimersByTime(1000 + 520 + 200));
+    expect(nameSpans("Bob").length).toBe(1);
+    expect(nameSpans("Finn").length).toBe(1);
+
+    window.matchMedia = originalMatchMedia;
   });
 });

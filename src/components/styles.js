@@ -283,6 +283,23 @@ export const styles = {
   },
   mdShirtBtn: { border: "none", background: "transparent", padding: 0, cursor: "pointer", display: "flex" },
   mdShirtBtnSwapTarget: { filter: "drop-shadow(0 0 0 3px rgba(255,255,255,.85))" },
+  // Swap-animation gold hold marker (Backlog: motion for committed
+  // swaps) — a separate decorative ring drawn outside the shirt/chip
+  // artwork, never touching either one's own border/background/shadow.
+  // Concentric with the shirt's own disc; see MatchView.jsx's beginSwap
+  // for exactly when/how long these render. mdSwapGoldRingBench's
+  // borderRadius intentionally reuses mdBenchChip's own pill shape.
+  mdSwapGoldRingPitch: {
+    position: "absolute", top: "50%", left: "50%", width: 62, height: 62,
+    transform: "translate(-50%, -50%)", borderRadius: "50%",
+    border: "3.5px solid #F5B93B", boxShadow: "0 0 0 5px rgba(245,185,59,.22)",
+    pointerEvents: "none",
+  },
+  mdSwapGoldRingBench: {
+    position: "absolute", inset: -5, borderRadius: tokens.radius.chip,
+    border: "3px solid #F5B93B", boxShadow: "0 0 0 4px rgba(245,185,59,.2)",
+    pointerEvents: "none",
+  },
   // Absolutely positioned over the shirt SVG (see matchDayIcons.jsx) — top
   // offset and font size are both computed inline from the shirt's actual
   // rendered size (24/58 and 24/62 of the design's own 62x58 reference

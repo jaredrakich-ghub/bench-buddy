@@ -60,6 +60,16 @@ function PitchMarkings({ height }) {
   );
 }
 
+// Where a player currently sits within one interval's data — "pitch",
+// "bench", or null (injured/not part of this interval at all). Used only
+// by the swap-animation trigger below to work out which direction a
+// coach-committed swap is actually travelling; nothing else needs this.
+function locationOf(iv, id) {
+  if (iv.onField.some((p) => p.id === id)) return "pitch";
+  if (iv.bench.includes(id)) return "bench";
+  return null;
+}
+
 // Not shared with RotationProgressOverlay's own identical hook — this is
 // scoped deliberately to this one file for this change (see the file-
 // level instruction this was built against: MatchView.jsx only, nothing
@@ -427,6 +437,115 @@ export default function MatchView({
   // fine at elapsedSec 0 same as any other moment.
   const showNextSubBadges = !isPreKickoff;
 
+  // --- Coach-committed swap animation (motion + gold hold marker) ---
+  // Only three places ever call beginSwap: trySwapComplete just below,
+  // "Make keeper" (player-tap menu), and the final60 sheet's own "Sub
+  // done" button — the three moments a coach commits a change themselves.
+  // The clock's own auto-follow interval advance (useMatchState.js) still
+  // changes occupants in a single frame with no animation at all, exactly
+  // as before — nothing here touches that mechanism.
+  //
+  // activeSwap, when set, is the only thing that makes a token/chip
+  // render twice — once fading out of its old spot, once rising into its
+  // new one — for the length of the travel plus the gold hold. Shape:
+  //   participants: { [playerId]: { preLoc, postLoc } }, preLoc/postLoc
+  //     each "pitch" or "bench" — read by the pitch/bench render blocks
+  //     below to decide each affected id's opacity/transform this frame.
+  //   pitchSlotFor: { [playerId]: {topPct,leftPct,isGk} } — captured once
+  //     up front so a player who's left the real onField data still has
+  //     somewhere to render their fading-out (or not-yet-real arriving)
+  //     pitch token.
+  //   phase: "pending" — one single frame, painted with the OLD data
+  //     still real and any bench arrival's pitch ghost pre-mounted
+  //     invisible (and vice versa for a pitch->bench departure's ghost),
+  //     so the browser has a genuine "from" value to transition away
+  //     from. "active" — the swap has actually been committed (data
+  //     flipped) and the CSS transitions above are what carry the motion.
+  //   commit — the actual state change (onSwap, or subLog's timestamp)
+  //     to run the moment phase flips from pending to active.
+  const [activeSwap, setActiveSwap] = useState(null);
+  const [swapAnnouncement, setSwapAnnouncement] = useState("");
+
+  // One rAF after a swap is queued: perform the real commit and flip to
+  // "active" in the same paint, so the CSS changes (from the pre-mounted
+  // ghost's rest state to its real one) land together with the data
+  // change — same "mount hidden, reveal a frame later" idiom
+  // FairnessToastMark already uses above, just also carrying the actual
+  // state commit alongside the reveal this time.
+  useEffect(() => {
+    if (!activeSwap || activeSwap.phase !== "pending") return undefined;
+    const raf = requestAnimationFrame(() => {
+      activeSwap.commit();
+      setSwapAnnouncement(activeSwap.announcement);
+      setActiveSwap((s) => (s && s.key === activeSwap.key ? { ...s, phase: "active" } : s));
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [activeSwap]);
+
+  // Clears activeSwap once travel + the gold hold + the gold fade-out are
+  // all genuinely done, so the ghost nodes it was keeping mounted stop
+  // rendering at all rather than lingering invisibly forever. Reduced
+  // motion shortens the travel only (part E) — the gold hold itself is
+  // never shortened, on either path.
+  useEffect(() => {
+    if (!activeSwap || activeSwap.phase !== "active") return undefined;
+    const travelMs = reducedMotion ? 160 : 650;
+    const totalMs = travelMs + 140 + 220 + 2000 + 520 + 120; // +120 safety margin
+    const timer = setTimeout(() => {
+      setActiveSwap((s) => (s && s.key === activeSwap.key ? null : s));
+    }, totalMs);
+    return () => clearTimeout(timer);
+  }, [activeSwap, reducedMotion]);
+
+  // Takes one or more {outId, inId} pairs — a normal sub is one pair, the
+  // final60 sheet's "Sub done" can fire several at once — animates every
+  // affected pitch slot/bench chip, then actually performs the change via
+  // `commit`. Each pair is reoriented so outId always means "was on the
+  // pitch before this" regardless of which token the coach tapped first,
+  // keeping the travel direction (down off the pitch, up onto it)
+  // consistent. A pair that's bench-on-both-sides is a genuine no-op
+  // (nothing to sub, nothing on screen would move) and is skipped; if
+  // every pair turns out to be a no-op, `commit` still runs, just with no
+  // animation ahead of it.
+  const beginSwap = (pairs, commit) => {
+    const layout = getFormationLayout(viewedIv.onField);
+    const slotOf = (id) => {
+      const s = layout.find((x) => x.id === id);
+      return s ? { topPct: s.topPct, leftPct: s.leftPct, isGk: s.isGk } : null;
+    };
+    const pitchSlotFor = {};
+    const participants = {};
+    const announcementParts = [];
+    for (const pair of pairs) {
+      let { outId, inId } = pair;
+      if (!outId || !inId) continue;
+      let locOut = locationOf(viewedIv, outId);
+      let locIn = locationOf(viewedIv, inId);
+      if (locOut === "bench" && locIn === "pitch") {
+        [outId, inId] = [inId, outId];
+        [locOut, locIn] = [locIn, locOut];
+      }
+      if (locOut === "bench" && locIn === "bench") continue;
+      const outSlot = locOut === "pitch" ? slotOf(outId) : null;
+      const inSlot = locIn === "pitch" ? slotOf(inId) : null;
+      if (outSlot) pitchSlotFor[outId] = outSlot;
+      if (inSlot) pitchSlotFor[inId] = inSlot;
+      if (!inSlot && outSlot) pitchSlotFor[inId] = outSlot;
+      if (!outSlot && inSlot) pitchSlotFor[outId] = inSlot;
+      participants[outId] = { preLoc: locOut, postLoc: locIn };
+      participants[inId] = { preLoc: locIn, postLoc: locOut };
+      announcementParts.push(`${nameOf(inId)} on for ${nameOf(outId)}`);
+    }
+    if (Object.keys(participants).length === 0) {
+      commit();
+      return;
+    }
+    setActiveSwap({
+      participants, pitchSlotFor, phase: "pending",
+      key: `${Date.now()}-${Math.random()}`, commit, announcement: announcementParts.join(". "),
+    });
+  };
+
   // Shared by every token everywhere (pitch, bench, injured) — mid-swap
   // (swapPickId set), any tap completes the swap with whoever was just
   // tapped; performSwap's own guards safely no-op an invalid target (e.g.
@@ -443,8 +562,9 @@ export default function MatchView({
       return true;
     }
     setConfirmMessage(`${nameOf(swapPickId)} swapped with ${nameOf(id)}`);
-    onSwap(swapPickId, id);
+    const source = swapPickId;
     setSwapPickId(null);
+    beginSwap([{ outId: source, inId: id }], () => onSwap(source, id));
     return true;
   };
 
@@ -553,39 +673,62 @@ export default function MatchView({
   // just closes over this render's own state/handlers, no lifecycle of
   // its own. Injured players get their own distinct chip below
   // (renderInjuredChip) — a different shape/color, not a variant of this one.
-  const renderBenchToken = (id) => (
-    <button
-      key={id}
-      style={{
-        ...styles.mdBenchChip,
-        ...(swapPickId && swapPickId !== id && !interactionLocked ? styles.mdBenchChipSwapTarget : {}),
-        ...(menuPlayerId === id ? { ...styles.mdOriginLit, ...styles.mdBenchChipLit } : {}),
-      }}
-      onClick={() => handleTokenTap(id)}
-      disabled={interactionLocked}
-    >
-      {/* Gold specifically when THIS bench player is who's actually coming
-          on as keeper at the next interval (becomingKeeperId) — not
-          keeperEligibleIds (whether they're generally allowed to play
-          goal at all, a permanent roster flag most players default to).
-          Real-use feedback: with eligibility defaulted on for most of a
-          squad, using it here meant almost every bench chip read gold
-          regardless of what was actually about to happen, misleadingly
-          suggesting an outfield sub was headed for goal. */}
-      <span style={{ ...styles.mdBenchChipNumber, ...(showNextSubBadges && becomingKeeperId === id ? styles.mdBenchChipNumberGk : {}) }}>
-        {numberOf(id)}
+  const renderBenchToken = (id) => {
+    const participant = activeSwap?.participants[id];
+    const swapStyle = participant ? swapVisualStyle(participant, "bench") : null;
+    // A ghost chip — this id isn't really on the bench per today's data,
+    // just still (or not yet) mounted for the travel — is never a valid
+    // tap target, same reasoning as the pitch ghosts above.
+    const isGhost = Boolean(participant) && !viewedIv.bench.includes(id);
+    return (
+      // Wrapping span (not the button itself) carries position:relative,
+      // purely so the gold hold marker below has something of the
+      // chip's own exact size/shape to anchor against without adding
+      // position to mdBenchChip generally (today's bench-chip styling —
+      // shadow, hover, everything else — stays completely untouched).
+      <span key={id} style={{ position: "relative", display: "inline-flex" }}>
+        <button
+          style={{
+            ...styles.mdBenchChip,
+            ...(swapPickId && swapPickId !== id && !interactionLocked ? styles.mdBenchChipSwapTarget : {}),
+            ...(menuPlayerId === id ? { ...styles.mdOriginLit, ...styles.mdBenchChipLit } : {}),
+            ...(swapStyle ? { opacity: swapStyle.opacity, transform: swapStyle.transform, transition: swapStyle.transition } : {}),
+          }}
+          onClick={() => handleTokenTap(id)}
+          disabled={interactionLocked || isGhost}
+          aria-hidden={isGhost || undefined}
+          tabIndex={isGhost ? -1 : undefined}
+        >
+          {/* Gold specifically when THIS bench player is who's actually coming
+              on as keeper at the next interval (becomingKeeperId) — not
+              keeperEligibleIds (whether they're generally allowed to play
+              goal at all, a permanent roster flag most players default to).
+              Real-use feedback: with eligibility defaulted on for most of a
+              squad, using it here meant almost every bench chip read gold
+              regardless of what was actually about to happen, misleadingly
+              suggesting an outfield sub was headed for goal. */}
+          <span style={{ ...styles.mdBenchChipNumber, ...(showNextSubBadges && becomingKeeperId === id ? styles.mdBenchChipNumberGk : {}) }}>
+            {numberOf(id)}
+          </span>
+          <span style={styles.mdBenchChipName}>{nameOf(id)}</span>
+          {showNextSubBadges && comingOnIds.has(id) && (
+            <span style={styles.mdBenchChipUpArrow} title="Coming on next interval">
+              <ArrowUp size={14} strokeWidth={3} />
+            </span>
+          )}
+          {showNextSubBadges && becomingKeeperId === id && (
+            <span title="Becoming keeper next interval">🧤</span>
+          )}
+        </button>
+        {/* Gold hold marker, bench end (part C) — outside the chip
+            entirely, following its pill shape via mdSwapGoldRingBench's
+            own inset/borderRadius; the chip itself never changes. */}
+        {activeSwap?.phase === "active" && participant?.postLoc === "bench" && (
+          <div key={activeSwap.key} style={{ ...styles.mdSwapGoldRingBench, ...goldRingStyle() }} aria-hidden="true" />
+        )}
       </span>
-      <span style={styles.mdBenchChipName}>{nameOf(id)}</span>
-      {showNextSubBadges && comingOnIds.has(id) && (
-        <span style={styles.mdBenchChipUpArrow} title="Coming on next interval">
-          <ArrowUp size={14} strokeWidth={3} />
-        </span>
-      )}
-      {showNextSubBadges && becomingKeeperId === id && (
-        <span title="Becoming keeper next interval">🧤</span>
-      )}
-    </button>
-  );
+    );
+  };
 
   // A2h-Injured's chip: tinted pink pill, red number disc, a small
   // cross badge on the corner — "the same read as an injury flag on a
@@ -624,6 +767,80 @@ export default function MatchView({
       setRunStartedAt(Date.now());
       setTimerRunning(true);
     }
+  };
+
+  // Pitch tokens: today's occupants (from viewedIv.onField, as ever) plus
+  // any activeSwap participant not among them — a player who's fading
+  // out of a slot they just left, or whose arrival hasn't landed in the
+  // real data yet (phase "pending", the pre-mounted invisible ghost —
+  // see beginSwap's own comment for why that frame has to exist).
+  const realPitchLayout = getFormationLayout(viewedIv.onField);
+  const realPitchIds = new Set(realPitchLayout.map((s) => s.id));
+  const pitchGhosts = activeSwap
+    ? Object.entries(activeSwap.pitchSlotFor)
+        .filter(([id]) => !realPitchIds.has(id))
+        .map(([id, slot]) => ({ id, ...slot }))
+    : [];
+  const pitchRenderList = [...realPitchLayout, ...pitchGhosts];
+
+  // Bench chips: today's occupants (viewedIv.bench) plus any activeSwap
+  // participant who touches the bench (either side of the swap) but
+  // isn't among them yet/any more — same pre-mount-then-reveal reasoning
+  // as the pitch list above. A field<->field role swap (see "Make
+  // keeper" onto an already-on-pitch player) never touches the bench at
+  // all, so it never adds anything here.
+  const realBenchSet = new Set(viewedIv.bench);
+  const benchGhostIds = activeSwap
+    ? Object.entries(activeSwap.participants)
+        .filter(([id, p]) => !realBenchSet.has(id) && (p.preLoc === "bench" || p.postLoc === "bench"))
+        .map(([id]) => id)
+    : [];
+  const benchRenderList = [...viewedIv.bench, ...benchGhostIds];
+
+  // Rest-state opacity/transform/transition for one swap participant at
+  // one location ("pitch" or "bench") this render — the CSS half of
+  // parts A/B/E. Not called at all for a non-participant token, which
+  // always stays plain opacity:1/transform:none/transition:none (today's
+  // unaffected behaviour). `phase` decides which side of the flip we're
+  // looking at: "pending" hasn't committed yet, so presence still
+  // reflects where the data stands right now (pre-flip); "active" has
+  // committed, so presence reflects the participant's real new location.
+  const swapVisualStyle = (participant, location) => {
+    const present = activeSwap.phase === "pending"
+      ? participant.preLoc === location
+      : participant.postLoc === location;
+    const arriving = participant.postLoc === location;
+    if (reducedMotion) {
+      return {
+        opacity: present ? 1 : 0,
+        transform: "none",
+        transition: "opacity 160ms ease",
+      };
+    }
+    return {
+      opacity: present ? 1 : 0,
+      transform: present ? "none" : (location === "pitch" ? "translateY(168px) scale(.58)" : "translateY(-30px) scale(.82)"),
+      transition: arriving
+        ? "transform 560ms cubic-bezier(.3,1.34,.5,1) 90ms, opacity 250ms ease 90ms"
+        : "transform 500ms cubic-bezier(.5,0,.78,.1), opacity 310ms ease 80ms",
+    };
+  };
+
+  // Gold hold marker (part C): only once a swap has actually committed
+  // (phase "active"), and only at whichever location a participant ends
+  // up in — never at the location they left. Delay is measured from the
+  // moment this ring itself mounts, which is exactly when "active" starts
+  // (a fresh element per swap, via the key below) — so "140ms after
+  // travel completes" is just travelMs + 140 from that same instant.
+  // Reduced motion still gets the full 2000ms hold — only the travel it's
+  // timed against is shorter (part E).
+  const goldRingStyle = () => {
+    const travelMs = reducedMotion ? 160 : 650;
+    // Per-keyframe timing-functions (in the @keyframes rule itself, below)
+    // give the fade-in and fade-out their own independent "ease" curves —
+    // this shorthand deliberately carries no timing-function of its own
+    // so it can't override those.
+    return { animation: `mvGoldRing 2740ms ${travelMs + 140}ms both` };
   };
 
   return (
@@ -748,6 +965,25 @@ export default function MatchView({
         `}</style>
       )}
 
+      {/* Swap-animation gold hold marker (part C): fade in over 220ms,
+          hold at full opacity for 2000ms, fade out over 520ms — as one
+          keyframe animation (see goldRingStyle above) so its own
+          animation-delay does all the "140ms after travel completes"
+          timing, rather than a setTimeout-driven opacity toggle. The two
+          per-keyframe timing-functions below keep the fade-in and
+          fade-out each on their own independent "ease" curve instead of
+          one "ease" stretched flat across the whole 2740ms. */}
+      {activeSwap && (
+        <style>{`
+          @keyframes mvGoldRing {
+            0% { opacity: 0; animation-timing-function: ease; }
+            8.0292% { opacity: 1; animation-timing-function: linear; }
+            81.0219% { opacity: 1; animation-timing-function: ease; }
+            100% { opacity: 0; }
+          }
+        `}</style>
+      )}
+
       <div style={styles.intervalTabsWrap}>
         <div style={styles.intervalTabs}>
           {plan.map((iv) => (
@@ -772,48 +1008,64 @@ export default function MatchView({
       )}
       <div style={{ ...styles.pitchInner, height: pitchInnerHeight }}>
         <PitchMarkings height={pitchInnerHeight} />
-        {getFormationLayout(viewedIv.onField).map(({ id, isGk, topPct, leftPct }) => (
-          <div key={id} style={{ ...styles.formationToken, top: `${topPct}%`, left: `${leftPct}%` }}>
-            <button
-              style={{
-                ...styles.mdShirtBtn,
-                ...(swapPickId && swapPickId !== id && !interactionLocked ? styles.mdShirtBtnSwapTarget : {}),
-                ...(menuPlayerId === id ? { ...styles.mdOriginLit, ...styles.mdShirtBtnLit } : {}),
-              }}
-              onClick={() => handleTokenTap(id)}
-              disabled={interactionLocked}
-            >
-              <div style={{ position: "relative", width: shirtWidth, height: shirtHeight }}>
-                <KitShirt width={shirtWidth} height={shirtHeight} isGk={isGk} />
-                <span
-                  style={{
-                    ...styles.mdShirtNumber,
-                    top: Math.round(shirtHeight * (24 / 58)),
-                    fontSize: Math.round(shirtWidth * (24 / 62)),
-                  }}
-                >
-                  {numberOf(id)}
-                </span>
-                {showNextSubBadges && comingOffIds.has(id) && (
-                  <span style={styles.mdOutgoingBadge} title="Coming off next interval">
-                    <ArrowDown size={11} strokeWidth={3.5} color="#fff" />
+        {pitchRenderList.map(({ id, isGk, topPct, leftPct }) => {
+          const participant = activeSwap?.participants[id];
+          const swapStyle = participant ? swapVisualStyle(participant, "pitch") : null;
+          // A swap ghost (this id isn't really on the pitch this render,
+          // per today's actual data) must never be tappable — it's
+          // purely the outgoing/incoming visual, not a real occupant.
+          const isGhost = !realPitchIds.has(id);
+          return (
+            <div key={id} style={{ ...styles.formationToken, top: `${topPct}%`, left: `${leftPct}%` }}>
+              <button
+                style={{
+                  ...styles.mdShirtBtn,
+                  ...(swapPickId && swapPickId !== id && !interactionLocked ? styles.mdShirtBtnSwapTarget : {}),
+                  ...(menuPlayerId === id ? { ...styles.mdOriginLit, ...styles.mdShirtBtnLit } : {}),
+                  ...(swapStyle ? { opacity: swapStyle.opacity, transform: swapStyle.transform, transition: swapStyle.transition } : {}),
+                }}
+                onClick={() => handleTokenTap(id)}
+                disabled={interactionLocked || isGhost}
+                aria-hidden={isGhost || undefined}
+                tabIndex={isGhost ? -1 : undefined}
+              >
+                <div style={{ position: "relative", width: shirtWidth, height: shirtHeight }}>
+                  <KitShirt width={shirtWidth} height={shirtHeight} isGk={isGk} />
+                  <span
+                    style={{
+                      ...styles.mdShirtNumber,
+                      top: Math.round(shirtHeight * (24 / 58)),
+                      fontSize: Math.round(shirtWidth * (24 / 62)),
+                    }}
+                  >
+                    {numberOf(id)}
                   </span>
-                )}
-                {showNextSubBadges && becomingKeeperId === id && (
-                  <span style={styles.nextKeeperBadge} title="Becoming keeper next interval">
-                    🧤
-                  </span>
-                )}
-                {showNextSubBadges && steppingDownKeeperId === id && (
-                  <span style={styles.nextOnBadge} title="Staying on, switching to outfield next interval">
-                    <ArrowUp size={11} strokeWidth={3.5} />
-                  </span>
-                )}
-              </div>
-            </button>
-            <span style={styles.mdShirtPlayerName}>{nameOf(id)}</span>
-          </div>
-        ))}
+                  {showNextSubBadges && comingOffIds.has(id) && (
+                    <span style={styles.mdOutgoingBadge} title="Coming off next interval">
+                      <ArrowDown size={11} strokeWidth={3.5} color="#fff" />
+                    </span>
+                  )}
+                  {showNextSubBadges && becomingKeeperId === id && (
+                    <span style={styles.nextKeeperBadge} title="Becoming keeper next interval">
+                      🧤
+                    </span>
+                  )}
+                  {showNextSubBadges && steppingDownKeeperId === id && (
+                    <span style={styles.nextOnBadge} title="Staying on, switching to outfield next interval">
+                      <ArrowUp size={11} strokeWidth={3.5} />
+                    </span>
+                  )}
+                  {/* Gold hold marker, pitch end (part C) — a separate
+                      element outside the shirt SVG, never altering it. */}
+                  {activeSwap?.phase === "active" && participant?.postLoc === "pitch" && (
+                    <div key={activeSwap.key} style={{ ...styles.mdSwapGoldRingPitch, ...goldRingStyle() }} aria-hidden="true" />
+                  )}
+                </div>
+              </button>
+              <span style={styles.mdShirtPlayerName}>{nameOf(id)}</span>
+            </div>
+          );
+        })}
       </div>
 
       {/* Real-use feedback: the empty-bench message read as misaligned
@@ -826,9 +1078,15 @@ export default function MatchView({
           treatment instead of inheriting numbers tuned for a different
           row: centred alignment, and the label's own padding zeroed out
           rather than reused. */}
+      {/* benchEmpty (not benchRenderList) drives the "Full squad on
+          field" copy and centring — a swap-animation ghost chip mid-swap
+          (e.g. the bench's only player becoming keeper) shouldn't flip
+          this to the empty-state message just because the real bench
+          count hit zero for a moment; benchRenderList still has that
+          ghost in it below regardless of which branch renders. */}
       <div style={{ ...styles.mdBenchStrip, alignItems: benchEmpty ? "center" : "flex-start" }}>
         <div style={{ ...styles.mdBenchLabel, ...(benchEmpty ? { paddingTop: 0 } : {}) }}>BENCH</div>
-        {benchEmpty ? (
+        {benchEmpty && benchRenderList.length === 0 ? (
           <span style={styles.mdBenchEmpty}>Full squad on field</span>
         ) : (
           // Block 8, part D: one row, two zones — available players first
@@ -837,8 +1095,8 @@ export default function MatchView({
           // row. renderInjuredChip's own pink tint + cross badge already
           // reads as "injured" without a text label repeating it.
           <div style={styles.mdBenchChipRow}>
-            {viewedIv.bench.map(renderBenchToken)}
-            {viewedIv.bench.length > 0 && injuredThisGame.length > 0 && <div style={styles.mdBenchDivider} />}
+            {benchRenderList.map(renderBenchToken)}
+            {benchRenderList.length > 0 && injuredThisGame.length > 0 && <div style={styles.mdBenchDivider} />}
             {injuredThisGame.map(renderInjuredChip)}
           </div>
         )}
@@ -919,8 +1177,10 @@ export default function MatchView({
                 style={styles.mdPlayerPopoverRow}
                 onClick={() => {
                   setConfirmMessage(`${nameOf(menuPlayerId)} is now keeper`);
-                  onSwap(menuPlayerId, viewedGk.id);
+                  const target = menuPlayerId;
+                  const gkId = viewedGk.id;
                   setMenuPlayerId(null);
+                  beginSwap([{ outId: gkId, inId: target }], () => onSwap(target, gkId));
                 }}
               >
                 <span style={{ ...styles.mdPlayerPopoverIconTile, ...styles.mdTintYellow }}>🧤</span>
@@ -1128,7 +1388,12 @@ export default function MatchView({
               </button>
               <button
                 style={styles.mdActionBarBtnPrimary}
-                onClick={() => setSubLog((prev) => ({ ...prev, [cur.index]: elapsedSec }))}
+                onClick={() => {
+                  const confirmIndex = cur.index;
+                  const confirmSec = elapsedSec;
+                  const pairs = final60Rows.filter((r) => r.outId && r.inId).map((r) => ({ outId: r.outId, inId: r.inId }));
+                  beginSwap(pairs, () => setSubLog((prev) => ({ ...prev, [confirmIndex]: confirmSec })));
+                }}
               >
                 Sub done ✓
               </button>
@@ -1291,6 +1556,22 @@ export default function MatchView({
           </div>
         </>
       )}
+
+      {/* Part D: announces a coach-committed swap once, on commit (see
+          beginSwap's own rAF effect — swapAnnouncement is set at the same
+          moment the real state change fires, not once the animation
+          finishes). Visually hidden via the standard clip-based
+          technique, same as FairnessToastMark's own hidden span above —
+          nothing new drawn on screen, just present in the a11y tree. */}
+      <div
+        aria-live="polite"
+        style={{
+          position: "absolute", width: 1, height: 1, padding: 0, margin: -1,
+          overflow: "hidden", clip: "rect(0,0,0,0)", whiteSpace: "nowrap", border: 0,
+        }}
+      >
+        {swapAnnouncement}
+      </div>
     </section>
   );
 }
