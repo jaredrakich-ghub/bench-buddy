@@ -984,9 +984,12 @@ describe("MatchView — mid-match fairness toast", () => {
 
     // defaultPlan/planWithP7Injured: p7 never appears on either interval's
     // onField list in either fixture, so their spread against all 7
-    // available players is 12 (p1/p2/p3/p5 at 12 min each vs. p7 at 0) —
-    // "needs attention" either way, same toast copy for both plans.
-    const toast = screen.getByText("Evening it up");
+    // available players is 12 (p1/p2/p3/p5 at 12 min each vs. p7 at 0),
+    // against this fixture's own 6-min intervals — 2 intervals' worth
+    // (12 min), over the 10-min ceiling for that band, so "nearly fair"
+    // (getFairnessState, fairness.js) either way, same toast copy for
+    // both plans.
+    const toast = screen.getByText("Nearly even");
     expect(toast.closest('[aria-live="polite"]')).toBeInTheDocument();
   });
 
@@ -994,7 +997,7 @@ describe("MatchView — mid-match fairness toast", () => {
     const { rerender } = render(<MatchView {...baseProps()} />);
     rerender(<MatchView {...baseProps({ plan: planWithP7Injured })} />);
     act(() => vi.advanceTimersByTime(16));
-    const toast = screen.getByText("Evening it up").closest('[aria-live="polite"]');
+    const toast = screen.getByText("Nearly even").closest('[aria-live="polite"]');
     expect(toast).toHaveStyle({ opacity: "1" });
 
     act(() => vi.advanceTimersByTime(3000));
@@ -1005,7 +1008,7 @@ describe("MatchView — mid-match fairness toast", () => {
     const { rerender } = render(<MatchView {...baseProps()} />);
     rerender(<MatchView {...baseProps({ plan: planWithP7Injured })} />);
     act(() => vi.advanceTimersByTime(16));
-    const toast = screen.getByText("Evening it up").closest('[aria-live="polite"]');
+    const toast = screen.getByText("Nearly even").closest('[aria-live="polite"]');
     expect(toast).toHaveStyle({ pointerEvents: "none" });
   });
 });

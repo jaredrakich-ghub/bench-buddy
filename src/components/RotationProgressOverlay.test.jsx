@@ -33,7 +33,7 @@ function flushFrame() {
 
 describe("RotationProgressOverlay", () => {
   it("opens as a labelled, busy dialog over a scrim", () => {
-    render(<RotationProgressOverlay averageMinutes={22} maxDifference={2} onContinue={() => {}} />);
+    render(<RotationProgressOverlay averageMinutes={22} maxDifference={2} intervalLen={5} onContinue={() => {}} />);
     const dialog = screen.getByRole("dialog");
     expect(dialog).toHaveAttribute("aria-modal", "true");
     expect(dialog).toHaveAttribute("aria-busy", "true");
@@ -42,14 +42,14 @@ describe("RotationProgressOverlay", () => {
   });
 
   it("moves focus into the card once mounted, not before", () => {
-    render(<RotationProgressOverlay averageMinutes={22} maxDifference={2} onContinue={() => {}} />);
+    render(<RotationProgressOverlay averageMinutes={22} maxDifference={2} intervalLen={5} onContinue={() => {}} />);
     expect(document.activeElement).not.toBe(screen.getByRole("dialog"));
     flushFrame();
     expect(document.activeElement).toBe(screen.getByRole("dialog"));
   });
 
   it("shows all three steps, progressing pending -> active -> finished roughly 530ms apart", () => {
-    render(<RotationProgressOverlay averageMinutes={22} maxDifference={2} onContinue={() => {}} />);
+    render(<RotationProgressOverlay averageMinutes={22} maxDifference={2} intervalLen={5} onContinue={() => {}} />);
     expect(screen.getByText("Checking playing time")).toBeInTheDocument();
     expect(screen.getByText("Balancing rotations")).toBeInTheDocument();
     expect(screen.getByText("Finding the fairest setup")).toBeInTheDocument();
@@ -68,7 +68,7 @@ describe("RotationProgressOverlay", () => {
   });
 
   it("flips to the success state at ~1800ms, aria-busy false, border/title changed", () => {
-    render(<RotationProgressOverlay averageMinutes={22} maxDifference={2} onContinue={() => {}} />);
+    render(<RotationProgressOverlay averageMinutes={22} maxDifference={2} intervalLen={5} onContinue={() => {}} />);
     act(() => vi.advanceTimersByTime(1800));
     const dialog = screen.getByRole("dialog");
     expect(dialog).toHaveAttribute("aria-busy", "false");
@@ -77,7 +77,7 @@ describe("RotationProgressOverlay", () => {
   });
 
   it("shows the fairness mark, the supporting pitch-time line, and the average row", () => {
-    render(<RotationProgressOverlay averageMinutes={22} maxDifference={2} onContinue={() => {}} />);
+    render(<RotationProgressOverlay averageMinutes={22} maxDifference={2} intervalLen={5} onContinue={() => {}} />);
     act(() => vi.advanceTimersByTime(1800));
     expect(screen.getByRole("img", { name: "Fair" })).toBeInTheDocument(); // spread 2 -> Fair
     expect(screen.getByText("Pitch time is within 2 min for every child.")).toBeInTheDocument();
@@ -87,7 +87,7 @@ describe("RotationProgressOverlay", () => {
 
   it("moves focus to View my rotation once success appears, and it calls onContinue", () => {
     const onContinue = vi.fn();
-    render(<RotationProgressOverlay averageMinutes={22} maxDifference={2} onContinue={onContinue} />);
+    render(<RotationProgressOverlay averageMinutes={22} maxDifference={2} intervalLen={5} onContinue={onContinue} />);
     act(() => vi.advanceTimersByTime(1800));
     flushFrame();
     const button = screen.getByRole("button", { name: "View my rotation" });
@@ -97,7 +97,7 @@ describe("RotationProgressOverlay", () => {
   });
 
   it("traps Tab inside the card — building phase has nothing focusable, so it bounces back to the card", () => {
-    render(<RotationProgressOverlay averageMinutes={22} maxDifference={2} onContinue={() => {}} />);
+    render(<RotationProgressOverlay averageMinutes={22} maxDifference={2} intervalLen={5} onContinue={() => {}} />);
     const dialog = screen.getByRole("dialog");
     const preventDefault = vi.fn();
     act(() => {
@@ -110,21 +110,21 @@ describe("RotationProgressOverlay", () => {
   });
 
   it("renders 16 confetti pieces on success, none when reduced motion is preferred", () => {
-    const { container } = render(<RotationProgressOverlay averageMinutes={22} maxDifference={2} onContinue={() => {}} />);
+    const { container } = render(<RotationProgressOverlay averageMinutes={22} maxDifference={2} intervalLen={5} onContinue={() => {}} />);
     act(() => vi.advanceTimersByTime(1800));
     // 16 confetti pieces sit inside the aria-hidden confetti layer.
     expect(container.querySelectorAll('[aria-hidden="true"] div[style*="position: absolute"]').length).toBeGreaterThanOrEqual(16);
 
     cleanup();
     stubMatchMedia(true); // prefers-reduced-motion: reduce
-    render(<RotationProgressOverlay averageMinutes={22} maxDifference={2} onContinue={() => {}} />);
+    render(<RotationProgressOverlay averageMinutes={22} maxDifference={2} intervalLen={5} onContinue={() => {}} />);
     act(() => vi.advanceTimersByTime(1800));
     expect(document.querySelectorAll("style")).toHaveLength(0); // no keyframes injected, no pieces rendered
   });
 
   it("cleans up its timers on unmount — no state updates fire after the component's gone", () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const { unmount } = render(<RotationProgressOverlay averageMinutes={22} maxDifference={2} onContinue={() => {}} />);
+    const { unmount } = render(<RotationProgressOverlay averageMinutes={22} maxDifference={2} intervalLen={5} onContinue={() => {}} />);
     unmount();
     act(() => vi.advanceTimersByTime(3000));
     expect(errorSpy).not.toHaveBeenCalled();

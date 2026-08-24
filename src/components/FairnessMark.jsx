@@ -9,8 +9,12 @@ import { tokens } from "./styles.js";
 // circle, only the ring colour and the beam's own rotation ever change,
 // so a coach recognises this as the one "fairness" symbol wherever it
 // shows up.
-export default function FairnessMark({ spreadMin, size = 44, ringWidth = 3, glyphSize = 22 }) {
-  const { ring, tilt, label } = getFairnessState(spreadMin);
+// intervalLen: the length in minutes of one sub-interval in this game's
+// own rotation — the fairness bands scale with it (getFairnessState,
+// fairness.js), not a fixed minute count, since a given gap in minutes
+// means something different for a short sub window than a long one.
+export default function FairnessMark({ spreadMin, intervalLen, size = 44, ringWidth = 3, glyphSize = 22 }) {
+  const { ring, tilt, label } = getFairnessState(spreadMin, intervalLen);
   return (
     <div
       role="img"

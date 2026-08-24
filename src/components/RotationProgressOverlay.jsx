@@ -41,7 +41,7 @@ function usePrefersReducedMotion() {
 // its own focus/keyboard trap. Two states in one card, never unmounted
 // between them (title/border swap in place): "building" (three steps
 // revealing in sequence) then "success" (the fairness result + confetti).
-export default function RotationProgressOverlay({ averageMinutes, maxDifference, onContinue }) {
+export default function RotationProgressOverlay({ averageMinutes, maxDifference, intervalLen, onContinue }) {
   const [phase, setPhase] = useState("building"); // "building" | "success"
   const [activeStep, setActiveStep] = useState(0); // 0,1,2 — which step is the current "in progress" one
   const [mounted, setMounted] = useState(false); // flips true one frame after mount, so the enter transition actually has a "from" state to animate away from
@@ -133,7 +133,7 @@ export default function RotationProgressOverlay({ averageMinutes, maxDifference,
   }, [reducedMotion]);
 
   const transition = (css) => (reducedMotion ? "none" : css);
-  const fairness = getFairnessState(maxDifference);
+  const fairness = getFairnessState(maxDifference, intervalLen);
 
   return (
     <>
@@ -258,7 +258,7 @@ export default function RotationProgressOverlay({ averageMinutes, maxDifference,
                 <span style={{ fontFamily: tokens.font.body, fontWeight: 800, fontSize: 11, color: tokens.color.mutedText, textTransform: "uppercase", letterSpacing: "0.07em" }}>
                   Fairness
                 </span>
-                <FairnessMark spreadMin={maxDifference} size={44} ringWidth={3} glyphSize={22} />
+                <FairnessMark spreadMin={maxDifference} intervalLen={intervalLen} size={44} ringWidth={3} glyphSize={22} />
                 <span style={{ fontFamily: tokens.font.display, fontWeight: 800, fontSize: 17, color: tokens.color.deepGreen }}>{fairness.label}</span>
               </div>
 

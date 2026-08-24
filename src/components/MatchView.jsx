@@ -61,7 +61,7 @@ function PitchMarkings({ height }) {
 // into the end state with nothing to animate away from). Owns its full
 // life on its own: reveals itself, holds ~3s, fades out — the parent never
 // has to track visibility, only whether to render one at all.
-function FairnessToastPill({ spreadMin }) {
+function FairnessToastPill({ spreadMin, intervalLen }) {
   const [revealed, setRevealed] = useState(false);
   useEffect(() => {
     const showRaf = requestAnimationFrame(() => setRevealed(true));
@@ -84,9 +84,9 @@ function FairnessToastPill({ spreadMin }) {
         transition: "opacity .28s ease, transform .42s cubic-bezier(.22,.9,.3,1)",
       }}
     >
-      <FairnessMark spreadMin={spreadMin} size={32} ringWidth={2.5} glyphSize={17} />
+      <FairnessMark spreadMin={spreadMin} intervalLen={intervalLen} size={32} ringWidth={2.5} glyphSize={17} />
       <span style={{ fontFamily: tokens.font.display, fontWeight: 800, fontSize: 16, color: tokens.color.creamPaper, whiteSpace: "nowrap" }}>
-        {getFairnessState(spreadMin).toast}
+        {getFairnessState(spreadMin, intervalLen).toast}
       </span>
     </div>
   );
@@ -146,6 +146,11 @@ export default function MatchView({
   // recomputing the spread fresh each time means this always reflects
   // the game from here on, not a stale snapshot from kickoff.
   const spreadMin = computeFairnessSpread(plan, availableIds);
+  // The rotation's own intervals are all the same length by construction
+  // (computeIntervals splits the game evenly) — the first one is a safe,
+  // cheap stand-in rather than threading gameSettings.subIntervalMinutes
+  // through as a whole separate prop just for this.
+  const intervalLen = plan[0].endMin - plan[0].startMin;
   const [toastTriggerCount, setToastTriggerCount] = useState(0); // 0 = never triggered yet, so nothing renders on first mount
   // Primed with the CURRENT plan, not a bare "have we run yet" boolean —
   // real-device bug caught testing this in the actual app (not visible in
@@ -610,7 +615,7 @@ export default function MatchView({
             still gets its own full enter transition and its own aria-live
             announcement, instead of silently no-op'ing because the
             underlying visibility flag was already "shown". */}
-        {toastTriggerCount > 0 && <FairnessToastPill key={toastTriggerCount} spreadMin={spreadMin} />}
+        {toastTriggerCount > 0 && <FairnessToastPill key={toastTriggerCount} spreadMin={spreadMin} intervalLen={intervalLen} />}
       </div>
       {/* Reclaimed header height (caption moved beside the timer instead of
           under it) is spent on a taller pitch below, not left as empty

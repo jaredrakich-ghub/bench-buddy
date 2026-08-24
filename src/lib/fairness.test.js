@@ -2,30 +2,35 @@ import { describe, it, expect } from "vitest";
 import { getFairnessState } from "./fairness.js";
 
 describe("getFairnessState", () => {
-  it("0-2 min spread is Fair", () => {
-    [0, 1, 2].forEach((spread) => {
-      expect(getFairnessState(spread)).toMatchObject({ key: "fair", ring: "#2E7D53", tilt: 0, label: "Fair", toast: "Subs still fair" });
-    });
+  it("within 1 interval's worth of gap is always Fair, regardless of interval length", () => {
+    expect(getFairnessState(0, 5).key).toBe("fair");
+    expect(getFairnessState(5, 5).key).toBe("fair"); // exactly 1 interval
+    expect(getFairnessState(7, 7).key).toBe("fair"); // longer interval, still just 1 interval's worth
   });
 
-  it("3-4 min spread is Nearly fair", () => {
-    [3, 4].forEach((spread) => {
-      expect(getFairnessState(spread)).toMatchObject({
-        key: "nearlyFair", ring: "#F5B93B", tilt: 9, label: "Nearly fair", toast: "Nearly even",
-      });
-    });
+  it("2 intervals' worth is Fair when that's still <=10 real minutes (short sub windows)", () => {
+    // 2 x 5 = 10 — the given boundary example.
+    expect(getFairnessState(10, 5).key).toBe("fair");
+    // 2 x 4 = 8
+    expect(getFairnessState(8, 4).key).toBe("fair");
   });
 
-  it("5+ min spread needs attention, with no upper bound", () => {
-    [5, 6, 40].forEach((spread) => {
-      expect(getFairnessState(spread)).toMatchObject({
-        key: "needsAttention", ring: "#C4482A", tilt: 21, label: "Needs attention", toast: "Evening it up",
-      });
-    });
+  it("2 intervals' worth is Nearly fair once that exceeds 10 real minutes (longer sub windows)", () => {
+    // 2 x 6 = 12
+    expect(getFairnessState(12, 6)).toMatchObject({ key: "nearlyFair", ring: "#F5B93B", tilt: 9, label: "Nearly fair", toast: "Nearly even" });
+    // 2 x 7 = 14
+    expect(getFairnessState(14, 7).key).toBe("nearlyFair");
   });
 
-  it("applies the threshold to a fractional spread directly, not rounded", () => {
-    expect(getFairnessState(2.4).key).toBe("nearlyFair"); // already past the "fair" ceiling of 2
-    expect(getFairnessState(4.9).key).toBe("needsAttention"); // already past the "nearly fair" ceiling of 4
+  it("3+ intervals' worth of gap always needs attention, regardless of interval length", () => {
+    expect(getFairnessState(15, 5)).toMatchObject({
+      key: "needsAttention", ring: "#C4482A", tilt: 21, label: "Needs attention", toast: "Evening it up",
+    });
+    expect(getFairnessState(12, 4).key).toBe("needsAttention"); // 3 x 4 = 12, short interval doesn't earn a pass past 3 intervals
+    expect(getFairnessState(30, 7).key).toBe("needsAttention");
+  });
+
+  it("Fair state carries the expected mark values", () => {
+    expect(getFairnessState(0, 5)).toMatchObject({ key: "fair", ring: "#2E7D53", tilt: 0, label: "Fair", toast: "Subs still fair" });
   });
 });

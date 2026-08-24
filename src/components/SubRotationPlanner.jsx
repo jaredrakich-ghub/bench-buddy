@@ -209,6 +209,11 @@ export default function SubRotationPlanner({ user }) {
     setRotationOverlayStats({
       averageMinutes: Math.round(computeAveragePitchMinutes(plan, availableIds)),
       maxDifference: Math.round(computeFairnessSpread(plan, availableIds)),
+      // The fairness bands scale with this (getFairnessState,
+      // fairness.js) — every interval in a freshly built plan is the
+      // same length by construction, so the first one is a safe,
+      // cheap stand-in for the whole game's own interval length.
+      intervalLen: plan[0].endMin - plan[0].startMin,
     });
   }, [plan, availableIds]);
 
@@ -652,6 +657,7 @@ export default function SubRotationPlanner({ user }) {
         <RotationProgressOverlay
           averageMinutes={rotationOverlayStats.averageMinutes}
           maxDifference={rotationOverlayStats.maxDifference}
+          intervalLen={rotationOverlayStats.intervalLen}
           onContinue={() => {
             setRotationOverlayStats(null);
             setShowSettingsModal(false);
