@@ -497,17 +497,15 @@ export default function MatchView({
     return () => clearTimeout(timer);
   }, [activeSwap, reducedMotion]);
 
-  // Takes one or more {outId, inId} pairs — a normal sub is one pair, the
-  // final60 sheet's "Sub done" can fire several at once — animates every
-  // affected pitch slot/bench chip, then actually performs the change via
-  // `commit`. Each pair is reoriented so outId always means "was on the
-  // pitch before this" regardless of which token the coach tapped first,
-  // keeping the travel direction (down off the pitch, up onto it)
-  // consistent. A pair that's bench-on-both-sides is a genuine no-op
-  // (nothing to sub, nothing on screen would move) and is skipped; if
-  // every pair turns out to be a no-op, `commit` still runs, just with no
-  // animation ahead of it.
-  const beginSwap = (pairs, commit) => {
+  // Turns one or more {outId, inId} pairs into the participants/pitchSlot
+  // map beginSwap (and the deferred final60 path below) both need — pure,
+  // reads only the CURRENT viewedIv, no state of its own. Each pair is
+  // reoriented so outId always means "was on the pitch before this"
+  // regardless of which token the coach tapped first, keeping the travel
+  // direction (down off the pitch, up onto it) consistent. A pair that's
+  // bench-on-both-sides is a genuine no-op (nothing to sub, nothing on
+  // screen would move) and is skipped.
+  const computeSwapPlan = (pairs) => {
     const layout = getFormationLayout(viewedIv.onField);
     const slotOf = (id) => {
       const s = layout.find((x) => x.id === id);
@@ -536,15 +534,57 @@ export default function MatchView({
       participants[inId] = { preLoc: locIn, postLoc: locOut };
       announcementParts.push(`${nameOf(inId)} on for ${nameOf(outId)}`);
     }
-    if (Object.keys(participants).length === 0) {
+    return { participants, pitchSlotFor, announcement: announcementParts.join(". ") };
+  };
+
+  // Used by trySwapComplete and "Make keeper" — both call the real
+  // onSwap themselves, so the data flip and the animation can start
+  // together, one rAF after the tap (see the "pending" effect above).
+  // NOT used by "Sub done" — see pendingConfirm below for why that one's
+  // different. If every pair turns out to be a no-op, `commit` still
+  // runs, just with no animation ahead of it.
+  const beginSwap = (pairs, commit) => {
+    const plan = computeSwapPlan(pairs);
+    if (Object.keys(plan.participants).length === 0) {
       commit();
       return;
     }
-    setActiveSwap({
-      participants, pitchSlotFor, phase: "pending",
-      key: `${Date.now()}-${Math.random()}`, commit, announcement: announcementParts.join(". "),
-    });
+    setActiveSwap({ ...plan, phase: "pending", key: `${Date.now()}-${Math.random()}`, commit });
   };
+
+  // "Sub done" is different from the other two triggers: it never calls
+  // onSwap at all (see confirmSubLog below — it only ever writes a
+  // timestamp to subLog). The pitch/bench occupants for a scheduled sub
+  // change entirely on their own, driven purely by the live clock
+  // crossing the interval boundary (useMatchState's own auto-follow
+  // effect, untouched by any of this) — not by this tap. Calling
+  // beginSwap directly here used to animate against data that hadn't
+  // actually changed yet, so the "swap" quietly reverted a few seconds
+  // later and the real change, whenever the clock got to it, landed with
+  // no animation at all — the bug real-use feedback caught.
+  //
+  // Fix: capture the plan now (who's involved, their pre-swap slots) but
+  // don't animate yet — park it here and let the effect just below fire
+  // the actual animation the moment activeInterval genuinely advances
+  // past this interval, whichever real mechanism gets it there. That
+  // keeps the clock's own logic 100% untouched while still tying the
+  // animation to the coach's own tap: an advance nobody confirmed never
+  // gets a pendingConfirm to consume, so it stays exactly as instant and
+  // unanimated as it is today.
+  const [pendingConfirm, setPendingConfirm] = useState(null);
+  // shape: { forIndex, participants, pitchSlotFor, announcement }
+  useEffect(() => {
+    if (!pendingConfirm || activeInterval <= pendingConfirm.forIndex) return;
+    setPendingConfirm(null);
+    setActiveSwap({
+      participants: pendingConfirm.participants,
+      pitchSlotFor: pendingConfirm.pitchSlotFor,
+      announcement: pendingConfirm.announcement,
+      phase: "pending",
+      key: `${Date.now()}-${Math.random()}`,
+      commit: () => {}, // the real change already happened — the clock did it, nothing left to do
+    });
+  }, [activeInterval, pendingConfirm]);
 
   // Shared by every token everywhere (pitch, bench, injured) — mid-swap
   // (swapPickId set), any tap completes the swap with whoever was just
@@ -1391,8 +1431,17 @@ export default function MatchView({
                 onClick={() => {
                   const confirmIndex = cur.index;
                   const confirmSec = elapsedSec;
+                  setSubLog((prev) => ({ ...prev, [confirmIndex]: confirmSec }));
+                  // See pendingConfirm's own comment above: this doesn't
+                  // animate anything itself — it just registers that
+                  // whenever the clock's own auto-follow effect actually
+                  // advances the board past this interval, that specific
+                  // advance should carry the animation.
                   const pairs = final60Rows.filter((r) => r.outId && r.inId).map((r) => ({ outId: r.outId, inId: r.inId }));
-                  beginSwap(pairs, () => setSubLog((prev) => ({ ...prev, [confirmIndex]: confirmSec })));
+                  const plan = computeSwapPlan(pairs);
+                  if (Object.keys(plan.participants).length > 0) {
+                    setPendingConfirm({ forIndex: confirmIndex, ...plan });
+                  }
                 }}
               >
                 Sub done ✓

@@ -588,10 +588,11 @@ describe("MatchView — final60 sheet", () => {
     const setSubLog = vi.fn();
     render(<MatchView {...baseProps({ timerRunning: true, activeInterval: 0, elapsedSec: 340, setSubLog })} />);
     fireEvent.click(within(screen.getByTestId("final60-sheet")).getByText("Sub done ✓"));
-    // The swap-animation trigger (MatchView block: motion for committed
-    // swaps) defers the actual commit by one rAF past the tap, so the
-    // browser has a genuine "from" frame to transition away from — see
-    // beginSwap's own comment. setSubLog fires on that same tick.
+    // Unlike trySwapComplete/Make-keeper, Sub done's own subLog write is
+    // NOT deferred through the swap-animation trigger — it never called
+    // onSwap in the first place, so there's no real data change to
+    // synchronize an animation frame against yet (see pendingConfirm's
+    // own comment, MatchView.jsx, for the bug that caused and the fix).
     await waitFor(() => expect(setSubLog).toHaveBeenCalled());
     const updater = setSubLog.mock.calls[0][0];
     expect(updater({})).toEqual({ 0: 340 });
@@ -1148,5 +1149,63 @@ describe("MatchView — swap-animation dual-mount + gold hold marker (Backlog: m
     expect(nameSpans("Finn").length).toBe(1);
 
     window.matchMedia = originalMatchMedia;
+  });
+});
+
+describe("MatchView — Sub done's swap animation waits for the real clock advance", () => {
+  beforeEach(() => vi.useFakeTimers());
+
+  // Sub done never calls onSwap — the pitch/bench occupants for interval
+  // 1 only ever come from the clock crossing into it (useMatchState's own
+  // auto-follow effect, simulated here by literally advancing
+  // activeInterval once the "clock" decides to, independently of the tap
+  // below) — this harness's whole point is proving the animation waits
+  // for that real advance instead of firing (and then reverting) right on
+  // the tap.
+  function Harness({ activeInterval, setActiveInterval }) {
+    // Real subLog state, not a static prop — otherwise confirmedAt never
+    // actually becomes defined and the final60 sheet (with its own
+    // "Dan" text in the swap-rows list) never closes, muddying the
+    // pitch/bench assertions below with a second, unrelated "Dan".
+    const [subLog, setSubLog] = useState({});
+    return (
+      <MatchView
+        {...baseProps({
+          plan: defaultPlan, activeInterval, elapsedSec: 340, timerRunning: true, setActiveInterval, subLog, setSubLog,
+        })}
+      />
+    );
+  }
+
+  it("does not animate on the tap itself, and does animate once activeInterval genuinely advances", () => {
+    let activeInterval = 0;
+    const setActiveInterval = vi.fn((next) => {
+      activeInterval = next;
+    });
+    const { rerender } = render(<Harness activeInterval={activeInterval} setActiveInterval={setActiveInterval} />);
+
+    fireEvent.click(within(screen.getByTestId("final60-sheet")).getByText("Sub done ✓"));
+    act(() => vi.advanceTimersByTime(16)); // nothing pending to flip yet — no real advance happened
+
+    const nameSpans = (text) => screen.getAllByText(text).filter((el) => el.tagName === "SPAN");
+    // Interval 0 still showing, unchanged — Dan (p4, leaving) and Finn
+    // (p6, arriving) each have exactly their one real token, no ghost of
+    // either, because nothing has actually moved yet.
+    expect(nameSpans("Dan").length).toBe(1);
+    expect(nameSpans("Finn").length).toBe(1);
+
+    // The clock (not this tap) is what really advances the board — same
+    // as useMatchState's own auto-follow effect would, moments later.
+    rerender(<Harness activeInterval={1} setActiveInterval={setActiveInterval} />);
+    act(() => vi.advanceTimersByTime(16)); // flush the newly-queued "pending" -> "active" flip
+
+    // NOW both Dan (fading out) and Finn (rising in) are on screen at
+    // once — the dual-mount finally has real data to animate against.
+    expect(nameSpans("Dan").length).toBeGreaterThan(0);
+    expect(nameSpans("Finn").length).toBeGreaterThan(0);
+
+    act(() => vi.advanceTimersByTime(650 + 140 + 220 + 2000 + 520 + 200));
+    expect(nameSpans("Dan").length).toBe(1);
+    expect(nameSpans("Finn").length).toBe(1);
   });
 });
