@@ -902,9 +902,11 @@ export const styles = {
   // team name — a small "TEAM" eyebrow above it now, on both places this
   // crest+name pairing appears (MatchView's own header and
   // SquadSettingsForm's first-team-setup header, which already share
-  // mdHeader/mdCrestOuter/mdTeamName). Two independent alignment asks,
-  // confirmed across two rounds of real-use feedback: the label's own top
-  // lines up with the crest's top, AND the name's own centre lines up
+  // mdHeader/mdCrestOuter/mdTeamName). Two independent alignment anchors,
+  // confirmed across several rounds of real-use feedback: the label sits
+  // a deliberate few px below the crest's own top (not flush with it —
+  // real-use feedback that flush-top read as the label and name not
+  // looking connected to each other), AND the name's own centre lines up
   // with the crest's centre. Chaining the label above the name (bottom:
   // 100% + a margin) could only ever satisfy one of those at a time — the
   // gap between them would silently steal from whichever wasn't pinned.
@@ -912,20 +914,20 @@ export const styles = {
   // wrapper instead, and the wrapper itself is given the crest's own
   // height (62 — must stay in sync with mdCrestOuter's) so that when the
   // row's usual alignItems:center centres this wrapper exactly like it
-  // centres the crest, "top:0" on the label and "top:50%" on the name
-  // land on the crest's own top and centre respectively, for real,
-  // regardless of exactly how tall either line of text renders.
+  // centres the crest, "top" on the label and "top:50%" on the name are
+  // both measured from the crest's own top, for real, regardless of
+  // exactly how tall either line of text renders.
   mdTeamNameStack: { flex: 1, minWidth: 0, position: "relative", height: 62 },
   mdTeamNameLabel: {
-    position: "absolute", top: 0, left: 0,
+    // 4px, not 0 — see the comment above: sitting exactly flush with the
+    // crest's top read as disconnected from the name below it. Splits the
+    // "3-6px" the real-use feedback asked for.
+    position: "absolute", top: 4, left: 0,
     fontFamily: tokens.font.body, fontWeight: 800, fontSize: 11, color: tokens.color.mutedText,
     textTransform: "uppercase", letterSpacing: "0.08em", whiteSpace: "nowrap",
-    // lineHeight:1, not the font's own default (~1.3) — real-use feedback
-    // to keep an eye on the gap to the name below. top:0 has to stay
-    // fixed (that's what keeps this aligned to the crest's own top), so
-    // the only lever left to open the gap without moving that anchor is
-    // shrinking the label's own box height from the *bottom* — which is
-    // exactly what tightening its line-height does.
+    // lineHeight:1, not the font's own default (~1.3) — shrinks the
+    // label's own box from the bottom, independent of its top offset
+    // above, so this and the top:4 tweak don't fight each other.
     lineHeight: 1,
   },
   mdTeamName: {
