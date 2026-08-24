@@ -953,17 +953,32 @@ export default function SquadSettingsForm({
 
   if (variant === "edit") {
     return (
-      // display:flex/flexDirection:column + minHeight:100vh is what makes
-      // the submit button's own margin-top:auto (below) mean something —
+      // display:flex/flexDirection:column + minHeight is what makes the
+      // submit button's own margin-top:auto (below) mean something —
       // pushed to the bottom of a full screen's height rather than sitting
       // right after the last accordion row on a short page.
+      //
+      // 100dvh, not 100vh — real-device feedback, again: even with the
+      // button's own marginBottom fudge factor (styles.js has the story),
+      // it was still dropping out of view at the bottom on a short
+      // settings page. 100vh reports the *largest possible* viewport,
+      // ignoring whatever browser chrome (Safari's collapsing toolbar
+      // especially) is actually on screen at that moment — so this
+      // column, and the "bottom" margin-top:auto measures against, could
+      // both be taller than what's genuinely visible, regardless of how
+      // big the button's own bottom margin was made. 100dvh instead
+      // tracks the *actual* visible viewport live, toolbar state and all,
+      // so "the bottom of this column" now means the same thing as "the
+      // bottom of what the coach can actually see" — the margin fudge
+      // factor is still there for a deliberate visual gap, not to
+      // compensate for this any more.
       //
       // The confirm sheet/scrim below are position:fixed (viewport-
       // anchored, styles.js has the real-device story on why), so they
       // float over whatever's here rather than needing this wrapper to
       // reserve space or provide a positioning anchor for them — no
       // position:relative or open-state paddingBottom needed.
-      <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+      <div style={{ display: "flex", flexDirection: "column", minHeight: "100dvh" }}>
         {header}
 
         {/* Backlog #1, corrected: the same "Who's here" block the
@@ -1067,9 +1082,11 @@ export default function SquadSettingsForm({
   //      later revisits Game settings should recognize the same screen,
   //      not have to learn two different layouts for one job.
   // Same flex-column wrapper as "edit" now too, so the submit button's
-  // own margin-top:auto behaves identically on both.
+  // own margin-top:auto behaves identically on both — 100dvh, not 100vh,
+  // for the same real-device reason "edit"'s own copy of this wrapper
+  // explains in full.
   return (
-    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "100dvh" }}>
       {header}
 
       {/* Real-use feedback: "a considerable amount of space between the
