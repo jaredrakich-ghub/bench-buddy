@@ -1000,14 +1000,14 @@ describe("MatchView — mid-match fairness toast", () => {
     expect(words.closest('[aria-live="polite"]')).toBeInTheDocument();
   });
 
-  it("fades out on its own after ~3s, without needing a tap to dismiss", () => {
+  it("fades out on its own after ~5s, without needing a tap to dismiss", () => {
     const { rerender } = render(<MatchView {...baseProps()} />);
     rerender(<MatchView {...baseProps({ plan: planWithP7Injured })} />);
     act(() => vi.advanceTimersByTime(16));
     const toast = screen.getByText("Nearly even").closest('[aria-live="polite"]');
     expect(toast).toHaveStyle({ opacity: "1" });
 
-    act(() => vi.advanceTimersByTime(3000));
+    act(() => vi.advanceTimersByTime(5000));
     expect(toast).toHaveStyle({ opacity: "0" });
   });
 

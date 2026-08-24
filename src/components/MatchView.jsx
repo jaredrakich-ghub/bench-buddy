@@ -77,7 +77,7 @@ function usePrefersReducedMotion() {
 // from (same reasoning as RotationProgressOverlay's own `mounted` flag —
 // flipping straight to the "shown" styles in the very same commit that
 // mounts a node paints right into the end state with nothing to animate
-// away from). Owns its full life on its own: reveals itself, holds ~3s,
+// away from). Owns its full life on its own: reveals itself, holds ~5s,
 // fades out — the parent never has to track visibility, only whether to
 // render one at all.
 //
@@ -93,7 +93,7 @@ function FairnessToastMark({ spreadMin, intervalLen }) {
   const reducedMotion = usePrefersReducedMotion();
   useEffect(() => {
     const showRaf = requestAnimationFrame(() => setRevealed(true));
-    const hideTimer = setTimeout(() => setRevealed(false), 3000);
+    const hideTimer = setTimeout(() => setRevealed(false), 5000);
     return () => {
       cancelAnimationFrame(showRaf);
       clearTimeout(hideTimer);
