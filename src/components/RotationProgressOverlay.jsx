@@ -6,8 +6,29 @@ import { tokens } from "./styles.js";
 const STEPS = [
   { icon: "⚽", label: "Checking playing time" },
   { icon: "⚖️", label: "Balancing rotations" },
-  { icon: "✨", label: "Finding the fairest setup" },
+  // icon: null — this step renders SparkleIcon (below) instead of a plain
+  // emoji glyph; see its own comment for why.
+  { icon: null, label: "Finding the fairest setup" },
 ];
+
+// Real-use feedback: the plain "✨" emoji's own glyph colours (a solid
+// gold star on most platforms) washed out against this step's own
+// headerYellow "active" disc — a yellow icon on a yellow background.
+// Hand-drawn instead, like every other custom icon in this app
+// (matchDayIcons.jsx, strokeIcons.jsx) — two 4-point sparkle stars in two
+// different, deliberately-not-pale colours (deepGreen, a near-black
+// green, and the app's own saturated yellow token, not the pale
+// headerYellow this sits on) so it reads clearly against both this
+// step's own possible disc backgrounds (headerYellow active, creamDeep
+// pending) rather than just one flat glyph colour.
+function SparkleIcon({ size = 20 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M9 2L10.4 7.6 16 9 10.4 10.4 9 16 7.6 10.4 2 9 7.6 7.6Z" fill={tokens.color.deepGreen} />
+      <path d="M18 2.5L18.7 5.3 21.5 6 18.7 6.7 18 9.5 17.3 6.7 14.5 6 17.3 5.3Z" fill={tokens.color.yellow} />
+    </svg>
+  );
+}
 
 // Steps advance roughly 530ms apart; the card flips to the success state
 // at ~1800ms total — both purely a perceived-effort pause (the actual
@@ -307,6 +328,8 @@ export default function RotationProgressOverlay({ averageMinutes, maxDifference,
                       <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke={tokens.color.creamPaper} strokeWidth={3.6} strokeLinecap="round" strokeLinejoin="round">
                         <path d="M4 12.5l5 5L20 6.5" />
                       </svg>
+                    ) : i === 2 ? (
+                      <SparkleIcon />
                     ) : (
                       step.icon
                     )}
