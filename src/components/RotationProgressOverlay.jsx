@@ -409,8 +409,16 @@ export default function RotationProgressOverlay({ averageMinutes, maxDifference,
               position: "absolute", left: 0, right: 0, top: 0, zIndex: 3, // above the confetti layer below (zIndex 2), same relationship as before
               display: "flex", flexDirection: "column", gap: 14,
               opacity: phase === "success" ? 1 : 0,
+              // Fades up into place rather than just fading in flat — the
+              // stage's own height still eases open underneath this (so the
+              // card doesn't hard-snap its outer size), but that's no
+              // longer what reads as the reveal. This rise is what does:
+              // real-use feedback said the height-driven reveal alone read
+              // as a hard, visible growth from the bottom rather than
+              // something settling into place.
+              transform: phase === "success" ? "translateY(0)" : "translateY(14px)",
               pointerEvents: phase === "success" ? "auto" : "none",
-              transition: transition("opacity .4s ease"),
+              transition: transition("opacity .4s ease, transform .4s cubic-bezier(.22,.9,.3,1)"),
             }}
           >
             <div
