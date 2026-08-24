@@ -116,6 +116,13 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
     sync();
     const id = setInterval(sync, 1000);
     return () => clearInterval(id);
+    // activeTeamId/gameSettings/availableIds/teamData.roster (read above,
+    // only on the once-per-game archive branch) don't need to tear down
+    // and recreate this interval on every one of their own unrelated
+    // changes — sync() already closes over their latest values fresh
+    // each time this effect *does* re-run, which happens on every real
+    // game transition anyway (plan/timerRunning both change together).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timerRunning, runStartedAt, baseElapsedSec, plan]);
 
   // While the timer's running, jump the board to the live interval on every

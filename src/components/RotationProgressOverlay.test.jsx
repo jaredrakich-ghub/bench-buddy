@@ -110,9 +110,8 @@ describe("RotationProgressOverlay", () => {
   });
 
   it("renders 16 confetti pieces on success, none when reduced motion is preferred", () => {
-    const { container, rerender } = render(<RotationProgressOverlay averageMinutes={22} maxDifference={2} onContinue={() => {}} />);
+    const { container } = render(<RotationProgressOverlay averageMinutes={22} maxDifference={2} onContinue={() => {}} />);
     act(() => vi.advanceTimersByTime(1800));
-    const layer = container.querySelector('[aria-hidden="true"] > div');
     // 16 confetti pieces sit inside the aria-hidden confetti layer.
     expect(container.querySelectorAll('[aria-hidden="true"] div[style*="position: absolute"]').length).toBeGreaterThanOrEqual(16);
 

@@ -46,6 +46,11 @@ jobs:
           path: ~/.cache/firebase/emulators
           key: firebase-emulators-${{ hashFiles('package-lock.json') }}
       - run: npm ci
+      # Catches real mistakes (Rules of Hooks violations, undefined
+      # variables, etc.) before spending time on the slower test/emulator
+      # steps below — added after a live crash (React error #310) that a
+      # linter would have caught the moment the code was written.
+      - run: npm run lint
       - run: npm test
       # Runs the security-rules and firestoreTeams.js CRUD suite against the
       # local Firestore/Auth emulators (a "demo-" project — see .firebaserc —

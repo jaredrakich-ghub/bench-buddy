@@ -2,7 +2,7 @@
 // using @firebase/rules-unit-testing. This runs against the local Firestore
 // emulator only — never the real bench-buddy-ada85 project — via
 // `npm run test:emulator` (see vitest.emulator.config.js).
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, test } from "vitest";
 import { readFileSync } from "node:fs";
 import { initializeTestEnvironment, assertSucceeds, assertFails } from "@firebase/rules-unit-testing";
 import { doc, getDoc, setDoc, updateDoc, deleteDoc } from "firebase/firestore";
