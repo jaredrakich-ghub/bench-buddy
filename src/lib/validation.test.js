@@ -48,20 +48,22 @@ describe("validateGameSettings", () => {
     expect(validateGameSettings(goodSettings, 0).valid).toBe(false);
   });
 
-  it("requires enough available players to fill the field plus at least one bench spot, not just 2", () => {
-    // fieldSize 5: exactly 5 available fills the field with an empty bench —
-    // nobody to ever substitute, so this should be rejected even though 5 > 2.
-    const noBench = validateGameSettings({ ...goodSettings, fieldSize: 5 }, 5);
-    expect(noBench.valid).toBe(false);
-    expect(noBench.errors[0]).toMatch(/at least 6/);
+  it("requires enough available players to fill the field, not fieldSize + 1 — a bench isn't required", () => {
+    // fieldSize 5: exactly 5 available fills the field with an empty bench.
+    // Real-use feedback: this is a real, supported case (managing a fair
+    // keeper rotation among a fixed set of outfielders, nobody ever
+    // subbed off), so it should be valid, not rejected for lacking a sub.
+    expect(validateGameSettings({ ...goodSettings, fieldSize: 5 }, 5).valid).toBe(true);
 
-    // One more (6 = field size + 1) is exactly enough for a single sub.
-    expect(validateGameSettings({ ...goodSettings, fieldSize: 5 }, 6).valid).toBe(true);
+    // One fewer than the field size still can't fill it, regardless.
+    const tooFew = validateGameSettings({ ...goodSettings, fieldSize: 5 }, 4);
+    expect(tooFew.valid).toBe(false);
+    expect(tooFew.errors[0]).toMatch(/at least 5/);
   });
 
   it("falls back to the plain 'at least 2' message when fieldSize itself is invalid, rather than a confusing compound message", () => {
     const result = validateGameSettings({ ...goodSettings, fieldSize: 0 }, 1);
-    expect(result.errors).toContain("Select at least 2 available players.");
+    expect(result.errors).toContain("Select at least 2 available players to fill the field.");
   });
 
   it("reports multiple errors at once when several fields are invalid", () => {

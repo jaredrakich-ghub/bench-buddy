@@ -712,8 +712,17 @@ export const styles = {
     width: 32, height: 32, borderRadius: "50%", border: "none", flexShrink: 0, cursor: "pointer",
     display: "flex", alignItems: "center", justifyContent: "center", background: "transparent", color: tokens.color.mutedText,
   },
+  // marginBottom, not just marginTop — the submit button right after this
+  // relies on margin-top:auto to sit at the bottom of the screen's flex
+  // column (see mdSetupSubmitBtnPrimary's own comment), which only leaves
+  // a gap if there's leftover space in the column to soak up. Real-device
+  // feedback: on a screen tall enough to need this warning but not much
+  // taller than that, the auto-margin had almost nothing left to claim,
+  // so the button sat right against (visually "intersecting") the warning
+  // below it. This guarantees a real minimum gap regardless of how much
+  // room the auto-margin actually has to work with.
   mdSetupWarning: {
-    marginTop: 14, fontSize: 13, fontFamily: tokens.font.body, fontWeight: 700, color: tokens.color.injuryText,
+    marginTop: 14, marginBottom: 14, fontSize: 13, fontFamily: tokens.font.body, fontWeight: 700, color: tokens.color.injuryText,
     background: tokens.color.injuryTint, border: `1px solid ${tokens.color.injuryBorder}`, padding: "10px 14px", borderRadius: 14,
   },
   // mdSetupSubmitBtn (the old yellow "inline"-only submit) removed —

@@ -615,7 +615,9 @@ describe("SquadSettingsForm — sub-interval recommendation", () => {
 describe("SquadSettingsForm — validation and submit", () => {
   it("disables submit and shows the validation error when there aren't enough available players", () => {
     render(<SquadSettingsForm {...baseProps({ availableIds: ["p1"] })} />);
-    expect(screen.getByText(/Select at least 6 available players/)).toBeInTheDocument();
+    // fieldSize 5 (baseProps default) -- a bench isn't required any more,
+    // so the minimum is exactly the field size, not field size + 1.
+    expect(screen.getByText(/Select at least 5 available players/)).toBeInTheDocument();
     expect(screen.getByText("Generate Rotation")).toBeDisabled();
   });
 

@@ -271,9 +271,9 @@ describe("useMatchState — guard clauses", () => {
 describe("useMatchState — addArrival / removeAvailability (A7-Squad-change)", () => {
   // A 7-player roster this time — p6 deliberately left off availableIds,
   // the "hasn't arrived yet" case addArrival is for. 6 of the 7 available
-  // meets this app's own minimum (fieldSize + 1, i.e. at least one bench
-  // spot) for fieldSize 5, so this is a squad that could actually start a
-  // real game, not an artificially short one.
+  // comfortably clears this app's own minimum (fieldSize itself, for
+  // fieldSize 5) with a real bench spot to spare, so this is a squad that
+  // could actually start a real game, not an artificially short one.
   const ROSTER7 = Array.from({ length: 7 }, (_, i) => ({ id: `p${i}`, name: `Player ${i}`, keeperEligible: true }));
   const TEAM7 = { id: "t1", name: "Scorpions", roster: ROSTER7, settings: { fieldSize: 5, gameMinutes: 12, subIntervalMinutes: 6 } };
 

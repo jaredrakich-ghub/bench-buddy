@@ -30,18 +30,17 @@ export function validateGameSettings(settings, availableCount) {
       errors.push("Keeper shift must be 0 or greater.");
     }
   }
-  // The real minimum isn't a flat 2 — it's however many fill the field plus
-  // at least one player on the bench, since a bench of zero means there's
-  // nothing to ever substitute. If fieldSize itself isn't valid, that's
-  // already flagged above, so just fall back to the bare "need someone to
-  // rotate" floor here rather than compounding a confusing message.
-  const minAvailable = Number.isFinite(fieldSize) && fieldSize >= 2 ? fieldSize + 1 : 2;
+  // The real minimum is however many fill the field — a bench isn't
+  // required. Real-use feedback: a squad with no subs at all is a real,
+  // supported case (see fixedRotation.js's own "puts nobody on the bench
+  // when the squad exactly fills the field" test), used to manage a fair
+  // keeper rotation among a fixed set of outfielders with nobody ever
+  // subbed off. If fieldSize itself isn't valid, that's already flagged
+  // above, so just fall back to the bare "need someone to play" floor
+  // here rather than compounding a confusing message.
+  const minAvailable = Number.isFinite(fieldSize) && fieldSize >= 2 ? fieldSize : 2;
   if (availableCount < minAvailable) {
-    errors.push(
-      minAvailable > 2
-        ? `Select at least ${minAvailable} available players — ${fieldSize} on the field, plus at least 1 on the bench.`
-        : "Select at least 2 available players."
-    );
+    errors.push(`Select at least ${minAvailable} available players to fill the field.`);
   }
 
   return { valid: errors.length === 0, errors };
