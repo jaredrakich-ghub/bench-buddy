@@ -902,18 +902,26 @@ export const styles = {
   // team name — a small "TEAM" eyebrow above it now, on both places this
   // crest+name pairing appears (MatchView's own header and
   // SquadSettingsForm's first-team-setup header, which already share
-  // mdHeader/mdCrestOuter/mdTeamName). alignSelf:flex-start is the actual
-  // alignment decision, not an afterthought: mdHeaderTopRow centres its
-  // children (alignItems:center), and the 62px crest is the tallest thing
-  // in that row, so the crest's own top edge *is* the row's top edge with
-  // zero slack. Opting this stack out of that centring and pinning it to
-  // the row's top instead is what makes "TEAM" line up with the top of
-  // the crest specifically, rather than landing wherever a centred block
-  // of this particular height happens to fall.
-  mdTeamNameStack: { flex: 1, minWidth: 0, alignSelf: "flex-start" },
+  // mdHeader/mdCrestOuter/mdTeamName). Real-use feedback again: the name
+  // itself, not the label, should line up with the crest's own centre —
+  // mdHeaderTopRow's alignItems:center already puts the crest's centre at
+  // the row's centre (it's the tallest thing in the row, by definition),
+  // so the trick is getting the *name specifically*, not the whole
+  // label+name block, to be what that centring measures. The label is
+  // position:absolute (bottom:100% of this wrapper, i.e. sitting directly
+  // above it with its own marginBottom gap) so it never contributes to
+  // the wrapper's own layout height — only the name does — meaning the
+  // row's normal centring lands correctly on the name's own centre, not
+  // some midpoint between two stacked lines.
+  mdTeamNameStack: { flex: 1, minWidth: 0, position: "relative" },
   mdTeamNameLabel: {
+    position: "absolute", bottom: "100%", left: 0,
+    // Deliberately more than the 2px this started at — real-use feedback
+    // was to keep an eye on this specifically so it doesn't read as
+    // cramped against the name below it.
+    marginBottom: 4,
     fontFamily: tokens.font.body, fontWeight: 800, fontSize: 11, color: tokens.color.mutedText,
-    textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2,
+    textTransform: "uppercase", letterSpacing: "0.08em", whiteSpace: "nowrap",
   },
   mdTeamName: {
     fontFamily: tokens.font.display, fontWeight: 800, fontSize: 21, color: tokens.color.deepGreen,
