@@ -52,17 +52,45 @@ function PitchMarkings({ height }) {
   );
 }
 
-// The mid-match fairness toast (see the header's own `key={toastTriggerCount}`
-// call site) — a fresh instance of this mounts per trigger rather than one
-// shared, reused element, so its own "revealed" flip always has a genuine
-// hidden-first frame to transition from (same reasoning as
-// RotationProgressOverlay's own `mounted` flag — flipping straight to the
-// "shown" styles in the very same commit that mounts a node paints right
-// into the end state with nothing to animate away from). Owns its full
-// life on its own: reveals itself, holds ~3s, fades out — the parent never
-// has to track visibility, only whether to render one at all.
-function FairnessToastPill({ spreadMin, intervalLen }) {
+// Not shared with RotationProgressOverlay's own identical hook — this is
+// scoped deliberately to this one file for this change (see the file-
+// level instruction this was built against: MatchView.jsx only, nothing
+// else touched, not even a same-behavior extraction into a shared hook).
+function usePrefersReducedMotion() {
+  const [reduced, setReduced] = useState(
+    () => typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const onChange = (e) => setReduced(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return reduced;
+}
+
+// The mid-match fairness toast (see the timer row's own
+// `key={toastTriggerCount}` call site) — a fresh instance of this mounts
+// per trigger rather than one shared, reused element, so its own
+// "revealed" flip always has a genuine hidden-first frame to transition
+// from (same reasoning as RotationProgressOverlay's own `mounted` flag —
+// flipping straight to the "shown" styles in the very same commit that
+// mounts a node paints right into the end state with nothing to animate
+// away from). Owns its full life on its own: reveals itself, holds ~3s,
+// fades out — the parent never has to track visibility, only whether to
+// render one at all.
+//
+// Just the fairness mark now, no pill/background/words on screen (real-
+// use feedback: block 10C's dark pill retired) — the mark alone,
+// centred on the timer's own line box. The wrapping div here (not
+// FairnessMark itself) supplies the drop shadow this context wants,
+// exactly matching FairnessMark's own size/shape so it reads as one
+// piece — FairnessMark stays untouched, "same ring, same beam, same
+// proportions" as the 44px success-card mark, nothing redrawn.
+function FairnessToastMark({ spreadMin, intervalLen }) {
   const [revealed, setRevealed] = useState(false);
+  const reducedMotion = usePrefersReducedMotion();
   useEffect(() => {
     const showRaf = requestAnimationFrame(() => setRevealed(true));
     const hideTimer = setTimeout(() => setRevealed(false), 3000);
@@ -75,17 +103,25 @@ function FairnessToastPill({ spreadMin, intervalLen }) {
     <div
       aria-live="polite"
       style={{
-        position: "absolute", right: 18, bottom: 22, pointerEvents: "none",
-        background: tokens.color.actionBar, borderRadius: 999, padding: "7px 14px 7px 7px",
-        boxShadow: "0 5px 14px rgba(20,32,28,.3)",
-        display: "flex", flexDirection: "row", alignItems: "center", gap: 9,
+        position: "absolute", right: 0, top: 0, height: 63, pointerEvents: "none",
+        display: "flex", alignItems: "center",
         opacity: revealed ? 1 : 0,
-        transform: revealed ? "translateX(0) scale(1)" : "translateX(18px) scale(.94)",
-        transition: "opacity .28s ease, transform .42s cubic-bezier(.22,.9,.3,1)",
+        transform: revealed ? "translateX(0)" : "translateX(16px)",
+        transition: reducedMotion ? "none" : "opacity .5s ease, transform .5s cubic-bezier(.25,.8,.35,1)",
       }}
     >
-      <FairnessMark spreadMin={spreadMin} intervalLen={intervalLen} size={32} ringWidth={2.5} glyphSize={17} />
-      <span style={{ fontFamily: tokens.font.display, fontWeight: 800, fontSize: 16, color: tokens.color.creamPaper, whiteSpace: "nowrap" }}>
+      <div style={{ width: 56, height: 56, borderRadius: "50%", boxShadow: "0 5px 14px rgba(20,32,28,.16)" }}>
+        <FairnessMark spreadMin={spreadMin} intervalLen={intervalLen} size={56} ringWidth={3.8} glyphSize={29} />
+      </div>
+      {/* Not drawn, but still in the accessibility tree — the aria-live
+          region above still announces this once even though the words
+          themselves are gone from the screen. */}
+      <span
+        style={{
+          position: "absolute", width: 1, height: 1, padding: 0, margin: -1,
+          overflow: "hidden", clip: "rect(0,0,0,0)", whiteSpace: "nowrap", border: 0,
+        }}
+      >
         {getFairnessState(spreadMin, intervalLen).toast}
       </span>
     </div>
@@ -553,10 +589,7 @@ export default function MatchView({
     // `main` (SubRotationPlanner.jsx) already reserves bottom clearance
     // for exactly this on every screen it renders.
     <section>
-      {/* position:relative added here specifically (not on the shared
-          mdHeader token itself, which SquadSettingsForm's own crest
-          header also uses) — anchors the fairness toast below. */}
-      <div style={{ ...styles.mdHeader, position: "relative" }}>
+      <div style={styles.mdHeader}>
         <div style={styles.mdHeaderTopRow}>
           <div style={styles.mdCrestOuter}>{crestSrc && <img src={crestSrc} alt="" style={styles.mdCrestImg} />}</div>
           <div style={styles.mdTeamName}>{teamName}</div>
@@ -574,7 +607,10 @@ export default function MatchView({
             <GearIcon size={28} />
           </button>
         </div>
-        <div style={styles.mdTimerRow}>
+        {/* position:relative — this row's only change — anchors the
+            fairness toast mark below to sit flush against this row's own
+            right edge, vertically centred on the timer's own line box. */}
+        <div style={{ ...styles.mdTimerRow, position: "relative" }}>
           {/* No more "Paused" text chip — the Play/Pause icon on the
               action bar's clock button already says which state it's in.
               Start/Pause/Resume lives in the action bar now, next to
@@ -607,15 +643,15 @@ export default function MatchView({
             {fmtClock(elapsedSec)}
           </button>
           <span style={styles.mdTimerCaption}>of {Math.round(totalGameSec / 60)} min</span>
-        </div>
 
-        {/* key={toastTriggerCount}: forces a brand-new instance on every
-            fresh trigger (rather than reusing one across triggers), so a
-            second change landing while the first toast is still fading
-            still gets its own full enter transition and its own aria-live
-            announcement, instead of silently no-op'ing because the
-            underlying visibility flag was already "shown". */}
-        {toastTriggerCount > 0 && <FairnessToastPill key={toastTriggerCount} spreadMin={spreadMin} intervalLen={intervalLen} />}
+          {/* key={toastTriggerCount}: forces a brand-new instance on
+              every fresh trigger (rather than reusing one across
+              triggers), so a second change landing while the first toast
+              is still fading still gets its own full enter transition and
+              its own aria-live announcement, instead of silently no-op'ing
+              because the underlying visibility flag was already "shown". */}
+          {toastTriggerCount > 0 && <FairnessToastMark key={toastTriggerCount} spreadMin={spreadMin} intervalLen={intervalLen} />}
+        </div>
       </div>
       {/* Reclaimed header height (caption moved beside the timer instead of
           under it) is spent on a taller pitch below, not left as empty

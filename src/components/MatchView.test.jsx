@@ -977,20 +977,27 @@ describe("MatchView — mid-match fairness toast", () => {
     expect(screen.queryByText(/Subs still fair|Nearly even|Evening it up/)).not.toBeInTheDocument();
   });
 
-  it("flashes the fairness mark once the plan actually changes, holding an aria-live announcement", () => {
+  // defaultPlan/planWithP7Injured: p7 never appears on either interval's
+  // onField list in either fixture, so their spread against all 7
+  // available players is 12 (p1/p2/p3/p5 at 12 min each vs. p7 at 0),
+  // against this fixture's own 6-min intervals — 2 intervals' worth
+  // (12 min), over the 10-min ceiling for that band, so "nearly fair"
+  // (getFairnessState, fairness.js) either way, same toast copy for
+  // both plans.
+  it("shows just the fairness mark on the trigger — no visible pill or on-screen words, real-use feedback retired that", () => {
     const { rerender } = render(<MatchView {...baseProps()} />);
     rerender(<MatchView {...baseProps({ plan: planWithP7Injured })} />);
     act(() => vi.advanceTimersByTime(16)); // flush the entrance rAF
 
-    // defaultPlan/planWithP7Injured: p7 never appears on either interval's
-    // onField list in either fixture, so their spread against all 7
-    // available players is 12 (p1/p2/p3/p5 at 12 min each vs. p7 at 0),
-    // against this fixture's own 6-min intervals — 2 intervals' worth
-    // (12 min), over the 10-min ceiling for that band, so "nearly fair"
-    // (getFairnessState, fairness.js) either way, same toast copy for
-    // both plans.
-    const toast = screen.getByText("Nearly even");
-    expect(toast.closest('[aria-live="polite"]')).toBeInTheDocument();
+    // The mark itself: drawn, 56px, correctly labelled by state.
+    const mark = screen.getByRole("img", { name: "Nearly fair" });
+    expect(mark).toHaveStyle({ width: "56px", height: "56px" });
+
+    // The toast copy is still in the DOM (so aria-live still announces
+    // it once) but visually hidden — not a drawn pill with visible text.
+    const words = screen.getByText("Nearly even");
+    expect(words).toHaveStyle({ position: "absolute", width: "1px", height: "1px", overflow: "hidden" });
+    expect(words.closest('[aria-live="polite"]')).toBeInTheDocument();
   });
 
   it("fades out on its own after ~3s, without needing a tap to dismiss", () => {
@@ -1004,7 +1011,7 @@ describe("MatchView — mid-match fairness toast", () => {
     expect(toast).toHaveStyle({ opacity: "0" });
   });
 
-  it("never requires a dismiss tap — the pill itself ignores pointer events", () => {
+  it("never requires a dismiss tap — the holder itself ignores pointer events", () => {
     const { rerender } = render(<MatchView {...baseProps()} />);
     rerender(<MatchView {...baseProps({ plan: planWithP7Injured })} />);
     act(() => vi.advanceTimersByTime(16));
