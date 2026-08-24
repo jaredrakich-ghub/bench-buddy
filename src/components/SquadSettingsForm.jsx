@@ -151,8 +151,19 @@ export default function SquadSettingsForm({
   initialExpandedSection = null,
   // Only used by the "inline" variant's own crest+title header (see
   // `header` below) — the very-first-team case, which has no onClose to
-  // hang a back button off of instead.
+  // hang a back button off of instead — and by the "edit" variant's own
+  // small crest+name row (see teamName below), so this one prop serves
+  // both headers rather than needing a second copy of the same image.
   crestSrc,
+  // Backlog #1: confirming which team you're setting up next. Only passed
+  // for the "Set up next game" moment specifically (SubRotationPlanner
+  // gates it on isMatchComplete) — every other "edit" call (plain "Game
+  // settings" mid-match) leaves this unset, since there's no ambiguity
+  // about which team you're looking at while its own match is live on
+  // screen right behind this modal. Presence of this prop, not a separate
+  // boolean, is what decides whether the header's small crest+name row
+  // renders at all.
+  teamName,
   // True while RotationProgressOverlay is showing over this screen —
   // disables the submit button (see renderWarningsAndSubmit) so the build
   // sequence can't be restarted underneath the overlay's own scrim.
@@ -787,7 +798,15 @@ export default function SquadSettingsForm({
             ‹
           </button>
         )}
-        <div style={styles.mdSubHeaderTitle}>{title}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {teamName && (
+            <div style={styles.mdSubHeaderTeamRow}>
+              {crestSrc && <img src={crestSrc} alt="" style={styles.mdSubHeaderTeamCrest} />}
+              <span style={styles.mdSubHeaderTeamName}>{teamName}</span>
+            </div>
+          )}
+          <div style={styles.mdSubHeaderTitle}>{title}</div>
+        </div>
       </div>
     );
 

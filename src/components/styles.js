@@ -1332,6 +1332,19 @@ export const styles = {
     fontFamily: tokens.font.display, fontWeight: 800, fontSize: 26, color: tokens.color.deepGreen,
   },
   mdSubHeaderTitle: { flex: 1, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 27, color: tokens.color.deepGreen },
+  // Backlog #1 — "Set up next game" showing which team, implicitly, by
+  // actually naming it (SquadSettingsForm's teamName prop). Small and
+  // above the title, not a redesign of the sub-header shape itself —
+  // every other screen sharing mdSubHeader is untouched by this.
+  mdSubHeaderTeamRow: { display: "flex", alignItems: "center", gap: 6, marginBottom: 2 },
+  mdSubHeaderTeamCrest: {
+    width: 22, height: 22, borderRadius: "50%", flexShrink: 0, objectFit: "cover", objectPosition: "50% 46%",
+    border: `2px solid ${tokens.color.pitchGreen}`, background: "#fff",
+  },
+  mdSubHeaderTeamName: {
+    fontFamily: tokens.font.body, fontWeight: 800, fontSize: 13, color: tokens.color.groupLabel,
+    textTransform: "uppercase", letterSpacing: "0.04em",
+  },
   // Same dot+rule shape as mdPopoverGroupHeader (cog menu), but this
   // screen's own label color per the README (#3E5148, named `groupLabel`
   // above) rather than mdPopoverGroupLabel's #6B7C72 — kept as its own

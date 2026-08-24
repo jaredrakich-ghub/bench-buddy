@@ -193,6 +193,24 @@ describe("SquadSettingsForm — rendering (edit / A4 layout)", () => {
     expect(header).toHaveStyle({ backgroundColor: "rgb(251, 227, 166)" }); // tokens.color.headerYellow
   });
 
+  // Backlog #1: confirm which team you're setting up next, implicitly, by
+  // actually naming it — only for the "Set up next game" moment
+  // (SubRotationPlanner passes teamName only when isMatchComplete); a
+  // plain mid-match "Game settings" visit never gets this prop at all.
+  it("shows a small crest+team-name row above the title when teamName is given", () => {
+    const { container } = render(
+      <SquadSettingsForm {...baseProps({ variant: "edit", title: "Set up next game", teamName: "Scorpions", crestSrc: "/crest.jpg", onClose: vi.fn() })} />
+    );
+    expect(screen.getByText("Scorpions")).toBeInTheDocument();
+    expect(screen.getByText("Set up next game")).toBeInTheDocument();
+    expect(container.querySelector('img[src="/crest.jpg"]')).toBeInTheDocument();
+  });
+
+  it("omits the crest+team-name row entirely for a plain 'Game settings' visit (no teamName)", () => {
+    const { container } = render(<SquadSettingsForm {...baseProps({ variant: "edit", title: "Game settings", onClose: vi.fn() })} />);
+    expect(container.querySelector("img")).not.toBeInTheDocument();
+  });
+
   it("shows the three advanced sections collapsed to one-line rows carrying their current value", () => {
     render(<SquadSettingsForm {...baseProps({ variant: "edit" })} />);
     expect(screen.getByText("First in goal today")).toBeInTheDocument();
