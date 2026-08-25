@@ -174,23 +174,43 @@ function FairnessToastMark({ spreadMin, intervalLen }) {
 // reveal a tick later" idiom as FairnessToastMark/the swap animation,
 // needed here because the transition wouldn't otherwise have a real
 // "from" frame to animate away from.
-function Final60SheetShell({ onDismiss, testId, ariaLabel, children }) {
+// exiting/onExited add a real exit transition (real-use feedback: both
+// sheets used to just vanish instantly on dismiss — tap, drag, or their
+// own timer — with only the entrance ever animated). While exiting is
+// true, this renders the exact same "hidden" rest state a not-yet-
+// revealed sheet uses, so it fades/slides away using the same 240ms
+// curve; onExited fires once that's had time to finish, telling the
+// parent it's safe to actually stop rendering this — the caller owns
+// the timing of when exiting flips true (a dismiss tap, a drag past the
+// threshold, or a timeout), this component only owns animating that.
+function Final60SheetShell({ onDismiss, exiting, onExited, testId, ariaLabel, children }) {
   const [revealed, setRevealed] = useState(false);
   const reducedMotion = usePrefersReducedMotion();
   useEffect(() => {
     const raf = requestAnimationFrame(() => setRevealed(true));
     return () => cancelAnimationFrame(raf);
   }, []);
+  useEffect(() => {
+    if (!exiting) return undefined;
+    if (reducedMotion) {
+      onExited();
+      return undefined;
+    }
+    const timer = setTimeout(onExited, 260); // the 240ms transition itself, plus a small margin
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exiting, reducedMotion]);
   const drag = useSheetDrag(onDismiss);
   const dragging = drag.dragStyle.transition === "none";
+  const shown = revealed && !exiting;
   return (
     <div
       style={{
         ...styles.mdFinal60Shell,
-        opacity: reducedMotion ? 1 : revealed ? 1 : 0,
+        opacity: reducedMotion ? (exiting ? 0 : 1) : shown ? 1 : 0,
         transform: reducedMotion
           ? drag.dragStyle.transform
-          : `${drag.dragStyle.transform} ${revealed ? "translateY(0)" : "translateY(24px)"}`,
+          : `${drag.dragStyle.transform} ${shown ? "translateY(0)" : "translateY(24px)"}`,
         transition: dragging ? "none" : reducedMotion ? "none" : "opacity 240ms ease, transform 240ms ease",
       }}
       data-testid={testId}
@@ -212,12 +232,18 @@ function Final60SheetShell({ onDismiss, testId, ariaLabel, children }) {
 // check) and every regular bench arrival. Nobody leaving, and nobody just
 // changing position while staying on, appears here at all — they have
 // nothing to do yet either.
-function PrepareSheet({ pendingChanges, keeperFromBench, nameOf, numberOf, toggleTimer, onReady, onMount }) {
+function PrepareSheet({ pendingChanges, keeperFromBench, nameOf, numberOf, toggleTimer, onReady, exiting, onExited, onMount }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => onMount(), []);
   const { comingOnIds, becomingKeeperId } = pendingChanges;
   return (
-    <Final60SheetShell onDismiss={onReady} testId="prepare-sheet" ariaLabel="Prepare for the next substitution">
+    <Final60SheetShell
+      onDismiss={onReady}
+      exiting={exiting}
+      onExited={onExited}
+      testId="prepare-sheet"
+      ariaLabel="Prepare for the next substitution"
+    >
       <div style={styles.mdFinal60TitleRow}>
         <span style={styles.mdPrepareTitle}>Next sub 60 secs</span>
         <span style={styles.mdFinal60Label}>GET READY</span>
@@ -267,11 +293,17 @@ function stepTitle(step, nameOf) {
   if (step.titleKind === "takesField") return `${name} takes the field`;
   return `${name} comes off`;
 }
-function ExecuteSheet({ steps, nameOf, numberOf, toggleTimer, onSubDone, onDismiss, onMount }) {
+function ExecuteSheet({ steps, nameOf, numberOf, toggleTimer, onDismiss, exiting, onExited, onMount }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => onMount(), []);
   return (
-    <Final60SheetShell onDismiss={onDismiss} testId="execute-sheet" ariaLabel="Make the changes">
+    <Final60SheetShell
+      onDismiss={onDismiss}
+      exiting={exiting}
+      onExited={onExited}
+      testId="execute-sheet"
+      ariaLabel="Make the changes"
+    >
       <div style={styles.mdFinal60TitleRow}>
         <span style={styles.mdExecuteTitle}>Make the changes</span>
         <span style={styles.mdFinal60Label}>30 secs to go</span>
@@ -310,56 +342,17 @@ function ExecuteSheet({ steps, nameOf, numberOf, toggleTimer, onSubDone, onDismi
         <button style={styles.mdFinal60ActionPause} onClick={toggleTimer}>
           <Pause size={20} /> Pause
         </button>
-        <button style={styles.mdFinal60ActionPrimary} onClick={onSubDone}>
+        {/* Block 11 real-use-feedback simplification: "sub done" is now a
+            coach acknowledgment, not an action — it changes no state and
+            has no effect on the board or on minutes, same as the prepare
+            sheet's own "Ready" (see MatchView's own comment where this is
+            wired up for the full reasoning). It's just this sheet's own
+            dismiss, same as the drag handle. */}
+        <button style={styles.mdFinal60ActionPrimary} onClick={onDismiss}>
           Sub done ✓
         </button>
       </div>
     </Final60SheetShell>
-  );
-}
-
-// The 30-seconds-late auto-apply's own visible cue (block 11: "must be
-// visible, not silent"). Reuses FairnessToastMark's reveal/fade mechanics
-// (the rAF-then-reveal mount trick, the timed auto-hide) but is its own
-// content — a text pill, not a ring — so it isn't built as a variant of
-// that component. Plain notification only, no action on it — an Undo
-// button was here initially but there was no pre-existing Undo mechanism
-// anywhere in this app to hook into, and real-use feedback was to drop it
-// rather than invent one: one less thing going on for a moment that's
-// already just informational.
-function AutoApplyToast({ message, onDone }) {
-  const [revealed, setRevealed] = useState(false);
-  const reducedMotion = usePrefersReducedMotion();
-  useEffect(() => {
-    const showRaf = requestAnimationFrame(() => setRevealed(true));
-    const hideTimer = setTimeout(() => setRevealed(false), 5000);
-    // Real-use feedback: this element is a normal flex child (unlike
-    // FairnessToastMark, which is position:absolute and so never affects
-    // layout) — fading its opacity to 0 alone left its own height +
-    // marginBottom permanently reserved, a persistent invisible gap above
-    // the action bar. onDone tells the parent to actually stop rendering
-    // it, once the fade-out transition itself (.4s) has had time to
-    // finish, not just the 5s hold.
-    const doneTimer = setTimeout(() => onDone(), 5400);
-    return () => {
-      cancelAnimationFrame(showRaf);
-      clearTimeout(hideTimer);
-      clearTimeout(doneTimer);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  return (
-    <div
-      style={{
-        ...styles.mdAutoApplyToast,
-        opacity: revealed ? 1 : 0,
-        transform: revealed ? "translateY(0)" : "translateY(10px)",
-        transition: reducedMotion ? "none" : "opacity .4s ease, transform .4s cubic-bezier(.25,.8,.35,1)",
-      }}
-      aria-live="polite"
-    >
-      <span style={styles.mdAutoApplyToastText}>{message}</span>
-    </div>
   );
 }
 
@@ -380,8 +373,6 @@ export default function MatchView({
   timerRunning,
   setTimerRunning,
   subLog,
-  setSubLog,
-  autoAppliedSub,
   swapPickId,
   setSwapPickId,
   injuredThisGame,
@@ -487,15 +478,18 @@ export default function MatchView({
   const secLeftInInterval = cur.endMin * 60 - elapsedSec;
 
   // Block 11's two sheets: which pending interval each has already been
-  // dismissed for (sheet 1: early tap, drag, or its own 10s auto-dismiss;
-  // sheet 2: drag only — Sub done resolves it a different way, by
-  // actually advancing pendingIndex past it). Compared by index, not a
-  // plain boolean, so a NEW pending interval always gets a fresh showing
-  // on both — explicitly not a "prepared" flag that persists or gates
-  // anything else, and dismissing sheet 2 this way still leaves the
-  // 30-seconds-late auto-apply (useMatchState.js) to resolve it for real.
+  // dismissed for — a tap, a drag, or its own auto-dismiss timer (10s for
+  // prepare, 20s for execute). Compared by index, not a plain boolean, so
+  // a NEW pending interval always gets a fresh showing on both —
+  // explicitly not a "prepared" flag that persists or gates anything
+  // else. ExitingFor tracks the brief window between "dismiss requested"
+  // and the sheet's own exit transition actually finishing (see
+  // Final60SheetShell) — DismissedFor is only set once that's done, which
+  // is what actually stops the sheet from rendering at all.
   const [sheet1DismissedForIndex, setSheet1DismissedForIndex] = useState(null);
+  const [sheet1ExitingForIndex, setSheet1ExitingForIndex] = useState(null);
   const [sheet2DismissedForIndex, setSheet2DismissedForIndex] = useState(null);
+  const [sheet2ExitingForIndex, setSheet2ExitingForIndex] = useState(null);
 
   // Four mutually-exclusive match states, driving which action-bar variant
   // (and, for final60, the full-screen sheet) renders below. Order matters
@@ -506,20 +500,33 @@ export default function MatchView({
   const isPreKickoff = !timerRunning && elapsedSec === 0 && !isMatchComplete;
   const isPaused = !timerRunning && elapsedSec > 0 && !isMatchComplete;
 
-  // Block 11 (the two-sheet final-60 rebuild): which interval's own
-  // incoming sub is still outstanding — decoupled from `cur` above, which
-  // is purely clock-derived and flips to the NEXT interval the instant
-  // elapsedSec crosses its boundary. The execute sheet has to keep
-  // describing THIS transition even after the clock runs past its
-  // planned end ("the whistle rarely lands on the planned second"), so it
-  // can't just ride along with `cur` the way the old single sheet did.
-  // Skips straight past any interval that never needed a confirmation at
-  // all (intervalNeedsSubConfirm false) — nothing ever blocks on those,
-  // same as useMatchState's own board-advance gate.
-  let pendingIndex = 0;
-  while (pendingIndex < plan.length - 1 && subLog[pendingIndex] !== undefined) pendingIndex++;
-  const pendingIv = plan[pendingIndex];
-  const pendingNextIv = plan[pendingIndex + 1];
+  // Block 11 (the two-sheet final-60 rebuild) — real-use-feedback
+  // simplification: "sub done" is a coach acknowledgment, not an action.
+  // The schedule is the single source of truth for minutes and for what
+  // the pitch shows — subLog plays no part in either any more (it used
+  // to gate the board itself, which is what caused the last two
+  // sessions' worth of real-device bugs). So pendingIndex is now purely
+  // arithmetic: which interval's own final-60 window elapsedSec
+  // currently falls inside, decoupled from `cur` above (which flips the
+  // instant the clock crosses the boundary) only so the execute sheet's
+  // own fixed on-screen window can span a few seconds past that boundary
+  // without the content underneath it changing mid-display. Only the
+  // live interval and the one right before it can ever match, since the
+  // window is far shorter than any real sub-interval. null when
+  // elapsedSec isn't inside either sheet's window at all, in which case
+  // neither one shows, full stop.
+  let pendingIndex = null;
+  for (const i of [intervalAtElapsed(plan, elapsedSec) - 1, intervalAtElapsed(plan, elapsedSec)]) {
+    if (i < 0 || i >= plan.length - 1) continue;
+    const secSinceEnd = elapsedSec - plan[i].endMin * 60;
+    if (secSinceEnd >= -60 && secSinceEnd < 30) {
+      pendingIndex = i;
+      break;
+    }
+  }
+  const safePendingIndex = pendingIndex ?? cur.index;
+  const pendingIv = plan[safePendingIndex];
+  const pendingNextIv = plan[safePendingIndex + 1];
   const pendingGk = pendingIv.onField.find((p) => p.isGk);
   const pendingNextGk = pendingNextIv?.onField.find((p) => p.isGk);
   const pendingGkChanging = Boolean(pendingNextGk) && (!pendingGk || pendingGk.id !== pendingNextGk.id);
@@ -544,18 +551,28 @@ export default function MatchView({
   // isPaused above): the real app's own tick effect always flips
   // timerRunning false the instant the match ends, but nothing about
   // these two booleans should quietly depend on that happening first.
+  const sheet1Trigger =
+    pendingIndex !== null && !isMatchComplete && timerRunning && pendingNeedsConfirm &&
+    secSincePendingEnd >= -60 && secSincePendingEnd < -30 && sheet1DismissedForIndex !== pendingIndex;
+  // pendingIndex !== null guards a real gap: both it and *ExitingForIndex
+  // default to null, and "nothing pending" must never spuriously equal
+  // "exiting for no interval in particular". sheet1DismissedForIndex
+  // !== pendingIndex guards a second gap: *ExitingForIndex is never reset
+  // once set, so once onExited actually fires (setting *DismissedForIndex
+  // in the very same tick sheetNTrigger's own dismissed-check goes false)
+  // this clause must stop holding the sheet up too, or it renders forever.
   const showSheet1 =
-    !isMatchComplete && timerRunning && pendingNeedsConfirm && secSincePendingEnd >= -60 && secSincePendingEnd < -30 &&
-    sheet1DismissedForIndex !== pendingIndex;
+    sheet1Trigger || (pendingIndex !== null && sheet1ExitingForIndex === pendingIndex && sheet1DismissedForIndex !== pendingIndex);
 
-  // SHEET 2 — EXECUTE, -30s onward. No upper bound on how late — it stays
-  // up past the boundary (secSincePendingEnd goes positive) until Sub
-  // done is tapped or the 30-seconds-late auto-apply (useMatchState.js)
-  // resolves it, either of which advances pendingIndex and makes this
-  // false again.
+  // SHEET 2 — EXECUTE, -30s onward, for a fixed 20 seconds (the effect
+  // below) or until an early tap/drag — no longer open-ended: it used to
+  // stay up until Sub done or the 30-seconds-late auto-apply resolved it,
+  // both now gone along with the gate they existed to serve.
+  const sheet2Trigger =
+    pendingIndex !== null && !isMatchComplete && timerRunning && pendingNeedsConfirm &&
+    secSincePendingEnd >= -30 && sheet2DismissedForIndex !== pendingIndex;
   const showSheet2 =
-    !isMatchComplete && timerRunning && pendingNeedsConfirm && secSincePendingEnd >= -30 &&
-    sheet2DismissedForIndex !== pendingIndex;
+    sheet2Trigger || (pendingIndex !== null && sheet2ExitingForIndex === pendingIndex && sheet2DismissedForIndex !== pendingIndex);
 
   // Whether the incoming keeper is a genuine bench arrival, or was
   // already on the pitch (an outfielder taking over the gloves with
@@ -581,34 +598,40 @@ export default function MatchView({
     becomingKeeperFromBench,
   });
 
-  // Sheet 1's own 10-second auto-dismiss. Only (re)starts when showSheet1
-  // actually flips false->true or pendingIndex genuinely changes — not on
-  // every render while it's already showing (showSheet1's own boolean
-  // value stays referentially the same `true` across the in-between
-  // re-renders elapsedSec ticking causes, so this effect doesn't restart
-  // the timer every second).
-  useEffect(() => {
-    if (!showSheet1) return undefined;
-    const timer = setTimeout(() => setSheet1DismissedForIndex(pendingIndex), 10000);
-    return () => clearTimeout(timer);
-  }, [showSheet1, pendingIndex]);
-
-  // The auto-apply toast's own copy — recomputed fresh from plan[index],
-  // not from pendingChanges (which is about whatever's pending NOW, not
-  // whichever past interval just auto-applied).
-  const autoApplyMessage = (index) => {
-    const iv = plan[index];
-    const nextIvForIndex = plan[index + 1];
-    if (!iv || !nextIvForIndex) return "Sub applied automatically";
-    const gk = iv.onField.find((p) => p.isGk);
-    const nextGkForIndex = nextIvForIndex.onField.find((p) => p.isGk);
-    const gkChangingForIndex = Boolean(nextGkForIndex) && (!gk || gk.id !== nextGkForIndex.id);
-    const changes = computeNextChangeBadges({
-      cur: iv, nextIv: nextIvForIndex, curGk: gk, nextGk: nextGkForIndex, gkChanging: gkChangingForIndex,
-    });
-    const arriving = [...changes.comingOnIds, ...(changes.becomingKeeperId ? [changes.becomingKeeperId] : [])].map(nameOf);
-    return arriving.length > 0 ? `Sub applied automatically: ${arriving.join(", ")} on` : "Sub applied automatically";
+  // Starts a sheet's own exit transition rather than yanking it straight
+  // out of the DOM — Final60SheetShell animates the fade/slide, then
+  // calls back once it's actually safe to stop rendering (see each
+  // ExitingForIndex/DismissedForIndex pair below). Guarded against
+  // double-firing (a drag past the threshold and a timeout landing at
+  // the same moment, say) since starting an already-in-progress exit
+  // over again would just restart its animation from the top.
+  const requestDismissSheet1 = () => {
+    if (sheet1ExitingForIndex === pendingIndex) return;
+    setSheet1ExitingForIndex(pendingIndex);
   };
+  const requestDismissSheet2 = () => {
+    if (sheet2ExitingForIndex === pendingIndex) return;
+    setSheet2ExitingForIndex(pendingIndex);
+  };
+
+  // Sheet 1's own 10-second, sheet 2's own 20-second auto-dismiss. Each
+  // only (re)starts when its own Trigger actually flips false->true or
+  // pendingIndex genuinely changes — not on every render while it's
+  // already showing (a Trigger boolean stays referentially the same
+  // `true` across the in-between re-renders elapsedSec ticking causes,
+  // so neither effect restarts its timer every second).
+  useEffect(() => {
+    if (!sheet1Trigger) return undefined;
+    const timer = setTimeout(requestDismissSheet1, 10000);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sheet1Trigger, pendingIndex]);
+  useEffect(() => {
+    if (!sheet2Trigger) return undefined;
+    const timer = setTimeout(requestDismissSheet2, 20000);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sheet2Trigger, pendingIndex]);
 
   // Who's changing going into the NEXT interval after whichever one is
   // currently being viewed (activeInterval) — not necessarily the live one
@@ -741,12 +764,14 @@ export default function MatchView({
   const showNextSubBadges = !isPreKickoff;
 
   // --- Coach-committed swap animation (motion + gold hold marker) ---
-  // Only three places ever call beginSwap: trySwapComplete just below,
-  // "Make keeper" (player-tap menu), and the final60 sheet's own "Sub
-  // done" button — the three moments a coach commits a change themselves.
-  // The clock's own auto-follow interval advance (useMatchState.js) still
-  // changes occupants in a single frame with no animation at all, exactly
-  // as before — nothing here touches that mechanism.
+  // Only two places ever call beginSwap: trySwapComplete just below, and
+  // "Make keeper" (player-tap menu) — the two moments a coach commits a
+  // change themselves. The final60 sheet's own "Sub done" no longer
+  // commits anything (it's a pure dismiss, same as "Ready"), so it never
+  // calls beginSwap. The clock's own auto-follow interval advance
+  // (useMatchState.js) still changes occupants in a single frame with no
+  // animation at all, exactly as before — nothing here touches that
+  // mechanism.
   //
   // activeSwap, when set, is the only thing that makes a token/chip
   // render twice — once fading out of its old spot, once rising into its
@@ -764,8 +789,8 @@ export default function MatchView({
   //     so the browser has a genuine "from" value to transition away
   //     from. "active" — the swap has actually been committed (data
   //     flipped) and the CSS transitions above are what carry the motion.
-  //   commit — the actual state change (onSwap, or subLog's timestamp)
-  //     to run the moment phase flips from pending to active.
+  //   commit — the actual onSwap state change to run the moment phase
+  //     flips from pending to active.
   const [activeSwap, setActiveSwap] = useState(null);
   const [swapAnnouncement, setSwapAnnouncement] = useState("");
 
@@ -774,22 +799,6 @@ export default function MatchView({
   // steps"). Shares the same visually-hidden region pattern as
   // swapAnnouncement below rather than a second copy of it.
   const [sheetAnnouncement, setSheetAnnouncement] = useState("");
-
-  // The 30-seconds-late auto-apply's own visible cue (AutoApplyToast) —
-  // watches autoAppliedSub (useMatchState.js) the same way the fairness
-  // toast watches `plan` above: comparing against the last-seen value via
-  // a ref, so a genuine new auto-apply always gets a fresh reveal even if
-  // the previous toast is still fading out. Undo just clears that
-  // specific interval's subLog entry back out — see AutoApplyToast's own
-  // comment for why that's the whole mechanism.
-  const [autoApplyToast, setAutoApplyToast] = useState(null); // { key, index, at } | null
-  const lastAutoAppliedRef = useRef(autoAppliedSub);
-  useEffect(() => {
-    if (autoAppliedSub === lastAutoAppliedRef.current) return;
-    lastAutoAppliedRef.current = autoAppliedSub;
-    if (!autoAppliedSub) return;
-    setAutoApplyToast({ key: `${autoAppliedSub.index}-${autoAppliedSub.at}`, index: autoAppliedSub.index });
-  }, [autoAppliedSub]);
 
   // One rAF after a swap is queued: perform the real commit and flip to
   // "active" in the same paint, so the CSS changes (from the pre-mounted
@@ -874,9 +883,8 @@ export default function MatchView({
   // Used by trySwapComplete and "Make keeper" — both call the real
   // onSwap themselves, so the data flip and the animation can start
   // together, one rAF after the tap (see the "pending" effect above).
-  // NOT used by "Sub done" — see pendingConfirm below for why that one's
-  // different. If every pair turns out to be a no-op, `commit` still
-  // runs, just with no animation ahead of it.
+  // If every pair turns out to be a no-op, `commit` still runs, just
+  // with no animation ahead of it.
   const beginSwap = (pairs, commit) => {
     const plan = computeSwapPlan(pairs);
     if (Object.keys(plan.participants).length === 0) {
@@ -885,40 +893,6 @@ export default function MatchView({
     }
     setActiveSwap({ ...plan, phase: "pending", key: `${Date.now()}-${Math.random()}`, commit });
   };
-
-  // "Sub done" is different from the other two triggers: it never calls
-  // onSwap at all (see confirmSubLog below — it only ever writes a
-  // timestamp to subLog). The pitch/bench occupants for a scheduled sub
-  // change entirely on their own, driven purely by the live clock
-  // crossing the interval boundary (useMatchState's own auto-follow
-  // effect, untouched by any of this) — not by this tap. Calling
-  // beginSwap directly here used to animate against data that hadn't
-  // actually changed yet, so the "swap" quietly reverted a few seconds
-  // later and the real change, whenever the clock got to it, landed with
-  // no animation at all — the bug real-use feedback caught.
-  //
-  // Fix: capture the plan now (who's involved, their pre-swap slots) but
-  // don't animate yet — park it here and let the effect just below fire
-  // the actual animation the moment activeInterval genuinely advances
-  // past this interval, whichever real mechanism gets it there. That
-  // keeps the clock's own logic 100% untouched while still tying the
-  // animation to the coach's own tap: an advance nobody confirmed never
-  // gets a pendingConfirm to consume, so it stays exactly as instant and
-  // unanimated as it is today.
-  const [pendingConfirm, setPendingConfirm] = useState(null);
-  // shape: { forIndex, participants, pitchSlotFor, announcement }
-  useEffect(() => {
-    if (!pendingConfirm || activeInterval <= pendingConfirm.forIndex) return;
-    setPendingConfirm(null);
-    setActiveSwap({
-      participants: pendingConfirm.participants,
-      pitchSlotFor: pendingConfirm.pitchSlotFor,
-      announcement: pendingConfirm.announcement,
-      phase: "pending",
-      key: `${Date.now()}-${Math.random()}`,
-      commit: () => {}, // the real change already happened — the clock did it, nothing left to do
-    });
-  }, [activeInterval, pendingConfirm]);
 
   // Shared by every token everywhere (pitch, bench, injured) — mid-swap
   // (swapPickId set), any tap completes the swap with whoever was just
@@ -1690,14 +1664,6 @@ export default function MatchView({
           explicitly: sub confirmation happens only in the final-60 sheet
           below, which already names who's coming off/on with room to
           spare — this bar no longer offers an early-confirm shortcut. */}
-      {autoApplyToast && !isMatchComplete && (
-        <AutoApplyToast
-          key={autoApplyToast.key}
-          message={autoApplyMessage(autoApplyToast.index)}
-          onDone={() => setAutoApplyToast(null)}
-        />
-      )}
-
       {isPreKickoff && !sheetOpen && (
         // Used to keep its own distinct shape — a status line, then ONE
         // full-width "Start match" button (README > A2e-Prekickoff's own
@@ -1785,7 +1751,9 @@ export default function MatchView({
                 nameOf={nameOf}
                 numberOf={numberOf}
                 toggleTimer={toggleTimer}
-                onReady={() => setSheet1DismissedForIndex(pendingIndex)}
+                onReady={requestDismissSheet1}
+                exiting={sheet1ExitingForIndex === pendingIndex}
+                onExited={() => setSheet1DismissedForIndex(pendingIndex)}
                 onMount={() =>
                   setSheetAnnouncement(
                     `Get ready: ${[
@@ -1807,23 +1775,10 @@ export default function MatchView({
                 nameOf={nameOf}
                 numberOf={numberOf}
                 toggleTimer={toggleTimer}
-                onDismiss={() => setSheet2DismissedForIndex(pendingIndex)}
+                onDismiss={requestDismissSheet2}
+                exiting={sheet2ExitingForIndex === pendingIndex}
+                onExited={() => setSheet2DismissedForIndex(pendingIndex)}
                 onMount={() => setSheetAnnouncement(`Make the changes, ${executeSteps.length} steps`)}
-                onSubDone={() => {
-                  const confirmIndex = pendingIndex;
-                  const confirmSec = elapsedSec;
-                  setSubLog((prev) => ({ ...prev, [confirmIndex]: confirmSec }));
-                  // See pendingConfirm's own comment above: this doesn't
-                  // animate anything itself — it just registers that
-                  // whenever the clock's own auto-follow effect actually
-                  // advances the board past this interval, that specific
-                  // advance should carry the animation.
-                  const pairs = executeSteps.filter((s) => s.outId && s.inId).map((s) => ({ outId: s.outId, inId: s.inId }));
-                  const plan = computeSwapPlan(pairs);
-                  if (Object.keys(plan.participants).length > 0) {
-                    setPendingConfirm({ forIndex: confirmIndex, ...plan });
-                  }
-                }}
               />
             )}
           </div>

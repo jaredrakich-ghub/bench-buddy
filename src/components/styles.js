@@ -1220,20 +1220,6 @@ export const styles = {
   },
   mdExecuteChipArrow: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 17, color: tokens.color.pitchGreen, flexShrink: 0 },
 
-  // ---- Auto-apply toast — reuses FairnessToastMark's own reveal/fade
-  // mechanics (see AutoApplyToast, MatchView.jsx) but is its own visual:
-  // a plain text pill, not a ring. In-flow, dropped in right above the
-  // action bar rather than fixed/anchored. Purely informational — no
-  // action on it (an Undo button was here initially; real-use feedback
-  // was to drop it rather than invent a mechanism nothing else in the app
-  // has), so the padding is even on both sides now, not left-heavy to
-  // make room for a trailing button.
-  mdAutoApplyToast: {
-    display: "flex", alignItems: "center", background: tokens.color.creamDeep,
-    borderRadius: tokens.radius.chip, padding: "9px 14px", marginBottom: tokens.spacing.rhythm,
-  },
-  mdAutoApplyToastText: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 14, color: tokens.color.deepGreen, flex: 1, minWidth: 0 },
-
   // ---- Anchored popovers (A2d-Menu-anchored, A2g-Player-tap). Both grow
   // out of the control that opened them — position:fixed with `top`
   // computed from that control's own getBoundingClientRect() at the

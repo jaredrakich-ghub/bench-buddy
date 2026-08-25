@@ -593,94 +593,33 @@ function makeInterval(index, startMin, endMin, onFieldIds, gkId, bench) {
   return { index, startMin, endMin, onField: onFieldIds.map((id) => ({ id, isGk: id === gkId })), bench };
 }
 
-// Block 11 (the two-sheet final-60 rebuild): the board no longer follows
-// the clock unconditionally across a boundary that actually needed a sub
-// confirmed — it waits for subLog to say so (a real tap, or the
-// 30-seconds-late auto-apply below). A hand-crafted plan here, not
-// startPlanning's own generated one — the point is to control exactly
-// whether the 0->1 transition needs confirming, not to depend on
-// whichever real rotation the fairness algorithm happens to produce for
-// a given roster.
-describe("useMatchState — board-advance gate on subLog (block 11)", () => {
+// Block 11 (the two-sheet final-60 rebuild) briefly gated the board's own
+// advance on subLog — a coach confirming each sub via tap, or a
+// 30-seconds-late safety net applying it for them. Real-use feedback
+// settled on "rely on the rotation" instead (see MatchView.jsx's final-60
+// sheets, and "Sub done" there being downgraded to a pure acknowledgment):
+// the board now follows the clock unconditionally again, same as "snaps
+// the board back to the live interval" above, and this hook never writes
+// subLog itself at all any more — a real transition that genuinely needs a
+// sub still crosses right on schedule, nothing pending to gate it on.
+describe("useMatchState — board-advance follows the clock unconditionally, subLog plays no part", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
-  const needsConfirmPlan = [
-    makeInterval(0, 0, 6, ["p0", "p1", "p2", "p3", "p4"], "p0", ["p5"]),
-    makeInterval(1, 6, 12, ["p0", "p1", "p2", "p3", "p5"], "p0", ["p4"]), // p4 -> p5, a real sub
-  ];
-
-  it("holds the board on interval 0 past the boundary until subLog[0] is set, then snaps forward", () => {
+  it("crosses the boundary on the clock alone, even with a real sub due and nothing ever confirmed", () => {
+    const needsConfirmPlan = [
+      makeInterval(0, 0, 6, ["p0", "p1", "p2", "p3", "p4"], "p0", ["p5"]),
+      makeInterval(1, 6, 12, ["p0", "p1", "p2", "p3", "p5"], "p0", ["p4"]), // p4 -> p5, a real sub
+    ];
     const { result } = setup();
     act(() => result.current.setPlan(needsConfirmPlan));
     act(() => {
       result.current.setRunStartedAt(Date.now());
       result.current.setTimerRunning(true);
     });
-
-    // 375s — 15s past the 360s boundary, still inside the 30s grace
-    // period the auto-apply effect (tested separately below) gets before
-    // it would step in on its own, so this is purely the tap-or-nothing
-    // gate being exercised, not the safety net.
-    act(() => vi.advanceTimersByTime(375_000));
-    expect(result.current.activeInterval).toBe(0); // held — nothing confirmed the sub yet
-
-    act(() => result.current.setSubLog({ 0: 375 }));
-    act(() => vi.advanceTimersByTime(1000)); // the gate effect re-reads subLog on its own next tick
-    expect(result.current.activeInterval).toBe(1); // now free to advance
-  });
-
-  it("does not hold the board at all for a transition that never needed a sub confirmed", () => {
-    const noSubPlan = [
-      makeInterval(0, 0, 6, ["p0", "p1", "p2", "p3", "p4"], "p0", []),
-      makeInterval(1, 6, 12, ["p0", "p1", "p2", "p3", "p4"], "p0", []), // identical lineup, empty bench
-    ];
-    const { result } = setup();
-    act(() => result.current.setPlan(noSubPlan));
-    act(() => {
-      result.current.setRunStartedAt(Date.now());
-      result.current.setTimerRunning(true);
-    });
-    act(() => vi.advanceTimersByTime(400_000));
-    expect(result.current.activeInterval).toBe(1); // sailed straight through, subLog untouched
-  });
-
-  it("30-seconds-late auto-apply fills in subLog for the coach, timestamped at that moment, only once", () => {
-    const { result } = setup();
-    act(() => result.current.setPlan(needsConfirmPlan));
-    act(() => {
-      result.current.setRunStartedAt(Date.now());
-      result.current.setTimerRunning(true);
-    });
-
-    act(() => vi.advanceTimersByTime(389_000)); // 389s — 29s past the 360s boundary, not late yet
-    expect(result.current.subLog[0]).toBeUndefined();
-    expect(result.current.autoAppliedSub).toBeNull();
-
-    act(() => vi.advanceTimersByTime(2000)); // now ~391s — 31s past, the safety net fires
-    expect(result.current.subLog[0]).toBeGreaterThanOrEqual(390);
-    expect(result.current.autoAppliedSub).toEqual({ index: 0, at: result.current.subLog[0] });
-
-    // Keeps ticking — must not keep re-firing for the same, now-resolved index.
-    const firedAt = result.current.subLog[0];
-    act(() => vi.advanceTimersByTime(5000));
-    expect(result.current.subLog[0]).toBe(firedAt);
-  });
-
-  it("never auto-applies a transition that has nothing to confirm", () => {
-    const noSubPlan = [
-      makeInterval(0, 0, 6, ["p0", "p1", "p2", "p3", "p4"], "p0", []),
-      makeInterval(1, 6, 12, ["p0", "p1", "p2", "p3", "p4"], "p0", []),
-    ];
-    const { result } = setup();
-    act(() => result.current.setPlan(noSubPlan));
-    act(() => {
-      result.current.setRunStartedAt(Date.now());
-      result.current.setTimerRunning(true);
-    });
-    act(() => vi.advanceTimersByTime(500_000));
-    expect(result.current.subLog).toEqual({});
-    expect(result.current.autoAppliedSub).toBeNull();
+    act(() => vi.advanceTimersByTime(400_000)); // well past the 360s boundary
+    expect(result.current.activeInterval).toBe(1);
+    expect(result.current.subLog).toEqual({}); // never written — nothing in this hook writes it any more
   });
 });
 

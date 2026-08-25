@@ -370,11 +370,12 @@ describe("MatchView — action bar", () => {
   // only place a sub gets confirmed; this bar is just the countdown and
   // the clock button.
   it("has no Sub done early-confirm option — only the clock button, on the last interval too", () => {
-    // subLog: {0: ...} — interval 0's own sub already confirmed, so
-    // pendingIndex has advanced to 1 (the last interval, nothing after
-    // it to sub into) rather than still sitting on interval 0's own
-    // transition just because elapsedSec has moved past it.
-    render(<MatchView {...baseProps({ activeInterval: 1, elapsedSec: 400, subLog: { 0: 361 } })} />);
+    // elapsedSec=400 is well past both final-60 sheets' windows for
+    // interval 0 (pendingIndex is purely arithmetic now — see
+    // MatchView.jsx — and finds nothing pending this far past the
+    // boundary), so neither sheet is showing and the plain running bar
+    // is all that's rendered.
+    render(<MatchView {...baseProps({ activeInterval: 1, elapsedSec: 400 })} />);
     expect(screen.queryByText("Sub done ✓")).not.toBeInTheDocument();
     expect(screen.getByText("Pause")).toBeInTheDocument();
   });
@@ -542,12 +543,17 @@ describe("MatchView — final-60 sheets (block 11: prepare + execute)", () => {
       expect(sheet.queryByText("Alice")).not.toBeInTheDocument();
     });
 
-    it("Ready dismisses it without writing to subLog — it changes no state at all", () => {
+    it("Ready fades it out (not an instant vanish) without writing to subLog — it changes no state at all", () => {
+      vi.useFakeTimers();
       const setSubLog = vi.fn();
       render(
         <MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 310, setSubLog })} />
       );
       fireEvent.click(within(screen.getByTestId("prepare-sheet")).getByText("Ready ✓"));
+      act(() => vi.advanceTimersByTime(16));
+      // Still mounted this soon after the tap — exiting, not gone yet.
+      expect(screen.getByTestId("prepare-sheet")).toBeInTheDocument();
+      act(() => vi.advanceTimersByTime(300)); // past the 240ms exit transition
       expect(screen.queryByTestId("prepare-sheet")).not.toBeInTheDocument();
       expect(setSubLog).not.toHaveBeenCalled();
     });
@@ -591,12 +597,16 @@ describe("MatchView — final-60 sheets (block 11: prepare + execute)", () => {
       expect(screen.getByTestId("execute-sheet")).toBeInTheDocument();
     });
 
-    it("does not show once this interval's sub is already confirmed, even inside the window", () => {
-      render(
-        <MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 340, subLog: { 0: 300 } })} />
-      );
+    it("auto-dismisses 20 seconds after it first appears, fading out rather than vanishing instantly", () => {
+      vi.useFakeTimers();
+      render(<MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 340 })} />);
+      expect(screen.getByTestId("execute-sheet")).toBeInTheDocument();
+      act(() => vi.advanceTimersByTime(20000));
+      // The 20s timer has fired (requestDismissSheet2) but the 240ms exit
+      // transition hasn't finished yet — still mounted, mid-fade.
+      expect(screen.getByTestId("execute-sheet")).toBeInTheDocument();
+      act(() => vi.advanceTimersByTime(300));
       expect(screen.queryByTestId("execute-sheet")).not.toBeInTheDocument();
-      expect(screen.getByText("Next sub 0:20")).toBeInTheDocument(); // plain bar back instead
     });
 
     it("does not show when there's nothing to confirm (empty bench, no keeper change)", () => {
@@ -615,20 +625,16 @@ describe("MatchView — final-60 sheets (block 11: prepare + execute)", () => {
       expect(tokenButtonFor("Finn")).toBeDisabled();
     });
 
-    it("Sub done writes to subLog for the pending interval, timestamped at the tap", async () => {
+    it("Sub done never writes to subLog — it's a pure dismiss, same as Ready", () => {
+      vi.useFakeTimers();
       const setSubLog = vi.fn();
       render(
         <MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 340, setSubLog })} />
       );
       fireEvent.click(within(screen.getByTestId("execute-sheet")).getByText("Sub done ✓"));
-      // Unlike trySwapComplete/Make-keeper, Sub done's own subLog write is
-      // NOT deferred through the swap-animation trigger — it never called
-      // onSwap in the first place, so there's no real data change to
-      // synchronize an animation frame against yet (see pendingConfirm's
-      // own comment, MatchView.jsx, for the bug that caused and the fix).
-      await waitFor(() => expect(setSubLog).toHaveBeenCalled());
-      const updater = setSubLog.mock.calls[0][0];
-      expect(updater({})).toEqual({ 0: 340 });
+      act(() => vi.advanceTimersByTime(300));
+      expect(screen.queryByTestId("execute-sheet")).not.toBeInTheDocument();
+      expect(setSubLog).not.toHaveBeenCalled();
     });
   });
 });
@@ -660,10 +666,10 @@ describe("MatchView — past-interval guard", () => {
 
   it("tapping a token on the live interval opens its action menu instead", async () => {
     const user = userEvent.setup();
-    // subLog: {0: ...} — same reasoning as the action-bar test above:
-    // without it, pendingIndex would still be sitting on interval 0's own
-    // (long-past) transition and lock the board via showSheet2.
-    render(<MatchView {...baseProps({ activeInterval: 1, elapsedSec: 400, subLog: { 0: 361 } })} />);
+    // elapsedSec=400 is well past interval 0's final-60 window (pendingIndex
+    // is purely arithmetic now — see MatchView.jsx — so it finds nothing
+    // pending this far past the boundary), so neither sheet locks the board.
+    render(<MatchView {...baseProps({ activeInterval: 1, elapsedSec: 400 })} />);
     expect(screen.queryByText(/Interval Complete/)).not.toBeInTheDocument();
     await user.click(tokenButtonFor("Bob"));
     expect(screen.getByText("Swap player")).toBeInTheDocument();
@@ -757,8 +763,8 @@ describe("MatchView — tap-to-act token menu", () => {
     expect(screen.getByText("Alice moves out")).toBeInTheDocument(); // p1 is the current keeper
 
     await user.click(screen.getByText("Make keeper"));
-    // Deferred one rAF past the tap by the swap-animation trigger — see
-    // "Sub done in the sheet writes to subLog" above for why.
+    // Deferred one rAF past the tap by the swap-animation trigger (see
+    // beginSwap, MatchView.jsx).
     await waitFor(() => expect(onSwap).toHaveBeenCalledWith("p6", "p1"));
   });
 
@@ -1219,107 +1225,37 @@ describe("MatchView — swap-animation dual-mount + gold hold marker (Backlog: m
   });
 });
 
-describe("MatchView — Sub done's swap animation waits for the real clock advance", () => {
+describe("MatchView — Sub done is a pure dismiss, never a swap animation", () => {
   beforeEach(() => vi.useFakeTimers());
 
-  // Sub done never calls onSwap — the pitch/bench occupants for interval
-  // 1 only ever come from the clock crossing into it (useMatchState's own
-  // auto-follow effect, simulated here by literally advancing
-  // activeInterval once the "clock" decides to, independently of the tap
-  // below) — this harness's whole point is proving the animation waits
-  // for that real advance instead of firing (and then reverting) right on
-  // the tap.
-  function Harness({ activeInterval, setActiveInterval }) {
-    // Real subLog state, not a static prop — otherwise confirmedAt never
-    // actually becomes defined and the final60 sheet (with its own
-    // "Dan" text in the swap-rows list) never closes, muddying the
-    // pitch/bench assertions below with a second, unrelated "Dan".
-    const [subLog, setSubLog] = useState({});
-    return (
-      <MatchView
-        {...baseProps({
-          plan: defaultPlan, activeInterval, elapsedSec: 340, timerRunning: true, setActiveInterval, subLog, setSubLog,
-        })}
-      />
+  // Real-use-feedback simplification: Sub done no longer calls onSwap or
+  // writes anything — it's this sheet's own dismiss, fading out on the
+  // same 240ms curve every other exit uses (see requestDismissSheet2,
+  // MatchView.jsx), not vanishing instantly. The pitch/bench occupants
+  // only ever change once the clock (not this tap) genuinely carries
+  // activeInterval into the next interval — and even then, with no
+  // animation at all (beginSwap is never called for this), so there's
+  // never a dual-mount ghost of either player.
+  it("fades out on tap without calling onSwap, then the board only moves once the clock actually advances", () => {
+    const onSwap = vi.fn();
+    const { rerender } = render(
+      <MatchView {...baseProps({ plan: defaultPlan, activeInterval: 0, elapsedSec: 340, timerRunning: true, onSwap })} />
     );
-  }
-
-  it("does not animate on the tap itself, and does animate once activeInterval genuinely advances", () => {
-    let activeInterval = 0;
-    const setActiveInterval = vi.fn((next) => {
-      activeInterval = next;
-    });
-    const { rerender } = render(<Harness activeInterval={activeInterval} setActiveInterval={setActiveInterval} />);
 
     fireEvent.click(within(screen.getByTestId("execute-sheet")).getByText("Sub done ✓"));
-    act(() => vi.advanceTimersByTime(16)); // nothing pending to flip yet — no real advance happened
+    act(() => vi.advanceTimersByTime(16));
+    expect(onSwap).not.toHaveBeenCalled();
+    // Still mounted this soon after the tap — exiting, not gone yet.
+    expect(screen.getByTestId("execute-sheet")).toBeInTheDocument();
 
+    act(() => vi.advanceTimersByTime(300)); // past the 240ms exit transition
+    expect(screen.queryByTestId("execute-sheet")).not.toBeInTheDocument();
+
+    // The clock (not this tap) is what actually moves the board.
+    rerender(<MatchView {...baseProps({ plan: defaultPlan, activeInterval: 1, elapsedSec: 400, timerRunning: true, onSwap })} />);
     const nameSpans = (text) => screen.getAllByText(text).filter((el) => el.tagName === "SPAN");
-    // Interval 0 still showing, unchanged — Dan (p4, leaving) and Finn
-    // (p6, arriving) each have exactly their one real token, no ghost of
-    // either, because nothing has actually moved yet.
-    expect(nameSpans("Dan").length).toBe(1);
-    expect(nameSpans("Finn").length).toBe(1);
-
-    // The clock (not this tap) is what really advances the board — same
-    // as useMatchState's own auto-follow effect would, moments later.
-    rerender(<Harness activeInterval={1} setActiveInterval={setActiveInterval} />);
-    act(() => vi.advanceTimersByTime(16)); // flush the newly-queued "pending" -> "active" flip
-
-    // NOW both Dan (fading out) and Finn (rising in) are on screen at
-    // once — the dual-mount finally has real data to animate against.
-    expect(nameSpans("Dan").length).toBeGreaterThan(0);
-    expect(nameSpans("Finn").length).toBeGreaterThan(0);
-
-    act(() => vi.advanceTimersByTime(650 + 140 + 220 + 2000 + 520 + 200));
-    expect(nameSpans("Dan").length).toBe(1);
-    expect(nameSpans("Finn").length).toBe(1);
+    expect(nameSpans("Dan").length).toBe(1); // now on the bench, one token, no fading-out ghost
+    expect(nameSpans("Finn").length).toBe(1); // now on the pitch, one token, no rising-in ghost
   });
 });
 
-describe("MatchView — auto-apply toast", () => {
-  beforeEach(() => vi.useFakeTimers());
-  afterEach(() => vi.useRealTimers());
-
-  it("shows nothing until autoAppliedSub actually changes", () => {
-    render(<MatchView {...baseProps()} />);
-    expect(screen.queryByText(/Sub applied automatically/)).not.toBeInTheDocument();
-  });
-
-  it("shows a message naming who came on when autoAppliedSub fires, and actually unmounts afterward — not just fades, leaving no permanent gap", () => {
-    const { rerender } = render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 390 })} />);
-    rerender(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 390, autoAppliedSub: { index: 0, at: 390 } })} />);
-    act(() => vi.advanceTimersByTime(16));
-
-    // defaultPlan interval 0 -> 1: Finn (p6) is the one regular bench
-    // arrival (the keeper handover, Alice -> Cara, is a pure on-pitch
-    // role swap with nobody arriving from the bench — see the prepare-
-    // sheet tests above for that same fixture's own shape).
-    expect(screen.getByText(/Sub applied automatically:.*Finn/)).toBeInTheDocument();
-
-    // Real-use feedback: this used to fade to opacity 0 but stay mounted
-    // forever, permanently reserving its own height + margin in the flex
-    // column above the action bar. Past the full hold+fade window, it
-    // must be gone from the DOM entirely, not just invisible.
-    act(() => vi.advanceTimersByTime(5400));
-    expect(screen.queryByText(/Sub applied automatically/)).not.toBeInTheDocument();
-  });
-
-  it("a fresh auto-apply (a different key) re-triggers the toast even if a previous one already fired", () => {
-    // Mounts with autoAppliedSub already null, same as the real app always
-    // does (useMatchState's own initial state) — mounting with it already
-    // set from the very first render would match the ref-diff trigger's
-    // own initial value and never fire at all, same reasoning as the
-    // fairness toast's "0 = never triggered yet" guard just above.
-    const { rerender } = render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 390 })} />);
-    rerender(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 390, autoAppliedSub: { index: 0, at: 390 } })} />);
-    act(() => vi.advanceTimersByTime(16));
-    expect(screen.getByText(/Sub applied automatically/)).toBeInTheDocument();
-    act(() => vi.advanceTimersByTime(5400));
-    expect(screen.queryByText(/Sub applied automatically/)).not.toBeInTheDocument();
-
-    rerender(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 390, autoAppliedSub: { index: 0, at: 700 } })} />);
-    act(() => vi.advanceTimersByTime(16));
-    expect(screen.getByText(/Sub applied automatically/)).toBeInTheDocument();
-  });
-});

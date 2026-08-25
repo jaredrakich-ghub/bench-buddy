@@ -41,7 +41,7 @@ export default function SubRotationPlanner({ user }) {
     activeInterval, setActiveInterval, lastLiveIntervalRef,
     injuredThisGame, setInjuredThisGame, injuredAt, setInjuredAt, elapsedSec, setElapsedSec,
     baseElapsedSec, setBaseElapsedSec, runStartedAt, setRunStartedAt,
-    timerRunning, setTimerRunning, subLog, setSubLog, autoAppliedSub, swapPickId, setSwapPickId,
+    timerRunning, setTimerRunning, subLog, setSubLog, swapPickId, setSwapPickId,
     startingGkId, setStartingGkId,
     keeperEligibleIds,
     startPlanning, handleInjury, bringBack, performSwap, addArrival, removeAvailability, resetClock,
@@ -499,8 +499,6 @@ export default function SubRotationPlanner({ user }) {
             timerRunning={timerRunning}
             setTimerRunning={setTimerRunning}
             subLog={subLog}
-            setSubLog={setSubLog}
-            autoAppliedSub={autoAppliedSub}
             swapPickId={swapPickId}
             setSwapPickId={setSwapPickId}
             injuredThisGame={injuredThisGame}
