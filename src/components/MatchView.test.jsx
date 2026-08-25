@@ -1115,10 +1115,21 @@ describe("MatchView — swap-animation dual-mount + gold hold marker (Backlog: m
     expect(nameSpans("Bob").length).toBeGreaterThan(0);
     expect(nameSpans("Finn").length).toBeGreaterThan(0);
 
-    // Past the full window (travel + 140ms delay + gold fade-in + 2000ms
-    // hold + gold fade-out + margin), activeSwap clears itself — each
-    // name is back down to exactly the one real token it actually has.
-    act(() => vi.advanceTimersByTime(650 + 140 + 220 + 2000 + 520 + 200));
+    // Real-use feedback: rendering Bob's arriving bench chip and Finn's
+    // departing one as two ordinary flex siblings made the row visibly
+    // reflow and the two names collide on screen — this pair shares one
+    // slot instead (renderBenchSlotPair), so both bench-side chips sit
+    // inside the SAME wrapper rather than as separate top-level items.
+    const pairSlot = document.querySelector('span[style*="display: inline-block"]');
+    expect(pairSlot).toBeTruthy();
+    expect(pairSlot.textContent).toContain("Bob");
+    expect(pairSlot.textContent).toContain("Finn");
+
+    // Past the full window (travel + 140ms delay + gold fade-in +
+    // GOLD_HOLD_MS hold + gold fade-out + margin), activeSwap clears
+    // itself — each name is back down to exactly the one real token it
+    // actually has.
+    act(() => vi.advanceTimersByTime(650 + 140 + 220 + 1000 + 520 + 200));
     expect(nameSpans("Bob").length).toBe(1);
     expect(nameSpans("Finn").length).toBe(1);
   });
@@ -1137,14 +1148,15 @@ describe("MatchView — swap-animation dual-mount + gold hold marker (Backlog: m
 
     // Reduced-motion's own travel is only 160ms, but the gold hold itself
     // is never shortened (part E, explicit) — clearing still waits out
-    // the full 2000ms hold plus its fades.
-    act(() => vi.advanceTimersByTime(160 + 140 + 220 + 1000));
+    // the full GOLD_HOLD_MS hold plus its fades. Checked partway through
+    // the hold (half of it), comfortably clear of either edge.
+    act(() => vi.advanceTimersByTime(160 + 140 + 220 + 500));
     const nameSpans = (text) => screen.getAllByText(text).filter((el) => el.tagName === "SPAN");
     // Still mid-hold — both real tokens present, nothing has cleared yet.
     expect(nameSpans("Bob").length).toBeGreaterThan(0);
     expect(nameSpans("Finn").length).toBeGreaterThan(0);
 
-    act(() => vi.advanceTimersByTime(1000 + 520 + 200));
+    act(() => vi.advanceTimersByTime(500 + 520 + 200));
     expect(nameSpans("Bob").length).toBe(1);
     expect(nameSpans("Finn").length).toBe(1);
 

@@ -18,6 +18,19 @@ import FairnessMark from "./FairnessMark.jsx";
 // is injury, everywhere else in this app.
 const CONFETTI_COLORS = ["#F5B93B", "#2E7D53", "#FBE3A6", "#CBE8D6", "#123F3D"];
 
+// Swap-animation gold hold marker (part C, backlog: motion for committed
+// swaps) — how long the ring sits at full opacity between its fade-in and
+// fade-out. Real-use feedback after shipping at 2000ms: felt a little too
+// long. One constant, read by goldRingStyle/the keyframe percentages and
+// the activeSwap cleanup timer below, so this is the only number to touch
+// if it needs tuning again — the fade-in (220ms) and fade-out (520ms)
+// durations, and the travel itself, are untouched per the original spec
+// ("if timing needs tuning later, tune the hold; leave the travel alone").
+const GOLD_HOLD_MS = 1000;
+const GOLD_FADE_IN_MS = 220;
+const GOLD_FADE_OUT_MS = 520;
+const GOLD_RING_TOTAL_MS = GOLD_FADE_IN_MS + GOLD_HOLD_MS + GOLD_FADE_OUT_MS;
+
 // Hand-drawn-style pitch markings (halfway line + centre circle) as one
 // absolutely-positioned SVG overlay, replacing the old plain CSS
 // border-circle/border-line. viewBox uses a fixed representative width
@@ -490,7 +503,7 @@ export default function MatchView({
   useEffect(() => {
     if (!activeSwap || activeSwap.phase !== "active") return undefined;
     const travelMs = reducedMotion ? 160 : 650;
-    const totalMs = travelMs + 140 + 220 + 2000 + 520 + 120; // +120 safety margin
+    const totalMs = travelMs + 140 + GOLD_RING_TOTAL_MS + 120; // +120 safety margin
     const timer = setTimeout(() => {
       setActiveSwap((s) => (s && s.key === activeSwap.key ? null : s));
     }, totalMs);
@@ -514,6 +527,14 @@ export default function MatchView({
     const pitchSlotFor = {};
     const participants = {};
     const announcementParts = [];
+    // Every pair where the incoming side started on the bench also has
+    // the outgoing side landing there (a straight bench<->pitch swap) —
+    // both chips are "the bench position being handed over," so the
+    // bench render groups them into one shared slot instead of two
+    // separate flex items. A pure field<->field pair (Make keeper onto
+    // an already-on-pitch player) never touches the bench at all and
+    // never appears here.
+    const benchPairs = [];
     for (const pair of pairs) {
       let { outId, inId } = pair;
       if (!outId || !inId) continue;
@@ -532,9 +553,10 @@ export default function MatchView({
       if (!outSlot && inSlot) pitchSlotFor[outId] = inSlot;
       participants[outId] = { preLoc: locOut, postLoc: locIn };
       participants[inId] = { preLoc: locIn, postLoc: locOut };
+      if (locIn === "bench") benchPairs.push({ outId, inId });
       announcementParts.push(`${nameOf(inId)} on for ${nameOf(outId)}`);
     }
-    return { participants, pitchSlotFor, announcement: announcementParts.join(". ") };
+    return { participants, pitchSlotFor, benchPairs, announcement: announcementParts.join(". ") };
   };
 
   // Used by trySwapComplete and "Make keeper" — both call the real
@@ -770,6 +792,26 @@ export default function MatchView({
     );
   };
 
+  // The shared slot for a straight bench<->pitch swap pair (see
+  // benchRenderList's own comment for why this exists at all): one flex
+  // item, sized to whichever of the two names is wider, with both chips
+  // absolutely stacked inside it so the departing one crossfades out
+  // exactly on top of the arriving one instead of sitting beside it.
+  // Reuses renderBenchToken untouched for each chip — only the
+  // positioning wrapper here is new.
+  const renderBenchSlotPair = ({ outId, inId }) => {
+    const wide = Math.max(nameOf(outId).length, nameOf(inId).length);
+    return (
+      <span
+        key={`${outId}-${inId}`}
+        style={{ position: "relative", display: "inline-block", width: Math.max(96, 60 + wide * 7), height: 42 }}
+      >
+        <span style={{ position: "absolute", inset: 0 }}>{renderBenchToken(outId)}</span>
+        <span style={{ position: "absolute", inset: 0 }}>{renderBenchToken(inId)}</span>
+      </span>
+    );
+  };
+
   // A2h-Injured's chip: tinted pink pill, red number disc, a small
   // cross badge on the corner — "the same read as an injury flag on a
   // football-game card" per the handoff, not just a recolored bench chip.
@@ -835,7 +877,16 @@ export default function MatchView({
         .filter(([id, p]) => !realBenchSet.has(id) && (p.preLoc === "bench" || p.postLoc === "bench"))
         .map(([id]) => id)
     : [];
-  const benchRenderList = [...viewedIv.bench, ...benchGhostIds];
+  // Real-use feedback: rendering the departing and arriving halves of a
+  // straight bench<->pitch swap as two ordinary flex items made the row
+  // temporarily grow to fit both, and the departing chip's own upward
+  // transform then visually collided with whatever else was sitting
+  // where it moved to — exactly the "reflow" part A's own spec called
+  // out. benchPairs (computeSwapPlan) groups each such pair so they
+  // share ONE flex item below instead, stacked on top of each other —
+  // the row's layout never has to make room for a second chip at all.
+  const benchPairIds = new Set((activeSwap?.benchPairs || []).flatMap((p) => [p.outId, p.inId]));
+  const benchRenderList = [...viewedIv.bench, ...benchGhostIds].filter((id) => !benchPairIds.has(id));
 
   // Rest-state opacity/transform/transition for one swap participant at
   // one location ("pitch" or "bench") this render — the CSS half of
@@ -872,15 +923,15 @@ export default function MatchView({
   // moment this ring itself mounts, which is exactly when "active" starts
   // (a fresh element per swap, via the key below) — so "140ms after
   // travel completes" is just travelMs + 140 from that same instant.
-  // Reduced motion still gets the full 2000ms hold — only the travel it's
-  // timed against is shorter (part E).
+  // Reduced motion still gets the full GOLD_HOLD_MS hold — only the
+  // travel it's timed against is shorter (part E).
   const goldRingStyle = () => {
     const travelMs = reducedMotion ? 160 : 650;
     // Per-keyframe timing-functions (in the @keyframes rule itself, below)
     // give the fade-in and fade-out their own independent "ease" curves —
     // this shorthand deliberately carries no timing-function of its own
     // so it can't override those.
-    return { animation: `mvGoldRing 2740ms ${travelMs + 140}ms both` };
+    return { animation: `mvGoldRing ${GOLD_RING_TOTAL_MS}ms ${travelMs + 140}ms both` };
   };
 
   return (
@@ -1005,20 +1056,23 @@ export default function MatchView({
         `}</style>
       )}
 
-      {/* Swap-animation gold hold marker (part C): fade in over 220ms,
-          hold at full opacity for 2000ms, fade out over 520ms — as one
-          keyframe animation (see goldRingStyle above) so its own
-          animation-delay does all the "140ms after travel completes"
-          timing, rather than a setTimeout-driven opacity toggle. The two
-          per-keyframe timing-functions below keep the fade-in and
-          fade-out each on their own independent "ease" curve instead of
-          one "ease" stretched flat across the whole 2740ms. */}
+      {/* Swap-animation gold hold marker (part C): fade in over
+          GOLD_FADE_IN_MS, hold at full opacity for GOLD_HOLD_MS, fade out
+          over GOLD_FADE_OUT_MS — as one keyframe animation (see
+          goldRingStyle above) so its own animation-delay does all the
+          "140ms after travel completes" timing, rather than a
+          setTimeout-driven opacity toggle. The two per-keyframe timing-
+          functions below keep the fade-in and fade-out each on their own
+          independent "ease" curve instead of one "ease" stretched flat
+          across the whole GOLD_RING_TOTAL_MS. Percentages computed from
+          the same constants goldRingStyle uses, so the two can't drift
+          out of sync if GOLD_HOLD_MS gets tuned again. */}
       {activeSwap && (
         <style>{`
           @keyframes mvGoldRing {
             0% { opacity: 0; animation-timing-function: ease; }
-            8.0292% { opacity: 1; animation-timing-function: linear; }
-            81.0219% { opacity: 1; animation-timing-function: ease; }
+            ${(GOLD_FADE_IN_MS / GOLD_RING_TOTAL_MS * 100).toFixed(4)}% { opacity: 1; animation-timing-function: linear; }
+            ${((GOLD_FADE_IN_MS + GOLD_HOLD_MS) / GOLD_RING_TOTAL_MS * 100).toFixed(4)}% { opacity: 1; animation-timing-function: ease; }
             100% { opacity: 0; }
           }
         `}</style>
@@ -1126,7 +1180,7 @@ export default function MatchView({
           ghost in it below regardless of which branch renders. */}
       <div style={{ ...styles.mdBenchStrip, alignItems: benchEmpty ? "center" : "flex-start" }}>
         <div style={{ ...styles.mdBenchLabel, ...(benchEmpty ? { paddingTop: 0 } : {}) }}>BENCH</div>
-        {benchEmpty && benchRenderList.length === 0 ? (
+        {benchEmpty && benchRenderList.length === 0 && (activeSwap?.benchPairs || []).length === 0 ? (
           <span style={styles.mdBenchEmpty}>Full squad on field</span>
         ) : (
           // Block 8, part D: one row, two zones — available players first
@@ -1136,7 +1190,8 @@ export default function MatchView({
           // reads as "injured" without a text label repeating it.
           <div style={styles.mdBenchChipRow}>
             {benchRenderList.map(renderBenchToken)}
-            {benchRenderList.length > 0 && injuredThisGame.length > 0 && <div style={styles.mdBenchDivider} />}
+            {(activeSwap?.benchPairs || []).map(renderBenchSlotPair)}
+            {(benchRenderList.length > 0 || (activeSwap?.benchPairs || []).length > 0) && injuredThisGame.length > 0 && <div style={styles.mdBenchDivider} />}
             {injuredThisGame.map(renderInjuredChip)}
           </div>
         )}
