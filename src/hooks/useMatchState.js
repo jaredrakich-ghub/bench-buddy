@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import {
   intervalAtElapsed, computeIntervals, buildCarryState, generatePlan, keeperShiftIntervalsFor, lastGkId,
-  resolveBringBack, computeMinutesSummary, repairBenchToKeeper,
+  resolveBringBack, computeMinutesSummary, repairBenchToKeeper, intervalNeedsSubConfirm,
 } from "../lib/rotation.js";
 import { generateFixedPlan } from "../lib/fixedRotation.js";
 import { validateGameSettings } from "../lib/validation.js";
@@ -37,6 +37,13 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
   const [runStartedAt, setRunStartedAt] = useState(null); // Date.now() timestamp the clock was last started, or null while paused
   const [timerRunning, setTimerRunning] = useState(false);
   const [subLog, setSubLog] = useState({}); // intervalIndex -> elapsedSec when sub was confirmed made
+  // Fires once each time the 30-seconds-late safety net (below) applies a
+  // sub the coach never tapped — a fresh object every time, even for the
+  // same index, so MatchView's own toast-trigger effect (the same "did
+  // this actually change" pattern the fairness toast already uses) can
+  // tell two auto-applies of the very same interval apart if Undo ever
+  // put it back into pending.
+  const [autoAppliedSub, setAutoAppliedSub] = useState(null);
   const [swapPickId, setSwapPickId] = useState(null); // bench player id awaiting a pitch target to swap with
   const [saveError, setSaveError] = useState(null);
   // A coach's manual pick for who starts in goal on the next game (e.g.
@@ -125,24 +132,53 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timerRunning, runStartedAt, baseElapsedSec, plan]);
 
-  // While the timer's running, jump the board to the live interval on every
-  // boundary crossing — no exception for a coach having browsed elsewhere.
-  // An earlier version left the board alone if it wasn't already showing
-  // the previous live interval, meaning to let a coach check ahead without
-  // getting yanked back mid-check — but real use showed that's the wrong
-  // default: a coach who steps away to fix an upcoming interval (or just
-  // taps around) wants to land back on live automatically once play
-  // actually moves on, not stay stranded wherever they last looked while
-  // the game continues without them noticing. Browsing mid-interval still
-  // works exactly the same as before; this only fires at an actual
-  // boundary crossing.
+  // While the timer's running, jump the board forward once each
+  // interval's own incoming sub has actually been applied — not just
+  // because the clock crossed the boundary on its own. Block 11 (the
+  // two-sheet final-60 rebuild) moved "the board updates" off the raw
+  // clock and onto the sub being genuinely confirmed: either the coach
+  // tapped Sub done, or the 30-seconds-late auto-apply effect below did
+  // it for them. An interval whose transition needed nothing from the
+  // coach at all (intervalNeedsSubConfirm false — empty bench, no keeper
+  // change) is never actually gated; the board sails straight through it
+  // exactly like before, since nothing would ever set subLog for it.
+  //
+  // No exception for a coach having browsed elsewhere, same as always:
+  // once a sub is applied, the board snaps back to live regardless of
+  // where they'd wandered off to.
   useEffect(() => {
     if (!timerRunning || !plan) return;
-    const live = intervalAtElapsed(plan, elapsedSec);
+    let unlocked = 0;
+    while (unlocked < plan.length - 1) {
+      if (intervalNeedsSubConfirm(plan[unlocked], plan[unlocked + 1]) && subLog[unlocked] === undefined) break;
+      unlocked++;
+    }
+    const live = Math.min(intervalAtElapsed(plan, elapsedSec), unlocked);
     if (live === lastLiveIntervalRef.current) return;
     setActiveInterval(live);
     lastLiveIntervalRef.current = live;
-  }, [elapsedSec, timerRunning, plan]);
+  }, [elapsedSec, timerRunning, plan, subLog]);
+
+  // If the coach hasn't tapped Sub done within 30 seconds of the clock
+  // actually reaching the interval's own end, apply it for them anyway,
+  // timestamped at the moment it auto-applies (not the plan's scheduled
+  // time) — coaches miss taps, and the board above must not just hang
+  // there forever waiting for a confirmation that never comes.
+  // autoAppliedSub is a one-shot signal purely for MatchView's own toast
+  // to react to (see AutoApplyToast) — this hook doesn't own how that's
+  // announced or undone; setSubLog is exported for exactly that (Undo
+  // just clears the entry back out, which also re-locks the board above).
+  useEffect(() => {
+    if (!timerRunning || !plan) return;
+    let pending = 0;
+    while (pending < plan.length - 1 && subLog[pending] !== undefined) pending++;
+    const iv = plan[pending];
+    const nextIv = plan[pending + 1];
+    if (!intervalNeedsSubConfirm(iv, nextIv)) return;
+    if (elapsedSec < iv.endMin * 60 + 30) return;
+    setSubLog((prev) => ({ ...prev, [pending]: elapsedSec }));
+    setAutoAppliedSub({ index: pending, at: elapsedSec });
+  }, [elapsedSec, timerRunning, plan, subLog]);
 
   const keeperEligibleIds = teamData ? teamData.roster.filter((p) => p.keeperEligible).map((p) => p.id) : [];
 
@@ -207,6 +243,7 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
     setRunStartedAt(null);
     setTimerRunning(false);
     setSubLog({});
+    setAutoAppliedSub(null);
     setSwapPickId(null);
     setStartingGkId(null);
     return true;
@@ -508,6 +545,7 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
     setBaseElapsedSec(0);
     setElapsedSec(0);
     setSubLog({});
+    setAutoAppliedSub(null);
     // Without this, the clock could show 0:00 while the pitch board still
     // displayed whatever interval the coach last happened to be browsing —
     // same reasoning as startPlanning's own reset above.
@@ -528,6 +566,7 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
     runStartedAt, setRunStartedAt,
     timerRunning, setTimerRunning,
     subLog, setSubLog,
+    autoAppliedSub,
     swapPickId, setSwapPickId,
     startingGkId, setStartingGkId,
     saveError, setSaveError,

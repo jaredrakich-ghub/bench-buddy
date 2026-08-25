@@ -17,7 +17,9 @@ import {
   benchPriorityCompare,
   resolveBringBack,
   computeNextChangeBadges,
+  intervalNeedsSubConfirm,
   pairChanges,
+  buildFinal60Steps,
   repairBenchToKeeper,
 } from "./rotation.js";
 
@@ -1077,5 +1079,122 @@ describe("aggregateSeasonSummary", () => {
     expect(aggregateSeasonSummary([])).toEqual([]);
     expect(aggregateSeasonSummary(undefined)).toEqual([]);
     expect(aggregateSeasonSummary([{ date: 1 }])).toEqual([]); // no players field on that game
+  });
+});
+
+describe("buildFinal60Steps", () => {
+  // The exact worked example from block 11's own spec (INSTRUCTIONS.md):
+  // George (keeper) steps down to outfield, Eli comes on as the new
+  // keeper, Jack comes off for Hugo, and Otis comes off with George
+  // taking his spot instead of a third bench player.
+  it("reference case: keeper swap first, a genuine bench arrival next, then the stepping-down keeper filling the last vacated spot", () => {
+    const steps = buildFinal60Steps({
+      comingOffIds: new Set(["jack", "otis"]),
+      comingOnIds: new Set(["hugo"]),
+      curGkId: "george",
+      becomingKeeperId: "eli",
+      steppingDownKeeperId: "george",
+    });
+    expect(steps).toEqual([
+      {
+        titleKind: "gkSwap", subjectId: null,
+        outId: "george", outColor: "changing", outIsKeeper: true,
+        inId: "eli", inColor: "arriving", inIsKeeper: true,
+      },
+      {
+        titleKind: "comesOn", subjectId: "hugo",
+        outId: "jack", outColor: "leaving", outIsKeeper: false,
+        inId: "hugo", inColor: "arriving", inIsKeeper: false,
+      },
+      {
+        titleKind: "takesField", subjectId: "george",
+        outId: "otis", outColor: "leaving", outIsKeeper: false,
+        inId: "george", inColor: "changing", inIsKeeper: false,
+      },
+    ]);
+  });
+
+  it("a plain regular sub with no keeper change at all is just one step", () => {
+    const steps = buildFinal60Steps({
+      comingOffIds: new Set(["p2"]), comingOnIds: new Set(["p3"]),
+      curGkId: "p1", becomingKeeperId: null, steppingDownKeeperId: null,
+    });
+    expect(steps).toEqual([
+      {
+        titleKind: "comesOn", subjectId: "p3",
+        outId: "p2", outColor: "leaving", outIsKeeper: false,
+        inId: "p3", inColor: "arriving", inIsKeeper: false,
+      },
+    ]);
+  });
+
+  it("an outgoing keeper genuinely leaving the pitch (not staying on) is coloured leaving, not changing, and isn't double-booked below", () => {
+    const steps = buildFinal60Steps({
+      // comingOnIds already excludes becomingKeeperId here, same as the
+      // real caller (computeNextChangeBadges) always produces.
+      comingOffIds: new Set(["p1", "p2"]), comingOnIds: new Set(["p5"]),
+      curGkId: "p1", becomingKeeperId: "p6", steppingDownKeeperId: null,
+    });
+    expect(steps).toHaveLength(2);
+    expect(steps[0]).toEqual({
+      titleKind: "gkSwap", subjectId: null,
+      outId: "p1", outColor: "leaving", outIsKeeper: true,
+      inId: "p6", inColor: "arriving", inIsKeeper: true,
+    });
+    // p1 was already spent by the keeper row — not re-listed below.
+    expect(steps[1]).toEqual({
+      titleKind: "comesOn", subjectId: "p5",
+      outId: "p2", outColor: "leaving", outIsKeeper: false,
+      inId: "p5", inColor: "arriving", inIsKeeper: false,
+    });
+  });
+
+  it("a departure with no bench arrival and no stepping-down keeper to pair it with comes off alone", () => {
+    const steps = buildFinal60Steps({
+      comingOffIds: new Set(["p2"]), comingOnIds: new Set(),
+      curGkId: "p1", becomingKeeperId: null, steppingDownKeeperId: null,
+    });
+    expect(steps).toEqual([
+      {
+        titleKind: "comesOff", subjectId: "p2",
+        outId: "p2", outColor: "leaving", outIsKeeper: false,
+        inId: null, inColor: null, inIsKeeper: false,
+      },
+    ]);
+  });
+
+  it("no changes at all this window produces no steps", () => {
+    const steps = buildFinal60Steps({
+      comingOffIds: new Set(), comingOnIds: new Set(),
+      curGkId: "p1", becomingKeeperId: null, steppingDownKeeperId: null,
+    });
+    expect(steps).toEqual([]);
+  });
+});
+
+describe("intervalNeedsSubConfirm", () => {
+  const iv = (bench, onField) => ({ bench, onField });
+  const p = (id, isGk = false) => ({ id, isGk });
+
+  it("false when there's no next interval at all (the last one)", () => {
+    expect(intervalNeedsSubConfirm(iv([], [p("p1", true)]), undefined)).toBe(false);
+  });
+
+  it("false for an empty bench and no keeper change — nothing to sub", () => {
+    const cur = iv([], [p("p1", true), p("p2")]);
+    const next = iv([], [p("p1", true), p("p2")]);
+    expect(intervalNeedsSubConfirm(cur, next)).toBe(false);
+  });
+
+  it("true when there's a bench to rotate, even with no keeper change", () => {
+    const cur = iv(["p3"], [p("p1", true), p("p2")]);
+    const next = iv(["p2"], [p("p1", true), p("p3")]);
+    expect(intervalNeedsSubConfirm(cur, next)).toBe(true);
+  });
+
+  it("true for a keeper handover alone, even with an empty bench", () => {
+    const cur = iv([], [p("p1", true), p("p2")]);
+    const next = iv([], [p("p2", true), p("p1")]);
+    expect(intervalNeedsSubConfirm(cur, next)).toBe(true);
   });
 });

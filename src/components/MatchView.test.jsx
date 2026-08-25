@@ -370,7 +370,11 @@ describe("MatchView — action bar", () => {
   // only place a sub gets confirmed; this bar is just the countdown and
   // the clock button.
   it("has no Sub done early-confirm option — only the clock button, on the last interval too", () => {
-    render(<MatchView {...baseProps({ activeInterval: 1, elapsedSec: 400 })} />);
+    // subLog: {0: ...} — interval 0's own sub already confirmed, so
+    // pendingIndex has advanced to 1 (the last interval, nothing after
+    // it to sub into) rather than still sitting on interval 0's own
+    // transition just because elapsedSec has moved past it.
+    render(<MatchView {...baseProps({ activeInterval: 1, elapsedSec: 400, subLog: { 0: 361 } })} />);
     expect(screen.queryByText("Sub done ✓")).not.toBeInTheDocument();
     expect(screen.getByText("Pause")).toBeInTheDocument();
   });
@@ -508,94 +512,124 @@ describe("MatchView — hidden reset gesture (tap the timer)", () => {
   });
 });
 
-describe("MatchView — final60 sheet", () => {
-  // timerRunning && hasSomethingToConfirm && secLeftInInterval <= 60 &&
-  // not already confirmed. defaultPlan's interval 0 is 0-6min (360s) with
-  // a keeper handover (Alice -> Cara) and a regular sub (Dan -> Finn) —
-  // elapsedSec 340 leaves 20s, inside the window.
-  it("replaces the plain running bar with a full-screen sheet listing both swap rows", () => {
-    render(<MatchView {...baseProps({ timerRunning: true, activeInterval: 0, elapsedSec: 340 })} />);
-    // Only one "Next sub" countdown on screen — the sheet's own, not a
-    // second copy from the plain bar (which shouldn't render at all here).
-    expect(screen.getAllByText("Next sub 0:20")).toHaveLength(1);
-    const sheet = within(screen.getByTestId("final60-sheet"));
-    expect(sheet.getByText("Alice")).toBeInTheDocument(); // outgoing keeper
-    expect(sheet.getByText("Cara")).toBeInTheDocument(); // incoming keeper
-    expect(sheet.getByText("Dan")).toBeInTheDocument(); // regular sub, off
-    expect(sheet.getByText("Finn")).toBeInTheDocument(); // regular sub, on
-    expect(sheet.getAllByText("GK")).toHaveLength(2); // both keeper-row chips tagged
+describe("MatchView — final-60 sheets (block 11: prepare + execute)", () => {
+  // Interval 0 -> 1: Alice (keeper) steps down to outfield, Finn comes on
+  // as the new keeper from the bench, Gus comes on regular for Bob, and
+  // Cara comes off with Alice taking her spot instead of a third bench
+  // arrival — the exact shape of block 11's own worked example (George/
+  // Eli/Jack/Hugo/Otis), just with this file's own p1..p7 roster. Interval
+  // 0 is 0-6min (360s).
+  const final60Plan = [
+    makeInterval(0, 0, 6, ["p1", "p2", "p3", "p4", "p5"], "p1", ["p6", "p7"]),
+    makeInterval(1, 6, 12, ["p6", "p1", "p7", "p4", "p5"], "p6", ["p2", "p3"]),
+  ];
+
+  describe("sheet 1 — prepare (-60s to -30s)", () => {
+    it("shows the emphasised keeper card first, then a quiet card per other bench arrival — nobody leaving or just changing position gets one", () => {
+      render(<MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 310 })} />);
+      const sheet = within(screen.getByTestId("prepare-sheet"));
+      expect(sheet.getByText("Next sub in 0:60")).toBeInTheDocument();
+      expect(sheet.getByText("GET READY")).toBeInTheDocument();
+      expect(sheet.getByText("Finn")).toBeInTheDocument(); // incoming keeper, emphasised card
+      expect(sheet.getByText("Go stand by the goal")).toBeInTheDocument();
+      expect(sheet.getByText("GK")).toBeInTheDocument();
+      expect(sheet.getByText("Gus")).toBeInTheDocument(); // regular bench arrival, quiet card
+      expect(sheet.getByText("Ready at halfway")).toBeInTheDocument();
+      // Nobody leaving (Bob, Cara) or just changing position (Alice) has
+      // anything to walk to yet, so none of them get a card at all.
+      expect(sheet.queryByText("Bob")).not.toBeInTheDocument();
+      expect(sheet.queryByText("Cara")).not.toBeInTheDocument();
+      expect(sheet.queryByText("Alice")).not.toBeInTheDocument();
+    });
+
+    it("Ready dismisses it without writing to subLog — it changes no state at all", () => {
+      const setSubLog = vi.fn();
+      render(
+        <MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 310, setSubLog })} />
+      );
+      fireEvent.click(within(screen.getByTestId("prepare-sheet")).getByText("Ready ✓"));
+      expect(screen.queryByTestId("prepare-sheet")).not.toBeInTheDocument();
+      expect(setSubLog).not.toHaveBeenCalled();
+    });
+
+    it("skips the emphasised keeper card for a keeper change that's really just an on-pitch role swap, with no genuine bench arrival", () => {
+      // defaultPlan's own keeper handover (Alice -> Cara) is exactly this
+      // shape — both already on the pitch, nobody walks on for it — but
+      // its regular sub (Dan -> Finn) still needs a quiet card of its own,
+      // so the sheet itself still shows, just without the keeper card.
+      render(<MatchView {...baseProps({ timerRunning: true, activeInterval: 0, elapsedSec: 310 })} />);
+      const sheet = within(screen.getByTestId("prepare-sheet"));
+      expect(sheet.getByText("Finn")).toBeInTheDocument();
+      expect(sheet.getByText("Ready at halfway")).toBeInTheDocument();
+      expect(sheet.queryByText("Go stand by the goal")).not.toBeInTheDocument();
+      expect(sheet.queryByText("GK")).not.toBeInTheDocument();
+      expect(sheet.queryByText("Cara")).not.toBeInTheDocument();
+    });
   });
 
-  it("shows the swap-count/out-count status the plain running bar no longer carries", () => {
-    render(
-      <MatchView
-        {...baseProps({ plan: planWithP7Injured, injuredThisGame: ["p7"], activeInterval: 0, elapsedSec: 310 })}
-      />
-    );
-    const sheet = within(screen.getByTestId("final60-sheet"));
-    expect(sheet.getByText("1 to swap · 1 out")).toBeInTheDocument();
-  });
+  describe("sheet 2 — execute (-30s onward)", () => {
+    it("lists the numbered steps in order: keeper swap, then the regular arrival, then the stepping-down keeper taking the last spot", () => {
+      render(<MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 340 })} />);
+      const sheet = within(screen.getByTestId("execute-sheet"));
+      expect(sheet.getByText("Make the changes")).toBeInTheDocument();
+      expect(sheet.getByText("0:30 · IN ORDER")).toBeInTheDocument();
+      expect(sheet.getByText("Goalkeeper swap")).toBeInTheDocument();
+      expect(sheet.getByText("Gus comes on")).toBeInTheDocument();
+      expect(sheet.getByText("Alice takes the field")).toBeInTheDocument();
+      ["Finn", "Bob", "Gus", "Cara"].forEach((name) => expect(sheet.getByText(name)).toBeInTheDocument());
+      // Alice appears twice — once leaving the goal (step 1's OUT chip),
+      // once taking Cara's spot (step 3's IN chip) — never as a single
+      // straight swap with the incoming keeper.
+      expect(sheet.getAllByText("Alice")).toHaveLength(2);
+    });
 
-  it("does not show once this interval's sub is already confirmed, even inside the window", () => {
-    render(<MatchView {...baseProps({ timerRunning: true, activeInterval: 0, elapsedSec: 340, subLog: { 0: 300 } })} />);
-    expect(screen.queryByTestId("final60-sheet")).not.toBeInTheDocument();
-    expect(screen.getByText("Next sub 0:20")).toBeInTheDocument(); // plain bar back instead
-  });
+    it("stays up once the clock runs past the planned sub time, not just up to it", () => {
+      // secSincePendingEnd is well past 0 here — the interval's own
+      // scheduled end has already come and gone, but nothing's been
+      // confirmed yet, so the sheet must not have quietly gone away.
+      render(<MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 380 })} />);
+      expect(screen.getByTestId("execute-sheet")).toBeInTheDocument();
+    });
 
-  // Real bug found on a real device: the outgoing keeper stepping down to
-  // outfield (rather than leaving the pitch) absorbs a vacancy without a
-  // matching bench arrival — one regular departure ends up with no partner
-  // to show. It used to render as a bare, unexplained chip (looked like an
-  // extra, unaccounted-for substitution); now it explains itself instead
-  // of being force-paired with the wrong person or silently dropped.
-  it("explains a departure that has no bench arrival this window, rather than fabricating a partner or dropping it silently", () => {
-    const stepDownPlan = [
-      makeInterval(0, 0, 6, ["p1", "p2", "p3", "p4", "p5"], "p1", ["p6", "p7"]),
-      makeInterval(1, 6, 12, ["p1", "p4", "p5", "p6", "p7"], "p6", ["p2", "p3"]),
-    ];
-    render(<MatchView {...baseProps({ plan: stepDownPlan, activeInterval: 0, elapsedSec: 340 })} />);
-    const sheet = within(screen.getByTestId("final60-sheet"));
-    // Keeper handover still gets its own row — Alice steps down, Finn
-    // takes the gloves — even though Alice never leaves the pitch.
-    expect(sheet.getByText("Alice")).toBeInTheDocument();
-    expect(sheet.getByText("Finn")).toBeInTheDocument();
-    // Bob pairs with Gus, the one bench arrival left once Finn is set
-    // aside for the keeper row.
-    expect(sheet.getByText("Bob")).toBeInTheDocument();
-    expect(sheet.getByText("Gus")).toBeInTheDocument();
-    // Cara comes off alone — a real, unavoidable extra departure — shown
-    // with an explanation instead of a bare chip.
-    expect(sheet.getByText("Cara")).toBeInTheDocument();
-    expect(sheet.getByText("no bench arrival this window")).toBeInTheDocument();
-  });
+    it("does not show once this interval's sub is already confirmed, even inside the window", () => {
+      render(
+        <MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 340, subLog: { 0: 300 } })} />
+      );
+      expect(screen.queryByTestId("execute-sheet")).not.toBeInTheDocument();
+      expect(screen.getByText("Next sub 0:20")).toBeInTheDocument(); // plain bar back instead
+    });
 
-  it("does not show when there's nothing to confirm (empty bench, no keeper change)", () => {
-    const noSubPlan = [
-      makeInterval(0, 0, 6, ["p1", "p2", "p3", "p4", "p5"], "p1", []),
-      makeInterval(1, 6, 12, ["p1", "p2", "p3", "p4", "p5"], "p1", []),
-    ];
-    render(<MatchView {...baseProps({ plan: noSubPlan, timerRunning: true, activeInterval: 0, elapsedSec: 340 })} />);
-    expect(screen.queryByTestId("final60-sheet")).not.toBeInTheDocument();
-  });
+    it("does not show when there's nothing to confirm (empty bench, no keeper change)", () => {
+      const noSubPlan = [
+        makeInterval(0, 0, 6, ["p1", "p2", "p3", "p4", "p5"], "p1", []),
+        makeInterval(1, 6, 12, ["p1", "p2", "p3", "p4", "p5"], "p1", []),
+      ];
+      render(<MatchView {...baseProps({ plan: noSubPlan, timerRunning: true, activeInterval: 0, elapsedSec: 340 })} />);
+      expect(screen.queryByTestId("execute-sheet")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("prepare-sheet")).not.toBeInTheDocument();
+    });
 
-  it("disables every token on the board while it's showing", () => {
-    render(<MatchView {...baseProps({ timerRunning: true, activeInterval: 0, elapsedSec: 340 })} />);
-    expect(tokenButtonFor("Alice")).toBeDisabled();
-    expect(tokenButtonFor("Finn")).toBeDisabled();
-  });
+    it("disables every token on the board while it's showing", () => {
+      render(<MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 340 })} />);
+      expect(tokenButtonFor("Alice")).toBeDisabled();
+      expect(tokenButtonFor("Finn")).toBeDisabled();
+    });
 
-  it("Sub done in the sheet writes to subLog for the live interval", async () => {
-    const setSubLog = vi.fn();
-    render(<MatchView {...baseProps({ timerRunning: true, activeInterval: 0, elapsedSec: 340, setSubLog })} />);
-    fireEvent.click(within(screen.getByTestId("final60-sheet")).getByText("Sub done ✓"));
-    // Unlike trySwapComplete/Make-keeper, Sub done's own subLog write is
-    // NOT deferred through the swap-animation trigger — it never called
-    // onSwap in the first place, so there's no real data change to
-    // synchronize an animation frame against yet (see pendingConfirm's
-    // own comment, MatchView.jsx, for the bug that caused and the fix).
-    await waitFor(() => expect(setSubLog).toHaveBeenCalled());
-    const updater = setSubLog.mock.calls[0][0];
-    expect(updater({})).toEqual({ 0: 340 });
+    it("Sub done writes to subLog for the pending interval, timestamped at the tap", async () => {
+      const setSubLog = vi.fn();
+      render(
+        <MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 340, setSubLog })} />
+      );
+      fireEvent.click(within(screen.getByTestId("execute-sheet")).getByText("Sub done ✓"));
+      // Unlike trySwapComplete/Make-keeper, Sub done's own subLog write is
+      // NOT deferred through the swap-animation trigger — it never called
+      // onSwap in the first place, so there's no real data change to
+      // synchronize an animation frame against yet (see pendingConfirm's
+      // own comment, MatchView.jsx, for the bug that caused and the fix).
+      await waitFor(() => expect(setSubLog).toHaveBeenCalled());
+      const updater = setSubLog.mock.calls[0][0];
+      expect(updater({})).toEqual({ 0: 340 });
+    });
   });
 });
 
@@ -626,7 +660,10 @@ describe("MatchView — past-interval guard", () => {
 
   it("tapping a token on the live interval opens its action menu instead", async () => {
     const user = userEvent.setup();
-    render(<MatchView {...baseProps({ activeInterval: 1, elapsedSec: 400 })} />);
+    // subLog: {0: ...} — same reasoning as the action-bar test above:
+    // without it, pendingIndex would still be sitting on interval 0's own
+    // (long-past) transition and lock the board via showSheet2.
+    render(<MatchView {...baseProps({ activeInterval: 1, elapsedSec: 400, subLog: { 0: 361 } })} />);
     expect(screen.queryByText(/Interval Complete/)).not.toBeInTheDocument();
     await user.click(tokenButtonFor("Bob"));
     expect(screen.getByText("Swap player")).toBeInTheDocument();
@@ -1214,7 +1251,7 @@ describe("MatchView — Sub done's swap animation waits for the real clock advan
     });
     const { rerender } = render(<Harness activeInterval={activeInterval} setActiveInterval={setActiveInterval} />);
 
-    fireEvent.click(within(screen.getByTestId("final60-sheet")).getByText("Sub done ✓"));
+    fireEvent.click(within(screen.getByTestId("execute-sheet")).getByText("Sub done ✓"));
     act(() => vi.advanceTimersByTime(16)); // nothing pending to flip yet — no real advance happened
 
     const nameSpans = (text) => screen.getAllByText(text).filter((el) => el.tagName === "SPAN");

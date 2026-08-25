@@ -74,6 +74,13 @@ export const tokens = {
     groupLabel: "#3E5148", // group-header label color on the shared sub-header screens (A8, and A6/A7/A5-Minutes when built)
     benchText: "#8C8677", // A5-Minutes' BENCH column, also A7's "not here" text
     unavailableText: "#A39C8A", // A7-Squad-change's "not here" status line
+    // Block 11 (the two-sheet final-60 rebuild) — the only two genuinely
+    // new colours it introduces; everything else it uses (creamPaper,
+    // creamDeep, yellow/yellowShadow, pitchGreen, deepGreen, alertRed,
+    // groupLabel, scrim) already existed and is reused as-is, per the
+    // brief's own "do not re-point any shared hex."
+    changing: "#2F6475", // the execute sheet's third disc colour — a player already on the pitch just changing position, staying on (never "leaving" red or "arriving" green)
+    sheetLabel: "#5A6B61", // the small uppercase corner label on both sheets ("GET READY", "0:30 · IN ORDER") — close to but distinct from mutedText
     // A5-Minutes' em-dash-for-zero is #C9C4B6 — same value as `chevron`
     // above, so reuse that token directly rather than duplicating it here.
   },
@@ -1092,44 +1099,123 @@ export const styles = {
   // three near-identical copies.
   mdScrim: { position: "fixed", inset: 0, background: tokens.color.scrim, zIndex: 45 },
 
-  // ---- Full-screen final-60 sheet (A2b-Match-final60). A genuinely modal
-  // moment (dark scrim + a sheet that takes over as the primary confirm
-  // surface) rather than another in-flow card, so — unlike the rest of
-  // this screen so far — these two are position:fixed.
-  mdFinal60Sheet: {
-    position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 46,
-    background: tokens.color.creamPaper, backgroundImage: paperTexture,
-    borderRadius: `${tokens.radius.actionBarTop}px ${tokens.radius.actionBarTop}px 0 0`,
-    padding: "14px 16px calc(20px + env(safe-area-inset-bottom, 0px))",
-    maxWidth: 640, margin: "0 auto",
+  // ---- Block 11 — the final-60 takeover, replaced with two sheets that
+  // appear at different times (PREPARE at -60s, EXECUTE at -30s) rather
+  // than one. Both sit IN FLOW at the bottom of the match column (not
+  // position:fixed like the old single sheet) so the pitch and bench stay
+  // genuinely visible above them, dimmed by the same mdScrim (still
+  // fixed, still zIndex 45) — position:relative + a higher zIndex is what
+  // lets an in-flow element still paint above a fixed sibling.
+  mdFinal60Shell: {
+    position: "relative", zIndex: 46,
+    background: tokens.color.creamPaper, borderRadius: "32px 32px 0 0",
+    padding: "12px 16px 14px 24px", // wider left padding, per spec
+    display: "flex", flexDirection: "column", gap: 10,
+    boxShadow: "0 -12px 40px rgba(20,32,28,.35)",
   },
-  mdFinal60Countdown: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 26, color: tokens.color.deepGreen },
-  mdFinal60Status: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 14, color: tokens.color.mutedText },
-  mdFinal60RowList: { display: "flex", flexDirection: "column", gap: 8, margin: "10px 0" },
-  mdFinal60Row: { display: "flex", alignItems: "center", justifyContent: "center", gap: 10 },
-  mdFinal60Arrow: { color: tokens.color.pitchGreen, fontFamily: tokens.font.body, fontWeight: 800, fontSize: 18 },
-  // Stands in for the arrow when a row genuinely only has one side (see
-  // pairChanges, rotation.js) — explains why, instead of a bare chip with
-  // nothing next to it.
-  mdFinal60OrphanNote: {
-    color: tokens.color.mutedText, fontFamily: tokens.font.body, fontWeight: 700, fontSize: 12, fontStyle: "italic",
+  mdFinal60Handle: { width: 44, height: 5, borderRadius: 3, background: "#DCD2B6", margin: "2px auto 4px", flexShrink: 0 },
+  // Shared by both sheets' own title row (title baseline-aligned against
+  // a small uppercase corner label) — only the title's own font-size
+  // differs between the two (25px prepare / 24px execute), set per call
+  // site rather than baked in here.
+  mdFinal60TitleRow: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 },
+  mdFinal60Label: {
+    fontSize: 12, fontWeight: 800, textTransform: "uppercase", color: tokens.color.sheetLabel, letterSpacing: "0.04em",
+    whiteSpace: "nowrap",
   },
-  // Same pill-chip shape as the bench strip's own chips (mdBenchChip etc.)
-  // but on tokens.color.creamDeep rather than white — the sheet itself is
-  // already creamPaper, so a white chip would read almost the same as its
-  // own background; creamDeep keeps them visibly distinct.
-  mdFinal60Chip: {
-    display: "flex", alignItems: "center", gap: 6, background: tokens.color.creamDeep, borderRadius: tokens.radius.chip,
-    padding: "5px 12px 5px 5px",
+  // The GK pill both sheets use — the prepare sheet's emphasised keeper
+  // card (inline after the name) and the execute sheet's arriving-keeper
+  // chip (right-aligned inside it via marginLeft:auto at the call site).
+  mdFinal60GkPill: {
+    fontSize: 11, fontWeight: 800, color: tokens.color.deepGreen, background: tokens.color.yellow,
+    borderRadius: 999, padding: "2px 7px", flexShrink: 0,
   },
-  // The outgoing half of a swap row gets a red number disc (leaving),
-  // matching mdOutgoingBadge's color — the incoming half reuses
-  // mdBenchChipNumber/mdBenchChipNumberGk directly (green, or gold for a
-  // new keeper), same "arriving" language the bench strip already uses.
-  mdFinal60ChipNumberOut: {
-    width: 30, height: 30, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
-    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 13, flexShrink: 0,
-    background: tokens.color.alertRed, color: "#fff",
+  // Shared action row/buttons — Pause (secondary) and Ready/Sub done
+  // (primary) are the same geometry on both sheets.
+  mdFinal60ActionRow: { display: "flex", gap: 10 },
+  mdFinal60ActionPause: {
+    flex: 1, height: 54, borderRadius: 22, border: "none", background: tokens.color.rule,
+    color: tokens.color.deepGreen, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 20,
+    display: "flex", alignItems: "center", justifyContent: "center", gap: 8, cursor: "pointer",
+  },
+  mdFinal60ActionPrimary: {
+    flex: 1.25, height: 54, borderRadius: 22, border: "none", background: tokens.color.yellow,
+    color: tokens.color.deepGreen, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 20,
+    boxShadow: tokens.shadow.solid(5, tokens.color.yellowShadow),
+    display: "flex", alignItems: "center", justifyContent: "center", gap: 8, cursor: "pointer",
+  },
+
+  // ---- PREPARE sheet only (-60s to -30s) ----
+  mdPrepareTitle: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 25, color: tokens.color.deepGreen, lineHeight: 1.05 },
+  // The one emphasised card, always the incoming keeper.
+  mdPrepareCardKeeper: {
+    display: "flex", alignItems: "center", gap: 11,
+    background: "#FFE9B8", border: `2.5px solid ${tokens.color.yellow}`, borderRadius: 22, padding: "13px 14px",
+  },
+  mdPrepareDiscKeeper: {
+    width: 42, height: 42, borderRadius: "50%", flexShrink: 0, background: tokens.color.pitchGreen, color: "#fff",
+    display: "flex", alignItems: "center", justifyContent: "center", fontFamily: tokens.font.display, fontWeight: 800, fontSize: 19,
+  },
+  mdPrepareCardKeeperBody: { display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 },
+  mdPrepareCardKeeperNameRow: { display: "flex", alignItems: "center", gap: 6 },
+  mdPrepareCardKeeperName: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 22, color: tokens.color.deepGreen },
+  mdPrepareCardKeeperInstruction: { fontWeight: 800, fontSize: 17, color: tokens.color.deepGreen, lineHeight: 1.15 },
+  // Every other card — quiet form, instruction inline after the name
+  // rather than on its own line below.
+  mdPrepareCardQuiet: {
+    display: "flex", alignItems: "center", gap: 10, background: tokens.color.creamDeep, borderRadius: 20, padding: "11px 14px",
+  },
+  mdPrepareDiscQuiet: {
+    width: 36, height: 36, borderRadius: "50%", flexShrink: 0, background: tokens.color.pitchGreen, color: "#fff",
+    display: "flex", alignItems: "center", justifyContent: "center", fontFamily: tokens.font.display, fontWeight: 800, fontSize: 16,
+  },
+  mdPrepareCardQuietBody: { display: "flex", alignItems: "baseline", gap: 6, flex: 1, minWidth: 0 },
+  mdPrepareCardQuietName: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 18, color: tokens.color.deepGreen },
+  mdPrepareCardQuietInstruction: { fontWeight: 800, fontSize: 15, color: tokens.color.groupLabel },
+
+  // ---- EXECUTE sheet only (-30s onward, stays up past the boundary) ----
+  mdExecuteTitle: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 24, color: tokens.color.deepGreen },
+  mdExecuteStepList: { display: "flex", flexDirection: "column", gap: 10 },
+  mdExecuteStepRow: { display: "flex", gap: 10, alignItems: "flex-start" },
+  // The -3.5px margin-top is deliberate, not a rounding fudge — see
+  // MatchView.jsx's own comment at the call site for the exact cap-height
+  // reasoning (26px numeral against a 16px instruction line).
+  mdExecuteStepNumeral: {
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 26, color: tokens.color.groupLabel,
+    lineHeight: 1, width: 26, textAlign: "left", marginTop: -3.5, flexShrink: 0,
+  },
+  mdExecuteStepBody: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 6 },
+  mdExecuteStepInstruction: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 16, color: tokens.color.groupLabel, lineHeight: 1 },
+  mdExecuteChipRow: { display: "flex", alignItems: "center", gap: 8 },
+  mdExecuteChip: {
+    flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 8,
+    background: tokens.color.creamDeep, borderRadius: 999, padding: "3px 11px 3px 3px",
+  },
+  // Disc background colour is set per instance (leaving/arriving/changing
+  // — see FINAL60_DISC_COLOR, MatchView.jsx), never fixed here — that's
+  // the whole "three colours, three meanings" point of this sheet.
+  mdExecuteChipDisc: {
+    width: 26, height: 26, borderRadius: "50%", flexShrink: 0, color: "#fff",
+    display: "flex", alignItems: "center", justifyContent: "center", fontFamily: tokens.font.display, fontWeight: 800, fontSize: 13,
+  },
+  mdExecuteChipName: {
+    fontFamily: tokens.font.body, fontWeight: 800, fontSize: 15, color: tokens.color.deepGreen,
+    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0,
+  },
+  mdExecuteChipArrow: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 17, color: tokens.color.pitchGreen, flexShrink: 0 },
+
+  // ---- Auto-apply toast — reuses FairnessToastMark's own reveal/fade
+  // mechanics (see AutoApplyToast, MatchView.jsx) but is its own visual:
+  // a text pill with an Undo action, not a ring. In-flow, dropped in
+  // right above the action bar rather than fixed/anchored.
+  mdAutoApplyToast: {
+    display: "flex", alignItems: "center", gap: 10, background: tokens.color.creamDeep,
+    borderRadius: tokens.radius.chip, padding: "9px 8px 9px 14px", marginBottom: tokens.spacing.rhythm,
+  },
+  mdAutoApplyToastText: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 14, color: tokens.color.deepGreen, flex: 1, minWidth: 0 },
+  mdAutoApplyToastUndo: {
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 14, color: tokens.color.pitchGreen,
+    background: "#fff", border: "none", borderRadius: tokens.radius.chip, padding: "6px 12px", cursor: "pointer", flexShrink: 0,
   },
 
   // ---- Anchored popovers (A2d-Menu-anchored, A2g-Player-tap). Both grow

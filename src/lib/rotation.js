@@ -612,6 +612,23 @@ export function aggregateSeasonSummary(games) {
 // last-60-seconds warning banner (that warning is genuinely about the real
 // live interval regardless of what's being viewed) — keep those two uses
 // separate rather than conflating "viewed" and "live" here.
+
+// Whether the transition from `iv` into `nextIv` actually needs a coach
+// to physically do anything — an empty bench with no keeper handover has
+// nothing to sub, so nothing should ever wait on it (no final-60 sheet,
+// and per block 11 the board must be free to advance straight through
+// it rather than getting stuck waiting for a confirmation that would
+// never come). Shared by useMatchState's own board-advance gate/
+// auto-apply timer and MatchView's sheet-visibility checks, so those
+// three can't quietly drift out of sync on what "needs confirming" means.
+export function intervalNeedsSubConfirm(iv, nextIv) {
+  if (!nextIv) return false;
+  const noBench = iv.bench.length === 0;
+  const gk = iv.onField.find((p) => p.isGk);
+  const nextGk = nextIv.onField.find((p) => p.isGk);
+  const gkChanging = Boolean(nextGk) && (!gk || gk.id !== nextGk.id);
+  return !noBench || gkChanging;
+}
 export function computeNextChangeBadges({ cur, nextIv, curGk, nextGk, gkChanging }) {
   if (!nextIv) {
     return { comingOffIds: new Set(), comingOnIds: new Set(), becomingKeeperId: null, steppingDownKeeperId: null };
@@ -674,4 +691,95 @@ export function pairChanges({ comingOffIds, comingOnIds, curGkId, becomingKeeper
     rows.push({ outId: offIds[i] ?? null, inId: onIds[i] ?? null, outIsKeeper: false, inIsKeeper: false });
   }
   return rows;
+}
+
+// The numbered step list the final-60 EXECUTE sheet shows (block 11) —
+// richer than pairChanges above: each side of a step also carries which
+// of three states it's in ("leaving" the pitch entirely, "arriving" on
+// it, or "changing" position while staying on) since the execute sheet
+// colors those three differently and pairChanges' plain out/in shape
+// can't tell an outfield arrival apart from a keeper stepping down into
+// one.
+//
+// The keeper change is always step 0 when one is happening — the gloves
+// have to pass before the outgoing keeper can take an outfield spot. He
+// only appears in that step's OUT half if he's genuinely leaving the
+// pitch entirely (rare — normally he stays on, tracked via
+// steppingDownKeeperId instead, in which case this step's OUT half is
+// empty and his own "changing" appearance comes later, as the IN half of
+// whichever leaving player's spot he ends up filling — never shown as a
+// straight swap with the incoming keeper, since he isn't the one
+// leaving).
+//
+// titleKind is resolved to actual copy at the call site (MatchView.jsx
+// has nameOf, this file doesn't): "gkSwap" -> "Goalkeeper swap",
+// "comesOn"/"takesField"/"comesOff" -> "<name of subjectId> comes
+// on"/"takes the field"/"comes off".
+//
+// becomingKeeperFromBench matters for the gk-swap step's own IN colour:
+// computeNextChangeBadges' becomingKeeperId is set whenever the keeper
+// changes at all, regardless of whether the new keeper is a genuine bench
+// arrival or was already on the pitch (an outfielder taking over the
+// gloves mid-pitch, nobody arriving from anywhere) — the caller has to
+// say which, since comingOnIds alone can't (it's already had
+// becomingKeeperId filtered out of it either way). A genuine arrival is
+// "arriving" (green); already-on-the-pitch is "changing" (blue), same as
+// steppingDownKeeperId's own colour — the whole "three colours, three
+// meanings" point of this sheet.
+export function buildFinal60Steps({
+  comingOffIds, comingOnIds, curGkId, becomingKeeperId, steppingDownKeeperId, becomingKeeperFromBench = true,
+}) {
+  const offIds = [...comingOffIds];
+  const onIds = [...comingOnIds]; // already excludes becomingKeeperId — see computeNextChangeBadges
+  const steps = [];
+  // Only true if the outgoing keeper genuinely left the pitch entirely in
+  // the gk-swap step below (outId still equals him there either way —
+  // his own colour, "leaving" vs "changing", is what actually tells the
+  // two cases apart) — never true when steppingDownKeeperId is set,
+  // since computeNextChangeBadges guarantees those two are mutually
+  // exclusive, but computed from the real outcome rather than assumed,
+  // so this function stays correct even if called with inputs that don't
+  // honour that upstream invariant.
+  let steppingDownConsumed = false;
+
+  if (becomingKeeperId != null) {
+    const outLeaving = curGkId != null && offIds.includes(curGkId);
+    steps.push({
+      titleKind: "gkSwap", subjectId: null,
+      outId: curGkId ?? null, outColor: curGkId == null ? null : outLeaving ? "leaving" : "changing", outIsKeeper: true,
+      inId: becomingKeeperId, inColor: becomingKeeperFromBench ? "arriving" : "changing", inIsKeeper: true,
+    });
+    if (outLeaving) {
+      offIds.splice(offIds.indexOf(curGkId), 1);
+      if (curGkId === steppingDownKeeperId) steppingDownConsumed = true;
+    }
+  }
+
+  // A steppingDownKeeperId not already spent above (the common case — he
+  // stays on the pitch, so he was never in offIds to begin with) still
+  // needs somewhere to land: he's taking one of the spots a leaving
+  // player vacates, ahead of any genuine bench arrival for that same
+  // spot — he's already accounted for, no reason to make him wait behind
+  // a bench player who still has to physically walk on.
+  let steppingDownPending = steppingDownKeeperId != null && !steppingDownConsumed;
+
+  const total = Math.max(offIds.length, onIds.length + (steppingDownPending ? 1 : 0));
+  for (let i = 0; i < total; i++) {
+    const outId = offIds[i] ?? null;
+    let inId = onIds[i] ?? null;
+    let inIsSteppingDown = false;
+    if (inId == null && steppingDownPending) {
+      inId = steppingDownKeeperId;
+      inIsSteppingDown = true;
+      steppingDownPending = false;
+    }
+    if (outId == null && inId == null) continue;
+    steps.push({
+      titleKind: inIsSteppingDown ? "takesField" : inId != null ? "comesOn" : "comesOff",
+      subjectId: inId ?? outId,
+      outId, outColor: outId != null ? "leaving" : null, outIsKeeper: false,
+      inId, inColor: inId != null ? (inIsSteppingDown ? "changing" : "arriving") : null, inIsKeeper: false,
+    });
+  }
+  return steps;
 }
