@@ -1125,6 +1125,24 @@ describe("MatchView — swap-animation dual-mount + gold hold marker (Backlog: m
     expect(pairSlot.textContent).toContain("Bob");
     expect(pairSlot.textContent).toContain("Finn");
 
+    // Real-use feedback, real screenshot: the pitch name label used to
+    // stay at opacity 1 for the *whole* hold regardless of which player
+    // it belonged to — it's a sibling of the shirt button, not a
+    // descendant, so the swap fade (applied only to the button) never
+    // reached it, and two names sat fully visible on top of each other.
+    // Once settled well past the travel, Bob's pitch-side name (he left
+    // the pitch) must be faded to 0 — not just his shirt — while Finn's
+    // (arriving) is fully opaque.
+    act(() => vi.advanceTimersByTime(650 + 140 + 250));
+    const pitchNameWrapper = (text) => {
+      const span = screen.getAllByText(text).find(
+        (el) => el.tagName === "SPAN" && el.parentElement.tagName !== "BUTTON" && el.closest('[style*="translate(-50%"]')
+      );
+      return span.parentElement; // the new swap-fade wrapper around shirt+name
+    };
+    expect(pitchNameWrapper("Bob").style.opacity).toBe("0");
+    expect(pitchNameWrapper("Finn").style.opacity).toBe("1");
+
     // Past the full window (travel + 140ms delay + gold fade-in +
     // GOLD_HOLD_MS hold + gold fade-out + margin), activeSwap clears
     // itself — each name is back down to exactly the one real token it

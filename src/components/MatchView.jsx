@@ -1111,52 +1111,68 @@ export default function MatchView({
           const isGhost = !realPitchIds.has(id);
           return (
             <div key={id} style={{ ...styles.formationToken, top: `${topPct}%`, left: `${leftPct}%` }}>
-              <button
+              {/* Real-use feedback: the swap fade/travel used to be applied
+                  to the shirt button alone — the name label below it (a
+                  sibling, not a button descendant) stayed at opacity 1 the
+                  whole time, so an outgoing and incoming player's names
+                  sat fully visible on top of each other for the entire
+                  hold, not just the brief crossfade. This wrapper carries
+                  the shirt+name together now, so the name fades and
+                  travels in lockstep with the shirt instead of being left
+                  behind. formationToken's own flex/gap above still just
+                  centers this one child — unaffected otherwise. */}
+              <div
                 style={{
-                  ...styles.mdShirtBtn,
-                  ...(swapPickId && swapPickId !== id && !interactionLocked ? styles.mdShirtBtnSwapTarget : {}),
-                  ...(menuPlayerId === id ? { ...styles.mdOriginLit, ...styles.mdShirtBtnLit } : {}),
+                  display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
                   ...(swapStyle ? { opacity: swapStyle.opacity, transform: swapStyle.transform, transition: swapStyle.transition } : {}),
                 }}
-                onClick={() => handleTokenTap(id)}
-                disabled={interactionLocked || isGhost}
-                aria-hidden={isGhost || undefined}
-                tabIndex={isGhost ? -1 : undefined}
               >
-                <div style={{ position: "relative", width: shirtWidth, height: shirtHeight }}>
-                  <KitShirt width={shirtWidth} height={shirtHeight} isGk={isGk} />
-                  <span
-                    style={{
-                      ...styles.mdShirtNumber,
-                      top: Math.round(shirtHeight * (24 / 58)),
-                      fontSize: Math.round(shirtWidth * (24 / 62)),
-                    }}
-                  >
-                    {numberOf(id)}
-                  </span>
-                  {showNextSubBadges && comingOffIds.has(id) && (
-                    <span style={styles.mdOutgoingBadge} title="Coming off next interval">
-                      <ArrowDown size={11} strokeWidth={3.5} color="#fff" />
+                <button
+                  style={{
+                    ...styles.mdShirtBtn,
+                    ...(swapPickId && swapPickId !== id && !interactionLocked ? styles.mdShirtBtnSwapTarget : {}),
+                    ...(menuPlayerId === id ? { ...styles.mdOriginLit, ...styles.mdShirtBtnLit } : {}),
+                  }}
+                  onClick={() => handleTokenTap(id)}
+                  disabled={interactionLocked || isGhost}
+                  aria-hidden={isGhost || undefined}
+                  tabIndex={isGhost ? -1 : undefined}
+                >
+                  <div style={{ position: "relative", width: shirtWidth, height: shirtHeight }}>
+                    <KitShirt width={shirtWidth} height={shirtHeight} isGk={isGk} />
+                    <span
+                      style={{
+                        ...styles.mdShirtNumber,
+                        top: Math.round(shirtHeight * (24 / 58)),
+                        fontSize: Math.round(shirtWidth * (24 / 62)),
+                      }}
+                    >
+                      {numberOf(id)}
                     </span>
-                  )}
-                  {showNextSubBadges && becomingKeeperId === id && (
-                    <span style={styles.nextKeeperBadge} title="Becoming keeper next interval">
-                      🧤
-                    </span>
-                  )}
-                  {showNextSubBadges && steppingDownKeeperId === id && (
-                    <span style={styles.nextOnBadge} title="Staying on, switching to outfield next interval">
-                      <ArrowUp size={11} strokeWidth={3.5} />
-                    </span>
-                  )}
-                  {/* Gold hold marker, pitch end (part C) — a separate
-                      element outside the shirt SVG, never altering it. */}
-                  {activeSwap?.phase === "active" && participant?.postLoc === "pitch" && (
-                    <div key={activeSwap.key} style={{ ...styles.mdSwapGoldRingPitch, ...goldRingStyle() }} aria-hidden="true" />
-                  )}
-                </div>
-              </button>
-              <span style={styles.mdShirtPlayerName}>{nameOf(id)}</span>
+                    {showNextSubBadges && comingOffIds.has(id) && (
+                      <span style={styles.mdOutgoingBadge} title="Coming off next interval">
+                        <ArrowDown size={11} strokeWidth={3.5} color="#fff" />
+                      </span>
+                    )}
+                    {showNextSubBadges && becomingKeeperId === id && (
+                      <span style={styles.nextKeeperBadge} title="Becoming keeper next interval">
+                        🧤
+                      </span>
+                    )}
+                    {showNextSubBadges && steppingDownKeeperId === id && (
+                      <span style={styles.nextOnBadge} title="Staying on, switching to outfield next interval">
+                        <ArrowUp size={11} strokeWidth={3.5} />
+                      </span>
+                    )}
+                    {/* Gold hold marker, pitch end (part C) — a separate
+                        element outside the shirt SVG, never altering it. */}
+                    {activeSwap?.phase === "active" && participant?.postLoc === "pitch" && (
+                      <div key={activeSwap.key} style={{ ...styles.mdSwapGoldRingPitch, ...goldRingStyle() }} aria-hidden="true" />
+                    )}
+                  </div>
+                </button>
+                <span style={styles.mdShirtPlayerName}>{nameOf(id)}</span>
+              </div>
             </div>
           );
         })}
