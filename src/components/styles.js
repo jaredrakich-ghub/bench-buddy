@@ -80,7 +80,7 @@ export const tokens = {
     // groupLabel, scrim) already existed and is reused as-is, per the
     // brief's own "do not re-point any shared hex."
     changing: "#2F6475", // the execute sheet's third disc colour — a player already on the pitch just changing position, staying on (never "leaving" red or "arriving" green)
-    sheetLabel: "#5A6B61", // the small uppercase corner label on both sheets ("GET READY", "0:30 · IN ORDER") — close to but distinct from mutedText
+    sheetLabel: "#5A6B61", // the small uppercase corner label on both sheets ("GET READY", "30 secs to go") — close to but distinct from mutedText
     // A5-Minutes' em-dash-for-zero is #C9C4B6 — same value as `chevron`
     // above, so reuse that token directly rather than duplicating it here.
   },

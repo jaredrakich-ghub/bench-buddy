@@ -219,7 +219,7 @@ function PrepareSheet({ pendingChanges, keeperFromBench, nameOf, numberOf, toggl
   return (
     <Final60SheetShell onDismiss={onReady} testId="prepare-sheet" ariaLabel="Prepare for the next substitution">
       <div style={styles.mdFinal60TitleRow}>
-        <span style={styles.mdPrepareTitle}>Next sub in 0:60</span>
+        <span style={styles.mdPrepareTitle}>Next sub 60 secs</span>
         <span style={styles.mdFinal60Label}>GET READY</span>
       </div>
       {keeperFromBench && (
@@ -274,7 +274,7 @@ function ExecuteSheet({ steps, nameOf, numberOf, toggleTimer, onSubDone, onDismi
     <Final60SheetShell onDismiss={onDismiss} testId="execute-sheet" ariaLabel="Make the changes">
       <div style={styles.mdFinal60TitleRow}>
         <span style={styles.mdExecuteTitle}>Make the changes</span>
-        <span style={styles.mdFinal60Label}>0:30 · IN ORDER</span>
+        <span style={styles.mdFinal60Label}>30 secs to go</span>
       </div>
       <div style={styles.mdExecuteStepList}>
         {steps.map((step, i) => (
@@ -327,16 +327,26 @@ function ExecuteSheet({ steps, nameOf, numberOf, toggleTimer, onSubDone, onDismi
 // anywhere in this app to hook into, and real-use feedback was to drop it
 // rather than invent one: one less thing going on for a moment that's
 // already just informational.
-function AutoApplyToast({ message }) {
+function AutoApplyToast({ message, onDone }) {
   const [revealed, setRevealed] = useState(false);
   const reducedMotion = usePrefersReducedMotion();
   useEffect(() => {
     const showRaf = requestAnimationFrame(() => setRevealed(true));
     const hideTimer = setTimeout(() => setRevealed(false), 5000);
+    // Real-use feedback: this element is a normal flex child (unlike
+    // FairnessToastMark, which is position:absolute and so never affects
+    // layout) — fading its opacity to 0 alone left its own height +
+    // marginBottom permanently reserved, a persistent invisible gap above
+    // the action bar. onDone tells the parent to actually stop rendering
+    // it, once the fade-out transition itself (.4s) has had time to
+    // finish, not just the 5s hold.
+    const doneTimer = setTimeout(() => onDone(), 5400);
     return () => {
       cancelAnimationFrame(showRaf);
       clearTimeout(hideTimer);
+      clearTimeout(doneTimer);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return (
     <div
@@ -1681,7 +1691,11 @@ export default function MatchView({
           below, which already names who's coming off/on with room to
           spare — this bar no longer offers an early-confirm shortcut. */}
       {autoApplyToast && !isMatchComplete && (
-        <AutoApplyToast key={autoApplyToast.key} message={autoApplyMessage(autoApplyToast.index)} />
+        <AutoApplyToast
+          key={autoApplyToast.key}
+          message={autoApplyMessage(autoApplyToast.index)}
+          onDone={() => setAutoApplyToast(null)}
+        />
       )}
 
       {isPreKickoff && !sheetOpen && (

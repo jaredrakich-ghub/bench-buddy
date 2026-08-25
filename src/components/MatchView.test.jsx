@@ -528,7 +528,7 @@ describe("MatchView — final-60 sheets (block 11: prepare + execute)", () => {
     it("shows the emphasised keeper card first, then a quiet card per other bench arrival — nobody leaving or just changing position gets one", () => {
       render(<MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 310 })} />);
       const sheet = within(screen.getByTestId("prepare-sheet"));
-      expect(sheet.getByText("Next sub in 0:60")).toBeInTheDocument();
+      expect(sheet.getByText("Next sub 60 secs")).toBeInTheDocument();
       expect(sheet.getByText("GET READY")).toBeInTheDocument();
       expect(sheet.getByText("Finn")).toBeInTheDocument(); // incoming keeper, emphasised card
       expect(sheet.getByText("Go stand by the goal")).toBeInTheDocument();
@@ -572,7 +572,7 @@ describe("MatchView — final-60 sheets (block 11: prepare + execute)", () => {
       render(<MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 340 })} />);
       const sheet = within(screen.getByTestId("execute-sheet"));
       expect(sheet.getByText("Make the changes")).toBeInTheDocument();
-      expect(sheet.getByText("0:30 · IN ORDER")).toBeInTheDocument();
+      expect(sheet.getByText("30 secs to go")).toBeInTheDocument();
       expect(sheet.getByText("Goalkeeper swap")).toBeInTheDocument();
       expect(sheet.getByText("Gus comes on")).toBeInTheDocument();
       expect(sheet.getByText("Alice takes the field")).toBeInTheDocument();
@@ -1274,5 +1274,52 @@ describe("MatchView — Sub done's swap animation waits for the real clock advan
     act(() => vi.advanceTimersByTime(650 + 140 + 220 + 2000 + 520 + 200));
     expect(nameSpans("Dan").length).toBe(1);
     expect(nameSpans("Finn").length).toBe(1);
+  });
+});
+
+describe("MatchView — auto-apply toast", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("shows nothing until autoAppliedSub actually changes", () => {
+    render(<MatchView {...baseProps()} />);
+    expect(screen.queryByText(/Sub applied automatically/)).not.toBeInTheDocument();
+  });
+
+  it("shows a message naming who came on when autoAppliedSub fires, and actually unmounts afterward — not just fades, leaving no permanent gap", () => {
+    const { rerender } = render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 390 })} />);
+    rerender(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 390, autoAppliedSub: { index: 0, at: 390 } })} />);
+    act(() => vi.advanceTimersByTime(16));
+
+    // defaultPlan interval 0 -> 1: Finn (p6) is the one regular bench
+    // arrival (the keeper handover, Alice -> Cara, is a pure on-pitch
+    // role swap with nobody arriving from the bench — see the prepare-
+    // sheet tests above for that same fixture's own shape).
+    expect(screen.getByText(/Sub applied automatically:.*Finn/)).toBeInTheDocument();
+
+    // Real-use feedback: this used to fade to opacity 0 but stay mounted
+    // forever, permanently reserving its own height + margin in the flex
+    // column above the action bar. Past the full hold+fade window, it
+    // must be gone from the DOM entirely, not just invisible.
+    act(() => vi.advanceTimersByTime(5400));
+    expect(screen.queryByText(/Sub applied automatically/)).not.toBeInTheDocument();
+  });
+
+  it("a fresh auto-apply (a different key) re-triggers the toast even if a previous one already fired", () => {
+    // Mounts with autoAppliedSub already null, same as the real app always
+    // does (useMatchState's own initial state) — mounting with it already
+    // set from the very first render would match the ref-diff trigger's
+    // own initial value and never fire at all, same reasoning as the
+    // fairness toast's "0 = never triggered yet" guard just above.
+    const { rerender } = render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 390 })} />);
+    rerender(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 390, autoAppliedSub: { index: 0, at: 390 } })} />);
+    act(() => vi.advanceTimersByTime(16));
+    expect(screen.getByText(/Sub applied automatically/)).toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(5400));
+    expect(screen.queryByText(/Sub applied automatically/)).not.toBeInTheDocument();
+
+    rerender(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 390, autoAppliedSub: { index: 0, at: 700 } })} />);
+    act(() => vi.advanceTimersByTime(16));
+    expect(screen.getByText(/Sub applied automatically/)).toBeInTheDocument();
   });
 });
