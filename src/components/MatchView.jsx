@@ -162,28 +162,35 @@ function FairnessToastMark({ spreadMin, intervalLen }) {
   );
 }
 
-// Flips a "revealed" flag true a moment after mount, for a CSS transition
-// that needs a genuine hidden "from" frame to animate away from (mount
-// hidden, reveal a tick later). Deliberately setTimeout, not
-// requestAnimationFrame — real-use feedback: the final-60 sheets' entrance
-// still read as an abrupt flash-in (and once, seemingly not at all) on a
-// real device through two different rAF-based attempts, a single rAF and
-// then a double-nested one, even though both measured as smooth in a
-// desktop browser test. rAF callbacks are throttled or suspended
-// altogether under conditions a real phone can genuinely hit — low-power
-// mode, an aggressive mobile browser/WebView, anything that treats the
-// page as not actively "in view" even while the coach is looking at it —
-// and this codebase already has direct proof of that: this exact final-60
-// sheet's own 10s/27s auto-dismiss timers, both plain setTimeout, kept
-// firing correctly in a browser tab that had stopped running rAF
-// callbacks at all. setTimeout doesn't share that failure mode and still
-// guarantees the browser paints the hidden frame first (a macrotask only
-// runs after the current render has been flushed) — a small delay (not
-// 0ms) so it reads as an intentional beat, not an instant flip. Shared by
-// Final60SheetShell and Final60Scrim.
-function revealShortly(setRevealed) {
-  const timer = setTimeout(() => setRevealed(true), 20);
-  return () => clearTimeout(timer);
+// Block 11's entrance/exit motion, as real CSS @keyframes rather than a
+// JS-driven opacity/transform transition. Real-use feedback: three rounds
+// running the "mount hidden, flip a tick later" idiom off a JS timer
+// (single rAF, then double-nested rAF, then setTimeout) all still failed
+// on a real device — abrupt on the way in, and the last round regressed
+// the way out too. A CSS animation sidesteps the whole class of bug: it
+// starts the moment the element is inserted into the DOM, needing no JS
+// trigger to fire at all (unlike a transition, which only ever animates
+// in response to a style *change* — something has to reliably cause that
+// change after mount, and that "something" is exactly what kept failing).
+// mdFinal60Sheet{Enter,Exit} own opacity+the slide; mdFinal60Scrim{Enter,
+// Exit} own just opacity for the flat backdrop. Both are simple two-
+// keyframe fades/slides — nothing about the direction needs a percentage-
+// based multi-keyframe shape the way the gold ring's hold-then-fade does.
+function final60Keyframes() {
+  return (
+    <style>{`
+      @keyframes mdFinal60SheetEnter {
+        from { opacity: 0; transform: translateY(24px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes mdFinal60SheetExit {
+        from { opacity: 1; transform: translateY(0); }
+        to { opacity: 0; transform: translateY(24px); }
+      }
+      @keyframes mdFinal60ScrimEnter { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes mdFinal60ScrimExit { from { opacity: 1; } to { opacity: 0; } }
+    `}</style>
+  );
 }
 
 // Block 11 — the shared shell both final-60 sheets sit in: the 240ms
@@ -192,98 +199,111 @@ function revealShortly(setRevealed) {
 // every other bottom sheet in this file already uses), and the in-flow-
 // but-stacked-above-the-scrim trick (position:relative + a zIndex above
 // mdScrim's own fixed 45 — that's what lets an ordinary flow element
-// still paint over a position:fixed sibling). A fresh instance mounts
-// each time the caller renders one (keyed by pendingIndex, so a genuinely
-// new pending interval always gets its own reveal) — same "mount hidden,
-// reveal a tick later" idiom as FairnessToastMark/the swap animation,
-// needed here because the transition wouldn't otherwise have a real
-// "from" frame to animate away from.
-// exiting/onExited add a real exit transition (real-use feedback: both
+// still paint over a position:fixed sibling).
+//
+// Two nested divs, not one, because the entrance/exit animation and a
+// live drag both need to move the sheet via `transform`, and a CSS
+// animation claims that property outright for as long as it's attached —
+// even sitting idle at its own "forwards"-held end state, it still wins
+// the cascade over a plain inline style trying to set the same property.
+// The outer div owns the animation (opacity + the enter/exit slide) and
+// is the one testId/role/aria-label point at; the inner owns the actual
+// box chrome (background/padding/radius/shadow/scrolling) plus the drag's
+// own transform, entirely independent of whatever the outer is doing —
+// nested transforms stack visually, so a drag mid-way through an already-
+// settled entrance still moves the whole card exactly as before.
+//
+// exiting/onExited add a real exit animation (real-use feedback: both
 // sheets used to just vanish instantly on dismiss — tap, drag, or their
-// own timer — with only the entrance ever animated). While exiting is
-// true, this renders the exact same "hidden" rest state a not-yet-
-// revealed sheet uses, so it fades/slides away using the same 240ms
-// curve; onExited fires once that's had time to finish, telling the
-// parent it's safe to actually stop rendering this — the caller owns
-// the timing of when exiting flips true (a dismiss tap, a drag past the
-// threshold, or a timeout), this component only owns animating that.
+// own timer — with only the entrance ever animated). A plain setTimeout
+// is what tells the parent it's safe to stop rendering this once the
+// exit's had time to finish — same pattern the gold hold marker
+// (goldRingStyle, further down this file) already uses for its own CSS
+// @keyframes animation, and deliberately NOT `onAnimationEnd`: that
+// event depends on `window.AnimationEvent` existing, which this
+// project's own test environment doesn't have, so it's untestable here —
+// but more importantly, unlike the entrance trigger this setTimeout isn't
+// what starts the animation (the CSS keyframe above does that on its
+// own, unconditionally, the instant `exiting` flips); it only decides
+// when to stop rendering an already-finished, already-invisible element,
+// so even a throttled timer firing late costs nothing worse than a brief
+// extra moment of an invisible node sitting in the DOM.
 function Final60SheetShell({ onDismiss, exiting, onExited, testId, ariaLabel, titleRow, children }) {
-  const [revealed, setRevealed] = useState(false);
   const reducedMotion = usePrefersReducedMotion();
-  useEffect(() => revealShortly(setRevealed), []);
   useEffect(() => {
     if (!exiting) return undefined;
     if (reducedMotion) {
       onExited();
       return undefined;
     }
-    const timer = setTimeout(onExited, 260); // the 240ms transition itself, plus a small margin
+    const timer = setTimeout(onExited, 260); // the 240ms animation itself, plus a small margin
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exiting, reducedMotion]);
   const drag = useSheetDrag(onDismiss);
   const dragging = drag.dragStyle.transition === "none";
-  const shown = revealed && !exiting;
   return (
     <div
-      style={{
-        ...styles.mdFinal60Shell,
-        opacity: reducedMotion ? (exiting ? 0 : 1) : shown ? 1 : 0,
-        transform: reducedMotion
-          ? drag.dragStyle.transform
-          : `${drag.dragStyle.transform} ${shown ? "translateY(0)" : "translateY(24px)"}`,
-        transition: dragging ? "none" : reducedMotion ? "none" : "opacity 240ms ease, transform 240ms ease",
-      }}
+      style={
+        reducedMotion
+          ? { opacity: exiting ? 0 : 1 }
+          : { animation: `${exiting ? "mdFinal60SheetExit" : "mdFinal60SheetEnter"} 240ms ease forwards` }
+      }
       data-testid={testId}
       role="group"
       aria-label={ariaLabel}
     >
-      {/* Real-use feedback: swiping felt unreliable — the draggable zone
-          used to be just the bare handle pill, a ~40x5px target easy to
-          miss on a real phone. Widened to match the same handle+header
-          convention SquadSettingsForm's own "rebuild rotation" confirm
-          sheet already uses (mdCautionSheet) — the title row is plain
-          text, nothing tappable in it, so folding it into the drag zone
-          costs nothing while giving a finger a much bigger, more natural
-          target than the handle alone. */}
       <div
-        {...drag.dragHandleProps}
-        // Preserves the same gap the title row used to get for free as
-        // its own top-level flex item in mdFinal60Shell's own column flex
-        // (gap:10) — now that it's nested a level deeper inside this
-        // wrapper instead, that spacing has to be supplied explicitly or
-        // it'd collapse down to just the handle's own 4px margin.
-        style={{ ...drag.dragHandleProps.style, display: "flex", flexDirection: "column", gap: 10 }}
+        style={{
+          ...styles.mdFinal60Shell,
+          transform: drag.dragStyle.transform,
+          transition: dragging ? "none" : "transform 0.2s ease",
+        }}
       >
-        <div style={styles.mdFinal60Handle} />
-        {titleRow}
+        {/* Real-use feedback: swiping felt unreliable — the draggable
+            zone used to be just the bare handle pill, a ~40x5px target
+            easy to miss on a real phone. Widened to match the same
+            handle+header convention SquadSettingsForm's own "rebuild
+            rotation" confirm sheet already uses (mdCautionSheet) — the
+            title row is plain text, nothing tappable in it, so folding
+            it into the drag zone costs nothing while giving a finger a
+            much bigger, more natural target than the handle alone. */}
+        <div
+          {...drag.dragHandleProps}
+          // Preserves the same gap the title row used to get for free as
+          // its own top-level flex item in mdFinal60Shell's own column
+          // flex (gap:10) — now that it's nested a level deeper inside
+          // this wrapper instead, that spacing has to be supplied
+          // explicitly or it'd collapse down to just the handle's own
+          // 4px margin.
+          style={{ ...drag.dragHandleProps.style, display: "flex", flexDirection: "column", gap: 10 }}
+        >
+          <div style={styles.mdFinal60Handle} />
+          {titleRow}
+        </div>
+        {children}
       </div>
-      {children}
     </div>
   );
 }
 
-// Block 11's shared backdrop, behind both sheets. Real-use feedback: the
-// sheet itself already fades+slides in over 240ms, but the scrim used to
-// jump straight to full-strength dimming on the very first frame — that
-// mismatch (screen instantly darkens, sheet only then starts gliding up)
-// is what read as an abrupt entrance even though the sheet's own motion
-// was smooth. Same "mount hidden, reveal a tick later" idiom as
-// Final60SheetShell, simplified to opacity only (no drag, no slide — a
-// flat backdrop has nothing to travel). `exiting` fades it back out in
-// step with whichever sheet is currently exiting; unmounting itself is
+// Block 11's shared backdrop, behind both sheets — same CSS-@keyframes
+// reasoning as Final60SheetShell above, just opacity only (no drag, no
+// slide, no second nested div needed — a flat backdrop has nothing else
+// competing for `transform`). `exiting` switches it to the exit keyframe
+// in step with whichever sheet is currently exiting; unmounting itself is
 // still owned entirely by the parent's `showSheet1 || showSheet2` — once
-// neither sheet needs it, there's nothing left to keep it around for.
+// neither sheet needs it, there's nothing left to keep it around for, so
+// this doesn't need its own onAnimationEnd/onExited at all.
 function Final60Scrim({ exiting }) {
-  const [revealed, setRevealed] = useState(false);
   const reducedMotion = usePrefersReducedMotion();
-  useEffect(() => revealShortly(setRevealed), []);
   return (
     <div
       style={{
         ...styles.mdScrim,
-        opacity: reducedMotion ? (exiting ? 0 : 1) : revealed && !exiting ? 1 : 0,
-        transition: reducedMotion ? "none" : "opacity 240ms ease",
+        ...(reducedMotion
+          ? { opacity: exiting ? 0 : 1 }
+          : { animation: `${exiting ? "mdFinal60ScrimExit" : "mdFinal60ScrimEnter"} 240ms ease forwards` }),
       }}
       data-testid="scrim"
     />
@@ -1832,6 +1852,7 @@ export default function MatchView({
           only changing position never gets one either. */}
       {(showSheet1 || showSheet2) && (
         <>
+          {final60Keyframes()}
           <Final60Scrim exiting={overlaySheetExiting} />
           <div style={styles.mdFinal60Overlay}>
             {showSheet1 && (

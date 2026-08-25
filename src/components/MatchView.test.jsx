@@ -584,10 +584,12 @@ describe("MatchView — final-60 sheets (block 11: prepare + execute)", () => {
         <MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 310, setSubLog })} />
       );
       fireEvent.click(within(screen.getByTestId("prepare-sheet")).getByText("Ready ✓"));
-      act(() => vi.advanceTimersByTime(16));
-      // Still mounted this soon after the tap — exiting, not gone yet.
-      expect(screen.getByTestId("prepare-sheet")).toBeInTheDocument();
-      act(() => vi.advanceTimersByTime(300)); // past the 240ms exit transition
+      // Still mounted right after the tap — exiting (animation switched to
+      // the exit keyframe), not an instant vanish.
+      const sheet = screen.getByTestId("prepare-sheet");
+      expect(sheet).toBeInTheDocument();
+      expect(sheet.style.animation).toContain("mdFinal60SheetExit");
+      act(() => vi.advanceTimersByTime(300)); // past the 240ms exit animation
       expect(screen.queryByTestId("prepare-sheet")).not.toBeInTheDocument();
       expect(setSubLog).not.toHaveBeenCalled();
     });
@@ -636,10 +638,13 @@ describe("MatchView — final-60 sheets (block 11: prepare + execute)", () => {
       render(<MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 340 })} />);
       expect(screen.getByTestId("execute-sheet")).toBeInTheDocument();
       act(() => vi.advanceTimersByTime(27000));
-      // The 27s timer has fired (requestDismissSheet2) but the 240ms exit
-      // transition hasn't finished yet — still mounted, mid-fade.
-      expect(screen.getByTestId("execute-sheet")).toBeInTheDocument();
-      act(() => vi.advanceTimersByTime(300));
+      // The 27s timer has fired (requestDismissSheet2, still a plain
+      // setTimeout — only the animation mechanism itself changed) — still
+      // mounted, now mid-exit rather than gone.
+      const sheet = screen.getByTestId("execute-sheet");
+      expect(sheet).toBeInTheDocument();
+      expect(sheet.style.animation).toContain("mdFinal60SheetExit");
+      act(() => vi.advanceTimersByTime(300)); // past the 240ms exit animation
       expect(screen.queryByTestId("execute-sheet")).not.toBeInTheDocument();
     });
 
@@ -666,6 +671,8 @@ describe("MatchView — final-60 sheets (block 11: prepare + execute)", () => {
         <MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 340, setSubLog })} />
       );
       fireEvent.click(within(screen.getByTestId("execute-sheet")).getByText("Sub done ✓"));
+      const sheet = screen.getByTestId("execute-sheet");
+      expect(sheet.style.animation).toContain("mdFinal60SheetExit");
       act(() => vi.advanceTimersByTime(300));
       expect(screen.queryByTestId("execute-sheet")).not.toBeInTheDocument();
       expect(setSubLog).not.toHaveBeenCalled();
@@ -687,61 +694,62 @@ describe("MatchView — final-60 sheets (block 11: prepare + execute)", () => {
       fireEvent.pointerDown(dragZone, { clientY: 100, pointerId: 1 });
       fireEvent.pointerMove(dragZone, { clientY: 250, pointerId: 1 }); // 150px, past the 90px threshold
       fireEvent.pointerUp(dragZone, { clientY: 250, pointerId: 1 });
+      const sheet = screen.getByTestId("execute-sheet");
+      expect(sheet.style.animation).toContain("mdFinal60SheetExit");
       act(() => vi.advanceTimersByTime(300));
       expect(screen.queryByTestId("execute-sheet")).not.toBeInTheDocument();
     });
   });
 
-  // Real-use feedback: the sheet itself already faded in on mount, but the
-  // scrim used to jump straight to full-strength dimming with no
-  // transition at all, so the whole reveal read as abrupt even though the
-  // sheet's own motion was smooth. Final60Scrim gives it the same fade.
-  //
-  // Real-use feedback (after the scrim fade above already shipped, twice
-  // over — once still abrupt, once seemingly not fading at all): a single
-  // rAF's state update isn't guaranteed to land in a separate painted
-  // frame from the initial mount, and a real phone can throttle or
-  // suspend rAF callbacks altogether under conditions this codebase
-  // already has direct proof of (this exact sheet's own setTimeout-based
-  // auto-dismiss timers kept firing in a test browser tab that had
-  // stopped running rAF at all). revealShortly (MatchView.jsx) uses a
-  // short setTimeout instead of rAF for exactly that reason — this test
-  // is what proves the reveal is genuinely gated on that timer, not
-  // immediate: still hidden right after mount, revealed only once the
-  // timer's had a chance to fire.
-  it("needs a moment to reveal, not immediate — a real 'from' frame must be painted before it fades in", () => {
-    vi.useFakeTimers();
+  // Real-use feedback, three rounds running the "mount hidden, flip a tick
+  // later" idiom off a JS timer (a single rAF, a double-nested rAF, then a
+  // setTimeout) — every one of them still read as abrupt (or, once,
+  // seemingly not animating at all) on a real device, because the whole
+  // approach depends on some JS callback reliably firing after mount, and
+  // that's exactly the part that kept failing under real-device
+  // conditions this codebase now has direct proof can throttle or suspend
+  // JS timers altogether. Real CSS @keyframes sidestep the problem
+  // entirely: the animation starts the instant the element is inserted
+  // into the DOM, with no JS trigger involved at all — this test is what
+  // proves that's genuinely how it's wired: the enter animation is
+  // already present in the very first render, not something a later
+  // timer switches on.
+  it("applies the enter animation immediately on mount for both the sheet and the scrim — no timer, no delay", () => {
+    render(<MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 310 })} />);
+    expect(screen.getByTestId("scrim").style.animation).toContain("mdFinal60ScrimEnter");
+    expect(screen.getByTestId("prepare-sheet").style.animation).toContain("mdFinal60SheetEnter");
+  });
+
+  // Under prefers-reduced-motion the animation is skipped altogether (no
+  // motion at all, per that preference) rather than swapped for a faster
+  // one — opacity is set directly instead of via any keyframe.
+  it("skips the animation under prefers-reduced-motion, setting opacity directly instead", () => {
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = (query) => ({
+      matches: query.includes("prefers-reduced-motion"),
+      media: query, addEventListener: () => {}, removeEventListener: () => {},
+    });
     render(<MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 310 })} />);
     const scrim = screen.getByTestId("scrim");
     const sheet = screen.getByTestId("prepare-sheet");
-    expect(Number(getComputedStyle(scrim).opacity)).toBe(0);
-    expect(Number(getComputedStyle(sheet).opacity)).toBe(0);
-    act(() => vi.advanceTimersByTime(20)); // the reveal timer fires
-    act(() => vi.advanceTimersByTime(250)); // past the 240ms transition
+    expect(scrim.style.animation).toBe("");
+    expect(sheet.style.animation).toBe("");
     expect(Number(getComputedStyle(scrim).opacity)).toBe(1);
     expect(Number(getComputedStyle(sheet).opacity)).toBe(1);
+    window.matchMedia = originalMatchMedia;
   });
 
   describe("shared scrim", () => {
-    it("fades in on mount rather than snapping straight to full dim", () => {
+    it("switches to its own exit animation in step with the sheet on dismiss, and unmounts once the sheet's exit actually finishes", () => {
       vi.useFakeTimers();
       render(<MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 310 })} />);
-      const scrim = screen.getByTestId("scrim");
-      expect(Number(getComputedStyle(scrim).opacity)).toBe(0);
-      act(() => vi.advanceTimersByTime(20)); // flush the reveal timer
-      act(() => vi.advanceTimersByTime(250)); // past the 240ms transition
-      expect(Number(getComputedStyle(scrim).opacity)).toBe(1);
-    });
-
-    it("fades back out in step with the sheet on dismiss, rather than vanishing instantly", () => {
-      vi.useFakeTimers();
-      render(<MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 310 })} />);
-      act(() => vi.advanceTimersByTime(266)); // let the entrance fade finish first
       fireEvent.click(within(screen.getByTestId("prepare-sheet")).getByText("Ready ✓"));
-      act(() => vi.advanceTimersByTime(16));
       const scrim = screen.getByTestId("scrim");
       expect(scrim).toBeInTheDocument();
-      expect(Number(getComputedStyle(scrim).opacity)).toBe(0);
+      expect(scrim.style.animation).toContain("mdFinal60ScrimExit");
+      // The scrim has no exit signal of its own — it unmounts once the
+      // sheet's own exit timer tells the parent neither sheet needs it
+      // any more (see the parent's `showSheet1 || showSheet2`).
       act(() => vi.advanceTimersByTime(300));
       expect(screen.queryByTestId("scrim")).not.toBeInTheDocument();
     });
