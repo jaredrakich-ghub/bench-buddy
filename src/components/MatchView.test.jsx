@@ -670,12 +670,52 @@ describe("MatchView — final-60 sheets (block 11: prepare + execute)", () => {
       expect(screen.queryByTestId("execute-sheet")).not.toBeInTheDocument();
       expect(setSubLog).not.toHaveBeenCalled();
     });
+
+    // Real-use feedback: "can this be swiped down?" — the draggable zone
+    // used to be just the bare grab-handle pill (~40x5px), easy to miss on
+    // a real phone. It now includes the whole title row too (same
+    // handle+header convention SquadSettingsForm's own confirm sheet
+    // already uses) — this drags from the title text itself, the part
+    // that previously had no drag handling at all, to prove the widened
+    // zone is what's actually wired up, not just the pill.
+    it("can be swiped down from its title row, not just the tiny grab handle", () => {
+      vi.useFakeTimers();
+      // jsdom doesn't implement PointerEvent capture at all.
+      Element.prototype.setPointerCapture = vi.fn();
+      render(<MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 340 })} />);
+      const dragZone = within(screen.getByTestId("execute-sheet")).getByText("Make the changes").closest("div").parentElement;
+      fireEvent.pointerDown(dragZone, { clientY: 100, pointerId: 1 });
+      fireEvent.pointerMove(dragZone, { clientY: 250, pointerId: 1 }); // 150px, past the 90px threshold
+      fireEvent.pointerUp(dragZone, { clientY: 250, pointerId: 1 });
+      act(() => vi.advanceTimersByTime(300));
+      expect(screen.queryByTestId("execute-sheet")).not.toBeInTheDocument();
+    });
   });
 
   // Real-use feedback: the sheet itself already faded in on mount, but the
   // scrim used to jump straight to full-strength dimming with no
   // transition at all, so the whole reveal read as abrupt even though the
   // sheet's own motion was smooth. Final60Scrim gives it the same fade.
+  // Real-use feedback (after the scrim fade above already shipped): the
+  // entrance still read as an abrupt flash-in on a real device. A single
+  // rAF's state update isn't guaranteed to land in a separate painted
+  // frame from the initial mount — nesting a second rAF inside the first
+  // (revealNextFrame, MatchView.jsx) guards against that by construction.
+  // This test is what actually proves that guard is in effect: one frame
+  // alone must NOT be enough to reveal.
+  it("needs two animation frames to reveal, not one — a single frame landing in the same paint as the mount must not skip the fade", () => {
+    vi.useFakeTimers();
+    render(<MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 310 })} />);
+    const scrim = screen.getByTestId("scrim");
+    const sheet = screen.getByTestId("prepare-sheet");
+    act(() => vi.advanceTimersByTime(16)); // one frame
+    expect(Number(getComputedStyle(scrim).opacity)).toBe(0);
+    expect(Number(getComputedStyle(sheet).opacity)).toBe(0);
+    act(() => vi.advanceTimersByTime(16)); // a second frame
+    expect(Number(getComputedStyle(scrim).opacity)).toBe(1);
+    expect(Number(getComputedStyle(sheet).opacity)).toBe(1);
+  });
+
   describe("shared scrim", () => {
     it("fades in on mount rather than snapping straight to full dim", () => {
       vi.useFakeTimers();

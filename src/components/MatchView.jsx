@@ -162,6 +162,31 @@ function FairnessToastMark({ spreadMin, intervalLen }) {
   );
 }
 
+// Flips a "revealed" flag true a moment after mount, for a CSS transition
+// that needs a genuine hidden "from" frame to animate away from (mount
+// hidden, reveal a tick later). A single requestAnimationFrame isn't
+// reliable enough for this on its own — real-use feedback: the final-60
+// sheets' entrance still read as an abrupt flash-in on a real device even
+// after the single-rAF version measured as a smooth fade in a desktop
+// browser test. The state update a single rAF schedules can still land in
+// the same painted frame as the initial mount (React's commit timing
+// isn't guaranteed to fall on the far side of that one callback,
+// especially on some mobile browsers), leaving the browser with no actual
+// "before" style to interpolate from. Nesting a second rAF inside the
+// first guarantees at least one real frame is painted with the hidden
+// styles before the revealed ones ever get committed. Shared by
+// Final60SheetShell and Final60Scrim.
+function revealNextFrame(setRevealed) {
+  let raf2;
+  const raf1 = requestAnimationFrame(() => {
+    raf2 = requestAnimationFrame(() => setRevealed(true));
+  });
+  return () => {
+    cancelAnimationFrame(raf1);
+    if (raf2) cancelAnimationFrame(raf2);
+  };
+}
+
 // Block 11 — the shared shell both final-60 sheets sit in: the 240ms
 // slide-up + fade on mount ("no animation under prefers-reduced-motion"),
 // the grab handle + swipe-down-to-dismiss (useSheetDrag, same mechanism
@@ -183,13 +208,10 @@ function FairnessToastMark({ spreadMin, intervalLen }) {
 // parent it's safe to actually stop rendering this — the caller owns
 // the timing of when exiting flips true (a dismiss tap, a drag past the
 // threshold, or a timeout), this component only owns animating that.
-function Final60SheetShell({ onDismiss, exiting, onExited, testId, ariaLabel, children }) {
+function Final60SheetShell({ onDismiss, exiting, onExited, testId, ariaLabel, titleRow, children }) {
   const [revealed, setRevealed] = useState(false);
   const reducedMotion = usePrefersReducedMotion();
-  useEffect(() => {
-    const raf = requestAnimationFrame(() => setRevealed(true));
-    return () => cancelAnimationFrame(raf);
-  }, []);
+  useEffect(() => revealNextFrame(setRevealed), []);
   useEffect(() => {
     if (!exiting) return undefined;
     if (reducedMotion) {
@@ -217,8 +239,25 @@ function Final60SheetShell({ onDismiss, exiting, onExited, testId, ariaLabel, ch
       role="group"
       aria-label={ariaLabel}
     >
-      <div {...drag.dragHandleProps}>
+      {/* Real-use feedback: swiping felt unreliable — the draggable zone
+          used to be just the bare handle pill, a ~40x5px target easy to
+          miss on a real phone. Widened to match the same handle+header
+          convention SquadSettingsForm's own "rebuild rotation" confirm
+          sheet already uses (mdCautionSheet) — the title row is plain
+          text, nothing tappable in it, so folding it into the drag zone
+          costs nothing while giving a finger a much bigger, more natural
+          target than the handle alone. */}
+      <div
+        {...drag.dragHandleProps}
+        // Preserves the same gap the title row used to get for free as
+        // its own top-level flex item in mdFinal60Shell's own column flex
+        // (gap:10) — now that it's nested a level deeper inside this
+        // wrapper instead, that spacing has to be supplied explicitly or
+        // it'd collapse down to just the handle's own 4px margin.
+        style={{ ...drag.dragHandleProps.style, display: "flex", flexDirection: "column", gap: 10 }}
+      >
         <div style={styles.mdFinal60Handle} />
+        {titleRow}
       </div>
       {children}
     </div>
@@ -239,10 +278,7 @@ function Final60SheetShell({ onDismiss, exiting, onExited, testId, ariaLabel, ch
 function Final60Scrim({ exiting }) {
   const [revealed, setRevealed] = useState(false);
   const reducedMotion = usePrefersReducedMotion();
-  useEffect(() => {
-    const raf = requestAnimationFrame(() => setRevealed(true));
-    return () => cancelAnimationFrame(raf);
-  }, []);
+  useEffect(() => revealNextFrame(setRevealed), []);
   return (
     <div
       style={{
@@ -273,11 +309,13 @@ function PrepareSheet({ pendingChanges, keeperFromBench, nameOf, numberOf, toggl
       onExited={onExited}
       testId="prepare-sheet"
       ariaLabel="Prepare for the next substitution"
+      titleRow={
+        <div style={styles.mdFinal60TitleRow}>
+          <span style={styles.mdPrepareTitle}>Next sub 60 secs</span>
+          <span style={styles.mdFinal60Label}>GET READY</span>
+        </div>
+      }
     >
-      <div style={styles.mdFinal60TitleRow}>
-        <span style={styles.mdPrepareTitle}>Next sub 60 secs</span>
-        <span style={styles.mdFinal60Label}>GET READY</span>
-      </div>
       {keeperFromBench && (
         <div style={styles.mdPrepareCardKeeper}>
           <span style={styles.mdPrepareDiscKeeper}>{numberOf(becomingKeeperId)}</span>
@@ -333,11 +371,13 @@ function ExecuteSheet({ steps, nameOf, numberOf, toggleTimer, onDismiss, exiting
       onExited={onExited}
       testId="execute-sheet"
       ariaLabel="Make the changes"
+      titleRow={
+        <div style={styles.mdFinal60TitleRow}>
+          <span style={styles.mdExecuteTitle}>Make the changes</span>
+          <span style={styles.mdFinal60Label}>30 secs to go</span>
+        </div>
+      }
     >
-      <div style={styles.mdFinal60TitleRow}>
-        <span style={styles.mdExecuteTitle}>Make the changes</span>
-        <span style={styles.mdFinal60Label}>30 secs to go</span>
-      </div>
       <div style={styles.mdExecuteStepList}>
         {steps.map((step, i) => (
           <div key={i} style={styles.mdExecuteStepRow}>
