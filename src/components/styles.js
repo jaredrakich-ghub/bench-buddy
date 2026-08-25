@@ -372,12 +372,48 @@ export const styles = {
     fontFamily: tokens.font.display, fontWeight: 800, fontSize: 15, color: tokens.color.mutedText,
     flexShrink: 0, paddingTop: 5, // roughly centers the label on the chip row's own first line
   },
-  // Block 8, part D — one row, not two: available players first, then a
-  // divider, then anyone injured. Replaces the old separate "Injured"
-  // sub-label + second row (mdBenchSubLabel, now dead — the pink-tinted
-  // chip and cross badge already read as "injured" without a text label).
-  mdBenchChipRow: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, flex: 1, minWidth: 0 },
-  mdBenchDivider: { width: 2, height: 28, borderRadius: 1, background: "#DCD2B6", margin: "0 2px", flexShrink: 0 },
+  // Block 8, part D — available players first, then a divider, then
+  // anyone injured (replaces the old separate "Injured" sub-label + second
+  // row — mdBenchSubLabel, now dead — the pink-tinted chip and cross badge
+  // already read as "injured" without a text label).
+  //
+  // Two rows only once there are enough chips to actually need it — see
+  // MatchView.jsx's own benchChipCount switch between this and
+  // mdBenchChipRowCompact below. Real-use feedback: plain flex-wrap packed
+  // row 1 greedily and only spilled the remainder to row 2 — on a narrow
+  // phone with a few longer names that could leave 3 bench players stacked
+  // as three separate single-chip rows even though two would clearly fit
+  // side by side. Grid with 2 explicit row tracks and column auto-flow
+  // fixes that: it fills column-by-column (up to 2 chips per column)
+  // instead of row-by-row, so it actively packs toward 2 rows rather than
+  // leaving the split up to whatever happened to fit on row 1 first.
+  // overflowX:auto is the escape valve for a bench too big to fit 2 rows'
+  // worth of columns on screen — scrolls rather than ever clipping or
+  // shrinking a chip.
+  mdBenchChipRow: {
+    display: "grid", gridTemplateRows: "repeat(2, auto)", gridAutoFlow: "column",
+    // justifyItems:"start" — a grid cell's own width matches its column's
+    // widest occupant (e.g. a short name sharing a column with a much
+    // longer one); without this a shorter chip stretches to fill that
+    // width, leaving dead space baked inside its own pill shape. Left-
+    // aligning instead keeps every pill its own natural size, so any
+    // leftover width reads as ordinary gutter space between columns.
+    alignItems: "stretch", justifyItems: "start", columnGap: 8, rowGap: 8, flex: 1, minWidth: 0, overflowX: "auto",
+  },
+  // The grid above always reserves 2 full row-tracks worth of height even
+  // for just one or two chips (grid-auto-flow:column fills straight down
+  // a column before starting a new one, so 2 chips land one above the
+  // other instead of side by side) — fine once there's a real 2-row's
+  // worth of content, wasted space when there isn't. A plain single-line
+  // flex row stays exactly as compact as the common small-bench case
+  // always was; it only ever needs its own wrap as a last-resort safety
+  // net, not as the normal way of finding a second row.
+  mdBenchChipRowCompact: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, flex: 1, minWidth: 0 },
+  // gridRow spans both row tracks (plus the row-gap between them) so this
+  // reads as one continuous vertical rule regardless of which column the
+  // auto-placement lands it in — alignItems:"stretch" above is what lets
+  // it actually fill that full height instead of centering at a fixed one.
+  mdBenchDivider: { width: 2, gridRow: "1 / span 2", borderRadius: 1, background: "#DCD2B6", margin: "0 2px" },
   mdBenchChip: {
     display: "flex", alignItems: "center", gap: 6, background: "#fff", borderRadius: tokens.radius.chip,
     padding: "4px 12px 4px 4px", border: "none", cursor: "pointer", font: "inherit",
@@ -396,7 +432,13 @@ export const styles = {
   // misleading (most players default to eligible, so almost every chip
   // read gold regardless of what was actually about to happen).
   mdBenchChipNumberGk: { background: tokens.color.yellow, color: tokens.color.deepGreen },
-  mdBenchChipName: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 16, color: tokens.color.deepGreen },
+  // whiteSpace:nowrap — a chip's own name must never wrap internally onto
+  // a second line (it has no overflow/ellipsis protection to fall back on
+  // if it did); a grid column's width is driven by its widest cell, so a
+  // long name just makes its own column wider rather than ever needing to.
+  mdBenchChipName: {
+    fontFamily: tokens.font.body, fontWeight: 800, fontSize: 16, color: tokens.color.deepGreen, whiteSpace: "nowrap",
+  },
   mdBenchChipUpArrow: { color: tokens.color.pitchGreen, display: "flex", alignItems: "center" },
   mdBenchEmpty: { color: tokens.color.mutedText, fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13 },
 
@@ -414,7 +456,9 @@ export const styles = {
     fontFamily: tokens.font.display, fontWeight: 800, fontSize: 14, flexShrink: 0,
     background: tokens.color.injuryRed, color: "#fff",
   },
-  mdInjuredChipName: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 16, color: tokens.color.injuryText },
+  mdInjuredChipName: {
+    fontFamily: tokens.font.body, fontWeight: 800, fontSize: 16, color: tokens.color.injuryText, whiteSpace: "nowrap",
+  },
   mdInjuredCrossBadge: {
     position: "absolute", top: -7, right: -5, width: 20, height: 20, borderRadius: "50%",
     background: tokens.color.injuryRed, border: `2px solid ${tokens.color.creamPaper}`,

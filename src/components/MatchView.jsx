@@ -225,6 +225,36 @@ function Final60SheetShell({ onDismiss, exiting, onExited, testId, ariaLabel, ch
   );
 }
 
+// Block 11's shared backdrop, behind both sheets. Real-use feedback: the
+// sheet itself already fades+slides in over 240ms, but the scrim used to
+// jump straight to full-strength dimming on the very first frame — that
+// mismatch (screen instantly darkens, sheet only then starts gliding up)
+// is what read as an abrupt entrance even though the sheet's own motion
+// was smooth. Same "mount hidden, reveal a tick later" idiom as
+// Final60SheetShell, simplified to opacity only (no drag, no slide — a
+// flat backdrop has nothing to travel). `exiting` fades it back out in
+// step with whichever sheet is currently exiting; unmounting itself is
+// still owned entirely by the parent's `showSheet1 || showSheet2` — once
+// neither sheet needs it, there's nothing left to keep it around for.
+function Final60Scrim({ exiting }) {
+  const [revealed, setRevealed] = useState(false);
+  const reducedMotion = usePrefersReducedMotion();
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setRevealed(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  return (
+    <div
+      style={{
+        ...styles.mdScrim,
+        opacity: reducedMotion ? (exiting ? 0 : 1) : revealed && !exiting ? 1 : 0,
+        transition: reducedMotion ? "none" : "opacity 240ms ease",
+      }}
+      data-testid="scrim"
+    />
+  );
+}
+
 // SHEET 1 — PREPARE. Only players who have to physically walk onto the
 // pitch before the whistle get a card: the incoming keeper (if they're a
 // genuine bench arrival — one already on the pitch just changing role has
@@ -556,13 +586,14 @@ export default function MatchView({
     secSincePendingEnd >= -60 && secSincePendingEnd < -30 && sheet1DismissedForIndex !== pendingIndex;
   // pendingIndex !== null guards a real gap: both it and *ExitingForIndex
   // default to null, and "nothing pending" must never spuriously equal
-  // "exiting for no interval in particular". sheet1DismissedForIndex
-  // !== pendingIndex guards a second gap: *ExitingForIndex is never reset
-  // once set, so once onExited actually fires (setting *DismissedForIndex
-  // in the very same tick sheetNTrigger's own dismissed-check goes false)
-  // this clause must stop holding the sheet up too, or it renders forever.
-  const showSheet1 =
-    sheet1Trigger || (pendingIndex !== null && sheet1ExitingForIndex === pendingIndex && sheet1DismissedForIndex !== pendingIndex);
+  // "exiting for no interval in particular".
+  const sheet1Exiting = pendingIndex !== null && sheet1ExitingForIndex === pendingIndex;
+  // sheet1DismissedForIndex !== pendingIndex guards a second gap:
+  // *ExitingForIndex is never reset once set, so once onExited actually
+  // fires (setting *DismissedForIndex in the very same tick sheetNTrigger's
+  // own dismissed-check goes false) this clause must stop holding the
+  // sheet up too, or it renders forever.
+  const showSheet1 = sheet1Trigger || (sheet1Exiting && sheet1DismissedForIndex !== pendingIndex);
 
   // SHEET 2 — EXECUTE, -30s onward, closing itself with 3 seconds left
   // before the boundary (the effect below fires 27s after it appears) or
@@ -572,8 +603,12 @@ export default function MatchView({
   const sheet2Trigger =
     pendingIndex !== null && !isMatchComplete && timerRunning && pendingNeedsConfirm &&
     secSincePendingEnd >= -30 && sheet2DismissedForIndex !== pendingIndex;
-  const showSheet2 =
-    sheet2Trigger || (pendingIndex !== null && sheet2ExitingForIndex === pendingIndex && sheet2DismissedForIndex !== pendingIndex);
+  const sheet2Exiting = pendingIndex !== null && sheet2ExitingForIndex === pendingIndex;
+  const showSheet2 = sheet2Trigger || (sheet2Exiting && sheet2DismissedForIndex !== pendingIndex);
+  // Whichever sheet is actually on screen right now fading itself out —
+  // drives the shared scrim's own fade-out below (see Final60Scrim) so the
+  // backdrop dims/lifts in step with the sheet, not a beat behind it.
+  const overlaySheetExiting = (showSheet1 && sheet1Exiting) || (showSheet2 && sheet2Exiting);
 
   // Whether the incoming keeper is a genuine bench arrival, or was
   // already on the pitch (an outfielder taking over the gloves with
@@ -1481,12 +1516,25 @@ export default function MatchView({
         {benchEmpty && benchRenderList.length === 0 && (activeSwap?.benchPairs || []).length === 0 ? (
           <span style={styles.mdBenchEmpty}>Full squad on field</span>
         ) : (
-          // Block 8, part D: one row, two zones — available players first
-          // (where the coach looks first), then a divider, then anyone
-          // injured, rather than a separate "Injured" sub-label and second
-          // row. renderInjuredChip's own pink tint + cross badge already
-          // reads as "injured" without a text label repeating it.
-          <div style={styles.mdBenchChipRow}>
+          // Block 8, part D: two zones — available players first (where
+          // the coach looks first), then a divider, then anyone injured,
+          // rather than a separate "Injured" sub-label and second row.
+          // renderInjuredChip's own pink tint + cross badge already reads
+          // as "injured" without a text label repeating it.
+          //
+          // Only reaches for the 2-row grid once there are enough chips to
+          // actually need it (mdBenchChipRow's own comment has the full
+          // reasoning) — 2 or fewer stays the plain compact single row,
+          // since 2 chips almost always fit comfortably side by side and
+          // the grid would otherwise stack them into an unnecessarily
+          // tall 2-row block just because that's how it fills.
+          <div
+            style={
+              benchRenderList.length + (activeSwap?.benchPairs || []).length + injuredThisGame.length > 2
+                ? styles.mdBenchChipRow
+                : styles.mdBenchChipRowCompact
+            }
+          >
             {benchRenderList.map(renderBenchToken)}
             {(activeSwap?.benchPairs || []).map(renderBenchSlotPair)}
             {(benchRenderList.length > 0 || (activeSwap?.benchPairs || []).length > 0) && injuredThisGame.length > 0 && <div style={styles.mdBenchDivider} />}
@@ -1745,7 +1793,7 @@ export default function MatchView({
           only changing position never gets one either. */}
       {(showSheet1 || showSheet2) && (
         <>
-          <div style={styles.mdScrim} data-testid="scrim" />
+          <Final60Scrim exiting={overlaySheetExiting} />
           <div style={styles.mdFinal60Overlay}>
             {showSheet1 && (
               <PrepareSheet
@@ -1756,7 +1804,7 @@ export default function MatchView({
                 numberOf={numberOf}
                 toggleTimer={toggleTimer}
                 onReady={requestDismissSheet1}
-                exiting={sheet1ExitingForIndex === pendingIndex}
+                exiting={sheet1Exiting}
                 onExited={() => setSheet1DismissedForIndex(pendingIndex)}
                 onMount={() =>
                   setSheetAnnouncement(
@@ -1780,7 +1828,7 @@ export default function MatchView({
                 numberOf={numberOf}
                 toggleTimer={toggleTimer}
                 onDismiss={requestDismissSheet2}
-                exiting={sheet2ExitingForIndex === pendingIndex}
+                exiting={sheet2Exiting}
                 onExited={() => setSheet2DismissedForIndex(pendingIndex)}
                 onMount={() => setSheetAnnouncement(`Make the changes, ${executeSteps.length} steps`)}
               />

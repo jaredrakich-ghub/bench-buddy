@@ -184,6 +184,40 @@ describe("MatchView — basic rendering", () => {
   });
 });
 
+// Real-use feedback: "3 players... sometimes get stacked on top of each
+// when it looks like there's room" — plain flex-wrap packed row 1 greedily
+// and only spilled whatever didn't fit to row 2, so 3 bench players could
+// land as three separate single-chip rows instead of a much more sensible
+// 2+1. Below the 3-chip threshold, stays the plain compact single row —
+// 1-2 chips almost always fit comfortably side by side, and the grid would
+// otherwise stack even those into an unnecessarily tall 2-row block.
+describe("MatchView — bench chip layout (2 rows once there's enough to need it)", () => {
+  it("stays a single compact row for 2 bench players", () => {
+    // defaultPlan's own interval 0 bench is exactly p6/p7 — 2 players.
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0 })} />);
+    const row = screen.getByText("Finn").closest("button").parentElement.parentElement;
+    expect(getComputedStyle(row).display).toBe("flex");
+  });
+
+  // jsdom doesn't run real layout, so an actual pixel-position check isn't
+  // meaningful here (getBoundingClientRect is always zeroed) — that side
+  // was verified live in a real browser instead (2/3/4/5-chip benches,
+  // short and long names: clean 2-row packing, no overlap, horizontal
+  // scroll as the escape valve for a bench too big to fit). What jsdom
+  // *can* verify is that the switch to the grid layout actually fires
+  // once there's enough chips to want it.
+  it("switches to the 2-row grid once there are 3+ bench players", () => {
+    const threeBenchPlan = [
+      makeInterval(0, 0, 6, ["p1", "p2", "p3", "p4"], "p1", ["p5", "p6", "p7"]),
+      makeInterval(1, 6, 12, ["p1", "p2", "p3", "p4"], "p1", ["p5", "p6", "p7"]),
+    ];
+    render(<MatchView {...baseProps({ plan: threeBenchPlan, activeInterval: 0, elapsedSec: 0 })} />);
+    const row = screen.getByText("Eve").closest("button").parentElement.parentElement;
+    expect(getComputedStyle(row).display).toBe("grid");
+    expect(getComputedStyle(row).gridTemplateRows).toContain("repeat(2");
+  });
+});
+
 describe("MatchView — next-sub badges", () => {
   it("flags the regular sub (off/on) and the keeper handover distinctly", () => {
     // Viewing interval 0 live (activeInterval === cur.index), so badges for
@@ -635,6 +669,35 @@ describe("MatchView — final-60 sheets (block 11: prepare + execute)", () => {
       act(() => vi.advanceTimersByTime(300));
       expect(screen.queryByTestId("execute-sheet")).not.toBeInTheDocument();
       expect(setSubLog).not.toHaveBeenCalled();
+    });
+  });
+
+  // Real-use feedback: the sheet itself already faded in on mount, but the
+  // scrim used to jump straight to full-strength dimming with no
+  // transition at all, so the whole reveal read as abrupt even though the
+  // sheet's own motion was smooth. Final60Scrim gives it the same fade.
+  describe("shared scrim", () => {
+    it("fades in on mount rather than snapping straight to full dim", () => {
+      vi.useFakeTimers();
+      render(<MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 310 })} />);
+      const scrim = screen.getByTestId("scrim");
+      expect(Number(getComputedStyle(scrim).opacity)).toBe(0);
+      act(() => vi.advanceTimersByTime(16)); // flush the reveal rAF
+      act(() => vi.advanceTimersByTime(250)); // past the 240ms transition
+      expect(Number(getComputedStyle(scrim).opacity)).toBe(1);
+    });
+
+    it("fades back out in step with the sheet on dismiss, rather than vanishing instantly", () => {
+      vi.useFakeTimers();
+      render(<MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 310 })} />);
+      act(() => vi.advanceTimersByTime(266)); // let the entrance fade finish first
+      fireEvent.click(within(screen.getByTestId("prepare-sheet")).getByText("Ready ✓"));
+      act(() => vi.advanceTimersByTime(16));
+      const scrim = screen.getByTestId("scrim");
+      expect(scrim).toBeInTheDocument();
+      expect(Number(getComputedStyle(scrim).opacity)).toBe(0);
+      act(() => vi.advanceTimersByTime(300));
+      expect(screen.queryByTestId("scrim")).not.toBeInTheDocument();
     });
   });
 });
