@@ -321,13 +321,13 @@ function ExecuteSheet({ steps, nameOf, numberOf, toggleTimer, onSubDone, onDismi
 // The 30-seconds-late auto-apply's own visible cue (block 11: "must be
 // visible, not silent"). Reuses FairnessToastMark's reveal/fade mechanics
 // (the rAF-then-reveal mount trick, the timed auto-hide) but is its own
-// content — a text pill with an Undo action, not a ring — so it isn't
-// built as a variant of that component. There's no pre-existing "Undo"
-// mechanism anywhere else in this app to hook into (confirmed — this is
-// the first one), so Undo here is deliberately minimal: it just clears
-// the auto-applied subLog entry back out, which on its own re-locks the
-// board to that interval and brings the execute sheet back for a real tap.
-function AutoApplyToast({ message, onUndo }) {
+// content — a text pill, not a ring — so it isn't built as a variant of
+// that component. Plain notification only, no action on it — an Undo
+// button was here initially but there was no pre-existing Undo mechanism
+// anywhere in this app to hook into, and real-use feedback was to drop it
+// rather than invent one: one less thing going on for a moment that's
+// already just informational.
+function AutoApplyToast({ message }) {
   const [revealed, setRevealed] = useState(false);
   const reducedMotion = usePrefersReducedMotion();
   useEffect(() => {
@@ -349,9 +349,6 @@ function AutoApplyToast({ message, onUndo }) {
       aria-live="polite"
     >
       <span style={styles.mdAutoApplyToastText}>{message}</span>
-      <button style={styles.mdAutoApplyToastUndo} onClick={onUndo}>
-        Undo
-      </button>
     </div>
   );
 }
@@ -1684,19 +1681,7 @@ export default function MatchView({
           below, which already names who's coming off/on with room to
           spare — this bar no longer offers an early-confirm shortcut. */}
       {autoApplyToast && !isMatchComplete && (
-        <AutoApplyToast
-          key={autoApplyToast.key}
-          message={autoApplyMessage(autoApplyToast.index)}
-          onUndo={() => {
-            const idx = autoApplyToast.index;
-            setSubLog((prev) => {
-              const next = { ...prev };
-              delete next[idx];
-              return next;
-            });
-            setAutoApplyToast(null);
-          }}
-        />
+        <AutoApplyToast key={autoApplyToast.key} message={autoApplyMessage(autoApplyToast.index)} />
       )}
 
       {isPreKickoff && !sheetOpen && (
@@ -1761,10 +1746,13 @@ export default function MatchView({
       )}
 
       {/* Block 11: the final-60 takeover from here down replaces the old
-          single full-screen sheet with two, fixed to the viewport bottom
-          same as every other bottom sheet in this file (see
-          mdFinal60Shell's own comment for why — a real in-flow version
-          landed below the fold on a real device). mdScrim dims the
+          single full-screen sheet with two. Both sit inside
+          mdFinal60Overlay — see its own comment for why that's a
+          height:100dvh flex column (justify-content:flex-end) rather than
+          `position:fixed; bottom:0` on the sheet directly: two rounds of
+          real-device feedback, first a true in-flow version landing below
+          the fold, then a plain fixed-bottom version still rendering
+          partly behind Safari's own collapsing toolbar. mdScrim dims the
           pitch/bench, which stay fully visible above the sheet, not
           replaced by it. keeperFromBench decides whether the prepare
           sheet's emphasised card shows at all — a keeper change that's
@@ -1772,56 +1760,60 @@ export default function MatchView({
           arrival) has nothing to prepare, so no card, same as how someone
           only changing position never gets one either. */}
       {(showSheet1 || showSheet2) && (
-        <div style={styles.mdScrim} data-testid="scrim" />
-      )}
-      {showSheet1 && (
-        <PrepareSheet
-          key={pendingIndex}
-          pendingChanges={pendingChanges}
-          keeperFromBench={becomingKeeperFromBench}
-          nameOf={nameOf}
-          numberOf={numberOf}
-          toggleTimer={toggleTimer}
-          onReady={() => setSheet1DismissedForIndex(pendingIndex)}
-          onMount={() =>
-            setSheetAnnouncement(
-              `Get ready: ${[
-                becomingKeeperFromBench ? `${nameOf(pendingChanges.becomingKeeperId)} to the goal` : null,
-                pendingChanges.comingOnIds.size > 0
-                  ? `${[...pendingChanges.comingOnIds].map(nameOf).join(", ")} at halfway`
-                  : null,
-              ]
-                .filter(Boolean)
-                .join(", ")}`
-            )
-          }
-        />
-      )}
-      {showSheet2 && (
-        <ExecuteSheet
-          key={pendingIndex}
-          steps={executeSteps}
-          nameOf={nameOf}
-          numberOf={numberOf}
-          toggleTimer={toggleTimer}
-          onDismiss={() => setSheet2DismissedForIndex(pendingIndex)}
-          onMount={() => setSheetAnnouncement(`Make the changes, ${executeSteps.length} steps`)}
-          onSubDone={() => {
-            const confirmIndex = pendingIndex;
-            const confirmSec = elapsedSec;
-            setSubLog((prev) => ({ ...prev, [confirmIndex]: confirmSec }));
-            // See pendingConfirm's own comment above: this doesn't
-            // animate anything itself — it just registers that whenever
-            // the clock's own auto-follow effect actually advances the
-            // board past this interval, that specific advance should
-            // carry the animation.
-            const pairs = executeSteps.filter((s) => s.outId && s.inId).map((s) => ({ outId: s.outId, inId: s.inId }));
-            const plan = computeSwapPlan(pairs);
-            if (Object.keys(plan.participants).length > 0) {
-              setPendingConfirm({ forIndex: confirmIndex, ...plan });
-            }
-          }}
-        />
+        <>
+          <div style={styles.mdScrim} data-testid="scrim" />
+          <div style={styles.mdFinal60Overlay}>
+            {showSheet1 && (
+              <PrepareSheet
+                key={pendingIndex}
+                pendingChanges={pendingChanges}
+                keeperFromBench={becomingKeeperFromBench}
+                nameOf={nameOf}
+                numberOf={numberOf}
+                toggleTimer={toggleTimer}
+                onReady={() => setSheet1DismissedForIndex(pendingIndex)}
+                onMount={() =>
+                  setSheetAnnouncement(
+                    `Get ready: ${[
+                      becomingKeeperFromBench ? `${nameOf(pendingChanges.becomingKeeperId)} to the goal` : null,
+                      pendingChanges.comingOnIds.size > 0
+                        ? `${[...pendingChanges.comingOnIds].map(nameOf).join(", ")} at halfway`
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(", ")}`
+                  )
+                }
+              />
+            )}
+            {showSheet2 && (
+              <ExecuteSheet
+                key={pendingIndex}
+                steps={executeSteps}
+                nameOf={nameOf}
+                numberOf={numberOf}
+                toggleTimer={toggleTimer}
+                onDismiss={() => setSheet2DismissedForIndex(pendingIndex)}
+                onMount={() => setSheetAnnouncement(`Make the changes, ${executeSteps.length} steps`)}
+                onSubDone={() => {
+                  const confirmIndex = pendingIndex;
+                  const confirmSec = elapsedSec;
+                  setSubLog((prev) => ({ ...prev, [confirmIndex]: confirmSec }));
+                  // See pendingConfirm's own comment above: this doesn't
+                  // animate anything itself — it just registers that
+                  // whenever the clock's own auto-follow effect actually
+                  // advances the board past this interval, that specific
+                  // advance should carry the animation.
+                  const pairs = executeSteps.filter((s) => s.outId && s.inId).map((s) => ({ outId: s.outId, inId: s.inId }));
+                  const plan = computeSwapPlan(pairs);
+                  if (Object.keys(plan.participants).length > 0) {
+                    setPendingConfirm({ forIndex: confirmIndex, ...plan });
+                  }
+                }}
+              />
+            )}
+          </div>
+        </>
       )}
 
       {resetConfirmOpen && (

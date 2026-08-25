@@ -1101,19 +1101,28 @@ export const styles = {
 
   // ---- Block 11 — the final-60 takeover, replaced with two sheets that
   // appear at different times (PREPARE at -60s, EXECUTE at -30s) rather
-  // than one. Real-device feedback: a true in-document-flow version (this
-  // style's own first draft) pushed the whole page taller than one
-  // screen, landing the sheet below the fold — needing a scroll defeats
-  // the entire point of a time-sensitive takeover. Fixed to the viewport
-  // instead, same proven mechanism every other bottom sheet in this file
-  // already uses (mdSheet) — "not as an overlay" (the spec's own words)
-  // reads as "don't black out the whole screen like a full dialog," not
-  // "don't anchor to the viewport": the pitch and bench sit in normal
-  // flow above this, fully visible, exactly as intended — this is just
-  // pinned to where they'd otherwise scroll out of view.
+  // than one. Real-device feedback, two rounds: a true in-document-flow
+  // version (this style's own first draft) pushed the whole page taller
+  // than one screen, landing the sheet below the fold. Switching to
+  // `position:fixed; bottom:0` (mdSheet's own proven mechanism elsewhere
+  // in this file) fixed that but *still* rendered partly behind Safari's
+  // own collapsing toolbar on a real phone — a well-known class of iOS
+  // bug where `bottom:0` on a fixed element is measured against the
+  // larger "layout" viewport (ignoring the toolbar) rather than the
+  // currently-visible "visual" one. mdFinal60Overlay (below, wraps the
+  // scrim + whichever sheet is showing) sidesteps that ambiguity
+  // entirely: `height:100dvh` is a direct, guaranteed-live reference to
+  // the real visible viewport, and flexbox's own `justify-content:
+  // flex-end` is what actually pins the sheet to its bottom — no
+  // `bottom:0` anywhere in this mechanism at all. Same idea as the
+  // earlier "Build new rotation button" fix (SquadSettingsForm.jsx),
+  // just via a fixed overlay instead of an in-flow column.
+  mdFinal60Overlay: {
+    position: "fixed", inset: 0, height: "100dvh", zIndex: 46,
+    display: "flex", flexDirection: "column", justifyContent: "flex-end",
+  },
   mdFinal60Shell: {
-    position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 46,
-    maxWidth: 640, margin: "0 auto",
+    maxWidth: 640, margin: "0 auto", width: "100%",
     background: tokens.color.creamPaper, borderRadius: "32px 32px 0 0",
     padding: "12px 16px calc(14px + env(safe-area-inset-bottom, 0px)) 24px", // wider left padding, per spec
     display: "flex", flexDirection: "column", gap: 10,
@@ -1213,17 +1222,17 @@ export const styles = {
 
   // ---- Auto-apply toast — reuses FairnessToastMark's own reveal/fade
   // mechanics (see AutoApplyToast, MatchView.jsx) but is its own visual:
-  // a text pill with an Undo action, not a ring. In-flow, dropped in
-  // right above the action bar rather than fixed/anchored.
+  // a plain text pill, not a ring. In-flow, dropped in right above the
+  // action bar rather than fixed/anchored. Purely informational — no
+  // action on it (an Undo button was here initially; real-use feedback
+  // was to drop it rather than invent a mechanism nothing else in the app
+  // has), so the padding is even on both sides now, not left-heavy to
+  // make room for a trailing button.
   mdAutoApplyToast: {
-    display: "flex", alignItems: "center", gap: 10, background: tokens.color.creamDeep,
-    borderRadius: tokens.radius.chip, padding: "9px 8px 9px 14px", marginBottom: tokens.spacing.rhythm,
+    display: "flex", alignItems: "center", background: tokens.color.creamDeep,
+    borderRadius: tokens.radius.chip, padding: "9px 14px", marginBottom: tokens.spacing.rhythm,
   },
   mdAutoApplyToastText: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 14, color: tokens.color.deepGreen, flex: 1, minWidth: 0 },
-  mdAutoApplyToastUndo: {
-    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 14, color: tokens.color.pitchGreen,
-    background: "#fff", border: "none", borderRadius: tokens.radius.chip, padding: "6px 12px", cursor: "pointer", flexShrink: 0,
-  },
 
   // ---- Anchored popovers (A2d-Menu-anchored, A2g-Player-tap). Both grow
   // out of the control that opened them — position:fixed with `top`
