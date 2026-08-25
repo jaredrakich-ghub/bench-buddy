@@ -564,10 +564,11 @@ export default function MatchView({
   const showSheet1 =
     sheet1Trigger || (pendingIndex !== null && sheet1ExitingForIndex === pendingIndex && sheet1DismissedForIndex !== pendingIndex);
 
-  // SHEET 2 — EXECUTE, -30s onward, for a fixed 20 seconds (the effect
-  // below) or until an early tap/drag — no longer open-ended: it used to
-  // stay up until Sub done or the 30-seconds-late auto-apply resolved it,
-  // both now gone along with the gate they existed to serve.
+  // SHEET 2 — EXECUTE, -30s onward, closing itself with 3 seconds left
+  // before the boundary (the effect below fires 27s after it appears) or
+  // until an early tap/drag — no longer open-ended: it used to stay up
+  // until Sub done or the 30-seconds-late auto-apply resolved it, both
+  // now gone along with the gate they existed to serve.
   const sheet2Trigger =
     pendingIndex !== null && !isMatchComplete && timerRunning && pendingNeedsConfirm &&
     secSincePendingEnd >= -30 && sheet2DismissedForIndex !== pendingIndex;
@@ -614,12 +615,15 @@ export default function MatchView({
     setSheet2ExitingForIndex(pendingIndex);
   };
 
-  // Sheet 1's own 10-second, sheet 2's own 20-second auto-dismiss. Each
-  // only (re)starts when its own Trigger actually flips false->true or
-  // pendingIndex genuinely changes — not on every render while it's
-  // already showing (a Trigger boolean stays referentially the same
-  // `true` across the in-between re-renders elapsedSec ticking causes,
-  // so neither effect restarts its timer every second).
+  // Sheet 1's own 10-second auto-dismiss, sheet 2's own 27-second one —
+  // sheet 2 appears at -30s, so 27s later lands its close at -3s, leaving
+  // 3 seconds to go before the boundary rather than closing with 10s
+  // still left. Each effect only (re)starts when its own Trigger actually
+  // flips false->true or pendingIndex genuinely changes — not on every
+  // render while it's already showing (a Trigger boolean stays
+  // referentially the same `true` across the in-between re-renders
+  // elapsedSec ticking causes, so neither effect restarts its timer every
+  // second).
   useEffect(() => {
     if (!sheet1Trigger) return undefined;
     const timer = setTimeout(requestDismissSheet1, 10000);
@@ -628,7 +632,7 @@ export default function MatchView({
   }, [sheet1Trigger, pendingIndex]);
   useEffect(() => {
     if (!sheet2Trigger) return undefined;
-    const timer = setTimeout(requestDismissSheet2, 20000);
+    const timer = setTimeout(requestDismissSheet2, 27000);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sheet2Trigger, pendingIndex]);

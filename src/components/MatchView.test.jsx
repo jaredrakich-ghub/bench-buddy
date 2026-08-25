@@ -597,12 +597,12 @@ describe("MatchView — final-60 sheets (block 11: prepare + execute)", () => {
       expect(screen.getByTestId("execute-sheet")).toBeInTheDocument();
     });
 
-    it("auto-dismisses 20 seconds after it first appears, fading out rather than vanishing instantly", () => {
+    it("auto-dismisses 27 seconds after it first appears (3 seconds left before the boundary), fading out rather than vanishing instantly", () => {
       vi.useFakeTimers();
       render(<MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 340 })} />);
       expect(screen.getByTestId("execute-sheet")).toBeInTheDocument();
-      act(() => vi.advanceTimersByTime(20000));
-      // The 20s timer has fired (requestDismissSheet2) but the 240ms exit
+      act(() => vi.advanceTimersByTime(27000));
+      // The 27s timer has fired (requestDismissSheet2) but the 240ms exit
       // transition hasn't finished yet — still mounted, mid-fade.
       expect(screen.getByTestId("execute-sheet")).toBeInTheDocument();
       act(() => vi.advanceTimersByTime(300));
