@@ -1101,17 +1101,24 @@ export const styles = {
 
   // ---- Block 11 — the final-60 takeover, replaced with two sheets that
   // appear at different times (PREPARE at -60s, EXECUTE at -30s) rather
-  // than one. Both sit IN FLOW at the bottom of the match column (not
-  // position:fixed like the old single sheet) so the pitch and bench stay
-  // genuinely visible above them, dimmed by the same mdScrim (still
-  // fixed, still zIndex 45) — position:relative + a higher zIndex is what
-  // lets an in-flow element still paint above a fixed sibling.
+  // than one. Real-device feedback: a true in-document-flow version (this
+  // style's own first draft) pushed the whole page taller than one
+  // screen, landing the sheet below the fold — needing a scroll defeats
+  // the entire point of a time-sensitive takeover. Fixed to the viewport
+  // instead, same proven mechanism every other bottom sheet in this file
+  // already uses (mdSheet) — "not as an overlay" (the spec's own words)
+  // reads as "don't black out the whole screen like a full dialog," not
+  // "don't anchor to the viewport": the pitch and bench sit in normal
+  // flow above this, fully visible, exactly as intended — this is just
+  // pinned to where they'd otherwise scroll out of view.
   mdFinal60Shell: {
-    position: "relative", zIndex: 46,
+    position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 46,
+    maxWidth: 640, margin: "0 auto",
     background: tokens.color.creamPaper, borderRadius: "32px 32px 0 0",
-    padding: "12px 16px 14px 24px", // wider left padding, per spec
+    padding: "12px 16px calc(14px + env(safe-area-inset-bottom, 0px)) 24px", // wider left padding, per spec
     display: "flex", flexDirection: "column", gap: 10,
     boxShadow: "0 -12px 40px rgba(20,32,28,.35)",
+    maxHeight: "calc(100dvh - 24px)", overflowY: "auto",
   },
   mdFinal60Handle: { width: 44, height: 5, borderRadius: 3, background: "#DCD2B6", margin: "2px auto 4px", flexShrink: 0 },
   // Shared by both sheets' own title row (title baseline-aligned against

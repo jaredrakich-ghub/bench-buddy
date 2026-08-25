@@ -1761,12 +1761,12 @@ export default function MatchView({
       )}
 
       {/* Block 11: the final-60 takeover from here down replaces the old
-          single full-screen sheet with two, in flow (not position:fixed
-          — see mdFinal60Shell) so the pitch and bench genuinely stay
-          visible, dimmed, above them. mdScrim is still fixed/full-screen
-          for the dimming itself; each sheet's own higher zIndex is what
-          lets it paint above that fixed layer despite being an ordinary
-          flow element. keeperFromBench decides whether the prepare
+          single full-screen sheet with two, fixed to the viewport bottom
+          same as every other bottom sheet in this file (see
+          mdFinal60Shell's own comment for why — a real in-flow version
+          landed below the fold on a real device). mdScrim dims the
+          pitch/bench, which stay fully visible above the sheet, not
+          replaced by it. keeperFromBench decides whether the prepare
           sheet's emphasised card shows at all — a keeper change that's
           really just an already-on-pitch role swap (no genuine bench
           arrival) has nothing to prepare, so no card, same as how someone
