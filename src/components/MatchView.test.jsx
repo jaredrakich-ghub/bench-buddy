@@ -696,22 +696,28 @@ describe("MatchView — final-60 sheets (block 11: prepare + execute)", () => {
   // scrim used to jump straight to full-strength dimming with no
   // transition at all, so the whole reveal read as abrupt even though the
   // sheet's own motion was smooth. Final60Scrim gives it the same fade.
-  // Real-use feedback (after the scrim fade above already shipped): the
-  // entrance still read as an abrupt flash-in on a real device. A single
+  //
+  // Real-use feedback (after the scrim fade above already shipped, twice
+  // over — once still abrupt, once seemingly not fading at all): a single
   // rAF's state update isn't guaranteed to land in a separate painted
-  // frame from the initial mount — nesting a second rAF inside the first
-  // (revealNextFrame, MatchView.jsx) guards against that by construction.
-  // This test is what actually proves that guard is in effect: one frame
-  // alone must NOT be enough to reveal.
-  it("needs two animation frames to reveal, not one — a single frame landing in the same paint as the mount must not skip the fade", () => {
+  // frame from the initial mount, and a real phone can throttle or
+  // suspend rAF callbacks altogether under conditions this codebase
+  // already has direct proof of (this exact sheet's own setTimeout-based
+  // auto-dismiss timers kept firing in a test browser tab that had
+  // stopped running rAF at all). revealShortly (MatchView.jsx) uses a
+  // short setTimeout instead of rAF for exactly that reason — this test
+  // is what proves the reveal is genuinely gated on that timer, not
+  // immediate: still hidden right after mount, revealed only once the
+  // timer's had a chance to fire.
+  it("needs a moment to reveal, not immediate — a real 'from' frame must be painted before it fades in", () => {
     vi.useFakeTimers();
     render(<MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 310 })} />);
     const scrim = screen.getByTestId("scrim");
     const sheet = screen.getByTestId("prepare-sheet");
-    act(() => vi.advanceTimersByTime(16)); // one frame
     expect(Number(getComputedStyle(scrim).opacity)).toBe(0);
     expect(Number(getComputedStyle(sheet).opacity)).toBe(0);
-    act(() => vi.advanceTimersByTime(16)); // a second frame
+    act(() => vi.advanceTimersByTime(20)); // the reveal timer fires
+    act(() => vi.advanceTimersByTime(250)); // past the 240ms transition
     expect(Number(getComputedStyle(scrim).opacity)).toBe(1);
     expect(Number(getComputedStyle(sheet).opacity)).toBe(1);
   });
@@ -722,7 +728,7 @@ describe("MatchView — final-60 sheets (block 11: prepare + execute)", () => {
       render(<MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 310 })} />);
       const scrim = screen.getByTestId("scrim");
       expect(Number(getComputedStyle(scrim).opacity)).toBe(0);
-      act(() => vi.advanceTimersByTime(16)); // flush the reveal rAF
+      act(() => vi.advanceTimersByTime(20)); // flush the reveal timer
       act(() => vi.advanceTimersByTime(250)); // past the 240ms transition
       expect(Number(getComputedStyle(scrim).opacity)).toBe(1);
     });

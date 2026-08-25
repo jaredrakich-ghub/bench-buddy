@@ -164,27 +164,26 @@ function FairnessToastMark({ spreadMin, intervalLen }) {
 
 // Flips a "revealed" flag true a moment after mount, for a CSS transition
 // that needs a genuine hidden "from" frame to animate away from (mount
-// hidden, reveal a tick later). A single requestAnimationFrame isn't
-// reliable enough for this on its own — real-use feedback: the final-60
-// sheets' entrance still read as an abrupt flash-in on a real device even
-// after the single-rAF version measured as a smooth fade in a desktop
-// browser test. The state update a single rAF schedules can still land in
-// the same painted frame as the initial mount (React's commit timing
-// isn't guaranteed to fall on the far side of that one callback,
-// especially on some mobile browsers), leaving the browser with no actual
-// "before" style to interpolate from. Nesting a second rAF inside the
-// first guarantees at least one real frame is painted with the hidden
-// styles before the revealed ones ever get committed. Shared by
+// hidden, reveal a tick later). Deliberately setTimeout, not
+// requestAnimationFrame — real-use feedback: the final-60 sheets' entrance
+// still read as an abrupt flash-in (and once, seemingly not at all) on a
+// real device through two different rAF-based attempts, a single rAF and
+// then a double-nested one, even though both measured as smooth in a
+// desktop browser test. rAF callbacks are throttled or suspended
+// altogether under conditions a real phone can genuinely hit — low-power
+// mode, an aggressive mobile browser/WebView, anything that treats the
+// page as not actively "in view" even while the coach is looking at it —
+// and this codebase already has direct proof of that: this exact final-60
+// sheet's own 10s/27s auto-dismiss timers, both plain setTimeout, kept
+// firing correctly in a browser tab that had stopped running rAF
+// callbacks at all. setTimeout doesn't share that failure mode and still
+// guarantees the browser paints the hidden frame first (a macrotask only
+// runs after the current render has been flushed) — a small delay (not
+// 0ms) so it reads as an intentional beat, not an instant flip. Shared by
 // Final60SheetShell and Final60Scrim.
-function revealNextFrame(setRevealed) {
-  let raf2;
-  const raf1 = requestAnimationFrame(() => {
-    raf2 = requestAnimationFrame(() => setRevealed(true));
-  });
-  return () => {
-    cancelAnimationFrame(raf1);
-    if (raf2) cancelAnimationFrame(raf2);
-  };
+function revealShortly(setRevealed) {
+  const timer = setTimeout(() => setRevealed(true), 20);
+  return () => clearTimeout(timer);
 }
 
 // Block 11 — the shared shell both final-60 sheets sit in: the 240ms
@@ -211,7 +210,7 @@ function revealNextFrame(setRevealed) {
 function Final60SheetShell({ onDismiss, exiting, onExited, testId, ariaLabel, titleRow, children }) {
   const [revealed, setRevealed] = useState(false);
   const reducedMotion = usePrefersReducedMotion();
-  useEffect(() => revealNextFrame(setRevealed), []);
+  useEffect(() => revealShortly(setRevealed), []);
   useEffect(() => {
     if (!exiting) return undefined;
     if (reducedMotion) {
@@ -278,7 +277,7 @@ function Final60SheetShell({ onDismiss, exiting, onExited, testId, ariaLabel, ti
 function Final60Scrim({ exiting }) {
   const [revealed, setRevealed] = useState(false);
   const reducedMotion = usePrefersReducedMotion();
-  useEffect(() => revealNextFrame(setRevealed), []);
+  useEffect(() => revealShortly(setRevealed), []);
   return (
     <div
       style={{
