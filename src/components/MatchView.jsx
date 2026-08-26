@@ -380,9 +380,25 @@ function stepTitle(step, nameOf) {
   if (step.titleKind === "takesField") return `${name} takes the field`;
   return `${name} comes off`;
 }
-function ExecuteSheet({ steps, nameOf, numberOf, toggleTimer, onDismiss, exiting, onExited, onMount }) {
+function ExecuteSheet({
+  steps, nameOf, numberOf, toggleTimer, onDismiss, exiting, onExited, onMount,
+  benchIds, keeperEligibleIds, onSwapIncoming,
+}) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => onMount(), []);
+  // Real-use feedback: "what if a kid who's about to be subbed on doesn't
+  // want to go back on?" — every genuine bench arrival (inColor
+  // "arriving" — never a same-pitch "changing" step like the stepping-
+  // down keeper taking an outfield spot, since they're not coming from
+  // the bench at all and have nothing to decline) gets a small "swap"
+  // affordance offering the rest of that interval's own bench as
+  // replacements. Handing it right back to whoever was leaving is
+  // "cancel this sub" — same action, no separate path (see
+  // onSwapIncoming's own call site, MatchView.jsx, for why one mechanism
+  // covers both). Only one step's picker open at a time — tapping the
+  // same one again closes it, same toggle convention the main player-tap
+  // menu already uses elsewhere in this file.
+  const [openStepIndex, setOpenStepIndex] = useState(null);
   return (
     <Final60SheetShell
       onDismiss={onDismiss}
@@ -398,34 +414,77 @@ function ExecuteSheet({ steps, nameOf, numberOf, toggleTimer, onDismiss, exiting
       }
     >
       <div style={styles.mdExecuteStepList}>
-        {steps.map((step, i) => (
-          <div key={i} style={styles.mdExecuteStepRow}>
-            <span style={styles.mdExecuteStepNumeral}>{i + 1}.</span>
-            <div style={styles.mdExecuteStepBody}>
-              <span style={styles.mdExecuteStepInstruction}>{stepTitle(step, nameOf)}</span>
-              <div style={styles.mdExecuteChipRow}>
-                {step.outId && (
-                  <span style={styles.mdExecuteChip}>
-                    <span style={{ ...styles.mdExecuteChipDisc, background: FINAL60_DISC_COLOR[step.outColor] }}>
-                      {numberOf(step.outId)}
+        {steps.map((step, i) => {
+          const swappable = Boolean(onSwapIncoming) && step.inId != null && step.inColor === "arriving";
+          // Keeper steps only ever offer keeper-eligible bench players —
+          // same eligibility list "Make keeper" already filters to
+          // elsewhere in this file, not a new concept.
+          const candidates = swappable
+            ? (benchIds || []).filter((id) => !step.inIsKeeper || keeperEligibleIds.includes(id))
+            : [];
+          return (
+            <div key={i} style={styles.mdExecuteStepRow}>
+              <span style={styles.mdExecuteStepNumeral}>{i + 1}.</span>
+              <div style={styles.mdExecuteStepBody}>
+                <span style={styles.mdExecuteStepInstruction}>{stepTitle(step, nameOf)}</span>
+                <div style={styles.mdExecuteChipRow}>
+                  {step.outId && (
+                    <span style={styles.mdExecuteChip}>
+                      <span style={{ ...styles.mdExecuteChipDisc, background: FINAL60_DISC_COLOR[step.outColor] }}>
+                        {numberOf(step.outId)}
+                      </span>
+                      <span style={styles.mdExecuteChipName}>{nameOf(step.outId)}</span>
                     </span>
-                    <span style={styles.mdExecuteChipName}>{nameOf(step.outId)}</span>
-                  </span>
-                )}
-                {step.outId && step.inId && <span style={styles.mdExecuteChipArrow}>→</span>}
-                {step.inId && (
-                  <span style={styles.mdExecuteChip}>
-                    <span style={{ ...styles.mdExecuteChipDisc, background: FINAL60_DISC_COLOR[step.inColor] }}>
-                      {numberOf(step.inId)}
+                  )}
+                  {step.outId && step.inId && <span style={styles.mdExecuteChipArrow}>→</span>}
+                  {step.inId && swappable && (
+                    <button
+                      style={styles.mdExecuteChipSwappable}
+                      onClick={() => setOpenStepIndex(openStepIndex === i ? null : i)}
+                    >
+                      <span style={{ ...styles.mdExecuteChipDisc, background: FINAL60_DISC_COLOR[step.inColor] }}>
+                        {numberOf(step.inId)}
+                      </span>
+                      <span style={styles.mdExecuteChipName}>{nameOf(step.inId)}</span>
+                      {step.inIsKeeper && <span style={{ ...styles.mdFinal60GkPill, marginLeft: "auto" }}>GK</span>}
+                      <ArrowLeftRight size={14} color={tokens.color.groupLabel} />
+                    </button>
+                  )}
+                  {step.inId && !swappable && (
+                    <span style={styles.mdExecuteChip}>
+                      <span style={{ ...styles.mdExecuteChipDisc, background: FINAL60_DISC_COLOR[step.inColor] }}>
+                        {numberOf(step.inId)}
+                      </span>
+                      <span style={styles.mdExecuteChipName}>{nameOf(step.inId)}</span>
+                      {step.inIsKeeper && <span style={{ ...styles.mdFinal60GkPill, marginLeft: "auto" }}>GK</span>}
                     </span>
-                    <span style={styles.mdExecuteChipName}>{nameOf(step.inId)}</span>
-                    {step.inIsKeeper && <span style={{ ...styles.mdFinal60GkPill, marginLeft: "auto" }}>GK</span>}
-                  </span>
+                  )}
+                </div>
+                {openStepIndex === i && (
+                  <div style={styles.mdExecuteSwapOptions} data-testid="swap-options">
+                    {candidates.length === 0 ? (
+                      <span style={styles.mdExecuteSwapEmpty}>No one else available</span>
+                    ) : (
+                      candidates.map((id) => (
+                        <button
+                          key={id}
+                          style={styles.mdExecuteSwapOption}
+                          onClick={() => {
+                            onSwapIncoming(step.inId, id);
+                            setOpenStepIndex(null);
+                          }}
+                        >
+                          <span style={styles.mdExecuteSwapOptionNumber}>{numberOf(id)}</span>
+                          <span style={styles.mdExecuteSwapOptionName}>{nameOf(id)}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
                 )}
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
       <div style={styles.mdFinal60ActionRow}>
         <button style={styles.mdFinal60ActionPause} onClick={toggleTimer}>
@@ -692,6 +751,21 @@ export default function MatchView({
     steppingDownKeeperId: pendingChanges.steppingDownKeeperId,
     becomingKeeperFromBench,
   });
+
+  // "A kid who's about to be subbed on doesn't want to go back on" —
+  // real-use feedback. Lets the coach redirect that specific incoming
+  // player to someone else on the bench for the interval this sheet
+  // describes (pendingIndex + 1 — one interval *ahead* of whatever's
+  // actually live right now, not "now" itself), or hand it right back to
+  // whoever was leaving — that's "cancel this sub," the exact same call
+  // with the departing player picked as the replacement, no separate
+  // path. performSwap's own targetIndex parameter is what makes reaching
+  // one interval ahead possible at all; every other caller of onSwap in
+  // this file still omits it and gets the live interval, unchanged.
+  // pendingNextIv always exists whenever the execute sheet itself can
+  // show (intervalNeedsSubConfirm requires a real nextIv), but this stays
+  // defensive rather than assuming that invariant holds forever.
+  const swapIncoming = pendingNextIv ? (inId, candidateId) => onSwap(inId, candidateId, safePendingIndex + 1) : undefined;
 
   // Starts a sheet's own exit transition rather than yanking it straight
   // out of the DOM — Final60SheetShell animates the fade/slide, then
@@ -1891,6 +1965,9 @@ export default function MatchView({
                 exiting={sheet2Exiting}
                 onExited={() => setSheet2DismissedForIndex(pendingIndex)}
                 onMount={() => setSheetAnnouncement(`Make the changes, ${executeSteps.length} steps`)}
+                benchIds={pendingNextIv?.bench}
+                keeperEligibleIds={keeperEligibleIds}
+                onSwapIncoming={swapIncoming}
               />
             )}
           </div>

@@ -699,6 +699,107 @@ describe("MatchView — final-60 sheets (block 11: prepare + execute)", () => {
       act(() => vi.advanceTimersByTime(300));
       expect(screen.queryByTestId("execute-sheet")).not.toBeInTheDocument();
     });
+
+    // Real-use feedback: "what if a kid who's about to be subbed on
+    // doesn't want to go back on?" — final60Plan's own interval 0 -> 1
+    // has two genuine bench arrivals (Finn as keeper, Gus as a regular
+    // sub) and one same-pitch position change (Alice, the stepping-down
+    // keeper taking Cara's spot) — exactly the mix needed to prove the
+    // picker only ever attaches to a real arrival. Interval 1's own bench
+    // (Bob, Cara) is the candidate pool for either one — reusing whoever
+    // was already leaving is exactly "cancel this sub", not a separate
+    // path (see the very last test below).
+    describe("redirecting a reluctant sub", () => {
+      it("only the genuine bench arrivals are tappable — Alice's same-pitch position change never gets a picker", () => {
+        render(<MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 340 })} />);
+        const sheet = within(screen.getByTestId("execute-sheet"));
+        expect(sheet.getByText("Finn").closest("button")).toBeInTheDocument(); // incoming keeper, arriving
+        expect(sheet.getByText("Gus").closest("button")).toBeInTheDocument(); // regular arrival
+        // Alice's own IN chip (step 3, "takes the field") has no button
+        // ancestor — she's not coming from the bench, nothing to redirect.
+        const aliceChips = sheet.getAllByText("Alice");
+        expect(aliceChips.some((el) => el.closest("button"))).toBe(false);
+      });
+
+      it("reveals interval 1's own bench as swap candidates, not the live interval's", async () => {
+        const user = userEvent.setup();
+        render(<MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 340 })} />);
+        const sheet = within(screen.getByTestId("execute-sheet"));
+        await user.click(sheet.getByText("Gus").closest("button"));
+        const options = within(screen.getByTestId("swap-options"));
+        expect(options.getByText("Bob")).toBeInTheDocument();
+        expect(options.getByText("Cara")).toBeInTheDocument();
+      });
+
+      it("tapping the same chip again closes the picker", async () => {
+        const user = userEvent.setup();
+        render(<MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 340 })} />);
+        const sheet = within(screen.getByTestId("execute-sheet"));
+        const gusChip = sheet.getByText("Gus").closest("button");
+        await user.click(gusChip);
+        expect(screen.getByTestId("swap-options")).toBeInTheDocument();
+        await user.click(gusChip);
+        expect(screen.queryByTestId("swap-options")).not.toBeInTheDocument();
+      });
+
+      it("picking a candidate calls onSwap with the incoming player, the replacement, and interval 1 — not the live interval", async () => {
+        const onSwap = vi.fn();
+        const user = userEvent.setup();
+        render(<MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 340, onSwap })} />);
+        const sheet = within(screen.getByTestId("execute-sheet"));
+        await user.click(sheet.getByText("Gus").closest("button"));
+        await user.click(within(screen.getByTestId("swap-options")).getByText("Cara"));
+        expect(onSwap).toHaveBeenCalledWith("p7", "p3", 1); // Gus, Cara, interval index 1
+        // Picking a candidate also closes the picker straight away.
+        expect(screen.queryByTestId("swap-options")).not.toBeInTheDocument();
+      });
+
+      it("the keeper step only offers keeper-eligible bench players", async () => {
+        const user = userEvent.setup();
+        // p2/Bob not keeper-eligible — interval 1's own bench is Bob, Cara.
+        render(
+          <MatchView
+            {...baseProps({
+              plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 340,
+              keeperEligibleIds: ["p1", "p3", "p4", "p5", "p6", "p7"],
+            })}
+          />
+        );
+        const sheet = within(screen.getByTestId("execute-sheet"));
+        await user.click(sheet.getByText("Finn").closest("button")); // the incoming keeper's own chip
+        const options = within(screen.getByTestId("swap-options"));
+        expect(options.queryByText("Bob")).not.toBeInTheDocument(); // not eligible
+        expect(options.getByText("Cara")).toBeInTheDocument(); // eligible
+      });
+
+      it("shows 'No one else available' rather than an empty list when nobody eligible is left", async () => {
+        const user = userEvent.setup();
+        render(
+          <MatchView
+            {...baseProps({
+              plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 340,
+              keeperEligibleIds: ["p1", "p4", "p5", "p6", "p7"], // neither Bob nor Cara eligible
+            })}
+          />
+        );
+        const sheet = within(screen.getByTestId("execute-sheet"));
+        await user.click(sheet.getByText("Finn").closest("button"));
+        expect(within(screen.getByTestId("swap-options")).getByText("No one else available")).toBeInTheDocument();
+      });
+
+      // "Cancel this sub" isn't a separate action — picking the very
+      // player who was about to leave just hands them straight back their
+      // own spot, same call as any other redirect.
+      it("'cancelling' a sub is just picking the departing player as the replacement — no separate action", async () => {
+        const onSwap = vi.fn();
+        const user = userEvent.setup();
+        render(<MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 340, onSwap })} />);
+        const sheet = within(screen.getByTestId("execute-sheet"));
+        await user.click(sheet.getByText("Gus").closest("button"));
+        await user.click(within(screen.getByTestId("swap-options")).getByText("Bob")); // Bob is who Gus was replacing
+        expect(onSwap).toHaveBeenCalledWith("p7", "p2", 1);
+      });
+    });
   });
 
   // Real-use feedback, three rounds running the "mount hidden, flip a tick

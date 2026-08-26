@@ -1263,6 +1263,30 @@ export const styles = {
     overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0,
   },
   mdExecuteChipArrow: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 17, color: tokens.color.pitchGreen, flexShrink: 0 },
+  // Real-use feedback: "what if a kid who's about to be subbed on doesn't
+  // want to go back on?" — the incoming chip becomes a real button
+  // (same shape as mdExecuteChip, plus the resets a bare <span> never
+  // needed) with a small swap icon so it reads as tappable, not just
+  // decorative. mdExecuteSwapOptions is the candidate list it reveals —
+  // reuses the same white-pill-on-cream look mdBenchChip already
+  // establishes for "a player, tappable" elsewhere in this app, scaled
+  // down slightly since this sits nested inside an already-dense step row.
+  mdExecuteChipSwappable: {
+    flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 8,
+    background: tokens.color.creamDeep, borderRadius: 999, padding: "3px 11px 3px 3px",
+    border: "none", cursor: "pointer", font: "inherit", textAlign: "left",
+  },
+  mdExecuteSwapOptions: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 2, paddingLeft: 2 },
+  mdExecuteSwapOption: {
+    display: "flex", alignItems: "center", gap: 6, background: "#fff", borderRadius: 999,
+    padding: "4px 12px 4px 4px", border: "none", cursor: "pointer", font: "inherit",
+  },
+  mdExecuteSwapOptionNumber: {
+    width: 22, height: 22, borderRadius: "50%", flexShrink: 0, background: tokens.color.pitchGreen, color: "#fff",
+    display: "flex", alignItems: "center", justifyContent: "center", fontFamily: tokens.font.display, fontWeight: 800, fontSize: 12,
+  },
+  mdExecuteSwapOptionName: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 14, color: tokens.color.deepGreen },
+  mdExecuteSwapEmpty: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13, color: tokens.color.mutedText, padding: "4px 2px" },
 
   // ---- Anchored popovers (A2d-Menu-anchored, A2g-Player-tap). Both grow
   // out of the control that opened them — position:fixed with `top`

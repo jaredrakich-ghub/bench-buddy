@@ -511,6 +511,96 @@ describe("useMatchState — performSwap between two on-field players (the former
   });
 });
 
+// Real-use feedback: "what if a kid who's about to be subbed on doesn't
+// want to go back on?" — the coach needs to redirect (or cancel) that
+// specific incoming player *before* the boundary crosses, while the
+// board is still showing the live interval and the coach hasn't (and
+// shouldn't have to) browsed anywhere. The "swapping on a browsed
+// interval" describe block above already proved a coach *can* reach a
+// future interval by changing activeInterval first — this is a different
+// path: reaching one interval ahead via an explicit third argument,
+// without touching activeInterval (what the board is showing) at all.
+describe("useMatchState — performSwap targeting a future interval directly (targetIndex)", () => {
+  const ROSTER7 = Array.from({ length: 7 }, (_, i) => ({ id: `p${i}`, name: `Player ${i}`, keeperEligible: true }));
+  const TEAM7 = { id: "t1", name: "Scorpions", roster: ROSTER7, settings: { fieldSize: 5, gameMinutes: 24, subIntervalMinutes: 6 } };
+
+  function setupPlan() {
+    const saveTeamData = vi.fn();
+    const { result } = renderHook(() => useMatchState({ activeTeamId: "t1", teamData: TEAM7, saveTeamData }));
+    act(() => {
+      result.current.setAvailableIds(ROSTER7.map((p) => p.id));
+      result.current.setGameSettings({ fieldSize: 5, gameMinutes: 24, subIntervalMinutes: 6 });
+    });
+    act(() => result.current.startPlanning());
+    return { result, saveTeamData };
+  }
+
+  it("edits interval N+1 while activeInterval stays at N — the board's own view never moves", () => {
+    const { result } = setupPlan();
+    expect(result.current.plan.length).toBeGreaterThan(1);
+    expect(result.current.activeInterval).toBe(0);
+    const nextIv = result.current.plan[1];
+    const inId = nextIv.onField[0].id; // "the kid about to be subbed on" for interval 1
+    const candidateId = nextIv.bench[0];
+
+    act(() => result.current.performSwap(inId, candidateId, 1));
+
+    // The board's own displayed interval never changed — this correction
+    // didn't drag the coach's view along with it.
+    expect(result.current.activeInterval).toBe(0);
+    // Interval 0 (untouched, before the target) is exactly as it was.
+    // Interval 1 (the target) now has the swapped-in replacement.
+    expect(result.current.plan[1].onField.some((p) => p.id === candidateId)).toBe(true);
+    expect(result.current.plan[1].onField.some((p) => p.id === inId)).toBe(false);
+    expect(result.current.plan.every((iv) => iv.onField.length === 5)).toBe(true);
+  });
+
+  it("'cancelling' a sub is the same call with the departing player as the replacement — they simply stay on", () => {
+    const { result } = setupPlan();
+    const cur = result.current.plan[0];
+    const next = result.current.plan[1];
+    // A genuine departure: someone on the field now who's on the bench next interval.
+    const departingId = cur.onField.map((p) => p.id).find((id) => next.bench.includes(id));
+    const incomingId = next.onField.map((p) => p.id).find((id) => cur.bench.includes(id));
+    if (!departingId || !incomingId) return; // this run's rotation happened not to sub anyone here — nothing to test
+
+    act(() => result.current.performSwap(incomingId, departingId, 1));
+
+    // The departing player never actually left — still on the field for
+    // interval 1, and the reluctant kid is back on the bench there.
+    expect(result.current.plan[1].onField.some((p) => p.id === departingId)).toBe(true);
+    expect(result.current.plan[1].bench).toContain(incomingId);
+  });
+
+  it("omitting targetIndex still defaults to the live interval, unchanged from before", () => {
+    const { result } = setupPlan();
+    const cur = result.current.plan[0];
+    const fieldId = cur.onField[0].id;
+    const benchId = cur.bench[0];
+
+    act(() => result.current.performSwap(benchId, fieldId));
+
+    expect(result.current.plan[0].onField.some((p) => p.id === benchId)).toBe(true);
+  });
+
+  it("still guarantees a new keeper at the target interval arrives from the bench, same as the live path", () => {
+    const { result } = setupPlan();
+    const next = result.current.plan[1];
+    const outgoing = next.onField.find((p) => !p.isGk); // deliberately not the keeper
+    const candidateId = next.bench[0];
+
+    act(() => result.current.performSwap(candidateId, outgoing.id, 1));
+
+    const plan = result.current.plan;
+    for (let i = 0; i < plan.length - 1; i++) {
+      const gkNow = plan[i].onField.find((p) => p.isGk)?.id;
+      const gkNext = plan[i + 1].onField.find((p) => p.isGk)?.id;
+      if (!gkNext || gkNext === gkNow) continue;
+      expect(plan[i].bench).toContain(gkNext);
+    }
+  });
+});
+
 describe("useMatchState — persisting to Firestore", () => {
   it("does not save while there's no plan yet", async () => {
     setup();

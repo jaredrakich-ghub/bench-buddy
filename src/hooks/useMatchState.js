@@ -413,9 +413,15 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
   };
 
   // Manual override: swap any two players — either could currently be on
-  // the bench or already on the pitch (including the keeper), effective for
-  // the rest of the current interval. Covers what used to be two separate
-  // functions:
+  // the bench or already on the pitch (including the keeper). Targets
+  // `targetIndex` (defaults to the live interval, `activeInterval`) —
+  // every existing call site swaps live and leans on that default, but a
+  // coach can also reach one interval *ahead* with this by passing
+  // pendingIndex+1 explicitly (see MatchView.jsx's final-60 execute sheet:
+  // "a kid who's about to be subbed on doesn't want to go back on" needs
+  // to redirect who's coming on *before* the boundary even crosses, which
+  // is a different interval than whatever's currently live). Covers what
+  // used to be two separate functions:
   //   - one on the bench, one on the pitch: the bench player takes over
   //     whatever role (GK or outfield) the pitch player had, exactly like
   //     the original bench "Swap in" flow.
@@ -435,9 +441,9 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
   // the same repairBenchToKeeper guarantee as every other rebuild, so this
   // one deliberate exception doesn't cascade into more of them — the very
   // next *automatic* keeper change still has to come from the bench as usual.
-  const performSwap = (playerAId, playerBId) => {
+  const performSwap = (playerAId, playerBId, targetIndex = activeInterval) => {
     if (playerAId === playerBId) return; // nothing to swap with themselves
-    const cur = plan[activeInterval];
+    const cur = plan[targetIndex];
     const aOnField = cur.onField.find((p) => p.id === playerAId);
     const bOnField = cur.onField.find((p) => p.id === playerBId);
     const aOnBench = cur.bench.includes(playerAId);
@@ -464,7 +470,7 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
       newBench = cur.bench.filter((id) => id !== benchId).concat(fieldId);
     }
 
-    const priorIntervals = plan.slice(0, activeInterval);
+    const priorIntervals = plan.slice(0, targetIndex);
     const frozenCurrent = { ...cur, onField: newOnField, bench: newBench };
     const doneIntervals = [...priorIntervals, frozenCurrent];
     const carryState = buildCarryState(availableIds, doneIntervals);
@@ -479,7 +485,7 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
       numIntervals,
       fieldSize: gameSettings.fieldSize,
       keeperEligibleIds,
-      startInterval: activeInterval + 1,
+      startInterval: targetIndex + 1,
       carryState,
       keeperShiftIntervals,
       currentGkId,
