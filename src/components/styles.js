@@ -1178,7 +1178,16 @@ export const styles = {
   // a small uppercase corner label) — only the title's own font-size
   // differs between the two (25px prepare / 24px execute), set per call
   // site rather than baked in here.
-  mdFinal60TitleRow: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 },
+  mdFinal60TitleRow: { display: "flex", alignItems: "baseline", gap: 8 },
+  // Real-use feedback: pinned to the row's far-right edge read as
+  // strangely off-balance. mdFinal60LabelWrap takes up whatever's left
+  // after the title's own natural width and centers the label *within
+  // that* — not glued to the edge, but not centered against the whole
+  // row either, which would risk it colliding with a longer title
+  // ("Make the changes") on a narrow phone. minWidth:0 is what lets this
+  // flex item actually shrink down to the space really available instead
+  // of forcing the row wider than the sheet itself.
+  mdFinal60LabelWrap: { flex: 1, minWidth: 0, display: "flex", justifyContent: "center" },
   mdFinal60Label: {
     fontSize: 12, fontWeight: 800, textTransform: "uppercase", color: tokens.color.sheetLabel, letterSpacing: "0.04em",
     whiteSpace: "nowrap",

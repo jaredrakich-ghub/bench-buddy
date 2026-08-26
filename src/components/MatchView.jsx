@@ -331,7 +331,9 @@ function PrepareSheet({ pendingChanges, keeperFromBench, nameOf, numberOf, toggl
       titleRow={
         <div style={styles.mdFinal60TitleRow}>
           <span style={styles.mdPrepareTitle}>Next sub 60 secs</span>
-          <span style={styles.mdFinal60Label}>GET READY</span>
+          <span style={styles.mdFinal60LabelWrap}>
+            <span style={styles.mdFinal60Label}>GET READY</span>
+          </span>
         </div>
       }
     >
@@ -409,7 +411,9 @@ function ExecuteSheet({
       titleRow={
         <div style={styles.mdFinal60TitleRow}>
           <span style={styles.mdExecuteTitle}>Make the changes</span>
-          <span style={styles.mdFinal60Label}>30 secs to go</span>
+          <span style={styles.mdFinal60LabelWrap}>
+            <span style={styles.mdFinal60Label}>30 secs to go</span>
+          </span>
         </div>
       }
     >
