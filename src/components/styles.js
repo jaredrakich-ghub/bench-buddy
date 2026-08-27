@@ -1305,32 +1305,19 @@ export const styles = {
   // want to go back on?" — the incoming chip is a real button (same shape
   // as mdExecuteChip, plus the resets a bare <span> never needed) so
   // tapping the player themselves opens the same step panel the row's own
-  // "⋯" does (mdExecuteStepMore) — one place for everything that can
-  // happen to this one sub, rather than the chip running its own separate
-  // picker the way an earlier round of this feature had it. No swap icon
-  // on the chip itself any more, for the same reason: the "⋯" is already
-  // the row's one "there's more here" signal, matching the design spec's
-  // own chips, which were never independently interactive.
-  // mdExecuteSwapOptions is the redirect-candidate list this panel shows
-  // — reuses the same white-pill-on-cream look mdBenchChip already
-  // establishes for "a player, tappable" elsewhere in this app, scaled
-  // down slightly since this sits nested inside an already-dense step row.
+  // "⋯" does (mdExecuteStepMore) — one, unambiguous place for the one
+  // thing that can happen to this sub: cancel it. An earlier round had
+  // this chip open its own separate "redirect to a specific other bench
+  // player" picker; further real-use feedback was that two different
+  // sets of options behind one tap read as confusing, so that picker (and
+  // its own swap-icon affordance on the chip) is gone — matches the
+  // design spec's own chips too, which were never independently
+  // interactive.
   mdExecuteChipOpenBtn: {
     flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 8,
     background: tokens.color.creamDeep, borderRadius: 999, padding: "5px 12px 5px 4px",
     border: "none", cursor: "pointer", font: "inherit", textAlign: "left",
   },
-  mdExecuteSwapOptions: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4, paddingLeft: 2 },
-  mdExecuteSwapOption: {
-    display: "flex", alignItems: "center", gap: 6, background: "#fff", borderRadius: 999,
-    padding: "4px 12px 4px 4px", border: "none", cursor: "pointer", font: "inherit",
-  },
-  mdExecuteSwapOptionNumber: {
-    width: 22, height: 22, borderRadius: "50%", flexShrink: 0, background: tokens.color.pitchGreen, color: "#fff",
-    display: "flex", alignItems: "center", justifyContent: "center", fontFamily: tokens.font.display, fontWeight: 800, fontSize: 12,
-  },
-  mdExecuteSwapOptionName: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 14, color: tokens.color.deepGreen },
-  mdExecuteSwapEmpty: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13, color: tokens.color.mutedText, padding: "4px 2px" },
 
   // ---- Block 15 — cancelling a change (execute sheet). A player can
   // refuse to come on; the coach calls off that one step without

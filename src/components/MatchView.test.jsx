@@ -705,125 +705,53 @@ describe("MatchView — final-60 sheets (block 11: prepare + execute)", () => {
     // has two genuine bench arrivals (Finn as keeper, Gus as a regular
     // sub) and one same-pitch position change (Alice, the stepping-down
     // keeper taking Cara's spot) — exactly the mix needed to prove the
-    // picker only ever attaches to a real arrival. Interval 1's own bench
-    // (Bob, Cara) is the candidate pool for either one — reusing whoever
-    // was already leaving is exactly "cancel this sub", not a separate
-    // path (see the very last test below).
-    describe("redirecting a reluctant sub", () => {
-      it("only the genuine bench arrivals are tappable — Alice's same-pitch position change never gets a picker", () => {
+    // cancel panel only ever attaches to a real arrival.
+    //
+    // An earlier round of this feature let the incoming chip open its own
+    // "redirect to a specific other bench player" picker, separate from
+    // the "⋯"'s own cancel action. Further real-use feedback was that two
+    // different sets of options behind one tap — and behind two different
+    // taps on the same row — read as confusing; that picker is gone, and
+    // both the chip and the "⋯" now open the one cancel panel below.
+    describe("opening a step to cancel it", () => {
+      it("only the genuine bench arrivals are tappable — Alice's same-pitch position change stays plain", () => {
         render(<MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 340 })} />);
         const sheet = within(screen.getByTestId("execute-sheet"));
         expect(sheet.getByText("Finn").closest("button")).toBeInTheDocument(); // incoming keeper, arriving
         expect(sheet.getByText("Gus").closest("button")).toBeInTheDocument(); // regular arrival
         // Alice's own IN chip (step 3, "takes the field") has no button
-        // ancestor — she's not coming from the bench, nothing to redirect.
+        // ancestor — she's not coming from the bench, nothing to cancel.
         const aliceChips = sheet.getAllByText("Alice");
         expect(aliceChips.some((el) => el.closest("button"))).toBe(false);
       });
 
-      // Real-use question: tapping the "⋯" and tapping the incoming
-      // player's own chip used to open two different, unrelated popups —
-      // confusing at "30 seconds to go". They're the same one panel now.
-      it("tapping the incoming chip opens the same panel the row's own ⋯ does — both the redirect list and the cancel action", async () => {
+      it("tapping the incoming chip opens the same cancel panel the row's own ⋯ does", async () => {
         const user = userEvent.setup();
         render(<MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 340 })} />);
         const sheet = within(screen.getByTestId("execute-sheet"));
         await user.click(sheet.getByText("Gus").closest("button")); // the chip itself, not the "⋯"
-        expect(screen.getByTestId("swap-options")).toBeInTheDocument();
         expect(sheet.getByText("✕ Cancel this change")).toBeInTheDocument();
         // Tapping the "⋯" on the same, already-open step closes it — same
         // toggle, same piece of state either control drives.
         await user.click(sheet.getByText("Gus comes on").closest("button"));
-        expect(screen.queryByTestId("swap-options")).not.toBeInTheDocument();
         expect(screen.queryByText("✕ Cancel this change")).not.toBeInTheDocument();
       });
 
-      it("reveals interval 1's own bench as swap candidates, not the live interval's", async () => {
-        const user = userEvent.setup();
-        render(<MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 340 })} />);
-        const sheet = within(screen.getByTestId("execute-sheet"));
-        await user.click(sheet.getByText("Gus").closest("button"));
-        const options = within(screen.getByTestId("swap-options"));
-        expect(options.getByText("Bob")).toBeInTheDocument();
-        expect(options.getByText("Cara")).toBeInTheDocument();
-      });
-
-      it("tapping the same chip again closes the picker", async () => {
+      it("tapping the same chip again closes the panel", async () => {
         const user = userEvent.setup();
         render(<MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 340 })} />);
         const sheet = within(screen.getByTestId("execute-sheet"));
         const gusChip = sheet.getByText("Gus").closest("button");
         await user.click(gusChip);
-        expect(screen.getByTestId("swap-options")).toBeInTheDocument();
+        expect(sheet.getByText("✕ Cancel this change")).toBeInTheDocument();
         await user.click(gusChip);
-        expect(screen.queryByTestId("swap-options")).not.toBeInTheDocument();
-      });
-
-      it("picking a candidate calls onSwap with the incoming player, the replacement, and interval 1 — not the live interval", async () => {
-        const onSwap = vi.fn();
-        const user = userEvent.setup();
-        render(<MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 340, onSwap })} />);
-        const sheet = within(screen.getByTestId("execute-sheet"));
-        await user.click(sheet.getByText("Gus").closest("button"));
-        await user.click(within(screen.getByTestId("swap-options")).getByText("Cara"));
-        expect(onSwap).toHaveBeenCalledWith("p7", "p3", 1); // Gus, Cara, interval index 1
-        // Picking a candidate also closes the picker straight away.
-        expect(screen.queryByTestId("swap-options")).not.toBeInTheDocument();
-      });
-
-      it("the keeper step only offers keeper-eligible bench players", async () => {
-        const user = userEvent.setup();
-        // p2/Bob not keeper-eligible — interval 1's own bench is Bob, Cara.
-        render(
-          <MatchView
-            {...baseProps({
-              plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 340,
-              keeperEligibleIds: ["p1", "p3", "p4", "p5", "p6", "p7"],
-            })}
-          />
-        );
-        const sheet = within(screen.getByTestId("execute-sheet"));
-        await user.click(sheet.getByText("Finn").closest("button")); // the incoming keeper's own chip
-        const options = within(screen.getByTestId("swap-options"));
-        expect(options.queryByText("Bob")).not.toBeInTheDocument(); // not eligible
-        expect(options.getByText("Cara")).toBeInTheDocument(); // eligible
-      });
-
-      it("shows 'No one else available' rather than an empty list when nobody eligible is left", async () => {
-        const user = userEvent.setup();
-        render(
-          <MatchView
-            {...baseProps({
-              plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 340,
-              keeperEligibleIds: ["p1", "p4", "p5", "p6", "p7"], // neither Bob nor Cara eligible
-            })}
-          />
-        );
-        const sheet = within(screen.getByTestId("execute-sheet"));
-        await user.click(sheet.getByText("Finn").closest("button"));
-        expect(within(screen.getByTestId("swap-options")).getByText("No one else available")).toBeInTheDocument();
-      });
-
-      // "Cancel this sub" isn't a separate action — picking the very
-      // player who was about to leave just hands them straight back their
-      // own spot, same call as any other redirect.
-      it("'cancelling' a sub is just picking the departing player as the replacement — no separate action", async () => {
-        const onSwap = vi.fn();
-        const user = userEvent.setup();
-        render(<MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 340, onSwap })} />);
-        const sheet = within(screen.getByTestId("execute-sheet"));
-        await user.click(sheet.getByText("Gus").closest("button"));
-        await user.click(within(screen.getByTestId("swap-options")).getByText("Bob")); // Bob is who Gus was replacing
-        expect(onSwap).toHaveBeenCalledWith("p7", "p2", 1);
+        expect(screen.queryByText("✕ Cancel this change")).not.toBeInTheDocument();
       });
     });
 
-    // Block 15 — a deliberate, separate path from the picker above:
-    // instead of quietly handing the spot to someone else, the coach
-    // opens the step, confirms in a dedicated dialog, and the step stays
-    // visible in place (greyed out, struck through, numbered the same)
-    // rather than disappearing — the picker's own "hand it to the
-    // departing player" trick never shows any of that.
+    // Block 15: the coach opens the step, confirms in a dedicated dialog,
+    // and the step stays visible in place (greyed out, struck through,
+    // numbered the same) rather than disappearing.
     describe("cancelling a change (block 15)", () => {
       // Same shape as final60Plan, plus interval 2 where Gus (p7) is back
       // on the field — gives the post-cancel caption an actual minute

@@ -405,7 +405,7 @@ function nextOnFieldMinute(plan, playerId, fromIndex) {
 
 function ExecuteSheet({
   steps, nameOf, numberOf, toggleTimer, onDismiss, exiting, onExited, onMount,
-  benchIds, keeperEligibleIds, onSwapIncoming, plan, targetIndex, announce,
+  onSwapIncoming, plan, targetIndex, announce,
 }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => onMount(), []);
@@ -418,35 +418,35 @@ function ExecuteSheet({
   // really left, so buildFinal60Steps has nothing left to report there)
   // — rendering straight from the live `steps` prop would make a
   // cancelled step simply vanish instead of greying out in place, and
-  // renumber everything after it. Both actions below (the swap-for-
-  // someone picker and the cancel flow) patch this local copy directly
-  // alongside the real onSwapIncoming call that actually changes the
-  // plan, so the displayed list only ever changes because the coach
-  // acted on it, never because of a side effect of that action elsewhere.
+  // renumber everything after it. The cancel flow below patches this
+  // local copy directly alongside the real onSwapIncoming call that
+  // actually changes the plan, so the displayed list only ever changes
+  // because the coach acted on it, never because of a side effect of
+  // that action elsewhere.
   const [displaySteps, setDisplaySteps] = useState(steps);
-  // Which step is open right now — tapping its title/"⋯" *or* its own
-  // incoming player's chip all open the same one panel (real-use
-  // question: two different taps on the same row that each opened a
-  // different, unrelated popup was genuinely confusing at "30 seconds to
-  // go"). The open panel shows both what the chip-tap used to show alone
-  // (redirect to a specific bench player) and the new formal "cancel this
-  // change" action together, so there's one place for everything that can
-  // happen to this one step. Only one step open at a time; every other
-  // live step collapses to a compact single line while something's open
-  // — the design's own mockup does the same (screens 21-23), as a focus/
-  // declutter choice, not because of any actual space constraint: this
-  // sheet is a fixed, full-viewport overlay (mdFinal60Overlay) stacked
-  // above the whole screen, not laid out alongside the pitch, so growing
-  // it doesn't shrink the pitch either way.
+  // Which step is open right now — tapping its title/"⋯" or its own
+  // incoming player's chip both open the same one panel, so there's a
+  // single, unambiguous target rather than the coach needing to remember
+  // which spot on the row does what. This panel does exactly one thing:
+  // offer to cancel the change. An earlier round of this feature also
+  // let it open into a "redirect to a specific other bench player"
+  // picker — real-use feedback was that having two different sets of
+  // options behind one tap read as confusing, so that picker is gone;
+  // cancelling (which already returns the departing player to the field
+  // and moves the declined player to the front of the queue) is the one
+  // thing this panel offers now, matching the reference design, which
+  // never had a picker here either.
+  //
+  // Only one step open at a time; every other live step collapses to a
+  // compact single line while something's open — the design's own
+  // mockup does the same (screens 21-23), as a focus/declutter choice,
+  // not because of any actual space constraint: this sheet is a fixed,
+  // full-viewport overlay (mdFinal60Overlay) stacked above the whole
+  // screen, not laid out alongside the pitch, so growing it doesn't
+  // shrink the pitch either way.
   const [openIndex, setOpenIndex] = useState(null);
   const [confirmCancelIndex, setConfirmCancelIndex] = useState(null);
 
-  const handleSwapIncoming = (i, candidateId) => {
-    const step = displaySteps[i];
-    onSwapIncoming(step.inId, candidateId);
-    setDisplaySteps((prev) => prev.map((s, idx) => (idx === i ? { ...s, inId: candidateId } : s)));
-    setOpenIndex(null);
-  };
   const handleConfirmCancel = (i) => {
     const step = displaySteps[i];
     onSwapIncoming(step.inId, step.outId); // hand the spot right back to whoever was leaving
@@ -489,16 +489,13 @@ function ExecuteSheet({
       >
         <div style={styles.mdExecuteStepList}>
           {displaySteps.map((step, i) => {
-            // Scoped to the same steps the swap picker already targets — a
-            // genuine bench arrival. A same-pitch position change (the
-            // stepping-down keeper taking an outfield spot) has no clean
-            // "swap back" undo the way an arrival does — see the block 15
-            // comment on mdExecuteStepMore in styles.js for the full
-            // reasoning — so it keeps its plain, always-expanded display.
+            // Scoped to a genuine bench arrival. A same-pitch position
+            // change (the stepping-down keeper taking an outfield spot)
+            // has no clean "swap back" undo the way an arrival does — see
+            // the block 15 comment on mdExecuteStepMore in styles.js for
+            // the full reasoning — so it keeps its plain, always-
+            // expanded, non-cancellable display.
             const cancellable = Boolean(onSwapIncoming) && step.inId != null && step.inColor === "arriving";
-            const candidates = cancellable
-              ? (benchIds || []).filter((id) => !step.inIsKeeper || keeperEligibleIds.includes(id))
-              : [];
             const open = openIndex === i;
             const collapsed = !step.cancelled && openIndex !== null && openIndex !== i;
             const toggleOpen = () => setOpenIndex(open ? null : i);
@@ -590,8 +587,7 @@ function ExecuteSheet({
                       // Same action as the title's own "⋯" — tapping the
                       // incoming player themselves is at least as natural
                       // a place to ask "what about this sub?" as the dots
-                      // are, so both open the one panel below rather than
-                      // this chip running its own separate picker.
+                      // are, so both open the one cancel panel below.
                       <button style={styles.mdExecuteChipOpenBtn} onClick={toggleOpen}>
                         <span style={{ ...styles.mdExecuteChipDisc, background: FINAL60_DISC_COLOR[step.inColor] }}>
                           {numberOf(step.inId)}
@@ -611,28 +607,14 @@ function ExecuteSheet({
                     )}
                   </div>
                   {open && (
-                    <>
-                      <div style={styles.mdExecuteSwapOptions} data-testid="swap-options">
-                        {candidates.length === 0 ? (
-                          <span style={styles.mdExecuteSwapEmpty}>No one else available</span>
-                        ) : (
-                          candidates.map((id) => (
-                            <button key={id} style={styles.mdExecuteSwapOption} onClick={() => handleSwapIncoming(i, id)}>
-                              <span style={styles.mdExecuteSwapOptionNumber}>{numberOf(id)}</span>
-                              <span style={styles.mdExecuteSwapOptionName}>{nameOf(id)}</span>
-                            </button>
-                          ))
-                        )}
-                      </div>
-                      <div style={styles.mdExecuteStepActionRow}>
-                        <button style={styles.mdExecuteCancelBtn} onClick={() => setConfirmCancelIndex(i)}>
-                          ✕ Cancel this change
-                        </button>
-                        <button style={styles.mdExecuteCloseBtn} onClick={() => setOpenIndex(null)}>
-                          Close
-                        </button>
-                      </div>
-                    </>
+                    <div style={styles.mdExecuteStepActionRow}>
+                      <button style={styles.mdExecuteCancelBtn} onClick={() => setConfirmCancelIndex(i)}>
+                        ✕ Cancel this change
+                      </button>
+                      <button style={styles.mdExecuteCloseBtn} onClick={() => setOpenIndex(null)}>
+                        Close
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -2143,8 +2125,6 @@ export default function MatchView({
                 exiting={sheet2Exiting}
                 onExited={() => setSheet2DismissedForIndex(pendingIndex)}
                 onMount={() => setSheetAnnouncement(`Make the changes, ${executeSteps.length} steps`)}
-                benchIds={pendingNextIv?.bench}
-                keeperEligibleIds={keeperEligibleIds}
                 onSwapIncoming={swapIncoming}
                 plan={plan}
                 targetIndex={safePendingIndex + 1}
