@@ -382,129 +382,295 @@ function stepTitle(step, nameOf) {
   if (step.titleKind === "takesField") return `${name} takes the field`;
   return `${name} comes off`;
 }
+// "George → Eli" — the collapsed-step and confirm-dialog plain-text
+// summary of who's involved, shared by both.
+function stepPlayersText(step, nameOf) {
+  if (step.outId && step.inId) return `${nameOf(step.outId)} → ${nameOf(step.inId)}`;
+  if (step.outId) return nameOf(step.outId);
+  if (step.inId) return nameOf(step.inId);
+  return "";
+}
+
+// Scans forward from the interval a cancelled sub was decided at, to name
+// the next one this player is actually scheduled to appear on the pitch
+// — the rebuilt plan already carries the answer, this just reads it back
+// for the "Cancelled · ... first on at <minute>′" caption. null if the
+// rotation never gets back to them (the game ends first).
+function nextOnFieldMinute(plan, playerId, fromIndex) {
+  for (let i = fromIndex + 1; i < plan.length; i++) {
+    if (plan[i].onField.some((p) => p.id === playerId)) return plan[i].startMin;
+  }
+  return null;
+}
+
 function ExecuteSheet({
   steps, nameOf, numberOf, toggleTimer, onDismiss, exiting, onExited, onMount,
-  benchIds, keeperEligibleIds, onSwapIncoming,
+  benchIds, keeperEligibleIds, onSwapIncoming, plan, targetIndex, announce,
 }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => onMount(), []);
-  // Real-use feedback: "what if a kid who's about to be subbed on doesn't
-  // want to go back on?" — every genuine bench arrival (inColor
-  // "arriving" — never a same-pitch "changing" step like the stepping-
-  // down keeper taking an outfield spot, since they're not coming from
-  // the bench at all and have nothing to decline) gets a small "swap"
-  // affordance offering the rest of that interval's own bench as
-  // replacements. Handing it right back to whoever was leaving is
-  // "cancel this sub" — same action, no separate path (see
-  // onSwapIncoming's own call site, MatchView.jsx, for why one mechanism
-  // covers both). Only one step's picker open at a time — tapping the
-  // same one again closes it, same toggle convention the main player-tap
-  // menu already uses elsewhere in this file.
-  const [openStepIndex, setOpenStepIndex] = useState(null);
+  // Block 15 — cancelling a change. displaySteps is a frozen snapshot of
+  // `steps` at mount (a fresh one every time, since the parent remounts
+  // this whole component per pendingIndex via its own `key`), not the
+  // live-recomputed array `steps` keeps being on every render. That's
+  // deliberate: cancelling a step makes the plan's own real transition
+  // for that pairing disappear entirely (the departing player never
+  // really left, so buildFinal60Steps has nothing left to report there)
+  // — rendering straight from the live `steps` prop would make a
+  // cancelled step simply vanish instead of greying out in place, and
+  // renumber everything after it. Both actions below (the existing
+  // swap-for-someone picker, and the new cancel) patch this local copy
+  // directly alongside the real onSwapIncoming call that actually changes
+  // the plan, so the displayed list only ever changes because the coach
+  // acted on it, never because of a side effect of that action elsewhere.
+  const [displaySteps, setDisplaySteps] = useState(steps);
+  // Which step is "open" right now, and which of its two panels — the
+  // existing swap-candidate picker (tapping the incoming chip) or the
+  // new cancel action strip (tapping the step's own title / "more"
+  // control). Only one panel, on one step, at a time — opening either one
+  // anywhere replaces whatever was open before; every other live step
+  // collapses to its compact single-line form while something's open,
+  // which is what keeps this sheet from growing taller than it started —
+  // the pitch above it is flex:1;min-height:0, so every pixel this sheet
+  // gains is a pixel the pitch loses.
+  const [openPanel, setOpenPanel] = useState(null); // { index, kind: "swap" | "cancel" } | null
+  const [confirmCancelIndex, setConfirmCancelIndex] = useState(null);
+
+  const handleSwapIncoming = (i, candidateId) => {
+    const step = displaySteps[i];
+    onSwapIncoming(step.inId, candidateId);
+    setDisplaySteps((prev) => prev.map((s, idx) => (idx === i ? { ...s, inId: candidateId } : s)));
+    setOpenPanel(null);
+  };
+  const handleConfirmCancel = (i) => {
+    const step = displaySteps[i];
+    onSwapIncoming(step.inId, step.outId); // hand the spot right back to whoever was leaving
+    const nextMin = nextOnFieldMinute(plan, step.inId, targetIndex);
+    setDisplaySteps((prev) =>
+      prev.map((s, idx) => (idx === i ? { ...s, cancelled: true, cancelledInId: step.inId, cancelledOutId: step.outId, cancelledNextMin: nextMin } : s))
+    );
+    setConfirmCancelIndex(null);
+    setOpenPanel(null);
+    announce(
+      `Sub cancelled. ${nameOf(step.inId)} stays on the bench, first on ${nextMin != null ? `at ${nextMin} minutes` : "later this game"}.`
+    );
+  };
+  const handleUndo = (i) => {
+    const step = displaySteps[i];
+    onSwapIncoming(step.cancelledOutId, step.cancelledInId); // swap back to how it was before the cancel
+    setDisplaySteps((prev) =>
+      prev.map((s, idx) => (idx === i ? { ...s, cancelled: false, cancelledInId: undefined, cancelledOutId: undefined, cancelledNextMin: undefined } : s))
+    );
+  };
+
+  const confirmStep = confirmCancelIndex != null ? displaySteps[confirmCancelIndex] : null;
+
   return (
-    <Final60SheetShell
-      onDismiss={onDismiss}
-      exiting={exiting}
-      onExited={onExited}
-      testId="execute-sheet"
-      ariaLabel="Make the changes"
-      titleRow={
-        <div style={styles.mdFinal60TitleRow}>
-          <span style={styles.mdExecuteTitle}>Make the changes</span>
-          <span style={styles.mdFinal60LabelWrap}>
-            <span style={styles.mdFinal60Label}>30 secs to go</span>
-          </span>
-        </div>
-      }
-    >
-      <div style={styles.mdExecuteStepList}>
-        {steps.map((step, i) => {
-          const swappable = Boolean(onSwapIncoming) && step.inId != null && step.inColor === "arriving";
-          // Keeper steps only ever offer keeper-eligible bench players —
-          // same eligibility list "Make keeper" already filters to
-          // elsewhere in this file, not a new concept.
-          const candidates = swappable
-            ? (benchIds || []).filter((id) => !step.inIsKeeper || keeperEligibleIds.includes(id))
-            : [];
-          return (
-            <div key={i} style={styles.mdExecuteStepRow}>
-              <span style={styles.mdExecuteStepNumeral}>{i + 1}.</span>
-              <div style={styles.mdExecuteStepBody}>
-                <span style={styles.mdExecuteStepInstruction}>{stepTitle(step, nameOf)}</span>
-                <div style={styles.mdExecuteChipRow}>
-                  {step.outId && (
-                    <span style={styles.mdExecuteChip}>
-                      <span style={{ ...styles.mdExecuteChipDisc, background: FINAL60_DISC_COLOR[step.outColor] }}>
-                        {numberOf(step.outId)}
-                      </span>
-                      <span style={styles.mdExecuteChipName}>{nameOf(step.outId)}</span>
+    <>
+      <Final60SheetShell
+        onDismiss={onDismiss}
+        exiting={exiting}
+        onExited={onExited}
+        testId="execute-sheet"
+        ariaLabel="Make the changes"
+        titleRow={
+          <div style={styles.mdFinal60TitleRow}>
+            <span style={styles.mdExecuteTitle}>Make the changes</span>
+            <span style={styles.mdFinal60LabelWrap}>
+              <span style={styles.mdFinal60Label}>30 secs to go</span>
+            </span>
+          </div>
+        }
+      >
+        <div style={styles.mdExecuteStepList}>
+          {displaySteps.map((step, i) => {
+            // Scoped to the same steps the swap picker already targets — a
+            // genuine bench arrival. A same-pitch position change (the
+            // stepping-down keeper taking an outfield spot) has no clean
+            // "swap back" undo the way an arrival does — see the block 15
+            // comment on mdExecuteStepMore in styles.js for the full
+            // reasoning — so it keeps its plain, always-expanded display.
+            const cancellable = Boolean(onSwapIncoming) && step.inId != null && step.inColor === "arriving";
+            const candidates = cancellable
+              ? (benchIds || []).filter((id) => !step.inIsKeeper || keeperEligibleIds.includes(id))
+              : [];
+            const swapOpen = openPanel?.index === i && openPanel.kind === "swap";
+            const cancelOpen = openPanel?.index === i && openPanel.kind === "cancel";
+            const collapsed = !step.cancelled && openPanel !== null && openPanel.index !== i;
+
+            if (step.cancelled) {
+              return (
+                <div key={i} style={styles.mdExecuteStepRow}>
+                  <span style={styles.mdExecuteStepCancelledNumeral}>{i + 1}.</span>
+                  <div style={styles.mdExecuteStepBody}>
+                    <div style={styles.mdExecuteCancelledTitleRow}>
+                      <span style={styles.mdExecuteCancelledTitle}>{stepTitle(step, nameOf)}</span>
+                      <button style={styles.mdExecuteUndoPill} onClick={() => handleUndo(i)}>
+                        Undo
+                      </button>
+                    </div>
+                    <span style={styles.mdExecuteCancelledCaption}>
+                      Cancelled · {nameOf(step.cancelledOutId)} stays on ·{" "}
+                      {step.cancelledNextMin != null
+                        ? `${nameOf(step.cancelledInId)} first on at ${step.cancelledNextMin}′`
+                        : `${nameOf(step.cancelledInId)} not scheduled on again this game`}
                     </span>
-                  )}
-                  {step.outId && step.inId && <span style={styles.mdExecuteChipArrow}>→</span>}
-                  {step.inId && swappable && (
-                    <button
-                      style={styles.mdExecuteChipSwappable}
-                      onClick={() => setOpenStepIndex(openStepIndex === i ? null : i)}
-                    >
-                      <span style={{ ...styles.mdExecuteChipDisc, background: FINAL60_DISC_COLOR[step.inColor] }}>
-                        {numberOf(step.inId)}
-                      </span>
-                      <span style={styles.mdExecuteChipName}>{nameOf(step.inId)}</span>
-                      {step.inIsKeeper && <span style={{ ...styles.mdFinal60GkPill, marginLeft: "auto" }}>GK</span>}
-                      <ArrowLeftRight size={14} color={tokens.color.groupLabel} />
-                    </button>
-                  )}
-                  {step.inId && !swappable && (
-                    <span style={styles.mdExecuteChip}>
-                      <span style={{ ...styles.mdExecuteChipDisc, background: FINAL60_DISC_COLOR[step.inColor] }}>
-                        {numberOf(step.inId)}
-                      </span>
-                      <span style={styles.mdExecuteChipName}>{nameOf(step.inId)}</span>
-                      {step.inIsKeeper && <span style={{ ...styles.mdFinal60GkPill, marginLeft: "auto" }}>GK</span>}
-                    </span>
-                  )}
+                  </div>
                 </div>
-                {openStepIndex === i && (
-                  <div style={styles.mdExecuteSwapOptions} data-testid="swap-options">
-                    {candidates.length === 0 ? (
-                      <span style={styles.mdExecuteSwapEmpty}>No one else available</span>
+              );
+            }
+
+            if (collapsed) {
+              return (
+                <div key={i} style={styles.mdExecuteStepRow}>
+                  <span style={styles.mdExecuteStepNumeral}>{i + 1}.</span>
+                  <div style={styles.mdExecuteStepCollapsedRow}>
+                    {cancellable ? (
+                      <button
+                        style={styles.mdExecuteStepOpenBtn}
+                        onClick={() => setOpenPanel({ index: i, kind: "cancel" })}
+                      >
+                        <span style={styles.mdExecuteStepCollapsedBody}>
+                          <span style={styles.mdExecuteStepCollapsedTitle}>{stepTitle(step, nameOf)}</span>
+                          <span style={styles.mdExecuteStepCollapsedPlayers}>{stepPlayersText(step, nameOf)}</span>
+                        </span>
+                        <span style={styles.mdExecuteStepMore} aria-hidden="true">
+                          ⋯
+                        </span>
+                      </button>
                     ) : (
-                      candidates.map((id) => (
-                        <button
-                          key={id}
-                          style={styles.mdExecuteSwapOption}
-                          onClick={() => {
-                            onSwapIncoming(step.inId, id);
-                            setOpenStepIndex(null);
-                          }}
-                        >
-                          <span style={styles.mdExecuteSwapOptionNumber}>{numberOf(id)}</span>
-                          <span style={styles.mdExecuteSwapOptionName}>{nameOf(id)}</span>
-                        </button>
-                      ))
+                      <span style={styles.mdExecuteStepCollapsedBody}>
+                        <span style={styles.mdExecuteStepCollapsedTitle}>{stepTitle(step, nameOf)}</span>
+                        <span style={styles.mdExecuteStepCollapsedPlayers}>{stepPlayersText(step, nameOf)}</span>
+                      </span>
                     )}
                   </div>
-                )}
+                </div>
+              );
+            }
+
+            return (
+              <div key={i} style={styles.mdExecuteStepRow}>
+                <span style={styles.mdExecuteStepNumeral}>{i + 1}.</span>
+                <div style={styles.mdExecuteStepBody}>
+                  {cancellable ? (
+                    <button
+                      style={styles.mdExecuteStepOpenBtn}
+                      onClick={() => setOpenPanel(cancelOpen ? null : { index: i, kind: "cancel" })}
+                    >
+                      <span style={styles.mdExecuteStepInstruction}>{stepTitle(step, nameOf)}</span>
+                      <span
+                        style={{ ...styles.mdExecuteStepMore, ...(cancelOpen ? styles.mdExecuteStepMoreActive : {}) }}
+                        aria-label={`More options for step ${i + 1}`}
+                      >
+                        ⋯
+                      </span>
+                    </button>
+                  ) : (
+                    <span style={styles.mdExecuteStepInstruction}>{stepTitle(step, nameOf)}</span>
+                  )}
+                  <div style={styles.mdExecuteChipRow}>
+                    {step.outId && (
+                      <span style={styles.mdExecuteChip}>
+                        <span style={{ ...styles.mdExecuteChipDisc, background: FINAL60_DISC_COLOR[step.outColor] }}>
+                          {numberOf(step.outId)}
+                        </span>
+                        <span style={styles.mdExecuteChipName}>{nameOf(step.outId)}</span>
+                      </span>
+                    )}
+                    {step.outId && step.inId && <span style={styles.mdExecuteChipArrow}>→</span>}
+                    {step.inId && cancellable && (
+                      <button
+                        style={styles.mdExecuteChipSwappable}
+                        onClick={() => setOpenPanel(swapOpen ? null : { index: i, kind: "swap" })}
+                      >
+                        <span style={{ ...styles.mdExecuteChipDisc, background: FINAL60_DISC_COLOR[step.inColor] }}>
+                          {numberOf(step.inId)}
+                        </span>
+                        <span style={styles.mdExecuteChipName}>{nameOf(step.inId)}</span>
+                        {step.inIsKeeper && <span style={{ ...styles.mdFinal60GkPill, marginLeft: "auto" }}>GK</span>}
+                        <ArrowLeftRight size={14} color={tokens.color.groupLabel} />
+                      </button>
+                    )}
+                    {step.inId && !cancellable && (
+                      <span style={styles.mdExecuteChip}>
+                        <span style={{ ...styles.mdExecuteChipDisc, background: FINAL60_DISC_COLOR[step.inColor] }}>
+                          {numberOf(step.inId)}
+                        </span>
+                        <span style={styles.mdExecuteChipName}>{nameOf(step.inId)}</span>
+                        {step.inIsKeeper && <span style={{ ...styles.mdFinal60GkPill, marginLeft: "auto" }}>GK</span>}
+                      </span>
+                    )}
+                  </div>
+                  {swapOpen && (
+                    <div style={styles.mdExecuteSwapOptions} data-testid="swap-options">
+                      {candidates.length === 0 ? (
+                        <span style={styles.mdExecuteSwapEmpty}>No one else available</span>
+                      ) : (
+                        candidates.map((id) => (
+                          <button key={id} style={styles.mdExecuteSwapOption} onClick={() => handleSwapIncoming(i, id)}>
+                            <span style={styles.mdExecuteSwapOptionNumber}>{numberOf(id)}</span>
+                            <span style={styles.mdExecuteSwapOptionName}>{nameOf(id)}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                  {cancelOpen && (
+                    <div style={styles.mdExecuteStepActionRow}>
+                      <button style={styles.mdExecuteCancelBtn} onClick={() => setConfirmCancelIndex(i)}>
+                        ✕ Cancel this change
+                      </button>
+                      <button style={styles.mdExecuteCloseBtn} onClick={() => setOpenPanel(null)}>
+                        Close
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
-      <div style={styles.mdFinal60ActionRow}>
-        <button style={styles.mdFinal60ActionPause} onClick={toggleTimer}>
-          <Pause size={20} /> Pause
-        </button>
-        {/* Block 11 real-use-feedback simplification: "sub done" is now a
-            coach acknowledgment, not an action — it changes no state and
-            has no effect on the board or on minutes, same as the prepare
-            sheet's own "Ready" (see MatchView's own comment where this is
-            wired up for the full reasoning). It's just this sheet's own
-            dismiss, same as the drag handle. */}
-        <button style={styles.mdFinal60ActionPrimary} onClick={onDismiss}>
-          Sub done ✓
-        </button>
-      </div>
-    </Final60SheetShell>
+            );
+          })}
+        </div>
+        <div style={styles.mdFinal60ActionRow}>
+          <button style={styles.mdFinal60ActionPause} onClick={toggleTimer}>
+            <Pause size={20} /> Pause
+          </button>
+          {/* Block 11 real-use-feedback simplification: "sub done" is now a
+              coach acknowledgment, not an action — it changes no state and
+              has no effect on the board or on minutes, same as the prepare
+              sheet's own "Ready" (see MatchView's own comment where this is
+              wired up for the full reasoning). It's just this sheet's own
+              dismiss, same as the drag handle. */}
+          <button style={styles.mdFinal60ActionPrimary} onClick={onDismiss}>
+            Sub done ✓
+          </button>
+        </div>
+      </Final60SheetShell>
+      {/* Block 15 — the one centred-card dialog in this app; everything
+          else here is a bottom sheet or an anchored popover. Sits above
+          the execute sheet itself (mdFinal60Overlay's own zIndex 46), not
+          inside it, since it has to interrupt that sheet rather than live
+          in its own scroll area. "Keep the sub" is the primary action —
+          the dialog opened on one tap and must cost one tap to leave. */}
+      {confirmStep && (
+        <>
+          <div style={styles.mdCancelDialogScrim} data-testid="cancel-dialog-scrim" onClick={() => setConfirmCancelIndex(null)} />
+          <div style={styles.mdCancelDialogCard} data-testid="cancel-confirm-dialog" role="dialog" aria-modal="true">
+            <span style={styles.mdCancelDialogTitle}>{nameOf(confirmStep.inId)} doesn&apos;t come on</span>
+            <span style={styles.mdCancelDialogBody}>
+              {nameOf(confirmStep.outId)} stays on. {nameOf(confirmStep.inId)} stays on the bench, first on at the next
+              interval.
+            </span>
+            <button style={styles.mdCancelDialogCancelBtn} onClick={() => handleConfirmCancel(confirmCancelIndex)}>
+              ✕ Cancel the sub
+            </button>
+            <button style={styles.mdCancelDialogKeepBtn} onClick={() => setConfirmCancelIndex(null)}>
+              Keep the sub
+            </button>
+          </div>
+        </>
+      )}
+    </>
   );
 }
 
@@ -1972,6 +2138,9 @@ export default function MatchView({
                 benchIds={pendingNextIv?.bench}
                 keeperEligibleIds={keeperEligibleIds}
                 onSwapIncoming={swapIncoming}
+                plan={plan}
+                targetIndex={safePendingIndex + 1}
+                announce={setSheetAnnouncement}
               />
             )}
           </div>

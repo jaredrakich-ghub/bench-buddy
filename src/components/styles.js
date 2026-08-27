@@ -83,6 +83,20 @@ export const tokens = {
     sheetLabel: "#5A6B61", // the small uppercase corner label on both sheets ("GET READY", "30 secs to go") — close to but distinct from mutedText
     // A5-Minutes' em-dash-for-zero is #C9C4B6 — same value as `chevron`
     // above, so reuse that token directly rather than duplicating it here.
+    // Block 15 — cancelling a change (execute sheet). injuryTint/
+    // injuryBorder (#FBEDE9/#E8A899) are reused as-is for the cancel
+    // buttons' own tint — same caution set, no duplicate. #B4462E (the
+    // cancel buttons' own text colour) is genuinely new to this app's own
+    // token set despite the design calling it "already existing" — that's
+    // true of the design's own broader system, not this file, so it's
+    // added here rather than reusing the close-but-not-equal injuryRed/
+    // injuryText.
+    moreGlyph: "#8A9A90", // the resting "more" (⋯) control's glyph
+    cancelledNumeral: "#B3BBB4", // a cancelled step's own numeral
+    cancelledTitle: "#96A29A", // a cancelled step's struck-through title
+    cancelledCaption: "#7E8C83", // a cancelled step's "Cancelled · ..." caption
+    undoPillBg: "#E2EEE4", // the Undo pill's background
+    cancelText: "#B4462E", // "Cancel this change"/"Cancel the sub" button text
   },
   // Baloo 2 800 for display type (timer, wordmark, buttons, popover
   // titles); Nunito for body copy (700 captions, 800 labels/chips/names)
@@ -1296,6 +1310,101 @@ export const styles = {
   },
   mdExecuteSwapOptionName: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 14, color: tokens.color.deepGreen },
   mdExecuteSwapEmpty: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13, color: tokens.color.mutedText, padding: "4px 2px" },
+
+  // ---- Block 15 — cancelling a change (execute sheet). A player can
+  // refuse to come on; the coach calls off that one step without
+  // touching the rest. Temporary only — taking someone out for the rest
+  // of the game is the existing injured-player flow, not this one.
+  // Scoped to the same steps mdExecuteChipSwappable already targets
+  // (a genuine bench arrival, inColor "arriving") — a same-pitch
+  // position change (the stepping-down keeper taking an outfield spot)
+  // has no clean "swap back" undo the way an arrival does, so it keeps
+  // its plain, always-expanded, non-cancellable display.
+  mdExecuteStepMore: {
+    width: 28, height: 24, borderRadius: 9, flexShrink: 0, border: "none", cursor: "pointer", font: "inherit",
+    background: tokens.color.creamDeep, color: tokens.color.moreGlyph,
+    display: "flex", alignItems: "center", justifyContent: "center", fontFamily: tokens.font.display, fontWeight: 800, fontSize: 15,
+  },
+  mdExecuteStepMoreActive: { background: tokens.color.deepGreen, color: tokens.color.creamPaper },
+  // The tappable "open this step" target — title + the more control
+  // together, a real button (not the whole row: the chip below is its
+  // own independent button for the existing swap picker, and a button
+  // can't nest inside another button).
+  mdExecuteStepOpenBtn: {
+    display: "flex", alignItems: "center", gap: 8, width: "100%",
+    border: "none", background: "none", padding: 0, cursor: "pointer", font: "inherit", textAlign: "left",
+  },
+  // A step collapses to this compact form while a *different* step is
+  // open — opacity .72, players folded into one truncating plain-text
+  // line instead of full chips, so the sheet's own height never grows
+  // past what it was before a step opened (the pitch above it is
+  // flex:1;min-height:0 — every pixel this sheet gains is a pixel the
+  // pitch loses).
+  mdExecuteStepCollapsedRow: { display: "flex", alignItems: "center", gap: 10, opacity: 0.72 },
+  mdExecuteStepCollapsedBody: { flex: 1, minWidth: 0, display: "flex", alignItems: "baseline", gap: 6, overflow: "hidden" },
+  mdExecuteStepCollapsedTitle: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 16, color: tokens.color.groupLabel, flexShrink: 0 },
+  mdExecuteStepCollapsedPlayers: {
+    fontFamily: tokens.font.body, fontWeight: 800, fontSize: 14, color: tokens.color.mutedText,
+    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0,
+  },
+  // The open step's own action strip — margin-left 36px lines it up with
+  // the instruction text above, not the wider numeral column.
+  mdExecuteStepActionRow: { display: "flex", gap: 8, marginLeft: 36 },
+  mdExecuteCancelBtn: {
+    flex: 1, height: 46, borderRadius: 16, background: tokens.color.injuryTint, border: `2px solid ${tokens.color.injuryBorder}`,
+    color: tokens.color.cancelText, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 16,
+    display: "flex", alignItems: "center", justifyContent: "center", gap: 6, cursor: "pointer",
+  },
+  mdExecuteCloseBtn: {
+    flexShrink: 0, padding: "0 16px", height: 46, borderRadius: 16, background: tokens.color.creamDeep, border: "none",
+    color: tokens.color.groupLabel, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 16, cursor: "pointer",
+  },
+  // A cancelled step keeps its place and its number — never removed,
+  // never renumbered, nothing may shift under the coach's thumb
+  // mid-sequence. Same numeral/body layout as a live step, just its own
+  // muted colours and no chips.
+  mdExecuteStepCancelledNumeral: {
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 26, color: tokens.color.cancelledNumeral,
+    lineHeight: 1, width: 26, textAlign: "left", marginTop: -3.5, flexShrink: 0,
+  },
+  mdExecuteCancelledTitleRow: { display: "flex", alignItems: "center", gap: 8 },
+  mdExecuteCancelledTitle: {
+    flex: 1, minWidth: 0, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 16, color: tokens.color.cancelledTitle,
+    textDecoration: "line-through", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+  },
+  mdExecuteUndoPill: {
+    flexShrink: 0, padding: "3px 13px", borderRadius: 999, background: tokens.color.undoPillBg,
+    color: tokens.color.pitchGreen, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 15,
+    border: "none", cursor: "pointer", font: "inherit",
+  },
+  mdExecuteCancelledCaption: {
+    fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13, color: tokens.color.cancelledCaption,
+    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+  },
+
+  // ---- The cancel confirmation dialog — centred over the whole screen,
+  // above even the execute sheet itself (mdFinal60Overlay's own zIndex
+  // 46) since it has to interrupt that sheet, not sit inside it. The one
+  // centred-card dialog in this app; everything else here is a bottom
+  // sheet or an anchored popover.
+  mdCancelDialogScrim: { position: "fixed", inset: 0, background: tokens.color.scrim, zIndex: 48 },
+  mdCancelDialogCard: {
+    position: "fixed", left: 20, right: 20, top: "50%", transform: "translateY(-50%)", zIndex: 49,
+    maxWidth: 640 - 40, margin: "0 auto",
+    background: tokens.color.creamPaper, borderRadius: 30, padding: "20px 18px 16px",
+    display: "flex", flexDirection: "column", gap: 14,
+    boxShadow: "0 20px 50px rgba(20,32,28,.4)",
+  },
+  mdCancelDialogTitle: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 26, color: tokens.color.deepGreen, lineHeight: 1.05 },
+  mdCancelDialogBody: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 15, color: tokens.color.groupLabel, lineHeight: 1.4 },
+  mdCancelDialogCancelBtn: {
+    height: 50, borderRadius: 20, background: tokens.color.injuryTint, border: `2px solid ${tokens.color.injuryBorder}`,
+    color: tokens.color.cancelText, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 19, cursor: "pointer",
+  },
+  mdCancelDialogKeepBtn: {
+    height: 52, borderRadius: 20, background: tokens.color.yellow, boxShadow: tokens.shadow.solid(5, tokens.color.yellowShadow),
+    border: "none", color: tokens.color.deepGreen, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 19, cursor: "pointer",
+  },
 
   // ---- Anchored popovers (A2d-Menu-anchored, A2g-Player-tap). Both grow
   // out of the control that opened them — position:fixed with `top`

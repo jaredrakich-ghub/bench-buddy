@@ -800,6 +800,131 @@ describe("MatchView — final-60 sheets (block 11: prepare + execute)", () => {
         expect(onSwap).toHaveBeenCalledWith("p7", "p2", 1);
       });
     });
+
+    // Block 15 — a deliberate, separate path from the picker above:
+    // instead of quietly handing the spot to someone else, the coach
+    // opens the step, confirms in a dedicated dialog, and the step stays
+    // visible in place (greyed out, struck through, numbered the same)
+    // rather than disappearing — the picker's own "hand it to the
+    // departing player" trick never shows any of that.
+    describe("cancelling a change (block 15)", () => {
+      // Same shape as final60Plan, plus interval 2 where Gus (p7) is back
+      // on the field — gives the post-cancel caption an actual minute
+      // mark to find by scanning forward, rather than always hitting the
+      // "not scheduled again" fallback.
+      const cancelPlan = [
+        makeInterval(0, 0, 6, ["p1", "p2", "p3", "p4", "p5"], "p1", ["p6", "p7"]),
+        makeInterval(1, 6, 12, ["p6", "p1", "p7", "p4", "p5"], "p6", ["p2", "p3"]),
+        makeInterval(2, 12, 18, ["p6", "p1", "p7", "p2", "p5"], "p6", ["p4", "p3"]),
+      ];
+
+      it("opening a step's ⋯ shows a Cancel/Close action row and collapses every other step to a single line", async () => {
+        const user = userEvent.setup();
+        render(<MatchView {...baseProps({ plan: cancelPlan, timerRunning: true, activeInterval: 0, elapsedSec: 340 })} />);
+        const sheet = within(screen.getByTestId("execute-sheet"));
+        await user.click(sheet.getByText("Gus comes on").closest("button"));
+        expect(sheet.getByText("✕ Cancel this change")).toBeInTheDocument();
+        expect(sheet.getByText("Close")).toBeInTheDocument();
+        // The keeper-swap step collapses to a compact "title + plain-text
+        // players" line — its own chips (previously separately queryable
+        // as "Finn") are gone, folded into that one line instead.
+        expect(sheet.queryByText("Finn")).not.toBeInTheDocument();
+        expect(sheet.getByText("Alice → Finn")).toBeInTheDocument();
+      });
+
+      it("tapping the open step's own ⋯ again closes the action row without collapsing anything", async () => {
+        const user = userEvent.setup();
+        render(<MatchView {...baseProps({ plan: cancelPlan, timerRunning: true, activeInterval: 0, elapsedSec: 340 })} />);
+        const sheet = within(screen.getByTestId("execute-sheet"));
+        const gusRow = sheet.getByText("Gus comes on").closest("button");
+        await user.click(gusRow);
+        await user.click(gusRow);
+        expect(sheet.queryByText("✕ Cancel this change")).not.toBeInTheDocument();
+        expect(sheet.getByText("Finn")).toBeInTheDocument(); // back to its normal, expanded chip
+      });
+
+      it("Cancel this change opens a centered confirm dialog with generic (no-minute) copy", async () => {
+        const user = userEvent.setup();
+        render(<MatchView {...baseProps({ plan: cancelPlan, timerRunning: true, activeInterval: 0, elapsedSec: 340 })} />);
+        const sheet = within(screen.getByTestId("execute-sheet"));
+        await user.click(sheet.getByText("Gus comes on").closest("button"));
+        await user.click(sheet.getByText("✕ Cancel this change"));
+        const dialog = within(screen.getByTestId("cancel-confirm-dialog"));
+        expect(dialog.getByText("Gus doesn't come on")).toBeInTheDocument();
+        expect(dialog.getByText(/Bob stays on/)).toBeInTheDocument();
+        expect(dialog.getByText(/first on at the next interval/)).toBeInTheDocument();
+      });
+
+      it("Keep the sub backs out without cancelling or calling onSwap", async () => {
+        const onSwap = vi.fn();
+        const user = userEvent.setup();
+        render(<MatchView {...baseProps({ plan: cancelPlan, timerRunning: true, activeInterval: 0, elapsedSec: 340, onSwap })} />);
+        const sheet = within(screen.getByTestId("execute-sheet"));
+        await user.click(sheet.getByText("Gus comes on").closest("button"));
+        await user.click(sheet.getByText("✕ Cancel this change"));
+        await user.click(screen.getByText("Keep the sub"));
+        expect(screen.queryByTestId("cancel-confirm-dialog")).not.toBeInTheDocument();
+        expect(onSwap).not.toHaveBeenCalled();
+        expect(sheet.getByText("Gus")).toBeInTheDocument(); // still a normal, un-cancelled step
+      });
+
+      it("confirming hands the spot straight back to whoever was leaving, same mechanism the picker uses", async () => {
+        const onSwap = vi.fn();
+        const user = userEvent.setup();
+        render(<MatchView {...baseProps({ plan: cancelPlan, timerRunning: true, activeInterval: 0, elapsedSec: 340, onSwap })} />);
+        const sheet = within(screen.getByTestId("execute-sheet"));
+        await user.click(sheet.getByText("Gus comes on").closest("button"));
+        await user.click(sheet.getByText("✕ Cancel this change"));
+        await user.click(within(screen.getByTestId("cancel-confirm-dialog")).getByText("✕ Cancel the sub"));
+        expect(onSwap).toHaveBeenCalledWith("p7", "p2", 1); // Gus, Bob, interval index 1
+      });
+
+      it("after confirming, the step greys out in place — same number, struck-through title, Undo pill, and a caption with the next on-field minute", async () => {
+        const user = userEvent.setup();
+        render(<MatchView {...baseProps({ plan: cancelPlan, timerRunning: true, activeInterval: 0, elapsedSec: 340 })} />);
+        const sheet = within(screen.getByTestId("execute-sheet"));
+        await user.click(sheet.getByText("Gus comes on").closest("button"));
+        await user.click(sheet.getByText("✕ Cancel this change"));
+        await user.click(within(screen.getByTestId("cancel-confirm-dialog")).getByText("✕ Cancel the sub"));
+        expect(screen.queryByTestId("cancel-confirm-dialog")).not.toBeInTheDocument();
+        expect(sheet.getByText("Gus comes on")).toBeInTheDocument(); // stays, doesn't vanish or renumber
+        expect(sheet.getByText("Undo")).toBeInTheDocument();
+        expect(sheet.getByText("Cancelled · Bob stays on · Gus first on at 12′")).toBeInTheDocument();
+      });
+
+      it("falls back to 'not scheduled on again this game' when the plan never brings them back on", async () => {
+        const user = userEvent.setup();
+        // final60Plan only has 2 intervals — nothing after the one Gus's
+        // sub was cancelled on, so there's nothing to scan forward into.
+        render(<MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 340 })} />);
+        const sheet = within(screen.getByTestId("execute-sheet"));
+        await user.click(sheet.getByText("Gus comes on").closest("button"));
+        await user.click(sheet.getByText("✕ Cancel this change"));
+        await user.click(within(screen.getByTestId("cancel-confirm-dialog")).getByText("✕ Cancel the sub"));
+        expect(sheet.getByText("Cancelled · Bob stays on · Gus not scheduled on again this game")).toBeInTheDocument();
+      });
+
+      it("Undo reverses the swap and restores the step to its normal, live state", async () => {
+        const onSwap = vi.fn();
+        const user = userEvent.setup();
+        render(<MatchView {...baseProps({ plan: cancelPlan, timerRunning: true, activeInterval: 0, elapsedSec: 340, onSwap })} />);
+        const sheet = within(screen.getByTestId("execute-sheet"));
+        await user.click(sheet.getByText("Gus comes on").closest("button"));
+        await user.click(sheet.getByText("✕ Cancel this change"));
+        await user.click(within(screen.getByTestId("cancel-confirm-dialog")).getByText("✕ Cancel the sub"));
+        await user.click(sheet.getByText("Undo"));
+        expect(onSwap).toHaveBeenLastCalledWith("p2", "p7", 1); // reversed: Bob back off, Gus back on
+        expect(screen.queryByText("Undo")).not.toBeInTheDocument();
+        expect(sheet.getByText("Gus").closest("button")).toBeInTheDocument(); // back to a normal, tappable chip
+      });
+
+      it("a same-pitch position change (Alice taking the field) has no ⋯ and can't be cancelled — only genuine bench arrivals can", async () => {
+        render(<MatchView {...baseProps({ plan: cancelPlan, timerRunning: true, activeInterval: 0, elapsedSec: 340 })} />);
+        const sheet = within(screen.getByTestId("execute-sheet"));
+        const aliceTakesField = sheet.getByText("Alice takes the field");
+        expect(aliceTakesField.closest("button")).not.toBeInTheDocument();
+      });
+    });
   });
 
   // Real-use feedback, three rounds running the "mount hidden, flip a tick
