@@ -59,4 +59,11 @@ describe("SignIn", () => {
     await screen.findByText("Sign in with Google"); // back to resting, signingIn cleared
     expect(screen.queryByText(/Couldn't sign in/)).not.toBeInTheDocument();
   });
+
+  // Progressive auth: AuthGate's own fallback path, when an anonymous
+  // session couldn't even be started — see AuthGate.jsx/AuthGate.test.jsx.
+  it("shows a pre-filled error when AuthGate's fallback path passes one", () => {
+    render(<SignIn initialError="Couldn't start a guest session — sign in with Google to continue." />);
+    expect(screen.getByText(/Couldn't start a guest session/)).toBeInTheDocument();
+  });
 });

@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Pencil, Trash2, Plus, Shirt, User, LogOut } from "lucide-react";
+import { Pencil, Trash2, Plus, Shirt, User, LogOut, Save } from "lucide-react";
 import { styles, tokens } from "./styles.js";
+import SaveTeamSheet from "./SaveTeamSheet.jsx";
 
 // README > A8-Team-account (#10e) — "everything that is not match-day."
 // Absorbs the old TeamSwitcher modal's team list/switch/rename/delete/add
@@ -20,10 +21,24 @@ import { styles, tokens } from "./styles.js";
 // working functionality already in TeamSwitcher — kept here, appended
 // under Sign out, rather than silently dropped because the mockup didn't
 // happen to show it.
+//
+// Progressive auth: also not in the README's A8 spec, since it predates
+// anonymous sign-in entirely. For an anonymous session (isAnonymous),
+// this same Account group's Signed in/Sign out pair is replaced by a
+// single "Save your team" row instead — see SaveTeamSheet.jsx for what
+// tapping it opens. Everything else on this screen is identical either
+// way; "Delete my account" still deletes whichever kind of account is
+// currently signed in, unchanged.
 export default function TeamAccountScreen({
   teams, activeTeamId, onSwitch, onAdd, onRename, onDelete, onClose,
-  userEmail, onSignOut, onDeleteAccount, onShowManageSquad, crestSrc,
+  userEmail, isAnonymous, onSignOut, onDeleteAccount, onShowManageSquad, crestSrc,
 }) {
+  // Progressive auth: an anonymous session's Account group offers "Save
+  // your team" instead of Signed in/Sign out — see SaveTeamSheet.jsx for
+  // the actual linking flow this opens. Local to this screen (like every
+  // other sheet-open flag elsewhere in this app, e.g. MatchView's own
+  // resetConfirmOpen) since nothing outside this screen needs to know.
+  const [showSaveTeam, setShowSaveTeam] = useState(false);
   const [showAddInput, setShowAddInput] = useState(false);
   const [addName, setAddName] = useState("");
   // Real-use feedback: creating a team gave no sign anything was
@@ -233,19 +248,35 @@ export default function TeamAccountScreen({
           <span style={styles.mdTeamAcctGroupLabel}>Account</span>
           <span style={styles.mdPopoverGroupRule} />
         </div>
-        <button style={styles.mdPopoverRow} onClick={() => {}}>
-          <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintNeutral }}>
-            <User size={16} color={tokens.color.mutedText} />
-          </span>
-          <span style={styles.mdPopoverRowLabel}>Signed in</span>
-          {userEmail && <span style={styles.mdPopoverRowValue}>{userEmail}</span>}
-        </button>
-        <button style={styles.mdPopoverRow} onClick={onSignOut}>
-          <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintNeutral }}>
-            <LogOut size={16} color={tokens.color.mutedText} />
-          </span>
-          <span style={styles.mdPopoverRowLabel}>Sign out</span>
-        </button>
+        {isAnonymous ? (
+          // Real-use framing, not "not signed in" — the coach hasn't done
+          // anything wrong or missed a step; their team already works
+          // exactly as it should on this device. This is only about
+          // whether it *also* survives losing this device/browser.
+          <button style={styles.mdPopoverRow} onClick={() => setShowSaveTeam(true)}>
+            <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintYellow }}>
+              <Save size={16} color={tokens.color.deepGreen} />
+            </span>
+            <span style={styles.mdPopoverRowLabel}>Save your team</span>
+            <span style={styles.mdPopoverRowChevron}>›</span>
+          </button>
+        ) : (
+          <>
+            <button style={styles.mdPopoverRow} onClick={() => {}}>
+              <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintNeutral }}>
+                <User size={16} color={tokens.color.mutedText} />
+              </span>
+              <span style={styles.mdPopoverRowLabel}>Signed in</span>
+              {userEmail && <span style={styles.mdPopoverRowValue}>{userEmail}</span>}
+            </button>
+            <button style={styles.mdPopoverRow} onClick={onSignOut}>
+              <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintNeutral }}>
+                <LogOut size={16} color={tokens.color.mutedText} />
+              </span>
+              <span style={styles.mdPopoverRowLabel}>Sign out</span>
+            </button>
+          </>
+        )}
 
         {/* Not in the README's A8 spec — real existing functionality kept,
             not dropped. See the file-level comment above. */}
@@ -289,6 +320,8 @@ export default function TeamAccountScreen({
       <div style={styles.mdPopoverFooter}>
         Bench Buddy <span style={styles.mdPopoverFooterVersion}>v0.1.0</span>
       </div>
+
+      {showSaveTeam && <SaveTeamSheet onClose={() => setShowSaveTeam(false)} />}
     </section>
   );
 }

@@ -555,6 +555,7 @@ export default function SubRotationPlanner({ user }) {
               onDelete={deleteTeamById}
               onClose={() => setShowTeamSwitcher(false)}
               userEmail={user.email}
+              isAnonymous={user.isAnonymous}
               onSignOut={signOutUser}
               onDeleteAccount={deleteMyAccount}
               onShowManageSquad={() => setShowManageSquad(true)}

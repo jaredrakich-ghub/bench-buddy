@@ -931,6 +931,18 @@ export const styles = {
     flex: 1.05, height: 60, borderRadius: 22, border: "none", background: tokens.color.creamDeep,
     color: tokens.color.actionBar, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 20, cursor: "pointer",
   },
+  // SaveTeamSheet's own Google button — same colours/shape as mdSignInBtn
+  // (the full-page sign-in screen's own hero button) but sized down to
+  // this sheet's own button scale (mdCautionSheetBtnPrimary, above) rather
+  // than that button's 70px/25px, which would read as oversized next to
+  // everything else in a compact sheet instead of a full-page first
+  // impression.
+  mdSaveTeamGoogleBtn: {
+    display: "flex", alignItems: "center", justifyContent: "center", gap: 10, width: "100%", height: 60,
+    borderRadius: 22, border: "none", background: tokens.color.pitchGreen, color: tokens.color.creamPaper,
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 20,
+    boxShadow: tokens.shadow.solid(4, tokens.color.greenShadow), cursor: "pointer",
+  },
 
   // Persistent inline note (not the fixed action sheet below) — shown
   // while browsing a past interval, which stays true the whole time a

@@ -3,8 +3,11 @@ import { signInWithGoogle } from "../lib/auth.js";
 import { fontStyle, styles } from "./styles.js";
 import headerMascot from "../assets/header-mascot.jpg";
 
-// The gate shown whenever nobody's signed in. Google-only by design (see
-// the Firebase/account discussion) — no password to create or reset.
+// AuthGate's fallback: only rendered if an anonymous session couldn't even
+// be started (see AuthGate.jsx) — everyday sign-in (and the "save your
+// team" upgrade) go through progressive auth instead, never a gate like
+// this one. Google-only by design (see the Firebase/account discussion) —
+// no password to create or reset.
 //
 // README > A9-Signin (#10f) describes a magic-link flow (email field, "Send
 // me a link", "no password... we email you a link") — this app actually
@@ -16,8 +19,13 @@ import headerMascot from "../assets/header-mascot.jpg";
 // Google account — no password to create or remember") — real-use
 // feedback: dropped it, a coach signing in with Google already knows how
 // that works.
-export default function SignIn() {
-  const [error, setError] = useState("");
+// initialError: set only by AuthGate's own fallback path, when an
+// anonymous session couldn't be started at all — everywhere else this
+// screen mounts (the very first render of a brand-new AuthGate, before
+// progressive auth existed at all... which per that file's own comment
+// should no longer actually happen) it's simply omitted.
+export default function SignIn({ initialError = "" }) {
+  const [error, setError] = useState(initialError);
   const [signingIn, setSigningIn] = useState(false);
 
   const handleSignIn = async () => {
@@ -61,8 +69,9 @@ export default function SignIn() {
 }
 
 // Standard 4-color "G" mark, drawn inline so the button doesn't depend on
-// an external image/icon font.
-function GoogleIcon() {
+// an external image/icon font. Exported — SaveTeamSheet.jsx's own Google
+// button reuses this exact mark rather than a second copy of the same SVG.
+export function GoogleIcon() {
   return (
     <svg width={20} height={20} viewBox="0 0 18 18">
       <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 01-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z" />
