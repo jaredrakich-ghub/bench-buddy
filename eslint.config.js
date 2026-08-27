@@ -86,6 +86,6 @@ export default [
     // app's own source, generated-looking minified names throughout) —
     // not something this project maintains or ships, so it's not this
     // linter's job to grade it.
-    ignores: ["dist/**", "node_modules/**", "design_handoff_bench_buddy_match_day/**"],
+    ignores: ["dist/**", "node_modules/**", "docs/design_handoff_bench_buddy_match_day/**"],
   },
 ];
