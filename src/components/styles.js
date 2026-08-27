@@ -1369,11 +1369,17 @@ export const styles = {
     fontFamily: tokens.font.body, fontWeight: 800, fontSize: 14, color: tokens.color.mutedText,
     overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0,
   },
-  // The open step's own action strip — margin-left 36px lines it up with
-  // the instruction text above, not the wider numeral column. Button
-  // height 46->50 (real-use feedback, "feels cramped") — the reference
-  // spec's own 46px is a bit tight for a two-line-tall thumb target.
-  mdExecuteStepActionRow: { display: "flex", gap: 8, marginLeft: 36 },
+  // The open step's own action strip. No margin of its own — it's already
+  // nested inside mdExecuteStepBody, the same flex column the title and
+  // chip row sit in, so it lines up with them (and stretches to the same
+  // left edge as the outgoing player's own chip) for free. An earlier
+  // draft added a redundant marginLeft:36 here on top of that — left over
+  // from when this row was a sibling of the numeral rather than nested
+  // inside the body — which double-indented it past where the row above
+  // it actually starts; real-use feedback caught it. Button height
+  // 46->50 (real-use feedback, "feels cramped") — the reference spec's
+  // own 46px is a bit tight for a two-line-tall thumb target.
+  mdExecuteStepActionRow: { display: "flex", gap: 8 },
   mdExecuteCancelBtn: {
     flex: 1, height: 50, borderRadius: 18, background: tokens.color.injuryTint, border: `2px solid ${tokens.color.injuryBorder}`,
     color: tokens.color.cancelText, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 16,
@@ -1396,10 +1402,17 @@ export const styles = {
     flex: 1, minWidth: 0, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 16, color: tokens.color.cancelledTitle,
     textDecoration: "line-through", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
   },
+  // font-family/weight/size matches mdExecuteCancelBtn exactly, per
+  // real-use feedback that it read as not-bold — it was: the trailing
+  // `font: "inherit"` shorthand (meant only as a button reset, dropped
+  // here since every font property is already set explicitly) was
+  // clobbering fontFamily/fontWeight/fontSize the moment React applied
+  // it, since a `font` shorthand resets all of those at once and this
+  // object set it *after* them.
   mdExecuteUndoPill: {
     flexShrink: 0, padding: "3px 13px", borderRadius: 999, background: tokens.color.undoPillBg,
-    color: tokens.color.pitchGreen, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 15,
-    border: "none", cursor: "pointer", font: "inherit",
+    color: tokens.color.pitchGreen, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 16,
+    border: "none", cursor: "pointer",
   },
   mdExecuteCancelledCaption: {
     fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13, color: tokens.color.cancelledCaption,
