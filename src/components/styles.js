@@ -1182,8 +1182,14 @@ export const styles = {
   mdFinal60Shell: {
     maxWidth: 640, margin: "0 auto", width: "100%",
     background: tokens.color.creamPaper, borderRadius: "32px 32px 0 0",
-    padding: "12px 16px calc(14px + env(safe-area-inset-bottom, 0px)) 24px", // wider left padding, per spec
-    display: "flex", flexDirection: "column", gap: 10,
+    // Real-use feedback ("feels cramped"): top padding 12->16 and the
+    // column's own gap 10->12 — this sheet is a fixed full-viewport
+    // overlay (see ExecuteSheet's own comment, MatchView.jsx), not
+    // squeezed against anything else, so there's real headroom to spend
+    // on this rather than matching the reference spec's own tighter
+    // values exactly.
+    padding: "16px 16px calc(14px + env(safe-area-inset-bottom, 0px)) 24px", // wider left padding, per spec
+    display: "flex", flexDirection: "column", gap: 12,
     boxShadow: "0 -12px 40px rgba(20,32,28,.35)",
     maxHeight: "calc(100dvh - 24px)", overflowY: "auto",
   },
@@ -1192,7 +1198,7 @@ export const styles = {
   // a small uppercase corner label) — only the title's own font-size
   // differs between the two (25px prepare / 24px execute), set per call
   // site rather than baked in here.
-  mdFinal60TitleRow: { display: "flex", alignItems: "baseline", gap: 8 },
+  mdFinal60TitleRow: { display: "flex", alignItems: "baseline", gap: 9 },
   // Real-use feedback: pinned to the row's far-right edge read as
   // strangely off-balance. mdFinal60LabelWrap takes up whatever's left
   // after the title's own natural width and centers the label *within
@@ -1258,21 +1264,30 @@ export const styles = {
 
   // ---- EXECUTE sheet only (-30s onward, stays up past the boundary) ----
   mdExecuteTitle: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 24, color: tokens.color.deepGreen },
-  mdExecuteStepList: { display: "flex", flexDirection: "column", gap: 10 },
+  // Real-use feedback ("feels cramped"): gap 10->14 between steps, and
+  // mdExecuteStepBody's own gap 6->8 below, give the list more breathing
+  // room than the reference spec's own literal values. Deliberate, not a
+  // fidelity slip — confirmed there's no actual space constraint forcing
+  // the tighter numbers (this sheet is a fixed full-viewport overlay, see
+  // ExecuteSheet's own comment in MatchView.jsx), so real feedback about
+  // how it reads wins over matching the mockup's own density exactly.
+  mdExecuteStepList: { display: "flex", flexDirection: "column", gap: 14 },
   mdExecuteStepRow: { display: "flex", gap: 10, alignItems: "flex-start" },
   // The -3.5px margin-top is deliberate, not a rounding fudge — see
   // MatchView.jsx's own comment at the call site for the exact cap-height
-  // reasoning (26px numeral against a 16px instruction line).
+  // reasoning (26px numeral against a 16px instruction line). Only the
+  // open/cancelled numeral needs it — the collapsed row centers its items
+  // instead of top-aligning them (mdExecuteStepCollapsedNumeral, below).
   mdExecuteStepNumeral: {
     fontFamily: tokens.font.display, fontWeight: 800, fontSize: 26, color: tokens.color.groupLabel,
     lineHeight: 1, width: 26, textAlign: "left", marginTop: -3.5, flexShrink: 0,
   },
-  mdExecuteStepBody: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 6 },
+  mdExecuteStepBody: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 8 },
   mdExecuteStepInstruction: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 16, color: tokens.color.groupLabel, lineHeight: 1 },
   mdExecuteChipRow: { display: "flex", alignItems: "center", gap: 8 },
   mdExecuteChip: {
     flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 8,
-    background: tokens.color.creamDeep, borderRadius: 999, padding: "3px 11px 3px 3px",
+    background: tokens.color.creamDeep, borderRadius: 999, padding: "5px 12px 5px 4px",
   },
   // Disc background colour is set per instance (leaving/arriving/changing
   // — see FINAL60_DISC_COLOR, MatchView.jsx), never fixed here — that's
@@ -1287,19 +1302,25 @@ export const styles = {
   },
   mdExecuteChipArrow: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 17, color: tokens.color.pitchGreen, flexShrink: 0 },
   // Real-use feedback: "what if a kid who's about to be subbed on doesn't
-  // want to go back on?" — the incoming chip becomes a real button
-  // (same shape as mdExecuteChip, plus the resets a bare <span> never
-  // needed) with a small swap icon so it reads as tappable, not just
-  // decorative. mdExecuteSwapOptions is the candidate list it reveals —
-  // reuses the same white-pill-on-cream look mdBenchChip already
+  // want to go back on?" — the incoming chip is a real button (same shape
+  // as mdExecuteChip, plus the resets a bare <span> never needed) so
+  // tapping the player themselves opens the same step panel the row's own
+  // "⋯" does (mdExecuteStepMore) — one place for everything that can
+  // happen to this one sub, rather than the chip running its own separate
+  // picker the way an earlier round of this feature had it. No swap icon
+  // on the chip itself any more, for the same reason: the "⋯" is already
+  // the row's one "there's more here" signal, matching the design spec's
+  // own chips, which were never independently interactive.
+  // mdExecuteSwapOptions is the redirect-candidate list this panel shows
+  // — reuses the same white-pill-on-cream look mdBenchChip already
   // establishes for "a player, tappable" elsewhere in this app, scaled
   // down slightly since this sits nested inside an already-dense step row.
-  mdExecuteChipSwappable: {
+  mdExecuteChipOpenBtn: {
     flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 8,
-    background: tokens.color.creamDeep, borderRadius: 999, padding: "3px 11px 3px 3px",
+    background: tokens.color.creamDeep, borderRadius: 999, padding: "5px 12px 5px 4px",
     border: "none", cursor: "pointer", font: "inherit", textAlign: "left",
   },
-  mdExecuteSwapOptions: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 2, paddingLeft: 2 },
+  mdExecuteSwapOptions: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4, paddingLeft: 2 },
   mdExecuteSwapOption: {
     display: "flex", alignItems: "center", gap: 6, background: "#fff", borderRadius: 999,
     padding: "4px 12px 4px 4px", border: "none", cursor: "pointer", font: "inherit",
@@ -1315,11 +1336,16 @@ export const styles = {
   // refuse to come on; the coach calls off that one step without
   // touching the rest. Temporary only — taking someone out for the rest
   // of the game is the existing injured-player flow, not this one.
-  // Scoped to the same steps mdExecuteChipSwappable already targets
-  // (a genuine bench arrival, inColor "arriving") — a same-pitch
-  // position change (the stepping-down keeper taking an outfield spot)
-  // has no clean "swap back" undo the way an arrival does, so it keeps
-  // its plain, always-expanded, non-cancellable display.
+  // Scoped to the same steps mdExecuteChipOpenBtn already targets (a
+  // genuine bench arrival, inColor "arriving") — a same-pitch position
+  // change (the stepping-down keeper taking an outfield spot) has no
+  // clean "swap back" undo the way an arrival does — their own role is
+  // entangled with a *different* step (the keeper handover itself) — so
+  // it keeps its plain, always-expanded, non-cancellable display. The
+  // reference mockup's own geometry section shows a "⋯" on every step
+  // including this one; deliberately narrower here since the worked
+  // example never actually demonstrates cancelling a same-pitch change,
+  // and the spec's own prose only ever talks about refusing to come *on*.
   mdExecuteStepMore: {
     width: 28, height: 24, borderRadius: 9, flexShrink: 0, border: "none", cursor: "pointer", font: "inherit",
     background: tokens.color.creamDeep, color: tokens.color.moreGlyph,
@@ -1327,20 +1353,29 @@ export const styles = {
   },
   mdExecuteStepMoreActive: { background: tokens.color.deepGreen, color: tokens.color.creamPaper },
   // The tappable "open this step" target — title + the more control
-  // together, a real button (not the whole row: the chip below is its
-  // own independent button for the existing swap picker, and a button
-  // can't nest inside another button).
+  // together, a real button (not the whole row: the incoming chip below
+  // is its own independent button that opens this same panel, and a
+  // button can't nest inside another button).
   mdExecuteStepOpenBtn: {
     display: "flex", alignItems: "center", gap: 8, width: "100%",
     border: "none", background: "none", padding: 0, cursor: "pointer", font: "inherit", textAlign: "left",
   },
   // A step collapses to this compact form while a *different* step is
-  // open — opacity .72, players folded into one truncating plain-text
-  // line instead of full chips, so the sheet's own height never grows
-  // past what it was before a step opened (the pitch above it is
-  // flex:1;min-height:0 — every pixel this sheet gains is a pixel the
-  // pitch loses).
+  // open — opacity .72 (numeral included, matching the reference markup
+  // exactly — it used to sit outside this wrapper and stay full-strength
+  // while only the text faded), players folded into one truncating
+  // plain-text line instead of full chips. Purely a focus/declutter
+  // choice, the same one the reference mockup itself makes (screens
+  // 21-23) — not a hard space constraint: this sheet is a fixed, full-
+  // viewport overlay (see ExecuteSheet's own comment, MatchView.jsx), so
+  // its height has nothing to do with the pitch's.
   mdExecuteStepCollapsedRow: { display: "flex", alignItems: "center", gap: 10, opacity: 0.72 },
+  // No cap-height fudge (unlike mdExecuteStepNumeral) — this row centers
+  // its items instead of top-aligning them, so it doesn't need one.
+  mdExecuteStepCollapsedNumeral: {
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 26, color: tokens.color.groupLabel,
+    lineHeight: 1, width: 26, textAlign: "left", flexShrink: 0,
+  },
   mdExecuteStepCollapsedBody: { flex: 1, minWidth: 0, display: "flex", alignItems: "baseline", gap: 6, overflow: "hidden" },
   mdExecuteStepCollapsedTitle: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 16, color: tokens.color.groupLabel, flexShrink: 0 },
   mdExecuteStepCollapsedPlayers: {
@@ -1348,15 +1383,17 @@ export const styles = {
     overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0,
   },
   // The open step's own action strip — margin-left 36px lines it up with
-  // the instruction text above, not the wider numeral column.
+  // the instruction text above, not the wider numeral column. Button
+  // height 46->50 (real-use feedback, "feels cramped") — the reference
+  // spec's own 46px is a bit tight for a two-line-tall thumb target.
   mdExecuteStepActionRow: { display: "flex", gap: 8, marginLeft: 36 },
   mdExecuteCancelBtn: {
-    flex: 1, height: 46, borderRadius: 16, background: tokens.color.injuryTint, border: `2px solid ${tokens.color.injuryBorder}`,
+    flex: 1, height: 50, borderRadius: 18, background: tokens.color.injuryTint, border: `2px solid ${tokens.color.injuryBorder}`,
     color: tokens.color.cancelText, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 16,
     display: "flex", alignItems: "center", justifyContent: "center", gap: 6, cursor: "pointer",
   },
   mdExecuteCloseBtn: {
-    flexShrink: 0, padding: "0 16px", height: 46, borderRadius: 16, background: tokens.color.creamDeep, border: "none",
+    flexShrink: 0, padding: "0 18px", height: 50, borderRadius: 18, background: tokens.color.creamDeep, border: "none",
     color: tokens.color.groupLabel, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 16, cursor: "pointer",
   },
   // A cancelled step keeps its place and its number — never removed,
@@ -1391,8 +1428,13 @@ export const styles = {
   mdCancelDialogCard: {
     position: "fixed", left: 20, right: 20, top: "50%", transform: "translateY(-50%)", zIndex: 49,
     maxWidth: 640 - 40, margin: "0 auto",
-    background: tokens.color.creamPaper, borderRadius: 30, padding: "20px 18px 16px",
-    display: "flex", flexDirection: "column", gap: 14,
+    background: tokens.color.creamPaper, borderRadius: 30,
+    // Real-use feedback ("feels cramped"): a bit more padding/gap than
+    // the reference spec's own 20/18/16 + 14 — nothing here is fighting
+    // for space either (a centered dialog over a dimmed screen), so the
+    // extra room is free to give.
+    padding: "24px 20px 20px",
+    display: "flex", flexDirection: "column", gap: 16,
     boxShadow: "0 20px 50px rgba(20,32,28,.4)",
   },
   mdCancelDialogTitle: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 26, color: tokens.color.deepGreen, lineHeight: 1.05 },

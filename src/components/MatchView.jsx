@@ -418,29 +418,34 @@ function ExecuteSheet({
   // really left, so buildFinal60Steps has nothing left to report there)
   // — rendering straight from the live `steps` prop would make a
   // cancelled step simply vanish instead of greying out in place, and
-  // renumber everything after it. Both actions below (the existing
-  // swap-for-someone picker, and the new cancel) patch this local copy
-  // directly alongside the real onSwapIncoming call that actually changes
-  // the plan, so the displayed list only ever changes because the coach
+  // renumber everything after it. Both actions below (the swap-for-
+  // someone picker and the cancel flow) patch this local copy directly
+  // alongside the real onSwapIncoming call that actually changes the
+  // plan, so the displayed list only ever changes because the coach
   // acted on it, never because of a side effect of that action elsewhere.
   const [displaySteps, setDisplaySteps] = useState(steps);
-  // Which step is "open" right now, and which of its two panels — the
-  // existing swap-candidate picker (tapping the incoming chip) or the
-  // new cancel action strip (tapping the step's own title / "more"
-  // control). Only one panel, on one step, at a time — opening either one
-  // anywhere replaces whatever was open before; every other live step
-  // collapses to its compact single-line form while something's open,
-  // which is what keeps this sheet from growing taller than it started —
-  // the pitch above it is flex:1;min-height:0, so every pixel this sheet
-  // gains is a pixel the pitch loses.
-  const [openPanel, setOpenPanel] = useState(null); // { index, kind: "swap" | "cancel" } | null
+  // Which step is open right now — tapping its title/"⋯" *or* its own
+  // incoming player's chip all open the same one panel (real-use
+  // question: two different taps on the same row that each opened a
+  // different, unrelated popup was genuinely confusing at "30 seconds to
+  // go"). The open panel shows both what the chip-tap used to show alone
+  // (redirect to a specific bench player) and the new formal "cancel this
+  // change" action together, so there's one place for everything that can
+  // happen to this one step. Only one step open at a time; every other
+  // live step collapses to a compact single line while something's open
+  // — the design's own mockup does the same (screens 21-23), as a focus/
+  // declutter choice, not because of any actual space constraint: this
+  // sheet is a fixed, full-viewport overlay (mdFinal60Overlay) stacked
+  // above the whole screen, not laid out alongside the pitch, so growing
+  // it doesn't shrink the pitch either way.
+  const [openIndex, setOpenIndex] = useState(null);
   const [confirmCancelIndex, setConfirmCancelIndex] = useState(null);
 
   const handleSwapIncoming = (i, candidateId) => {
     const step = displaySteps[i];
     onSwapIncoming(step.inId, candidateId);
     setDisplaySteps((prev) => prev.map((s, idx) => (idx === i ? { ...s, inId: candidateId } : s)));
-    setOpenPanel(null);
+    setOpenIndex(null);
   };
   const handleConfirmCancel = (i) => {
     const step = displaySteps[i];
@@ -450,7 +455,7 @@ function ExecuteSheet({
       prev.map((s, idx) => (idx === i ? { ...s, cancelled: true, cancelledInId: step.inId, cancelledOutId: step.outId, cancelledNextMin: nextMin } : s))
     );
     setConfirmCancelIndex(null);
-    setOpenPanel(null);
+    setOpenIndex(null);
     announce(
       `Sub cancelled. ${nameOf(step.inId)} stays on the bench, first on ${nextMin != null ? `at ${nextMin} minutes` : "later this game"}.`
     );
@@ -494,9 +499,9 @@ function ExecuteSheet({
             const candidates = cancellable
               ? (benchIds || []).filter((id) => !step.inIsKeeper || keeperEligibleIds.includes(id))
               : [];
-            const swapOpen = openPanel?.index === i && openPanel.kind === "swap";
-            const cancelOpen = openPanel?.index === i && openPanel.kind === "cancel";
-            const collapsed = !step.cancelled && openPanel !== null && openPanel.index !== i;
+            const open = openIndex === i;
+            const collapsed = !step.cancelled && openIndex !== null && openIndex !== i;
+            const toggleOpen = () => setOpenIndex(open ? null : i);
 
             if (step.cancelled) {
               return (
@@ -521,30 +526,35 @@ function ExecuteSheet({
             }
 
             if (collapsed) {
+              // The whole row — numeral included — dims together as one
+              // unit (matches the spec's own markup exactly): the numeral
+              // used to sit outside the opacity wrapper here, so it stayed
+              // full-strength while only the title/players faded, a real
+              // (if subtle) mismatch from the reference screens.
               return (
-                <div key={i} style={styles.mdExecuteStepRow}>
-                  <span style={styles.mdExecuteStepNumeral}>{i + 1}.</span>
-                  <div style={styles.mdExecuteStepCollapsedRow}>
-                    {cancellable ? (
-                      <button
-                        style={styles.mdExecuteStepOpenBtn}
-                        onClick={() => setOpenPanel({ index: i, kind: "cancel" })}
-                      >
-                        <span style={styles.mdExecuteStepCollapsedBody}>
-                          <span style={styles.mdExecuteStepCollapsedTitle}>{stepTitle(step, nameOf)}</span>
-                          <span style={styles.mdExecuteStepCollapsedPlayers}>{stepPlayersText(step, nameOf)}</span>
-                        </span>
-                        <span style={styles.mdExecuteStepMore} aria-hidden="true">
-                          ⋯
-                        </span>
-                      </button>
-                    ) : (
+                <div key={i} style={styles.mdExecuteStepCollapsedRow}>
+                  {/* No cap-height fudge here (unlike the open/cancelled
+                      numeral) — this row centers its items instead of
+                      top-aligning them, so the plain baseline already
+                      lines up; matches the spec's own markup, which only
+                      applies that offset to the open step's numeral. */}
+                  <span style={styles.mdExecuteStepCollapsedNumeral}>{i + 1}.</span>
+                  {cancellable ? (
+                    <button style={styles.mdExecuteStepOpenBtn} onClick={toggleOpen}>
                       <span style={styles.mdExecuteStepCollapsedBody}>
                         <span style={styles.mdExecuteStepCollapsedTitle}>{stepTitle(step, nameOf)}</span>
                         <span style={styles.mdExecuteStepCollapsedPlayers}>{stepPlayersText(step, nameOf)}</span>
                       </span>
-                    )}
-                  </div>
+                      <span style={styles.mdExecuteStepMore} aria-hidden="true">
+                        ⋯
+                      </span>
+                    </button>
+                  ) : (
+                    <span style={styles.mdExecuteStepCollapsedBody}>
+                      <span style={styles.mdExecuteStepCollapsedTitle}>{stepTitle(step, nameOf)}</span>
+                      <span style={styles.mdExecuteStepCollapsedPlayers}>{stepPlayersText(step, nameOf)}</span>
+                    </span>
+                  )}
                 </div>
               );
             }
@@ -554,13 +564,10 @@ function ExecuteSheet({
                 <span style={styles.mdExecuteStepNumeral}>{i + 1}.</span>
                 <div style={styles.mdExecuteStepBody}>
                   {cancellable ? (
-                    <button
-                      style={styles.mdExecuteStepOpenBtn}
-                      onClick={() => setOpenPanel(cancelOpen ? null : { index: i, kind: "cancel" })}
-                    >
+                    <button style={styles.mdExecuteStepOpenBtn} onClick={toggleOpen}>
                       <span style={styles.mdExecuteStepInstruction}>{stepTitle(step, nameOf)}</span>
                       <span
-                        style={{ ...styles.mdExecuteStepMore, ...(cancelOpen ? styles.mdExecuteStepMoreActive : {}) }}
+                        style={{ ...styles.mdExecuteStepMore, ...(open ? styles.mdExecuteStepMoreActive : {}) }}
                         aria-label={`More options for step ${i + 1}`}
                       >
                         ⋯
@@ -580,16 +587,17 @@ function ExecuteSheet({
                     )}
                     {step.outId && step.inId && <span style={styles.mdExecuteChipArrow}>→</span>}
                     {step.inId && cancellable && (
-                      <button
-                        style={styles.mdExecuteChipSwappable}
-                        onClick={() => setOpenPanel(swapOpen ? null : { index: i, kind: "swap" })}
-                      >
+                      // Same action as the title's own "⋯" — tapping the
+                      // incoming player themselves is at least as natural
+                      // a place to ask "what about this sub?" as the dots
+                      // are, so both open the one panel below rather than
+                      // this chip running its own separate picker.
+                      <button style={styles.mdExecuteChipOpenBtn} onClick={toggleOpen}>
                         <span style={{ ...styles.mdExecuteChipDisc, background: FINAL60_DISC_COLOR[step.inColor] }}>
                           {numberOf(step.inId)}
                         </span>
                         <span style={styles.mdExecuteChipName}>{nameOf(step.inId)}</span>
                         {step.inIsKeeper && <span style={{ ...styles.mdFinal60GkPill, marginLeft: "auto" }}>GK</span>}
-                        <ArrowLeftRight size={14} color={tokens.color.groupLabel} />
                       </button>
                     )}
                     {step.inId && !cancellable && (
@@ -602,29 +610,29 @@ function ExecuteSheet({
                       </span>
                     )}
                   </div>
-                  {swapOpen && (
-                    <div style={styles.mdExecuteSwapOptions} data-testid="swap-options">
-                      {candidates.length === 0 ? (
-                        <span style={styles.mdExecuteSwapEmpty}>No one else available</span>
-                      ) : (
-                        candidates.map((id) => (
-                          <button key={id} style={styles.mdExecuteSwapOption} onClick={() => handleSwapIncoming(i, id)}>
-                            <span style={styles.mdExecuteSwapOptionNumber}>{numberOf(id)}</span>
-                            <span style={styles.mdExecuteSwapOptionName}>{nameOf(id)}</span>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  )}
-                  {cancelOpen && (
-                    <div style={styles.mdExecuteStepActionRow}>
-                      <button style={styles.mdExecuteCancelBtn} onClick={() => setConfirmCancelIndex(i)}>
-                        ✕ Cancel this change
-                      </button>
-                      <button style={styles.mdExecuteCloseBtn} onClick={() => setOpenPanel(null)}>
-                        Close
-                      </button>
-                    </div>
+                  {open && (
+                    <>
+                      <div style={styles.mdExecuteSwapOptions} data-testid="swap-options">
+                        {candidates.length === 0 ? (
+                          <span style={styles.mdExecuteSwapEmpty}>No one else available</span>
+                        ) : (
+                          candidates.map((id) => (
+                            <button key={id} style={styles.mdExecuteSwapOption} onClick={() => handleSwapIncoming(i, id)}>
+                              <span style={styles.mdExecuteSwapOptionNumber}>{numberOf(id)}</span>
+                              <span style={styles.mdExecuteSwapOptionName}>{nameOf(id)}</span>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                      <div style={styles.mdExecuteStepActionRow}>
+                        <button style={styles.mdExecuteCancelBtn} onClick={() => setConfirmCancelIndex(i)}>
+                          ✕ Cancel this change
+                        </button>
+                        <button style={styles.mdExecuteCloseBtn} onClick={() => setOpenIndex(null)}>
+                          Close
+                        </button>
+                      </div>
+                    </>
                   )}
                 </div>
               </div>

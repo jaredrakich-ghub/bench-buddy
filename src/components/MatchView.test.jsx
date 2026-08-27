@@ -721,6 +721,23 @@ describe("MatchView — final-60 sheets (block 11: prepare + execute)", () => {
         expect(aliceChips.some((el) => el.closest("button"))).toBe(false);
       });
 
+      // Real-use question: tapping the "⋯" and tapping the incoming
+      // player's own chip used to open two different, unrelated popups —
+      // confusing at "30 seconds to go". They're the same one panel now.
+      it("tapping the incoming chip opens the same panel the row's own ⋯ does — both the redirect list and the cancel action", async () => {
+        const user = userEvent.setup();
+        render(<MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 340 })} />);
+        const sheet = within(screen.getByTestId("execute-sheet"));
+        await user.click(sheet.getByText("Gus").closest("button")); // the chip itself, not the "⋯"
+        expect(screen.getByTestId("swap-options")).toBeInTheDocument();
+        expect(sheet.getByText("✕ Cancel this change")).toBeInTheDocument();
+        // Tapping the "⋯" on the same, already-open step closes it — same
+        // toggle, same piece of state either control drives.
+        await user.click(sheet.getByText("Gus comes on").closest("button"));
+        expect(screen.queryByTestId("swap-options")).not.toBeInTheDocument();
+        expect(screen.queryByText("✕ Cancel this change")).not.toBeInTheDocument();
+      });
+
       it("reveals interval 1's own bench as swap candidates, not the live interval's", async () => {
         const user = userEvent.setup();
         render(<MatchView {...baseProps({ plan: final60Plan, timerRunning: true, activeInterval: 0, elapsedSec: 340 })} />);
