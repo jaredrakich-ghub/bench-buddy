@@ -320,16 +320,40 @@ export default function SquadSettingsForm({
   const [quickAddText, setQuickAddText] = useState("");
   const quickAddInputRef = useRef(null);
 
-  const commitQuickAdd = () => {
+  // Split out from commitQuickAdd below so blur (handleQuickAddBlur) can
+  // commit without also stealing focus back — see its own comment for why
+  // that split matters.
+  const commitQuickAddText = () => {
     const parts = quickAddText.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean);
     if (parts.length === 0) return;
     addPlayers(parts);
     setQuickAddText("");
+  };
+
+  const commitQuickAdd = () => {
+    commitQuickAddText();
     quickAddInputRef.current?.focus();
   };
 
+  // Real-device feedback: a coach typed several comma-separated names and
+  // "nothing happened" — this only ever committed on Enter, so anything
+  // typed and then left behind (tapped away, scrolled to Build new
+  // rotation, dismissed the keyboard) without an explicit Enter was
+  // silently dropped, whether that's because Enter genuinely didn't fire
+  // on their keyboard or because they just didn't realize it was needed.
+  // Committing on blur too means walking away with unsaved text in the
+  // field is no longer possible either way — no refocus here (unlike
+  // commitQuickAdd above), since blur means the coach is deliberately
+  // moving on, not mid-flow.
+  const handleQuickAddBlur = () => {
+    commitQuickAddText();
+  };
+
   const handleQuickAddKeyDown = (e) => {
-    if (e.key === "Enter") {
+    // keyCode fallback alongside e.key: some mobile on-screen keyboards
+    // are inconsistent about which one a soft "return"/"next" key actually
+    // populates on the synthesized keydown.
+    if (e.key === "Enter" || e.keyCode === 13) {
       e.preventDefault();
       commitQuickAdd();
     } else if (e.key === "Backspace" && quickAddText === "" && roster.length > 0) {
@@ -787,7 +811,7 @@ export default function SquadSettingsForm({
             onChange={(e) => setQuickAddText(e.target.value)}
             onKeyDown={handleQuickAddKeyDown}
             onPaste={handleQuickAddPaste}
-            enterKeyHint="next"
+            onBlur={handleQuickAddBlur}
           />
           {hasText && <span style={styles.mdQuickAddEnterHint}>&#x21B5; Enter</span>}
         </div>
@@ -1269,16 +1293,13 @@ export default function SquadSettingsForm({
           new team" and "Set up next game" already matched each other
           exactly; the ask was really "both are too roomy," not "these two
           disagree." */}
-      {/* Real-device feedback: this whole block sat flush with the header
-          pill's own outer rounded edge (both at 16px from the screen edge)
-          — but the pill's own real content (the crest circle) is inset a
-          further 20px inside that (measured live: crest left edge 36px vs
-          this block's own 16px), so "Who's here" read as spilling out
-          past where the header's actual content starts, not contained by
-          it. paddingLeft:20 lines this block's own left edge up with the
-          crest's, leaving the right edge untouched (only the left-edge
-          mismatch was ever flagged). */}
-      <div style={{ marginTop: 2, paddingLeft: 20 }}>
+      {/* Real-device feedback, round 2: the first pass aligned this to the
+          crest circle's own edge (36px) — corrected to line up with the
+          yellow header pill's own outer edge instead (its actual painted
+          boundary, 16px, same as main's own base inset), not a child
+          element floating inside it. That's this block's original,
+          unmodified inset — no override needed here at all. */}
+      <div style={{ marginTop: 2 }}>
         {/* No "tap to drop out" / "Select all" here — both are
             return-visit concepts (toggling who's here today out of an
             existing squad) that don't apply while the squad itself is
@@ -1303,7 +1324,7 @@ export default function SquadSettingsForm({
           settings" visit has no roster section above it at all, so a
           divider forced in there would sit right under the header with
           nothing to separate. */}
-      <div style={{ height: 1, background: tokens.color.rule, margin: "22px 0 18px 20px" }} />
+      <div style={{ height: 1, background: tokens.color.rule, margin: "22px 0 13px" }} />
 
       {renderGameSettingsAccordion()}
 

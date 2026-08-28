@@ -493,6 +493,26 @@ describe("SquadSettingsForm — quick-add squad (inline variant)", () => {
     expect(addPlayers).toHaveBeenCalledWith(["Otis", "Eli", "Rocco"]);
   });
 
+  // Real-device feedback: typed several comma-separated names and "nothing
+  // happened" — anything left in the field without an explicit Enter used
+  // to just be silently dropped. Blur (tapping away, dismissing the
+  // keyboard, scrolling to Build new rotation) now commits it too.
+  it("blur commits whatever's typed, same as Enter would", () => {
+    const addPlayers = vi.fn();
+    render(<SquadSettingsForm {...baseProps({ roster: [], availableIds: [], addPlayers })} />);
+    const input = screen.getByPlaceholderText("Type a player's name");
+    fireEvent.change(input, { target: { value: "Otis, Eli, Rocco" } });
+    fireEvent.blur(input);
+    expect(addPlayers).toHaveBeenCalledWith(["Otis", "Eli", "Rocco"]);
+  });
+
+  it("blur on an empty field is a no-op", () => {
+    const addPlayers = vi.fn();
+    render(<SquadSettingsForm {...baseProps({ roster: [], availableIds: [], addPlayers })} />);
+    fireEvent.blur(screen.getByPlaceholderText("Type a player's name"));
+    expect(addPlayers).not.toHaveBeenCalled();
+  });
+
   it("Backspace on an empty field removes the last player and refills their name for editing", () => {
     const removePlayer = vi.fn();
     render(<SquadSettingsForm {...baseProps({ removePlayer })} />); // ROSTER: Alice, Bob — Bob is last
