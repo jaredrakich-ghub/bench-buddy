@@ -56,13 +56,25 @@ export default function AuthGate({ children }) {
   }, []);
 
   useEffect(() => {
-    if (user !== null) return;
-    // Cleared at the start of every attempt, not just on success — a
-    // previous failure (e.g. a transient network blip right as the app
-    // loaded) shouldn't permanently pin this to the SignIn fallback for
-    // the rest of the session once `user` cycles back to null again.
-    setAnonFailed(false);
-    setSkippedAnonAfterSignOut(false);
+    if (user !== null) {
+      // A real session landed — clear both fallback flags so a *later*,
+      // unrelated null (a future sign-out) decides fresh rather than
+      // inheriting whatever an earlier attempt settled on.
+      setAnonFailed(false);
+      setSkippedAnonAfterSignOut(false);
+      return undefined;
+    }
+    // Real-use feedback, reproduced twice in a row: signing back in with
+    // Google after a sign-out briefly flashed back to the sign-in screen
+    // before finishing on its own. Cause: onAuthStateChanged can bounce
+    // through more than one null while signInWithPopup resolves — a known
+    // Firebase quirk — and consumeJustSignedOutFlag is one-shot, so a
+    // *second* null in that same burst found it already consumed and fell
+    // through to signInAnon() below, right in the middle of the real
+    // Google sign-in completing. Once either fallback state is already
+    // decided for this null, stay there instead of re-deciding on every
+    // subsequent one in the same burst.
+    if (anonFailed || skippedAnonAfterSignOut) return undefined;
     if (consumeJustSignedOutFlag()) {
       // See this file's own top comment — deliberately skip the anonymous
       // bootstrap for this specific null, straight to <SignIn/> below.
@@ -81,7 +93,7 @@ export default function AuthGate({ children }) {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user, anonFailed, skippedAnonAfterSignOut]);
 
   useEffect(() => {
     let cancelled = false;

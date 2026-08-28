@@ -106,6 +106,35 @@ describe("AuthGate", () => {
     expect(screen.queryByText(/Couldn't start a guest session/)).not.toBeInTheDocument();
   });
 
+  // Real-use feedback, reproduced twice in a row: signing back in with
+  // Google after a sign-out briefly flashed back to the sign-in screen
+  // before finishing on its own, with no further tap needed. Traced to
+  // onAuthStateChanged bouncing through more than one null while
+  // signInWithPopup resolves (a known Firebase quirk) — the *second* null
+  // found consumeJustSignedOutFlag already consumed and, before this fix,
+  // fell through to signInAnon() regardless.
+  it("a second null right behind the first (mid-Google-sign-in) doesn't re-trigger signInAnon", async () => {
+    consumeJustSignedOutFlag.mockReturnValue(true); // only ever true on the *first* read
+    const auth = mockAuthChange(null);
+    render(<AuthGate>{(user) => <div>App content for {user.uid}</div>}</AuthGate>);
+    expect(await screen.findByText("Sign in with Google")).toBeInTheDocument();
+
+    // The spurious second null — consumeJustSignedOutFlag would report
+    // false here in the real one-shot implementation, same as it does for
+    // this mock now that mockReturnValue's default applies again... but
+    // mockReturnValue keeps returning true for every call by default, so
+    // pin it to false explicitly for this one, matching a real second read.
+    consumeJustSignedOutFlag.mockReturnValue(false);
+    auth.emit(null);
+    expect(signInAnon).not.toHaveBeenCalled();
+    expect(screen.getByText("Sign in with Google")).toBeInTheDocument();
+
+    // ...then the real sign-in actually lands, same as it did without any
+    // of this happening.
+    auth.emit({ uid: "coach-1", isAnonymous: false });
+    expect(await screen.findByText("App content for coach-1")).toBeInTheDocument();
+  });
+
   it("falls back to the real sign-in screen, with an explanatory error, if the guest session can't be started", async () => {
     signInAnon.mockRejectedValue({ code: "auth/operation-not-allowed" });
     mockAuthChange(null);

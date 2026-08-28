@@ -2088,17 +2088,12 @@ export const styles = {
     marginTop: 6, textAlign: "center", letterSpacing: 0.2,
   },
   mdSignInForm: { width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", gap: 14, alignItems: "stretch" },
-  // Green/white, not yellow — real-use feedback: yellow "didn't feel
-  // inviting" for a sign-in CTA. Same pitchGreen/creamPaper pairing the
-  // rest of the app already uses for its own primary green buttons (e.g.
-  // mdBackPopoverBtnPrimary), with a matching darker-green shadow rather
-  // than the yellow one.
-  mdSignInBtn: {
-    display: "flex", alignItems: "center", justifyContent: "center", gap: 10, width: "100%", height: 70,
-    borderRadius: tokens.radius.buttonLg, border: "none", background: tokens.color.pitchGreen, color: tokens.color.creamPaper,
-    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 25,
-    boxShadow: tokens.shadow.solid(5, tokens.color.greenShadow), cursor: "pointer",
-  },
+  // mdSignInBtn (the old single big green Google button) removed — real-
+  // use feedback: once Sign out routed here directly instead of this only
+  // being a rare fallback, the screen needed a real Email option too, so
+  // it switched to the same two-provider-button layout (mdSaveTeamProvider
+  // Btn/GoogleBtn/EmailBtn, block 16) SaveTeamSheet.jsx already uses,
+  // reused directly rather than duplicated.
   mdSignInError: {
     fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13, color: tokens.color.injuryText,
     background: tokens.color.injuryTint, border: `1px solid ${tokens.color.injuryBorder}`,

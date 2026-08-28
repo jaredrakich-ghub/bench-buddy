@@ -1,47 +1,66 @@
 import { useState } from "react";
-import { signInWithGoogle } from "../lib/auth.js";
-import { fontStyle, styles } from "./styles.js";
+import { signInWithGoogle, sendLoginEmailLink } from "../lib/auth.js";
+import { fontStyle, styles, tokens } from "./styles.js";
+import { GoogleIcon, EnvelopeIcon } from "./authIcons.jsx";
 import headerMascot from "../assets/header-mascot.jpg";
 
-// AuthGate's fallback: only rendered if an anonymous session couldn't even
-// be started (see AuthGate.jsx) — everyday sign-in (and the "save your
-// team" upgrade) go through progressive auth instead, never a gate like
-// this one. Google-only by design (see the Firebase/account discussion) —
-// no password to create or reset.
+// AuthGate's fallback — rendered whenever there's no session to hand the
+// rest of the app: either an anonymous session couldn't even be started,
+// or (more commonly now) the coach just tapped Sign out and this is the
+// deliberate straight-to-sign-in screen for getting back in (see
+// AuthGate.jsx's own comment on skippedAnonAfterSignOut). Progressive auth
+// still means nobody sees this on a first-ever visit — signInAnon handles
+// that silently instead.
 //
-// README > A9-Signin (#10f) describes a magic-link flow (email field, "Send
-// me a link", "no password... we email you a link") — this app actually
-// authenticates via a Google OAuth popup, not email + a mailed link. Rather
-// than build a non-functional email field to match the mockup literally,
-// this restyles around the real flow: same lockup/button/footer shapes and
-// sizes the README specifies, "Sign in with Google" where it says "Send me
-// a link". Had a reassurance line under the button too ("One tap with your
-// Google account — no password to create or remember") — real-use
-// feedback: dropped it, a coach signing in with Google already knows how
-// that works.
-// initialError: set only by AuthGate's own fallback path, when an
-// anonymous session couldn't be started at all — everywhere else this
-// screen mounts (the very first render of a brand-new AuthGate, before
-// progressive auth existed at all... which per that file's own comment
-// should no longer actually happen) it's simply omitted.
+// Real-use feedback: now that Sign out routes here directly rather than
+// this only ever being a rare anon-bootstrap-failure fallback, it needed
+// to be a genuinely complete sign-in page, not Google-only — Email
+// (passwordless magic-link, same mechanism SaveTeamSheet.jsx's own
+// "Continue with Email" already uses) is the second option, reusing that
+// exact field/button/copy rather than a second implementation of the same
+// flow. No Apple, matching the earlier decision on SaveTeamSheet's own
+// provider set.
+//
+// initialError: set only by AuthGate's own anon-bootstrap-failed path —
+// every other case (the sign-out path, or this screen's very first render
+// before progressive auth existed at all) leaves it omitted.
 export default function SignIn({ initialError = "" }) {
+  // idle (provider picker, whether or not `error` also has something to
+  // show alongside it) | signingIn | email | sendingEmail | emailSent |
+  // emailError — no separate "error" phase: the provider-picker view
+  // covers idle and signingIn either way, and the error banner is driven
+  // by the `error` string alone.
+  const [phase, setPhase] = useState("idle");
   const [error, setError] = useState(initialError);
-  const [signingIn, setSigningIn] = useState(false);
+  const [email, setEmail] = useState("");
 
-  const handleSignIn = async () => {
+  const handleGoogle = async () => {
     setError("");
-    setSigningIn(true);
+    setPhase("signingIn");
     try {
       await signInWithGoogle();
-      // onAuthChange (in AuthGate) picks up the resulting signed-in state;
-      // nothing else to do here on success.
+      // onAuthChange (AuthGate) swaps this whole screen out on success —
+      // this only matters if that takes a moment, so the button doesn't
+      // sit stuck on "Signing in…" in the meantime.
     } catch (err) {
       // A cancelled/closed popup isn't a real error worth showing.
       if (err?.code !== "auth/popup-closed-by-user" && err?.code !== "auth/cancelled-popup-request") {
         setError("Couldn't sign in — check your connection and try again.");
       }
     }
-    setSigningIn(false);
+    setPhase("idle");
+  };
+
+  const handleSendEmailLink = async (e) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setPhase("sendingEmail");
+    try {
+      await sendLoginEmailLink(email.trim());
+      setPhase("emailSent");
+    } catch {
+      setPhase("emailError");
+    }
   };
 
   return (
@@ -56,28 +75,64 @@ export default function SignIn({ initialError = "" }) {
       </div>
 
       <div style={styles.mdSignInForm}>
-        <button style={styles.mdSignInBtn} onClick={handleSignIn} disabled={signingIn}>
-          <GoogleIcon />
-          {signingIn ? "Signing in…" : "Sign in with Google"}
-        </button>
-        {error && <div style={styles.mdSignInError}>{error}</div>}
+        {phase === "email" || phase === "sendingEmail" || phase === "emailError" ? (
+          <form onSubmit={handleSendEmailLink} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {/* Not part of any design spec — this whole email step didn't
+                have a way back to reconsider Google (SaveTeamSheet.jsx's
+                own identical email step has the same gap; not fixed there
+                too, since only this screen was in scope here). Plain text
+                button, deliberately minimal rather than a styled control
+                nobody specified. */}
+            <button
+              type="button"
+              onClick={() => setPhase("idle")}
+              style={{
+                alignSelf: "flex-start", background: "none", border: "none", padding: 0, cursor: "pointer",
+                fontFamily: tokens.font.body, fontWeight: 800, fontSize: 14, color: tokens.color.mutedText,
+              }}
+            >
+              ‹ Back
+            </button>
+            <input
+              style={styles.mdSaveTeamEmailField}
+              type="email"
+              placeholder="you@email.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoFocus
+            />
+            <button style={styles.mdSaveTeamSendLinkBtn} type="submit" disabled={!email.trim() || phase === "sendingEmail"}>
+              {phase === "sendingEmail" ? "Sending…" : "Send me a link"}
+            </button>
+            <div style={styles.mdSaveTeamReassurance}>No password. We email you a link that signs you in and keeps you in.</div>
+            {phase === "emailError" && <div style={styles.mdSignInError}>Couldn't send that link — check your connection and try again.</div>}
+          </form>
+        ) : phase === "emailSent" ? (
+          <div style={styles.mdSaveTeamReassurance}>We sent a link to {email}. Open it on this device to finish signing in.</div>
+        ) : (
+          <>
+            <button
+              style={{ ...styles.mdSaveTeamProviderBtn, ...styles.mdSaveTeamGoogleBtn }}
+              onClick={handleGoogle}
+              disabled={phase === "signingIn"}
+            >
+              <span style={styles.mdSaveTeamProviderChip}>
+                <GoogleIcon />
+              </span>
+              <span style={styles.mdSaveTeamProviderLabel}>{phase === "signingIn" ? "Signing in…" : "Sign in with Google"}</span>
+            </button>
+            <button style={{ ...styles.mdSaveTeamProviderBtn, ...styles.mdSaveTeamEmailBtn }} onClick={() => setPhase("email")}>
+              <span style={styles.mdSaveTeamProviderChip}>
+                <EnvelopeIcon />
+              </span>
+              <span style={styles.mdSaveTeamProviderLabel}>Sign in with Email</span>
+            </button>
+            {error && <div style={styles.mdSignInError}>{error}</div>}
+          </>
+        )}
       </div>
 
       <div style={styles.mdSignInVersion}>v0.1.0</div>
     </div>
-  );
-}
-
-// Standard 4-color "G" mark, drawn inline so the button doesn't depend on
-// an external image/icon font. Exported — SaveTeamSheet.jsx's own Google
-// button reuses this exact mark rather than a second copy of the same SVG.
-export function GoogleIcon() {
-  return (
-    <svg width={20} height={20} viewBox="0 0 18 18">
-      <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 01-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z" />
-      <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.81.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.98v2.33A9 9 0 009 18z" />
-      <path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 013.68 9c0-.59.1-1.17.27-1.7V4.97H.98A9 9 0 000 9c0 1.45.35 2.83.98 4.03l2.97-2.33z" />
-      <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 00.98 4.97l2.97 2.33C4.66 5.17 6.65 3.58 9 3.58z" />
-    </svg>
   );
 }

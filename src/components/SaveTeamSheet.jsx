@@ -3,8 +3,8 @@ import {
   linkGoogleAccount, signInWithExistingCredential, sendLoginEmailLink,
 } from "../lib/auth.js";
 import { KitShirt } from "./matchDayIcons.jsx";
-import { GoogleIcon } from "./SignIn.jsx";
-import { styles, tokens } from "./styles.js";
+import { GoogleIcon, EnvelopeIcon } from "./authIcons.jsx";
+import { styles } from "./styles.js";
 
 // The design's own 380x844 reference frame — every `left` value in block
 // 16 (INSTRUCTIONS.md #16) is a px offset against this width. Converted to
@@ -305,17 +305,5 @@ export default function SaveTeamSheet({ onFieldPlayers, benchIds, nameOf, number
         </div>
       </div>
     </div>
-  );
-}
-
-// The envelope mark for "Continue with Email" — ours to draw (unlike
-// Google/Apple's own published marks): 18px, stroke #3E5148 at 2.1px,
-// round caps and joins, per the spec.
-function EnvelopeIcon() {
-  return (
-    <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={tokens.color.groupLabel} strokeWidth={2.1} strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2.5" y="5" width="19" height="14" rx="2.5" />
-      <path d="M3.5 6.5 12 13 20.5 6.5" />
-    </svg>
   );
 }
