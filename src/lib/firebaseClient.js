@@ -3,6 +3,7 @@
 // in Firestore security rules, not in hiding these values), so it's fine to
 // commit directly rather than route through environment variables.
 import { initializeApp } from "firebase/app";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "firebase/app-check";
 import { getAuth } from "firebase/auth";
 import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
 
@@ -16,6 +17,25 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+
+// App Check: proves requests are coming from this actual web app, not a
+// script hitting Firestore/Auth directly with the (necessarily public)
+// config above. reCAPTCHA Enterprise's score-based key is invisible to
+// real users — no challenge to solve, just a background risk score
+// attached to each request. Only real enforcement point is Firestore
+// rules, once turned on in the Firebase console (App Check tab) — nothing
+// here rejects a request on its own.
+//
+// Browser-only: `window` doesn't exist under the Node-based emulator
+// integration suite (firebase-tests/, vitest.emulator.config.js), and
+// initializeAppCheck needs a real browser (loads reCAPTCHA's own script,
+// uses browser storage) — same reasoning as hasIndexedDb below.
+if (typeof window !== "undefined") {
+  initializeAppCheck(app, {
+    provider: new ReCaptchaEnterpriseProvider("6Lc2kZ0tAAAAAGb_9fvYEVDTwdhu-LGQc3Pvg1Z0"),
+    isTokenAutoRefreshEnabled: true,
+  });
+}
 
 export const auth = getAuth(app);
 
