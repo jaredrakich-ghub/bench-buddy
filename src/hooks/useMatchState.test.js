@@ -74,9 +74,40 @@ describe("useMatchState — startPlanning", () => {
     expect(result.current.plan.length).toBeGreaterThan(0);
     expect(result.current.activeInterval).toBe(0);
     expect(result.current.injuredThisGame).toEqual([]);
-    expect(saveTeamData).toHaveBeenCalledWith(
+    // Function form now (see useTeamRegistry.js's own comment) — reads the
+    // true-latest team, not this hook's own teamData closure, so the race
+    // that could silently drop a just-added roster player can't happen
+    // here either. Invoke what was passed with TEAM_DATA to check the
+    // settings it produces, same as the old plain-object assertion did.
+    expect(saveTeamData).toHaveBeenCalledWith(expect.any(Function));
+    const updater = saveTeamData.mock.calls[0][0];
+    expect(updater(TEAM_DATA)).toEqual(
       expect.objectContaining({ settings: { fieldSize: 5, gameMinutes: 12, subIntervalMinutes: 6 } })
     );
+  });
+
+  // Real bug (real-device screenshot): availableIds can end up holding an
+  // id with no matching roster entry any more — a race between two rapid
+  // roster saves (see useTeamRegistry.test.js's own regression test for
+  // the underlying fix) could silently drop a player from the roster while
+  // this list still remembered their id. Building a rotation then seated a
+  // player who didn't exist, showing as an unresolvable "?" on the bench.
+  // startPlanning now filters availableIds down to real roster ids first —
+  // this both keeps a stale id out of the plan it builds, and persists the
+  // cleaned list back, so a team already in this state self-heals the next
+  // time a rotation is built, with no manual cleanup needed.
+  it("filters out an availableIds entry with no matching roster player before building the plan", () => {
+    const { result } = setup();
+    act(() => {
+      // "ghost" isn't in ROSTER at all — simulates the corrupted state.
+      result.current.setAvailableIds([...ROSTER.map((p) => p.id), "ghost"]);
+      result.current.setGameSettings({ fieldSize: 5, gameMinutes: 12, subIntervalMinutes: 6 });
+    });
+    act(() => result.current.startPlanning());
+
+    expect(result.current.availableIds).toEqual(ROSTER.map((p) => p.id)); // persisted clean
+    const allOnPlan = result.current.plan.flatMap((iv) => [...iv.onField.map((p) => p.id), ...iv.bench]);
+    expect(allOnPlan).not.toContain("ghost");
   });
 });
 

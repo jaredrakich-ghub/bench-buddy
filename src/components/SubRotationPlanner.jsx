@@ -225,8 +225,11 @@ export default function SubRotationPlanner({ user }) {
     const name = newPlayerName.trim();
     if (!name) return;
     const newId = generateId();
-    const roster = [...teamData.roster, { id: newId, name, keeperEligible: true }];
-    saveTeamData({ ...teamData, roster });
+    // Function form: reads the true-latest roster (useTeamRegistry's own
+    // ref), not this render's teamData — avoids silently dropping another
+    // add that landed moments earlier but hasn't re-rendered this component
+    // yet. See saveTeamData's own comment for the bug this fixes.
+    saveTeamData((prev) => ({ ...prev, roster: [...prev.roster, { id: newId, name, keeperEligible: true }] }));
     setAvailableIds((prev) => [...prev, newId]); // new players default to available
     setNewPlayerName("");
   };
@@ -240,8 +243,7 @@ export default function SubRotationPlanner({ user }) {
     const trimmedNames = names.map((n) => n.trim()).filter(Boolean);
     if (trimmedNames.length === 0) return;
     const newEntries = trimmedNames.map((name) => ({ id: generateId(), name, keeperEligible: true }));
-    const roster = [...teamData.roster, ...newEntries];
-    saveTeamData({ ...teamData, roster });
+    saveTeamData((prev) => ({ ...prev, roster: [...prev.roster, ...newEntries] }));
     setAvailableIds((prev) => [...prev, ...newEntries.map((e) => e.id)]); // new players default to available
   };
 
@@ -258,14 +260,12 @@ export default function SubRotationPlanner({ user }) {
     const trimmed = name.trim();
     if (!trimmed) return null;
     const newId = generateId();
-    const roster = [...teamData.roster, { id: newId, name: trimmed, keeperEligible: true }];
-    saveTeamData({ ...teamData, roster });
+    saveTeamData((prev) => ({ ...prev, roster: [...prev.roster, { id: newId, name: trimmed, keeperEligible: true }] }));
     return newId;
   };
 
   const removePlayer = (id) => {
-    const roster = teamData.roster.filter((p) => p.id !== id);
-    saveTeamData({ ...teamData, roster });
+    saveTeamData((prev) => ({ ...prev, roster: prev.roster.filter((p) => p.id !== id) }));
     setAvailableIds((prev) => prev.filter((x) => x !== id));
   };
 
@@ -274,8 +274,10 @@ export default function SubRotationPlanner({ user }) {
   };
 
   const toggleKeeperEligible = (id) => {
-    const roster = teamData.roster.map((p) => (p.id === id ? { ...p, keeperEligible: !p.keeperEligible } : p));
-    saveTeamData({ ...teamData, roster });
+    saveTeamData((prev) => ({
+      ...prev,
+      roster: prev.roster.map((p) => (p.id === id ? { ...p, keeperEligible: !p.keeperEligible } : p)),
+    }));
   };
 
   // Bulk sibling to toggleKeeperEligible above — the new-team-setup
@@ -283,8 +285,7 @@ export default function SubRotationPlanner({ user }) {
   // already eligible by default, so this exists for restoring that after
   // turning some off, not for a from-scratch pick).
   const setAllKeeperEligible = (value) => {
-    const roster = teamData.roster.map((p) => ({ ...p, keeperEligible: value }));
-    saveTeamData({ ...teamData, roster });
+    saveTeamData((prev) => ({ ...prev, roster: prev.roster.map((p) => ({ ...p, keeperEligible: value })) }));
   };
 
   // A real, coach-assignable squad number — added for the match-day
@@ -293,8 +294,7 @@ export default function SubRotationPlanner({ user }) {
   // to unset, same as any other optional field; getSquadNumber falls back
   // to roster position again once it's gone rather than showing nothing.
   const setPlayerNumber = (id, number) => {
-    const roster = teamData.roster.map((p) => (p.id === id ? { ...p, number } : p));
-    saveTeamData({ ...teamData, roster });
+    saveTeamData((prev) => ({ ...prev, roster: prev.roster.map((p) => (p.id === id ? { ...p, number } : p)) }));
   };
 
   // Manage squad's own new name-edit capability (Team & account, real-use
@@ -310,8 +310,7 @@ export default function SubRotationPlanner({ user }) {
   const renamePlayer = (id, name) => {
     const trimmed = name.trim();
     if (!trimmed) return;
-    const roster = teamData.roster.map((p) => (p.id === id ? { ...p, name: trimmed } : p));
-    saveTeamData({ ...teamData, roster });
+    saveTeamData((prev) => ({ ...prev, roster: prev.roster.map((p) => (p.id === id ? { ...p, name: trimmed } : p)) }));
   };
 
   const switchTeam = (id) => {

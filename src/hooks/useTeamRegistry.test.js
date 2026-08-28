@@ -51,6 +51,31 @@ describe("useTeamRegistry — saveTeamData", () => {
     expect(result.current.saveError).toBeNull();
   });
 
+  // Real bug (found via a real-device screenshot showing an unresolvable
+  // "?" bench player): a caller that reads teamData from its own render
+  // closure and calls saveTeamData({ ...teamData, roster: [...] }) loses
+  // an earlier addition if a second such call fires before React
+  // re-renders — the second call's stale roster snapshot overwrites the
+  // first. Passing an updater function instead (reading the hook's own
+  // always-current ref, not the caller's stale closure) is the fix; this
+  // locks in that two rapid calls both survive, not just the last one.
+  it("does not lose an earlier update when two saveTeamData calls (function form) fire before a re-render", async () => {
+    updateTeamDoc.mockResolvedValue(undefined);
+    const { result } = renderHook(() => useTeamRegistry());
+    act(() => {
+      result.current.setTeams([TEAM]);
+      result.current.setActiveTeamId("t1");
+    });
+
+    await act(async () => {
+      result.current.saveTeamData((prev) => ({ ...prev, roster: [...prev.roster, { id: "p2", name: "Bob", keeperEligible: true }] }));
+      result.current.saveTeamData((prev) => ({ ...prev, roster: [...prev.roster, { id: "p3", name: "Cara", keeperEligible: true }] }));
+      await Promise.resolve();
+    });
+
+    expect(result.current.teamData.roster.map((p) => p.id)).toEqual(["p1", "p2", "p3"]);
+  });
+
   it("surfaces a friendly message and does not lose the optimistic local update if the write fails", async () => {
     updateTeamDoc.mockRejectedValue({ code: "unavailable" });
     const { result } = renderHook(() => useTeamRegistry());

@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { findTeam, updateTeam } from "../lib/teams.js";
 import { updateTeamDoc, describeSaveError } from "../lib/firestoreTeams.js";
 
@@ -22,10 +22,29 @@ export function useTeamRegistry() {
   // state — so there's a single source of truth once a team is updated.
   const teamData = findTeam(teams, activeTeamId);
 
+  // Always-current mirror of teamData, updated the instant saveTeamData
+  // runs rather than waiting for the next render. Real bug this fixes: a
+  // caller building { ...teamData, roster: [...teamData.roster, x] } reads
+  // teamData from its own render closure — if a second such call fires
+  // before React re-renders (e.g. quick-add's paste handler followed
+  // immediately by another add), the second call's stale roster snapshot
+  // silently overwrote the first call's addition, while availableIds (set
+  // via its own functional updater elsewhere) kept the "lost" player's id —
+  // producing an unresolvable "?" bench/pitch slot once a rotation was
+  // built. Passing an updater function to saveTeamData (below) instead of
+  // a plain object lets a caller read this ref for the true latest roster,
+  // the same way a functional setState avoids the equivalent race.
+  const teamDataRef = useRef(teamData);
+  teamDataRef.current = teamData;
+
   // Updates the active team's data (roster/settings). Updates local state
   // immediately for a snappy UI (no waiting on a network round-trip to see
   // your own edit), and fires the real Firestore write in the background.
-  const saveTeamData = useCallback((data) => {
+  // Accepts either a plain object or an updater function `(prev) => data`
+  // — the function form reads teamDataRef (see above), not a stale closure.
+  const saveTeamData = useCallback((updater) => {
+    const data = typeof updater === "function" ? updater(teamDataRef.current) : updater;
+    teamDataRef.current = { ...teamDataRef.current, ...data };
     setTeams((prev) => updateTeam(prev, activeTeamId, data));
     updateTeamDoc(activeTeamId, data)
       .then(() => setSaveError(null))

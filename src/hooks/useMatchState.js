@@ -158,11 +158,24 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
   // it was left open by mistake for a while after plan/modal state got
   // split across hooks, since nothing in here could reach the modal flag.)
   const startPlanning = () => {
+    // Defensive: availableIds can end up holding an id with no matching
+    // roster entry any more — a race between two rapid roster saves
+    // (addPlayer/addPlayers/removePlayer in SubRotationPlanner.jsx) can
+    // silently drop a player from the roster while this list still
+    // remembers their id, since the two are saved through separate state
+    // updates. Filtering here means a stale id can never reach the rotation
+    // engine and come out as an unresolvable "?" bench/pitch slot — and
+    // persisting the filtered list back (setAvailableIds below) means this
+    // also self-heals a team that already has one, the next time a
+    // rotation gets built, with no manual cleanup needed.
+    const validAvailableIds = availableIds.filter((id) => teamData.roster.some((p) => p.id === id));
+    if (validAvailableIds.length !== availableIds.length) setAvailableIds(validAvailableIds);
+
     // Defense in depth: SquadSettingsForm already disables the submit
     // button when settings are invalid, but this guard stays here too so
     // startPlanning itself can never run with e.g. subIntervalMinutes <= 0,
     // which would otherwise hang the tab in an infinite loop.
-    if (!validateGameSettings(gameSettings, availableIds.length).valid) return false;
+    if (!validateGameSettings(gameSettings, validAvailableIds.length).valid) return false;
 
     // Archiving the just-finished game to season history used to happen
     // here — moved to the clock's own tick effect above, firing right at
@@ -171,11 +184,11 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
     // effect's own comment for the full story and the double-archive guard.
 
     const settings = { ...gameSettings };
-    saveTeamData({ ...teamData, settings });
+    saveTeamData((prev) => ({ ...prev, settings }));
     const { numIntervals } = computeIntervals(settings.gameMinutes, settings.subIntervalMinutes);
     const keeperShiftIntervals = keeperShiftIntervalsFor(settings.subIntervalMinutes, settings.keeperShiftMinutes);
     const planArgs = {
-      availableIds,
+      availableIds: validAvailableIds,
       gameMinutes: settings.gameMinutes,
       numIntervals,
       fieldSize: settings.fieldSize,
