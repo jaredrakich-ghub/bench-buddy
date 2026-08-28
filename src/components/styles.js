@@ -2141,19 +2141,26 @@ export const styles = {
     display: "flex", alignItems: "center", justifyContent: "center",
   },
   mdSaveTeamProviderLabel: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 20, color: tokens.color.deepGreen },
-  mdSaveTeamTickPanel: {
-    marginTop: 20, display: "flex", alignItems: "center", gap: 10,
-    background: tokens.color.creamDeep, borderRadius: 20, padding: "14px 16px",
+  // Real-use feedback: tried without the card background (this screen is
+  // tight on room — band + shirts + heading + body + two buttons all
+  // above it) — a filled panel read as one more compressed block rather
+  // than a reassurance line, so it stays a plain row instead. padding
+  // "0 2px" only, not a filled panel's 14/16 — just enough to keep the
+  // tick disc/text off the sheet's own edge.
+  mdSaveTeamTickRow: {
+    marginTop: 16, display: "flex", alignItems: "center", gap: 10, padding: "0 2px",
   },
   mdSaveTeamTickDisc: {
     width: 24, height: 24, borderRadius: "50%", flexShrink: 0, background: tokens.color.pitchGreen,
     color: tokens.color.creamPaper, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13,
   },
   mdSaveTeamTickText: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 14.5, color: tokens.color.groupLabel },
+  // "Bench Buddy Sports" wordmark dropped from here (real-use feedback:
+  // this screen doesn't have the room a taller reference frame did) — no
+  // gap needed any more with only the one child left.
   mdSaveTeamFooter: {
-    marginTop: "auto", paddingBottom: 14, display: "flex", flexDirection: "column", alignItems: "center", gap: 14,
+    marginTop: "auto", paddingBottom: 14, display: "flex", flexDirection: "column", alignItems: "center",
   },
-  mdSaveTeamFooterText: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13.5, color: tokens.color.mutedText },
   mdSaveTeamHomeIndicator: { width: 134, height: 5, borderRadius: 3, background: tokens.color.rule },
 
   // The email sub-state (block 6/A9-Signin's own field+button, reused

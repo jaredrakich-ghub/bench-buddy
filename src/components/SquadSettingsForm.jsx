@@ -808,7 +808,16 @@ export default function SquadSettingsForm({
         </div>
       </div>
     ) : (
-      <div style={styles.mdSubHeader}>
+      // marginTop:0 override for "inline" only — mdSubHeader's own
+      // marginTop:12 is there for "edit"'s benefit, matching the zero top
+      // padding of the full-screen takeover it's nested in
+      // (mdFullScreenTakeoverInner), per that style's own comment. This
+      // header renders inside `main` instead when "inline" (an additional
+      // team's own "Set up new team", reached with a real onClose) —
+      // `main` already has its own 12px top padding, so without this
+      // override the two stacked, landing this header 12px lower than
+      // "edit"'s, exactly what real-device feedback caught.
+      <div style={{ ...styles.mdSubHeader, ...(variant === "inline" ? { marginTop: 0 } : {}) }}>
         {onClose && (
           <button style={styles.mdSubHeaderBack} onClick={onClose} title="Back">
             ‹

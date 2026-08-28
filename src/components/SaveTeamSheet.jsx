@@ -285,15 +285,22 @@ export default function SaveTeamSheet({ onFieldPlayers, benchIds, nameOf, number
             {phase === "error" && (
               <div style={{ ...styles.mdSignInError, marginTop: 12 }}>Couldn't sign in — check your connection and try again.</div>
             )}
-            <div style={styles.mdSaveTeamTickPanel}>
+            {/* Real-use feedback: tried without the card background (this
+                screen's tightest spot for room) — reads less compressed
+                as a plain row, so it stays this way rather than the
+                original spec's own filled panel. */}
+            <div style={styles.mdSaveTeamTickRow}>
               <span style={styles.mdSaveTeamTickDisc}>✓</span>
               <span style={styles.mdSaveTeamTickText}>Your current team will be linked to your account automatically.</span>
             </div>
           </>
         )}
 
+        {/* "Bench Buddy Sports" dropped — real-use feedback: this screen
+            doesn't have the room to spare on a footer wordmark the way a
+            taller reference frame did. The home-indicator bar stays; it's
+            a thin decorative accent, not a space cost. */}
         <div style={styles.mdSaveTeamFooter}>
-          <span style={styles.mdSaveTeamFooterText}>Bench Buddy Sports</span>
           <span style={styles.mdSaveTeamHomeIndicator} />
         </div>
       </div>

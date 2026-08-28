@@ -598,13 +598,11 @@ export default function SubRotationPlanner({ user }) {
               // match-complete case — a genuinely different moment (a fresh
               // game, not editing today's), not reached via that same row.
               title={isMatchComplete ? "Set up next game" : "Game settings"}
-              // Backlog #1: confirm the team when starting the next game —
-              // shows the crest+name row in the header, implicitly, for
-              // this moment specifically. Left unset for plain "Game
-              // settings" mid-match, where the live match screen right
-              // behind this modal already makes the team unambiguous.
-              crestSrc={isMatchComplete ? headerMascot : undefined}
-              teamName={isMatchComplete ? teamData.name : undefined}
+              // Backlog #1 had shown a crest+name row here for the "Set up
+              // next game" moment specifically — dropped per direct
+              // request ("no crest logo"), to line this header up exactly
+              // with "Set up new team"'s own simpler shape (that screen
+              // never had a team to show a crest for in the first place).
               // Backlog #1, corrected: also confirm who's actually here
               // today when starting the next game — same moment as the
               // crest+name row above, so the same condition.
