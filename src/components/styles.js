@@ -535,6 +535,19 @@ export const styles = {
     borderRadius: tokens.radius.chip, padding: "6px 14px", background: "transparent", cursor: "pointer",
     fontFamily: tokens.font.body, fontWeight: 800, fontSize: 15, color: tokens.color.mutedText,
   },
+  // Real-use feedback: as the roster grid (mdBenchChipRow) fills past two
+  // rows, it grows sideways and scrolls rather than wrapping — and this
+  // chip, appended after every roster chip in that same scrolling grid,
+  // scrolled away with them, off past whatever was currently in view.
+  // Sticky pins it to the right edge of the grid's own scroll viewport
+  // instead, so it's the one thing in this row that's always visible,
+  // in the same spot, regardless of squad size or scroll position — a
+  // solid (not transparent) background is what actually sells that, since
+  // chips scrolling underneath a sticky item would otherwise show through
+  // its dashed border.
+  mdSetupAddChipSticky: {
+    position: "sticky", right: 0, background: tokens.color.creamPaper,
+  },
 
   // The three "on pitch / minutes / sub every" tiles. Resting = plain white
   // value; tapping flips ONE tile dark with a −/+ stepper either side of
@@ -1693,9 +1706,19 @@ export const styles = {
   // couple pixels lower than the crest-header screens (mdHeader); this is
   // the whole family moving up to match, not one screen singled out —
   // every screen sharing this style shifts together.
+  // marginBottom 12->8: real-use feedback on Set up new team ("reduce the
+  // padding below the header") — measured directly (not just the source
+  // numbers): the visible gap between this card's own bottom edge and the
+  // "Who's here" title below it was ~36px, most of it from this margin
+  // stacking with the Who's-here wrapper's own marginTop (below) — not a
+  // difference between "Set up new team" and "Set up next game" (both
+  // already matched exactly, gap for gap, once measured), so this tightens
+  // the one shared value both draw from rather than chasing a mismatch
+  // that wasn't actually there. 8 also matches mdHeader's own
+  // marginBottom, the equivalent gap on the very-first-team header.
   mdSubHeader: {
     background: tokens.color.headerYellow, padding: "16px 18px 18px", borderRadius: 28, marginTop: 12,
-    display: "flex", alignItems: "center", gap: 12, marginBottom: 12,
+    display: "flex", alignItems: "center", gap: 12, marginBottom: 8,
   },
   mdSubHeaderBack: {
     width: 44, height: 44, borderRadius: tokens.radius.rowSm, border: "none", background: "#fff",
@@ -2059,8 +2082,12 @@ export const styles = {
   },
   // Deliberately not a cream disc — on a band of cream shirts, a cream
   // circle reads as another player rather than a way out.
+  // top:20, not the spec's own 44 — real-device feedback: 44 (presumably
+  // measured to clear a mocked-up status bar baked into the reference
+  // frame's own 844px canvas) sat noticeably low against this app's real
+  // header, which has no such reserved space above it.
   mdSaveTeamClose: {
-    position: "absolute", top: 44, right: 24, width: 40, height: 40, borderRadius: 14,
+    position: "absolute", top: 20, right: 24, width: 40, height: 40, borderRadius: 14,
     background: "rgba(20,44,32,.34)", border: "2px solid rgba(255,246,229,.5)",
     display: "flex", alignItems: "center", justifyContent: "center",
     fontFamily: tokens.font.display, fontWeight: 800, fontSize: 21, color: tokens.color.creamPaper,

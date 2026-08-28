@@ -14,32 +14,41 @@ import { styles, tokens } from "./styles.js";
 // exactly 380px.
 const REFERENCE_WIDTH = 380;
 
-// The three squad-size tiers, verbatim from the spec, keyed by their own
-// worked example's exact row layout(s) — a single centred row for up to 6
-// on the field, two rows (back/front) above that. Only 5/7/9 are literal
-// reference counts (the three actual mockups); buildRow (below) generalises
-// to any other count within the same bracket by keeping that row's own
-// centre and spacing and placing shirts evenly around it, with the tops
-// interpolated between the reference row's own centre/edge values — not a
-// hand-tuned table nobody specified, but visually consistent with the one
-// that was.
+// The three squad-size tiers, adapted from the spec — a single centred row
+// for up to 6 on the field, two rows (back/front) above that. Only 5/7/9
+// are literal reference counts (the three actual mockups); buildRow
+// (below) generalises to any other count within the same bracket by
+// keeping that row's own spacing and placing shirts evenly around the
+// band's TRUE horizontal centre, with the tops interpolated between the
+// reference row's own centre/edge values.
+//
+// Real-device feedback caught something the spec's own numbers get wrong:
+// its "centre" for each row (157 for the arch, 149/159 for the two-row-7
+// back/front, 160 for two-row-9) isn't actually the frame's midpoint
+// (190, half of the 380 reference width) — every one of them sits well
+// left of it, and the reference screens visibly do too once you look for
+// it (the leftmost shirt runs right up against the band's own left edge).
+// Rather than reproduce that, every row here is centred explicitly at the
+// band's own true midpoint; only each row's own inter-shirt SPACING is
+// still taken from the spec, which is what actually varies meaningfully
+// by shirt/column size.
 const TIERS = {
   arch: {
     band: 282, shirtW: 50, shirtH: 46, pillBottom: 70,
-    rows: [{ count: 5, spacing: 64, center: 157, topCenter: 68, topEdge: 104 }],
+    rows: [{ count: 5, spacing: 64, topCenter: 68, topEdge: 104 }],
   },
   twoRow7: {
     band: 320, shirtW: 50, shirtH: 46, pillBottom: 40,
     rows: [
-      { count: 4, spacing: 86, center: 149, topCenter: 82, topEdge: 100 }, // back
-      { count: 3, spacing: 96, center: 159, topCenter: 166, topEdge: 176 }, // front
+      { count: 4, spacing: 86, topCenter: 82, topEdge: 100 }, // back
+      { count: 3, spacing: 96, topCenter: 166, topEdge: 176 }, // front
     ],
   },
   twoRow9: {
     band: 308, shirtW: 44, shirtH: 40, pillBottom: 40,
     rows: [
-      { count: 5, spacing: 71, center: 160, topCenter: 80, topEdge: 100 }, // back
-      { count: 4, spacing: 71, center: 160, topCenter: 160, topEdge: 170 }, // front
+      { count: 5, spacing: 71, topCenter: 80, topEdge: 100 }, // back
+      { count: 4, spacing: 71, topCenter: 160, topEdge: 170 }, // front
     ],
   },
 };
@@ -50,16 +59,17 @@ function tierFor(count) {
   return TIERS.twoRow9;
 }
 
-// Evenly places `count` shirts around a row's own reference centre/spacing,
-// with a smooth (not linear) arc between the reference row's own centre and
-// edge top values — reproduces the spec's exact numbers when count matches
-// the reference row exactly (5, 4+3, 5+4), degrades gracefully otherwise.
+// Evenly places `count` shirts around the band's own true horizontal
+// centre, `row.spacing` apart, with a smooth (not linear) arc between the
+// reference row's own centre and edge top values — reproduces the spec's
+// own numbers (bar the left-bias fix above) when count matches the
+// reference row exactly (5, 4+3, 5+4), degrades gracefully otherwise.
 function buildRow(row, count) {
   const maxOffset = (row.count - 1) / 2; // the reference row's own arc depth
   const positions = [];
   for (let i = 0; i < count; i++) {
     const offset = i - (count - 1) / 2;
-    const left = row.center + offset * row.spacing;
+    const left = REFERENCE_WIDTH / 2 + offset * row.spacing;
     const t = maxOffset > 0 ? Math.min(Math.abs(offset) / maxOffset, 1) : 0;
     const top = row.topCenter + (row.topEdge - row.topCenter) * t * t;
     positions.push({ left, top });

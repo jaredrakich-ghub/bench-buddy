@@ -631,7 +631,10 @@ export default function SquadSettingsForm({
               </button>
             );
           })}
-          <button style={styles.mdSetupAddChip} onClick={() => setShowAddChip((v) => !v)}>
+          <button
+            style={{ ...styles.mdSetupAddChip, ...styles.mdSetupAddChipSticky }}
+            onClick={() => setShowAddChip((v) => !v)}
+          >
             <Plus size={14} /> Player
           </button>
         </div>
@@ -994,7 +997,7 @@ export default function SquadSettingsForm({
             new game is being set up, not just for the very first team
             ever. */}
         {confirmAvailability && (
-          <div style={{ marginTop: 6 }}>
+          <div style={{ marginTop: 2 }}>
             <div style={styles.mdSetupHeaderInRow}>
               <div style={styles.mdSetupSectionTitle}>Who's here</div>
               <span style={styles.mdSetupInChip}>{availableIds.length} in</span>
@@ -1089,13 +1092,17 @@ export default function SquadSettingsForm({
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100dvh" }}>
       {header}
 
-      {/* Real-use feedback: "a considerable amount of space between the
-          header and the Who's here section" — this wrapper's own
-          marginTop stacks with mdHeader's own marginBottom:8 (margins
+      {/* Real-use feedback, twice now: "a considerable amount of space
+          between the header and the Who's here section" — this wrapper's
+          own marginTop stacks with the header's own marginBottom (mdHeader
+          or mdSubHeader, whichever this variant renders) since margins
           between flex children don't collapse, unlike normal block
-          siblings), so the two together were adding up to more gap than
-          intended. Trimmed to match. */}
-      <div style={{ marginTop: 6 }}>
+          siblings. Trimmed again the second time, once actually measured
+          (not just added up from the source numbers) — turned out "Set up
+          new team" and "Set up next game" already matched each other
+          exactly; the ask was really "both are too roomy," not "these two
+          disagree." */}
+      <div style={{ marginTop: 2 }}>
         <div style={styles.mdSetupHeaderInRow}>
           <div style={styles.mdSetupSectionTitle}>Who's here</div>
           <span style={styles.mdSetupInChip}>{availableIds.length} in</span>
