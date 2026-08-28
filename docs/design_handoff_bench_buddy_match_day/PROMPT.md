@@ -1,43 +1,42 @@
 # Paste this into Claude Code first
 
-> **If you want ready-made, per-screen requests, open `INSTRUCTIONS.md` instead.** It has one
-> copy-paste block per screen with every exact value, in the order to send them. This file is the
-> shorter orientation version.
+> Send this first, then work through `INSTRUCTIONS.md` — one copy-paste block per screen, in
+> order, each with every exact value.
 
 Put this whole folder inside the bench-buddy repo as
 `docs/design_handoff_bench_buddy_match_day/`, replacing any older copy. Then copy everything
 between the two `---` lines below as your first message to Claude Code.
 
-The match screen is already built and live. This round covers the six screens around it.
+The match screen is already built and live. This round covers the screens around it, plus the
+substitution sheets, the cancel-a-change flow and the Save your team sign-in sheet
+(blocks 12–16 of `INSTRUCTIONS.md`).
 
 ---
 
-The folder `docs/design_handoff_bench_buddy_match_day/` contains an updated design handoff:
+The folder `docs/design_handoff_bench_buddy_match_day/` contains a design handoff:
 
-- `README.md` — the spec: every screen, exact colours, type, spacing, plus an implementation map
-  naming which existing file each screen belongs in.
-- `Bench Buddy Direction A.dc.html` — the HTML design reference. Open it in a browser. It is a
+- `README.md` — the spec: every screen's exact colours, type and spacing, plus an implementation
+  map naming which existing file each screen belongs in.
+- `Bench Buddy Direction A.dc.html` — the design reference. Open it in a browser. It is a
   prototype, NOT code to copy: do not import it, do not port its markup.
 - `screens/*.png` — a render of each screen.
 
-Read `README.md` in full before writing any code, including "Implementation map" and
-"Screen order for implementation".
+I will send you one screen at a time. Each message names its files and its screen in the reference.
+Read that screen's README section before writing code; you do not need the rest of the README yet.
 
 Rules for this work:
 1. The match screen (`A2-Match-actionbar`) is already built. Do not touch it.
-2. Two screens in the file are explicitly marked **superseded / do not build** — the old cog menu
-   (`#6b`) and the single-bar Minutes (`#10b`) — and there is an archive block at the bottom of the
-   design file under a red "Archive — do not build" heading. Skip all of them. Every screen has
-   exactly one current design.
-3. Add the README's Design Token constants to `src/components/styles.js` **alongside** the existing
-   values, and only re-point the styles belonging to the screens you are building. Do not
-   find-and-replace shared hex values.
+2. Anything in the design file marked **superseded** or sitting under the red "Archive — do not
+   build" heading is not to be built. Every screen has exactly one current design.
+3. Add new tokens to `src/components/styles.js` **alongside** the existing values, and only
+   re-point the styles belonging to the screen you are building. Never find-and-replace a shared
+   hex value.
 4. Existing tests encode current behaviour and should keep passing. If a design change alters copy a
    test asserts on, update that test deliberately and tell me.
-5. One screen per request, in the README's stated order. Show me each one before moving on.
+5. One screen per request, in the order I send them. Show me each one before moving on, and give me
+   a plan before code on anything larger than a single component.
 
-Start with the smallest: trim the cog menu to four rows per `A2d-Menu-trimmed`, and delete the reset
-button from the app. Tell me your plan before writing code.
+Wait for my first screen before writing anything.
 
 ---
 
@@ -50,6 +49,13 @@ outfield seconds. Give that screen its own request — don't let it ride along w
 Its totals row is an assertion worth keeping as a test: with five on and four off, pitch and bench
 should each equal `elapsed × 4`, and goal should equal `elapsed`. If they don't, the rotation has
 lost time.
+
+## The substitution sheets have a height budget
+
+On the match screen the pitch is `flex: 1; min-height: 0` inside the phone column, so every pixel
+the bottom sheet grows is taken out of the pitch and the bottom row of players is clipped. This bit
+the design twice. After any change to the prepare or execute sheet — opening a step, greying a
+cancelled one — check the pitch still renders at least 193px tall.
 
 ## Why change requests go wrong, and how to phrase them
 

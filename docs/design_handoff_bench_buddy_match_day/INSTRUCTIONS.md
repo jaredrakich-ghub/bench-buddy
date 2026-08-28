@@ -1061,3 +1061,128 @@ the gap. The 30-seconds-into-the-next-interval auto-apply applies the remaining 
 aria-live="polite" announces the outcome once: "Sub cancelled. <name> stays on the bench, first on
 at <next interval> minutes."
 ```
+
+---
+
+## 16. Save your team — the sign-in sheet (send after block 15)
+
+```
+Files: a new src/components/SaveTeamSheet.jsx, plus src/components/styles.js.
+Reference: Bench Buddy Direction A.dc.html sections 14a / 14b / 14c, and
+screens/24-login-5aside.png, screens/25-login-7aside.png, screens/26-login-9aside.png.
+
+This is NOT the first screen a user sees. Bench Buddy stays usable with no account: players,
+rotations and matches all work signed out. This screen appears only when the coach taps Save Team.
+It is a full-screen page, dismissible, and it must never read as a gate.
+
+Copy, verbatim — do not rewrite:
+  heading   "Save your team"
+  body      "Create a free account to save your players, rotations and match history.
+             Everything you've already entered will be kept."
+  buttons   "Continue with Google", "Continue with Apple", "Continue with Email"
+  panel     "Your current team will be linked to your account automatically."
+  footer    "Bench Buddy Sports"
+
+No new colours. Everything below is an existing token.
+
+=== SHELL ===
+
+Two parts: a green band at the top and a cream sheet that curves UP into it.
+
+  band    height per squad size (below), background #2E7D53, no border radius, overflow hidden
+  sheet   margin-top -30px, border-radius 30px 30px 0 0, background #FFF6E5 + the paper texture,
+          padding 34px 26px 0, position relative, z-index 4, flex 1
+
+The band has square corners and runs to the frame edges; the sheet's rounded top corners sit 30px
+over it. Do not round the band's bottom corners — that is the older treatment and it is wrong here.
+
+Inside the band, in this order:
+  mown stripes   repeating-linear-gradient(180deg, rgba(255,246,229,.055) 0 34px,
+                 transparent 34px 68px) — HORIZONTAL bands, not vertical
+  centre circle  300x300, border 3px rgba(255,246,229,.4), border-radius 50%,
+                 centred, bottom -176px so only the top arc shows
+  close          top 44px, right 24px, 40x40, border-radius 14px,
+                 background rgba(20,44,32,.34), border 2px rgba(255,246,229,.5),
+                 glyph "✕" Baloo 2 800 21px #FFF6E5, accessible name "Close"
+  player rows    below
+  bench pill     background rgba(255,246,229,.18), radius 999px, padding 5px 14px,
+                 700 13px #FFF6E5, with a 17px cream "+" disc; text "<A> and <B> on the bench"
+
+The close control is deliberately NOT a cream circle. On a band of cream shirts a cream disc scans
+as another player rather than a way out. 44px from the top keeps it clear of the status bar.
+
+=== PLAYER MARKS ===
+
+Reuse the pitch's shirt component, smaller. Same path, same stroke, same shadow — no new artwork:
+  svg viewBox "0 0 62 58", fill #FFF6E5, stroke #1C3A2E, stroke-width 2.4, stroke-linejoin round
+  wrapper filter drop-shadow(0 4px 0 rgba(0,0,0,.18))
+  number  absolutely centred, Baloo 2 800, #1C3A2E
+  name    below, 5px gap, 800 13px #fff, white-space nowrap
+The goalkeeper's shirt is filled #F5B93B instead of cream, the same way the pitch marks him.
+
+The column width is set by the NAME, not the circle — roughly 50px for a six-letter first name at
+13px. That is what drives the layout below; do not solve a bigger squad by shrinking the shirt.
+
+  up to 6 players   one arch. Band 282. Shirt 50x46, column 62.
+                    lefts 29 / 93 / 157 / 221 / 285, tops 104 / 80 / 68 / 80 / 104. Pill bottom 70.
+  7-8 players       two rows, 4 + 3. Band 320. Shirt 50x46, column 58.
+                    back  lefts 20 / 106 / 192 / 278, tops 100 / 82 / 82 / 100
+                    front lefts 63 / 159 / 255,       tops 176 / 166 / 176. Pill bottom 40.
+  9-11 players      two rows, 5 + 4. Band 308. Shirt 44x40 (number 17px), column 52.
+                    back  lefts 18 / 89 / 160 / 231 / 302, tops 100 / 86 / 80 / 86 / 100
+                    front lefts 54 / 125 / 196 / 267,      tops 170 / 160 / 160 / 170. Pill bottom 40.
+
+The front row tucks into the back row's gaps, like a team photo. The keeper stays on the end of the
+back row at every size so his place in the graphic never moves. Note 9-a-side's band is SHORTER
+than 7-a-side's — nine small shirts stack tighter than seven larger ones. Squad size does not
+simply push the sheet down.
+
+Two hard constraints, both of which broke during design:
+  - the back row's outer shirts must clear the close control by at least 16px vertically
+  - the lowest name must clear the bench pill by ~15px, and the pill must clear the sheet edge by
+    at least 10px
+
+=== SHEET CONTENT ===
+
+One column, top-anchored, with the footer pinned by margin-top auto:
+
+  heading      Baloo 2 800 38px #1C3A2E, line-height 1.02, letter-spacing -.4px
+  body         700 16.5px #3E5148, line-height 1.45, text-wrap pretty, 12px below the heading
+  buttons      14px below the body, 12px apart
+  tick panel   20px below the buttons: background #F1E9D2, radius 20px, padding 14px 16px,
+               10px gap, a 24px #2E7D53 disc with a cream ✓, then the panel copy
+               at 700 14.5px #3E5148
+  footer       margin-top auto, padding-bottom 14px, centred, 14px gap:
+               "Bench Buddy Sports" at 700 13.5px #6B7C72, then the 134x5px #DCD2B6 home indicator
+
+Those three gaps — 34 / 14 / 20 — are the same at every squad size. A taller band leaves a shorter
+sheet, and that slack comes out of the gap above the pinned footer (81px at 5-a-side, 43px at 7).
+Do not equalise the footer gap by changing the three gaps per squad size.
+
+=== BUTTONS ===
+
+All three are full width, box-sizing border-box, padding 0 22px, 15px gap, contents left-aligned:
+  Google  height 62px, radius 22px, background #F5B93B, box-shadow 0 5px 0 #C9902A
+  Apple   height 60px, radius 22px, background #F1E9D2
+  Email   height 60px, radius 22px, background #F1E9D2
+  each    a 34px #FFF6E5 chip at radius 12px holding the mark, then the label in
+          Baloo 2 800 20px #1C3A2E
+
+Because the padding and chip size are shared, all three marks start on the same vertical line and
+all three labels start on a second one. Keep it that way.
+
+Use Google's and Apple's OWN sign-in assets for the marks — neither may be recoloured, redrawn or
+resized off their published ratios. The envelope for Email is ours: 18px, stroke #3E5148 at 2.1px,
+round caps and joins. Google is the primary because it is the one most coaches will use; Apple and
+Email are the same width in tan so the hierarchy is colour, not size. No small-print links.
+
+=== BEHAVIOUR ===
+
+Signing in must not lose anything. The rotation, the players and any match already in progress are
+in local state before this screen opens; on success they attach to the new account and the coach
+returns exactly where they were. On dismiss they also return exactly where they were, still signed
+out, with Save Team still available.
+
+The bench pill names real bench players. With more than two, write "<A>, <B> and 2 others on the
+bench" rather than growing the pill.
+```
