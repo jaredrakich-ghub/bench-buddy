@@ -74,6 +74,7 @@ export const tokens = {
     groupLabel: "#3E5148", // group-header label color on the shared sub-header screens (A8, and A6/A7/A5-Minutes when built)
     benchText: "#8C8677", // A5-Minutes' BENCH column, also A7's "not here" text
     unavailableText: "#A39C8A", // A7-Squad-change's "not here" status line
+    placeholderText: "#A8B3AC", // block 16's email field placeholder, and block 6's before it
     // Block 11 (the two-sheet final-60 rebuild) — the only two genuinely
     // new colours it introduces; everything else it uses (creamPaper,
     // creamDeep, yellow/yellowShadow, pitchGreen, deepGreen, alertRed,
@@ -931,19 +932,6 @@ export const styles = {
     flex: 1.05, height: 60, borderRadius: 22, border: "none", background: tokens.color.creamDeep,
     color: tokens.color.actionBar, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 20, cursor: "pointer",
   },
-  // SaveTeamSheet's own Google button — same colours/shape as mdSignInBtn
-  // (the full-page sign-in screen's own hero button) but sized down to
-  // this sheet's own button scale (mdCautionSheetBtnPrimary, above) rather
-  // than that button's 70px/25px, which would read as oversized next to
-  // everything else in a compact sheet instead of a full-page first
-  // impression.
-  mdSaveTeamGoogleBtn: {
-    display: "flex", alignItems: "center", justifyContent: "center", gap: 10, width: "100%", height: 60,
-    borderRadius: 22, border: "none", background: tokens.color.pitchGreen, color: tokens.color.creamPaper,
-    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 20,
-    boxShadow: tokens.shadow.solid(4, tokens.color.greenShadow), cursor: "pointer",
-  },
-
   // Persistent inline note (not the fixed action sheet below) — shown
   // while browsing a past interval, which stays true the whole time a
   // coach is reviewing it, not just for a moment after a tap.
@@ -2043,5 +2031,118 @@ export const styles = {
   },
   mdSignInVersion: {
     fontFamily: tokens.font.body, fontWeight: 700, fontSize: 12, color: tokens.color.unavailableText, marginTop: 28,
+  },
+
+  // ---- Block 16 — Save your team (SaveTeamSheet.jsx, full-screen). Not
+  // the first-run gate (that's progressive auth's own anonymous bootstrap,
+  // AuthGate.jsx) — reached only from Team & account's "Save your team"
+  // row, so it has to sit above that screen's own mdFullScreenTakeoverOuter
+  // (zIndex 50), hence 60 here rather than reusing that value. No new
+  // colours anywhere in this block — every value below is an existing
+  // token, per the brief.
+  mdSaveTeamScreen: {
+    position: "fixed", inset: 0, zIndex: 60, display: "flex", flexDirection: "column", overflowY: "auto",
+  },
+  // Square corners, runs to the frame edges — deliberately NOT rounded at
+  // the bottom (the sheet below rounds up and over it instead). flexShrink
+  // 0 so the band never gets squeezed by the sheet's own flex:1 below it.
+  mdSaveTeamBand: {
+    position: "relative", flexShrink: 0, background: tokens.color.pitchGreen, overflow: "hidden",
+  },
+  mdSaveTeamStripes: {
+    position: "absolute", inset: 0,
+    backgroundImage: "repeating-linear-gradient(180deg, rgba(255,246,229,.055) 0 34px, transparent 34px 68px)",
+  },
+  mdSaveTeamCircle: {
+    position: "absolute", left: "50%", bottom: -176, transform: "translateX(-50%)",
+    width: 300, height: 300, borderRadius: "50%", border: "3px solid rgba(255,246,229,.4)",
+  },
+  // Deliberately not a cream disc — on a band of cream shirts, a cream
+  // circle reads as another player rather than a way out.
+  mdSaveTeamClose: {
+    position: "absolute", top: 44, right: 24, width: 40, height: 40, borderRadius: 14,
+    background: "rgba(20,44,32,.34)", border: "2px solid rgba(255,246,229,.5)",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 21, color: tokens.color.creamPaper,
+    cursor: "pointer",
+  },
+  mdSaveTeamMark: { position: "absolute", display: "flex", flexDirection: "column", alignItems: "center" },
+  mdSaveTeamMarkName: {
+    marginTop: 5, fontFamily: tokens.font.body, fontWeight: 800, fontSize: 13, color: "#fff", whiteSpace: "nowrap",
+  },
+  mdSaveTeamBenchPill: {
+    position: "absolute", left: "50%", transform: "translateX(-50%)",
+    display: "flex", alignItems: "center", gap: 8,
+    background: "rgba(255,246,229,.18)", borderRadius: 999, padding: "5px 14px",
+    fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13, color: tokens.color.creamPaper, whiteSpace: "nowrap",
+  },
+  mdSaveTeamBenchDisc: {
+    width: 17, height: 17, borderRadius: "50%", flexShrink: 0, background: tokens.color.creamPaper,
+    color: tokens.color.pitchGreen, display: "flex", alignItems: "center", justifyContent: "center",
+    fontSize: 12, fontWeight: 800, lineHeight: 1,
+  },
+  // marginTop -30 is what makes the sheet curve up and over the band's own
+  // square bottom edge, per the spec's own "two parts" framing above.
+  mdSaveTeamSheet: {
+    position: "relative", zIndex: 4, flex: 1, marginTop: -30,
+    background: tokens.color.creamPaper, backgroundImage: paperTexture, borderRadius: "30px 30px 0 0",
+    padding: "34px 26px 0", display: "flex", flexDirection: "column",
+  },
+  mdSaveTeamHeading: {
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 38, color: tokens.color.deepGreen,
+    lineHeight: 1.02, letterSpacing: "-0.4px",
+  },
+  mdSaveTeamBody: {
+    marginTop: 12, fontFamily: tokens.font.body, fontWeight: 700, fontSize: 16.5, color: tokens.color.groupLabel,
+    lineHeight: 1.45, textWrap: "pretty",
+  },
+  mdSaveTeamButtonList: { marginTop: 14, display: "flex", flexDirection: "column", gap: 12 },
+  // Shared shape for all three provider buttons — padding/gap/chip size are
+  // shared on purpose (per the brief: "all three marks start on the same
+  // vertical line") — colour/height/shadow are the only things that vary
+  // per provider, applied at the call site.
+  mdSaveTeamProviderBtn: {
+    display: "flex", alignItems: "center", width: "100%", boxSizing: "border-box", padding: "0 22px", gap: 15,
+    border: "none", cursor: "pointer", font: "inherit", textAlign: "left",
+  },
+  mdSaveTeamGoogleBtn: {
+    height: 62, borderRadius: 22, background: tokens.color.yellow, boxShadow: tokens.shadow.solid(5, tokens.color.yellowShadow),
+  },
+  mdSaveTeamEmailBtn: { height: 60, borderRadius: 22, background: tokens.color.creamDeep },
+  mdSaveTeamProviderChip: {
+    width: 34, height: 34, borderRadius: 12, flexShrink: 0, background: tokens.color.creamPaper,
+    display: "flex", alignItems: "center", justifyContent: "center",
+  },
+  mdSaveTeamProviderLabel: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 20, color: tokens.color.deepGreen },
+  mdSaveTeamTickPanel: {
+    marginTop: 20, display: "flex", alignItems: "center", gap: 10,
+    background: tokens.color.creamDeep, borderRadius: 20, padding: "14px 16px",
+  },
+  mdSaveTeamTickDisc: {
+    width: 24, height: 24, borderRadius: "50%", flexShrink: 0, background: tokens.color.pitchGreen,
+    color: tokens.color.creamPaper, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13,
+  },
+  mdSaveTeamTickText: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 14.5, color: tokens.color.groupLabel },
+  mdSaveTeamFooter: {
+    marginTop: "auto", paddingBottom: 14, display: "flex", flexDirection: "column", alignItems: "center", gap: 14,
+  },
+  mdSaveTeamFooterText: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13.5, color: tokens.color.mutedText },
+  mdSaveTeamHomeIndicator: { width: 134, height: 5, borderRadius: 3, background: tokens.color.rule },
+
+  // The email sub-state (block 6/A9-Signin's own field+button, reused
+  // verbatim, dropped into this shell rather than a separate gate screen —
+  // see SaveTeamSheet.jsx's own comment on why).
+  mdSaveTeamEmailField: {
+    width: "100%", height: 64, borderRadius: 22, background: "#fff", boxShadow: "0 3px 0 rgba(28,58,46,.10)",
+    border: "none", padding: "0 18px", fontFamily: tokens.font.body, fontWeight: 700, fontSize: 17,
+    color: tokens.color.deepGreen, boxSizing: "border-box",
+  },
+  mdSaveTeamSendLinkBtn: {
+    width: "100%", height: 70, borderRadius: 26, border: "none", background: tokens.color.yellow,
+    boxShadow: tokens.shadow.solid(5, tokens.color.yellowShadow), fontFamily: tokens.font.display, fontWeight: 800,
+    fontSize: 25, color: tokens.color.deepGreen, cursor: "pointer",
+  },
+  mdSaveTeamReassurance: {
+    marginTop: 13, fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13.5, color: tokens.color.mutedText, textAlign: "center",
   },
 };

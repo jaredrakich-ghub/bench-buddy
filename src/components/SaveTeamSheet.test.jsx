@@ -7,8 +7,9 @@ import userEvent from "@testing-library/user-event";
 vi.mock("../lib/auth.js", () => ({
   linkGoogleAccount: vi.fn(),
   signInWithExistingCredential: vi.fn(),
+  sendLoginEmailLink: vi.fn(),
 }));
-import { linkGoogleAccount, signInWithExistingCredential } from "../lib/auth.js";
+import { linkGoogleAccount, signInWithExistingCredential, sendLoginEmailLink } from "../lib/auth.js";
 import SaveTeamSheet from "./SaveTeamSheet.jsx";
 
 afterEach(() => {
@@ -16,88 +17,175 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe("SaveTeamSheet", () => {
-  it("shows the explainer and a Google button, closing on success — the real linking already happened, nothing more to do here", async () => {
-    linkGoogleAccount.mockResolvedValue({ ok: true });
-    const onClose = vi.fn();
-    const user = userEvent.setup();
-    render(<SaveTeamSheet onClose={onClose} />);
+const NAMES = { p1: "Jack", p2: "Atu", p3: "Eli", p4: "Rocco", p5: "George", p6: "Hugo", p7: "Otis", p8: "John" };
+const NUMBERS = { p1: 1, p2: 2, p3: 3, p4: 4, p5: 5, p6: 6, p7: 7, p8: 8 };
+const nameOf = (id) => NAMES[id] || id;
+const numberOf = (id) => NUMBERS[id] ?? "?";
 
-    expect(screen.getByText("Save your team")).toBeInTheDocument();
-    await user.click(screen.getByText("Sign in with Google"));
-    expect(linkGoogleAccount).toHaveBeenCalledTimes(1);
-    expect(onClose).toHaveBeenCalledTimes(1);
+// Mirrors the reference screenshot exactly (screens/24-login-5aside.png):
+// 5 on the field (Jack the keeper), 2 on the bench.
+const FIVE_ON_FIELD = [
+  { id: "p1", isGk: true }, { id: "p2", isGk: false }, { id: "p3", isGk: false },
+  { id: "p4", isGk: false }, { id: "p5", isGk: false },
+];
+const TWO_ON_BENCH = ["p6", "p7"];
+
+function baseProps(overrides = {}) {
+  return { onFieldPlayers: FIVE_ON_FIELD, benchIds: TWO_ON_BENCH, nameOf, numberOf, onClose: vi.fn(), ...overrides };
+}
+
+describe("SaveTeamSheet", () => {
+  it("shows every on-field player's shirt and name, and the bench pill for the rest", () => {
+    render(<SaveTeamSheet {...baseProps()} />);
+    ["Jack", "Atu", "Eli", "Rocco", "George"].forEach((name) => expect(screen.getByText(name)).toBeInTheDocument());
+    expect(screen.getByText("Hugo and Otis on the bench")).toBeInTheDocument();
   });
 
-  it("tapping the scrim or dragging away calls onClose without linking anything", async () => {
+  it("names a single bench player without 'and'", () => {
+    render(<SaveTeamSheet {...baseProps({ benchIds: ["p6"] })} />);
+    expect(screen.getByText("Hugo on the bench")).toBeInTheDocument();
+  });
+
+  it("names the first two and counts the rest once there are more than two on the bench", () => {
+    render(<SaveTeamSheet {...baseProps({ benchIds: ["p6", "p7", "p8"] })} />);
+    expect(screen.getByText("Hugo, Otis and 1 others on the bench")).toBeInTheDocument();
+  });
+
+  it("shows no bench pill at all when nobody's on the bench", () => {
+    render(<SaveTeamSheet {...baseProps({ benchIds: [] })} />);
+    expect(screen.queryByText(/on the bench/)).not.toBeInTheDocument();
+  });
+
+  it("shows the exact spec copy and both providers, closing on ✕ without linking anything", async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
-    render(<SaveTeamSheet onClose={onClose} />);
-    await user.click(screen.getByTestId("save-team-sheet").previousSibling); // the scrim
+    render(<SaveTeamSheet {...baseProps({ onClose })} />);
+    expect(screen.getByText("Save your team")).toBeInTheDocument();
+    expect(screen.getByText(/Everything you've already entered will be kept/)).toBeInTheDocument();
+    expect(screen.getByText("Continue with Google")).toBeInTheDocument();
+    expect(screen.getByText("Continue with Email")).toBeInTheDocument();
+    expect(screen.getByText(/linked to your account automatically/)).toBeInTheDocument();
+    expect(screen.queryByText("Continue with Apple")).not.toBeInTheDocument();
+
+    await user.click(screen.getByLabelText("Close"));
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(linkGoogleAccount).not.toHaveBeenCalled();
   });
 
-  it("stays quiet (goes back to resting, no error) if the popup was just closed/cancelled", async () => {
-    linkGoogleAccount.mockRejectedValue({ code: "auth/popup-closed-by-user" });
-    const user = userEvent.setup();
-    render(<SaveTeamSheet onClose={vi.fn()} />);
-    await user.click(screen.getByText("Sign in with Google"));
-    await screen.findByText("Sign in with Google"); // back to resting
-    expect(screen.queryByText(/Couldn't sign in/)).not.toBeInTheDocument();
+  describe("Google", () => {
+    it("links and closes on success", async () => {
+      linkGoogleAccount.mockResolvedValue({ ok: true });
+      const onClose = vi.fn();
+      const user = userEvent.setup();
+      render(<SaveTeamSheet {...baseProps({ onClose })} />);
+      await user.click(screen.getByText("Continue with Google"));
+      expect(linkGoogleAccount).toHaveBeenCalledTimes(1);
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it("stays quiet if the popup was just closed/cancelled", async () => {
+      linkGoogleAccount.mockRejectedValue({ code: "auth/popup-closed-by-user" });
+      const user = userEvent.setup();
+      render(<SaveTeamSheet {...baseProps()} />);
+      await user.click(screen.getByText("Continue with Google"));
+      await screen.findByText("Continue with Google");
+      expect(screen.queryByText(/Couldn't sign in/)).not.toBeInTheDocument();
+    });
+
+    it("shows a friendly error on a real failure", async () => {
+      linkGoogleAccount.mockRejectedValue({ code: "auth/network-request-failed" });
+      const user = userEvent.setup();
+      render(<SaveTeamSheet {...baseProps()} />);
+      await user.click(screen.getByText("Continue with Google"));
+      expect(await screen.findByText(/Couldn't sign in/)).toBeInTheDocument();
+    });
+
+    it("offers the explicit choice on a conflict, and 'Sign in to that account' uses the exact credential", async () => {
+      const conflictCredential = { providerId: "google.com", token: "fake" };
+      linkGoogleAccount.mockResolvedValue({ ok: false, conflictCredential });
+      signInWithExistingCredential.mockResolvedValue(undefined);
+      const onClose = vi.fn();
+      const user = userEvent.setup();
+      render(<SaveTeamSheet {...baseProps({ onClose })} />);
+
+      await user.click(screen.getByText("Continue with Google"));
+      expect(await screen.findByText("Already saved elsewhere")).toBeInTheDocument();
+      expect(screen.getByText(/left behind/)).toBeInTheDocument();
+
+      await user.click(screen.getByText("Sign in to that account"));
+      expect(signInWithExistingCredential).toHaveBeenCalledWith(conflictCredential);
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it("Cancel on the conflict screen backs out without switching accounts", async () => {
+      linkGoogleAccount.mockResolvedValue({ ok: false, conflictCredential: {} });
+      const onClose = vi.fn();
+      const user = userEvent.setup();
+      render(<SaveTeamSheet {...baseProps({ onClose })} />);
+      await user.click(screen.getByText("Continue with Google"));
+      await screen.findByText("Already saved elsewhere");
+      await user.click(screen.getByText("Cancel"));
+      expect(signInWithExistingCredential).not.toHaveBeenCalled();
+      expect(onClose).not.toHaveBeenCalled();
+      expect(screen.getByText("Continue with Google")).toBeInTheDocument(); // back to resting
+    });
   });
 
-  it("shows a friendly error on a real failure, and the button works again after", async () => {
-    linkGoogleAccount.mockRejectedValue({ code: "auth/network-request-failed" });
-    const user = userEvent.setup();
-    render(<SaveTeamSheet onClose={vi.fn()} />);
-    await user.click(screen.getByText("Sign in with Google"));
-    expect(await screen.findByText(/Couldn't sign in/)).toBeInTheDocument();
-    expect(screen.getByText("Sign in with Google")).toBeInTheDocument();
+  describe("Email", () => {
+    it("Continue with Email swaps in block 6's own field/button/reassurance copy, in the same shell", async () => {
+      const user = userEvent.setup();
+      render(<SaveTeamSheet {...baseProps()} />);
+      await user.click(screen.getByText("Continue with Email"));
+      expect(screen.getByPlaceholderText("you@email.com")).toBeInTheDocument();
+      expect(screen.getByText("Send me a link")).toBeInTheDocument();
+      expect(screen.getByText(/No password\. We email you a link/)).toBeInTheDocument();
+      // Still the same shell — the shirts don't disappear underneath it.
+      expect(screen.getByText("Jack")).toBeInTheDocument();
+    });
+
+    it("sends the link and shows a confirmation naming the address", async () => {
+      sendLoginEmailLink.mockResolvedValue(undefined);
+      const user = userEvent.setup();
+      render(<SaveTeamSheet {...baseProps()} />);
+      await user.click(screen.getByText("Continue with Email"));
+      await user.type(screen.getByPlaceholderText("you@email.com"), "coach@example.com");
+      await user.click(screen.getByText("Send me a link"));
+
+      expect(sendLoginEmailLink).toHaveBeenCalledWith("coach@example.com");
+      expect(await screen.findByText("Check your email")).toBeInTheDocument();
+      expect(screen.getByText(/coach@example.com/)).toBeInTheDocument();
+    });
+
+    it("shows a friendly error if sending fails, without losing what was typed", async () => {
+      sendLoginEmailLink.mockRejectedValue(new Error("network"));
+      const user = userEvent.setup();
+      render(<SaveTeamSheet {...baseProps()} />);
+      await user.click(screen.getByText("Continue with Email"));
+      await user.type(screen.getByPlaceholderText("you@email.com"), "coach@example.com");
+      await user.click(screen.getByText("Send me a link"));
+
+      expect(await screen.findByText(/Couldn't send that link/)).toBeInTheDocument();
+      expect(screen.getByDisplayValue("coach@example.com")).toBeInTheDocument();
+    });
   });
 
-  // The core "don't lose data" scenario: this Google account already has a
-  // different Bench Buddy account. Explains the trade-off plainly and asks,
-  // rather than silently doing either thing.
-  it("offers the explicit choice when the Google account already belongs to a different account", async () => {
-    const conflictCredential = { providerId: "google.com", token: "fake" };
-    linkGoogleAccount.mockResolvedValue({ ok: false, conflictCredential });
-    const user = userEvent.setup();
-    render(<SaveTeamSheet onClose={vi.fn()} />);
+  // The 7- and 9-a-side worked examples (screens/25, screens/26) — proves
+  // the tiering picks the right bucket and every player still renders,
+  // without pinning down exact pixel positions (that's what the reference
+  // screenshots are for, not an automated test).
+  describe("squad-size tiers", () => {
+    it("splits a 7-player field into two rows and still shows everyone", () => {
+      const seven = ["p1", "p2", "p3", "p4", "p5", "p6", "p8"].map((id) => ({ id, isGk: id === "p1" }));
+      render(<SaveTeamSheet {...baseProps({ onFieldPlayers: seven, benchIds: ["p7"] })} />);
+      seven.forEach(({ id }) => expect(screen.getByText(nameOf(id))).toBeInTheDocument());
+      expect(screen.getByText("Otis on the bench")).toBeInTheDocument();
+    });
 
-    await user.click(screen.getByText("Sign in with Google"));
-    expect(await screen.findByText("Already saved elsewhere")).toBeInTheDocument();
-    expect(screen.getByText(/already has a Bench Buddy team saved/)).toBeInTheDocument();
-    expect(screen.getByText(/left behind/)).toBeInTheDocument();
-  });
-
-  it("'Sign in to that account' completes the switch with the exact credential from the conflict, without a second popup", async () => {
-    const conflictCredential = { providerId: "google.com", token: "fake" };
-    linkGoogleAccount.mockResolvedValue({ ok: false, conflictCredential });
-    signInWithExistingCredential.mockResolvedValue(undefined);
-    const onClose = vi.fn();
-    const user = userEvent.setup();
-    render(<SaveTeamSheet onClose={onClose} />);
-
-    await user.click(screen.getByText("Sign in with Google"));
-    await screen.findByText("Already saved elsewhere");
-    await user.click(screen.getByText("Sign in to that account"));
-
-    expect(signInWithExistingCredential).toHaveBeenCalledWith(conflictCredential);
-    expect(onClose).toHaveBeenCalledTimes(1);
-  });
-
-  it("Cancel on the conflict screen backs out without switching accounts", async () => {
-    linkGoogleAccount.mockResolvedValue({ ok: false, conflictCredential: {} });
-    const onClose = vi.fn();
-    const user = userEvent.setup();
-    render(<SaveTeamSheet onClose={onClose} />);
-
-    await user.click(screen.getByText("Sign in with Google"));
-    await screen.findByText("Already saved elsewhere");
-    await user.click(screen.getByText("Cancel"));
-
-    expect(signInWithExistingCredential).not.toHaveBeenCalled();
-    expect(onClose).toHaveBeenCalledTimes(1);
+    it("handles a 9-player field (the largest named tier) without erroring", () => {
+      const nine = Array.from({ length: 9 }, (_, i) => ({ id: `p${i + 1}`, isGk: i === 0 }));
+      render(<SaveTeamSheet {...baseProps({ onFieldPlayers: nine, benchIds: [] })} />);
+      expect(screen.getByText(nameOf("p1"))).toBeInTheDocument();
+      expect(screen.getByText("p9")).toBeInTheDocument(); // nameOf's own fallback for an id with no roster entry
+    });
   });
 });

@@ -32,6 +32,7 @@ import SaveTeamSheet from "./SaveTeamSheet.jsx";
 export default function TeamAccountScreen({
   teams, activeTeamId, onSwitch, onAdd, onRename, onDelete, onClose,
   userEmail, isAnonymous, onSignOut, onDeleteAccount, onShowManageSquad, crestSrc,
+  onFieldPlayers, benchIds, nameOf, numberOf,
 }) {
   // Progressive auth: an anonymous session's Account group offers "Save
   // your team" instead of Signed in/Sign out — see SaveTeamSheet.jsx for
@@ -321,7 +322,15 @@ export default function TeamAccountScreen({
         Bench Buddy <span style={styles.mdPopoverFooterVersion}>v0.1.0</span>
       </div>
 
-      {showSaveTeam && <SaveTeamSheet onClose={() => setShowSaveTeam(false)} />}
+      {showSaveTeam && (
+        <SaveTeamSheet
+          onFieldPlayers={onFieldPlayers}
+          benchIds={benchIds}
+          nameOf={nameOf}
+          numberOf={numberOf}
+          onClose={() => setShowSaveTeam(false)}
+        />
+      )}
     </section>
   );
 }

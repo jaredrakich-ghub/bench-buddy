@@ -3,20 +3,33 @@
 // Progressive auth's entry point. The behaviour under test is entirely
 // about *when* signInAnon gets called and what shows meanwhile/on
 // failure — not Firebase itself, which is mocked throughout.
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import "@testing-library/jest-dom/vitest";
 import { render, screen, cleanup, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 vi.mock("../lib/auth.js", () => ({
   onAuthChange: vi.fn(),
   signInAnon: vi.fn(),
+  completeEmailLinkSignInIfPresent: vi.fn(),
+  completeEmailLinkSignInWithEmail: vi.fn(),
+  signInWithExistingCredential: vi.fn(),
 }));
-import { onAuthChange, signInAnon } from "../lib/auth.js";
+import {
+  onAuthChange, signInAnon, completeEmailLinkSignInIfPresent, completeEmailLinkSignInWithEmail, signInWithExistingCredential,
+} from "../lib/auth.js";
 import AuthGate from "./AuthGate.jsx";
 
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+});
+
+beforeEach(() => {
+  // The overwhelmingly common case for every test below: this page load
+  // isn't a return visit via an emailed magic link at all. Tests covering
+  // that flow specifically override this per-test.
+  completeEmailLinkSignInIfPresent.mockResolvedValue(null);
 });
 
 // onAuthChange's real shape: calls back immediately with the current state,
@@ -41,10 +54,14 @@ describe("AuthGate", () => {
     expect(screen.getByText("Loading…")).toBeInTheDocument();
   });
 
-  it("renders children(user) once a real session is reported — never calls signInAnon", () => {
+  it("renders children(user) once a real session is reported — never calls signInAnon", async () => {
     mockAuthChange({ uid: "u1", isAnonymous: false, email: "coach@example.com" });
     render(<AuthGate>{(user) => <div>Signed in as {user.email}</div>}</AuthGate>);
-    expect(screen.getByText("Signed in as coach@example.com")).toBeInTheDocument();
+    // The email-link check (completeEmailLinkSignInIfPresent) resolves on
+    // its own microtask even for an ordinary load with no link at all — a
+    // real, if tiny, extra tick every load goes through, so this waits for
+    // it rather than asserting synchronously.
+    expect(await screen.findByText("Signed in as coach@example.com")).toBeInTheDocument();
     expect(signInAnon).not.toHaveBeenCalled();
   });
 
@@ -72,5 +89,66 @@ describe("AuthGate", () => {
 
     expect(await screen.findByText("Sign in with Google")).toBeInTheDocument();
     expect(screen.getByText(/Couldn't start a guest session/)).toBeInTheDocument();
+  });
+
+  // The other progressive-auth entry point: a coach returning via the
+  // magic link SaveTeamSheet's "Continue with Email" sent them, rather
+  // than the anonymous-bootstrap path every test above covers.
+  describe("returning via an emailed sign-in link", () => {
+    it("does nothing extra on an ordinary load that isn't a link at all", async () => {
+      completeEmailLinkSignInIfPresent.mockResolvedValue(null);
+      mockAuthChange({ uid: "u1", isAnonymous: false });
+      render(<AuthGate>{() => <div>App content</div>}</AuthGate>);
+      expect(await screen.findByText("App content")).toBeInTheDocument();
+    });
+
+    it("prompts for the email again when opened on a different device/browser than the one that sent it", async () => {
+      completeEmailLinkSignInIfPresent.mockResolvedValue({ needsEmail: true });
+      completeEmailLinkSignInWithEmail.mockResolvedValue({ ok: true });
+      mockAuthChange({ uid: "guest-1", isAnonymous: true });
+      const user = userEvent.setup();
+      render(<AuthGate>{() => <div>App content</div>}</AuthGate>);
+
+      expect(await screen.findByText("Confirm your email")).toBeInTheDocument();
+      await user.type(screen.getByPlaceholderText("you@email.com"), "coach@example.com");
+      await user.click(screen.getByText("Continue"));
+
+      expect(completeEmailLinkSignInWithEmail).toHaveBeenCalledWith("coach@example.com");
+      expect(await screen.findByText("App content")).toBeInTheDocument();
+    });
+
+    it("offers the explicit choice when the link's email already belongs to a different account", async () => {
+      completeEmailLinkSignInIfPresent.mockResolvedValue({ ok: false, conflictCredential: { fake: true } });
+      mockAuthChange({ uid: "guest-1", isAnonymous: true });
+      render(<AuthGate>{() => <div>App content</div>}</AuthGate>);
+
+      expect(await screen.findByText("Already saved elsewhere")).toBeInTheDocument();
+      expect(screen.getByText(/left behind/)).toBeInTheDocument();
+    });
+
+    it("'Sign in to that account' completes the switch with the link's own credential", async () => {
+      completeEmailLinkSignInIfPresent.mockResolvedValue({ ok: false, conflictCredential: { fake: true } });
+      signInWithExistingCredential.mockResolvedValue(undefined);
+      mockAuthChange({ uid: "guest-1", isAnonymous: true });
+      const user = userEvent.setup();
+      render(<AuthGate>{() => <div>App content</div>}</AuthGate>);
+
+      await screen.findByText("Already saved elsewhere");
+      await user.click(screen.getByText("Sign in to that account"));
+
+      expect(signInWithExistingCredential).toHaveBeenCalledWith({ fake: true });
+      expect(await screen.findByText("App content")).toBeInTheDocument();
+    });
+
+    it("a real failure (expired/used link) explains itself and lets the coach continue with whatever session they've already got", async () => {
+      completeEmailLinkSignInIfPresent.mockRejectedValue({ code: "auth/invalid-action-code" });
+      mockAuthChange({ uid: "guest-1", isAnonymous: true });
+      const user = userEvent.setup();
+      render(<AuthGate>{() => <div>App content</div>}</AuthGate>);
+
+      expect(await screen.findByText("That link didn't work")).toBeInTheDocument();
+      await user.click(screen.getByText("Continue"));
+      expect(await screen.findByText("App content")).toBeInTheDocument();
+    });
   });
 });

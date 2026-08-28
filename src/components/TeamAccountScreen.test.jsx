@@ -11,6 +11,7 @@ import userEvent from "@testing-library/user-event";
 vi.mock("../lib/auth.js", () => ({
   linkGoogleAccount: vi.fn(),
   signInWithExistingCredential: vi.fn(),
+  sendLoginEmailLink: vi.fn(),
 }));
 import TeamAccountScreen from "./TeamAccountScreen.jsx";
 
@@ -36,6 +37,13 @@ function baseProps(overrides = {}) {
     onDeleteAccount: vi.fn(),
     onShowManageSquad: vi.fn(),
     crestSrc: undefined,
+    // SaveTeamSheet's own "team photo" data — a minimal one-player squad
+    // is enough here, since this file only checks that the sheet opens at
+    // all; SaveTeamSheet.test.jsx covers what it renders in real detail.
+    onFieldPlayers: [{ id: "p1", isGk: true }],
+    benchIds: [],
+    nameOf: (id) => (id === "p1" ? "Jack" : id),
+    numberOf: () => 1,
     ...overrides,
   };
 }
@@ -59,9 +67,9 @@ describe("TeamAccountScreen — Account group (progressive auth)", () => {
   it("tapping 'Save your team' opens the linking sheet", async () => {
     const user = userEvent.setup();
     render(<TeamAccountScreen {...baseProps({ isAnonymous: true })} />);
-    expect(screen.queryByTestId("save-team-sheet")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("save-team-screen")).not.toBeInTheDocument();
     await user.click(screen.getByText("Save your team"));
-    expect(screen.getByTestId("save-team-sheet")).toBeInTheDocument();
+    expect(screen.getByTestId("save-team-screen")).toBeInTheDocument();
   });
 
   it("'Delete my account' still works the same regardless of isAnonymous", () => {

@@ -396,6 +396,18 @@ export default function SubRotationPlanner({ user }) {
 
   const isMatchComplete = Boolean(plan) && elapsedSec >= plan[plan.length - 1].endMin * 60;
 
+  // SaveTeamSheet's own "team photo" — the coach's current on-field/bench
+  // split, same interval MatchView itself is showing live (intervalAtElapsed,
+  // same helper it uses). Falls back to the plain roster, all as one
+  // untiered group with nobody on the bench, for a team that's never built
+  // a rotation yet — Save your team is reachable before kickoff too, and
+  // there's no on-field/bench distinction to show until there's a plan.
+  const currentInterval = plan ? plan[Math.min(intervalAtElapsed(plan, elapsedSec), plan.length - 1)] : null;
+  const saveTeamOnFieldPlayers = currentInterval
+    ? currentInterval.onField
+    : teamData.roster.map((p) => ({ id: p.id, isGk: false }));
+  const saveTeamBenchIds = currentInterval ? currentInterval.bench : [];
+
   // Shared props for SquadSettingsForm — used both for first-time setup
   // (inline) and later edits (modal), so this is built once and reused
   // rather than duplicated at each call site.
@@ -560,6 +572,10 @@ export default function SubRotationPlanner({ user }) {
               onDeleteAccount={deleteMyAccount}
               onShowManageSquad={() => setShowManageSquad(true)}
               crestSrc={headerMascot}
+              onFieldPlayers={saveTeamOnFieldPlayers}
+              benchIds={saveTeamBenchIds}
+              nameOf={nameOf}
+              numberOf={numberOf}
             />
           </div>
         </div>
