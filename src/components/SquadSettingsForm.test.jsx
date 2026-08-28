@@ -82,11 +82,21 @@ describe("SquadSettingsForm — rendering (inline / A3 layout)", () => {
   // its crest once the header unified onto the back-chevron shell —
   // crestSrc alone (no teamName — nothing to name yet on this screen) is
   // enough to show it now, decoupled from teamName's own presence.
-  it("shows the crest on its own when crestSrc is given but teamName isn't", () => {
+  // Real-device feedback, round 2: the first restoration used the small
+  // 22px inline-crest treatment (mdSubHeaderTeamCrest, still used below
+  // for a team-name row) — asked for the original 62px size and
+  // left-of-title position back specifically. Reuses mdCrestOuter/
+  // mdCrestImg directly (the exact style MatchView's own header still
+  // uses), not a new near-identical size.
+  it("shows the crest at its original 62px size, not the smaller inline-team-row treatment", () => {
     const { container } = render(<SquadSettingsForm {...baseProps({ title: "Set up new team", crestSrc: "mascot.jpg" })} />);
     // Decorative image (alt="") — not exposed via role="img", so queried
     // directly rather than through an accessibility-tree lookup.
-    expect(container.querySelector('img[src="mascot.jpg"]')).toBeInTheDocument();
+    const img = container.querySelector('img[src="mascot.jpg"]');
+    expect(img).toBeInTheDocument();
+    const outer = img.parentElement;
+    expect(outer.style.width).toBe("62px");
+    expect(outer.style.height).toBe("62px");
   });
 
   it("shows the same header shell with a working back control for an additional team (onClose provided)", async () => {

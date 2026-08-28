@@ -1021,24 +1021,41 @@ export default function SquadSettingsForm({
           ‹
         </button>
       )}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        {/* Real-device feedback: "Set up new team" looked "very plain"
-            without its crest once the header unified onto this shell —
-            crestSrc and teamName are independent now (either alone is
-            enough to render this row), not gated together behind
-            teamName. "Set up new team" passes crestSrc with no teamName
-            (nothing to name yet) and gets just the crest; "Set up next
-            game" deliberately passes neither (a real, separate decision
-            — "no crest logo" for that screen specifically) and still
-            shows nothing here at all. */}
-        {(teamName || crestSrc) && (
-          <div style={styles.mdSubHeaderTeamRow}>
-            {crestSrc && <img src={crestSrc} alt="" style={styles.mdSubHeaderTeamCrest} />}
-            {teamName && <span style={styles.mdSubHeaderTeamName}>{teamName}</span>}
+      {/* Real-device feedback: "Set up new team" looked "very plain"
+          without its crest once the header unified onto this shell, and
+          the small 22px version (mdSubHeaderTeamCrest, still used below
+          for a team-name row) read as too small — asked for the size and
+          left-of-title positioning the original crest+"TEAM"-label header
+          used to have. Reusing mdCrestOuter/mdCrestImg directly (the
+          exact same style MatchView's own header still uses) rather than
+          a new near-identical size. Scoped to crestSrc-without-teamName
+          specifically — "Set up new team" passes crestSrc with no
+          teamName (nothing to name yet); "Set up next game" deliberately
+          passes neither (a real, separate "no crest logo" decision for
+          that screen) and is unaffected either way. If a crest is ever
+          wanted on "Set up next game" too, that's crestSrc+teamName
+          together, which still gets the smaller inline treatment below —
+          a real design call to make then, not implied by this one. */}
+      {crestSrc && !teamName ? (
+        <>
+          <div style={styles.mdCrestOuter}>
+            <img src={crestSrc} alt="" style={styles.mdCrestImg} />
           </div>
-        )}
-        <div style={styles.mdSubHeaderTitle}>{title}</div>
-      </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={styles.mdSubHeaderTitle}>{title}</div>
+          </div>
+        </>
+      ) : (
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {teamName && (
+            <div style={styles.mdSubHeaderTeamRow}>
+              {crestSrc && <img src={crestSrc} alt="" style={styles.mdSubHeaderTeamCrest} />}
+              <span style={styles.mdSubHeaderTeamName}>{teamName}</span>
+            </div>
+          )}
+          <div style={styles.mdSubHeaderTitle}>{title}</div>
+        </div>
+      )}
     </div>
   );
 
