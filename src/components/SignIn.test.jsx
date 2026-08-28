@@ -7,8 +7,9 @@ import userEvent from "@testing-library/user-event";
 vi.mock("../lib/auth.js", () => ({
   signInWithGoogle: vi.fn(),
   sendLoginEmailLink: vi.fn(),
+  signInAnon: vi.fn(),
 }));
-import { signInWithGoogle, sendLoginEmailLink } from "../lib/auth.js";
+import { signInWithGoogle, sendLoginEmailLink, signInAnon } from "../lib/auth.js";
 import SignIn from "./SignIn.jsx";
 
 afterEach(() => {
@@ -27,6 +28,9 @@ describe("SignIn", () => {
     // directly, it needed to be a genuinely complete sign-in page.
     expect(screen.getByText("Sign in with Email")).toBeInTheDocument();
     expect(screen.queryByText("Sign in with Apple")).not.toBeInTheDocument();
+    // Guest is opt-in (showGuestOption) — not shown by default, i.e. not
+    // on the anon-bootstrap-failed path (AuthGate never passes it there).
+    expect(screen.queryByText("Continue as Guest")).not.toBeInTheDocument();
   });
 
   describe("Google", () => {
@@ -108,6 +112,43 @@ describe("SignIn", () => {
       await user.click(screen.getByText("‹ Back"));
       expect(screen.getByText("Sign in with Google")).toBeInTheDocument();
       expect(screen.queryByPlaceholderText("you@email.com")).not.toBeInTheDocument();
+    });
+  });
+
+  // Real-use feedback: sign out should offer a real backup option too, not
+  // just "sign back in for real" — a deliberate re-trigger of the exact
+  // same signInAnon mechanism the first-ever-visit path already uses
+  // silently. Only ever shown when AuthGate passes showGuestOption (the
+  // sign-out path specifically — see its own comment on why not the
+  // anon-bootstrap-failed path).
+  describe("Guest (showGuestOption)", () => {
+    it("is hidden unless explicitly enabled", () => {
+      render(<SignIn />);
+      expect(screen.queryByText("Continue as Guest")).not.toBeInTheDocument();
+    });
+
+    it("calls signInAnon when tapped, showing a busy state meanwhile", async () => {
+      let resolveAnon;
+      signInAnon.mockReturnValue(new Promise((res) => { resolveAnon = res; }));
+      const user = userEvent.setup();
+      render(<SignIn showGuestOption />);
+
+      await user.click(screen.getByText("Continue as Guest"));
+      expect(signInAnon).toHaveBeenCalledTimes(1);
+      expect(screen.getByText("Continuing…")).toBeInTheDocument();
+      // Every provider button disables while any one of them is busy.
+      expect(screen.getByText("Sign in with Google").closest("button")).toBeDisabled();
+
+      resolveAnon();
+      await screen.findByText("Continue as Guest"); // back to resting once it resolves
+    });
+
+    it("shows a friendly error on failure", async () => {
+      signInAnon.mockRejectedValue(new Error("network"));
+      const user = userEvent.setup();
+      render(<SignIn showGuestOption />);
+      await user.click(screen.getByText("Continue as Guest"));
+      expect(await screen.findByText(/Couldn't continue as a guest/)).toBeInTheDocument();
     });
   });
 

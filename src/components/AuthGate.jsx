@@ -210,9 +210,12 @@ export default function AuthGate({ children }) {
       return <SignIn initialError="Couldn't start a guest session — sign in with Google to continue." />;
     }
     // No initialError here — this isn't a failure, it's the deliberate
-    // straight-to-sign-in path right after tapping Sign out.
+    // straight-to-sign-in path right after tapping Sign out. showGuestOption
+    // only ever applies here, not the anonFailed case above — offering
+    // "continue as guest" right where that just failed would be circular,
+    // not a real backup option.
     if (skippedAnonAfterSignOut) {
-      return <SignIn />;
+      return <SignIn showGuestOption />;
     }
     return <LoadingScreen message="Loading…" />;
   }

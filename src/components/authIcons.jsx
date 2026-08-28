@@ -30,3 +30,16 @@ export function EnvelopeIcon() {
     </svg>
   );
 }
+
+// A plain person mark for "Continue as Guest" (SignIn.jsx only — this
+// option only ever shows on the sign-out-recovery screen, never
+// SaveTeamSheet, which is reached specifically to stop being a guest).
+// Same stroke convention as EnvelopeIcon above, nothing new invented.
+export function GuestIcon() {
+  return (
+    <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={tokens.color.groupLabel} strokeWidth={2.1} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 20c0-4.4 3.6-8 8-8s8 3.6 8 8" />
+    </svg>
+  );
+}

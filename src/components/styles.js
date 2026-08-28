@@ -2183,6 +2183,10 @@ export const styles = {
     height: 62, borderRadius: 22, background: tokens.color.yellow, boxShadow: tokens.shadow.solid(5, tokens.color.yellowShadow),
   },
   mdSaveTeamEmailBtn: { height: 60, borderRadius: 22, background: tokens.color.creamDeep },
+  // SignIn.jsx only — "Continue as Guest" on the sign-out-recovery screen,
+  // never SaveTeamSheet. Plain bordered white, deliberately the lightest-
+  // weight of the three: this is the backup option, not a first choice.
+  mdSaveTeamGuestBtn: { height: 58, borderRadius: 22, background: "#fff", border: `1px solid ${tokens.color.rule}` },
   mdSaveTeamProviderChip: {
     width: 34, height: 34, borderRadius: 12, flexShrink: 0, background: tokens.color.creamPaper,
     display: "flex", alignItems: "center", justifyContent: "center",

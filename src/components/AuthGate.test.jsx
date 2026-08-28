@@ -104,6 +104,17 @@ describe("AuthGate", () => {
     expect(signInAnon).not.toHaveBeenCalled();
     // Not a failure — no error banner, unlike the anon-bootstrap-failed case.
     expect(screen.queryByText(/Couldn't start a guest session/)).not.toBeInTheDocument();
+    // Real-use feedback: a real backup option belongs here too, not just
+    // "sign back in for real" — see SignIn.jsx's own showGuestOption.
+    expect(screen.getByText("Continue as Guest")).toBeInTheDocument();
+  });
+
+  it("does NOT offer Continue as Guest on the anon-bootstrap-failed path — that's what just failed", async () => {
+    signInAnon.mockRejectedValue({ code: "auth/operation-not-allowed" });
+    mockAuthChange(null);
+    render(<AuthGate>{() => <div>App content</div>}</AuthGate>);
+    await screen.findByText(/Couldn't start a guest session/);
+    expect(screen.queryByText("Continue as Guest")).not.toBeInTheDocument();
   });
 
   // Real-use feedback, reproduced twice in a row: signing back in with

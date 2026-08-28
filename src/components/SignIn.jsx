@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { signInWithGoogle, sendLoginEmailLink } from "../lib/auth.js";
+import { signInWithGoogle, sendLoginEmailLink, signInAnon } from "../lib/auth.js";
 import { fontStyle, styles, tokens } from "./styles.js";
-import { GoogleIcon, EnvelopeIcon } from "./authIcons.jsx";
+import { GoogleIcon, EnvelopeIcon, GuestIcon } from "./authIcons.jsx";
 import headerMascot from "../assets/header-mascot.jpg";
 
 // AuthGate's fallback — rendered whenever there's no session to hand the
@@ -18,25 +18,35 @@ import headerMascot from "../assets/header-mascot.jpg";
 // (passwordless magic-link, same mechanism SaveTeamSheet.jsx's own
 // "Continue with Email" already uses) is the second option, reusing that
 // exact field/button/copy rather than a second implementation of the same
-// flow. No Apple, matching the earlier decision on SaveTeamSheet's own
-// provider set.
+// flow. No Apple yet (needs a paid developer account/console setup this
+// session can't do — noted for later, not forgotten).
+//
+// A third option, Guest (showGuestOption below), only ever shows on the
+// sign-out path specifically — explicitly not on a first-ever visit
+// (still fully silent/automatic, per progressive auth) and not on the
+// anon-bootstrap-failed path either (offering "continue as guest" right
+// where that just failed would be circular, not a real backup option).
+// It just re-runs signInAnon directly — same mechanism, now a deliberate
+// choice instead of an automatic one.
 //
 // initialError: set only by AuthGate's own anon-bootstrap-failed path —
 // every other case (the sign-out path, or this screen's very first render
 // before progressive auth existed at all) leaves it omitted.
-export default function SignIn({ initialError = "" }) {
+export default function SignIn({ initialError = "", showGuestOption = false }) {
   // idle (provider picker, whether or not `error` also has something to
-  // show alongside it) | signingIn | email | sendingEmail | emailSent |
-  // emailError — no separate "error" phase: the provider-picker view
-  // covers idle and signingIn either way, and the error banner is driven
-  // by the `error` string alone.
+  // show alongside it) | email | sendingEmail | emailSent | emailError —
+  // no separate "error"/"signingIn" phases: which provider is currently
+  // attempting a sign-in is tracked separately (signingInVia below), since
+  // the idle view covers both resting and any of its own buttons being
+  // busy, and the error banner is driven by the `error` string alone.
   const [phase, setPhase] = useState("idle");
+  const [signingInVia, setSigningInVia] = useState(null); // null | "google" | "guest"
   const [error, setError] = useState(initialError);
   const [email, setEmail] = useState("");
 
   const handleGoogle = async () => {
     setError("");
-    setPhase("signingIn");
+    setSigningInVia("google");
     try {
       await signInWithGoogle();
       // onAuthChange (AuthGate) swaps this whole screen out on success —
@@ -48,7 +58,21 @@ export default function SignIn({ initialError = "" }) {
         setError("Couldn't sign in — check your connection and try again.");
       }
     }
-    setPhase("idle");
+    setSigningInVia(null);
+  };
+
+  const handleGuest = async () => {
+    setError("");
+    setSigningInVia("guest");
+    try {
+      await signInAnon();
+      // onAuthChange (AuthGate) picks up the resulting anonymous user, same
+      // as the automatic first-visit path — this is just a deliberate,
+      // manual trigger of the identical mechanism.
+    } catch {
+      setError("Couldn't continue as a guest — check your connection and try again.");
+    }
+    setSigningInVia(null);
   };
 
   const handleSendEmailLink = async (e) => {
@@ -114,19 +138,35 @@ export default function SignIn({ initialError = "" }) {
             <button
               style={{ ...styles.mdSaveTeamProviderBtn, ...styles.mdSaveTeamGoogleBtn }}
               onClick={handleGoogle}
-              disabled={phase === "signingIn"}
+              disabled={signingInVia !== null}
             >
               <span style={styles.mdSaveTeamProviderChip}>
                 <GoogleIcon />
               </span>
-              <span style={styles.mdSaveTeamProviderLabel}>{phase === "signingIn" ? "Signing in…" : "Sign in with Google"}</span>
+              <span style={styles.mdSaveTeamProviderLabel}>{signingInVia === "google" ? "Signing in…" : "Sign in with Google"}</span>
             </button>
-            <button style={{ ...styles.mdSaveTeamProviderBtn, ...styles.mdSaveTeamEmailBtn }} onClick={() => setPhase("email")}>
+            <button
+              style={{ ...styles.mdSaveTeamProviderBtn, ...styles.mdSaveTeamEmailBtn }}
+              onClick={() => setPhase("email")}
+              disabled={signingInVia !== null}
+            >
               <span style={styles.mdSaveTeamProviderChip}>
                 <EnvelopeIcon />
               </span>
               <span style={styles.mdSaveTeamProviderLabel}>Sign in with Email</span>
             </button>
+            {showGuestOption && (
+              <button
+                style={{ ...styles.mdSaveTeamProviderBtn, ...styles.mdSaveTeamGuestBtn }}
+                onClick={handleGuest}
+                disabled={signingInVia !== null}
+              >
+                <span style={styles.mdSaveTeamProviderChip}>
+                  <GuestIcon />
+                </span>
+                <span style={styles.mdSaveTeamProviderLabel}>{signingInVia === "guest" ? "Continuing…" : "Continue as Guest"}</span>
+              </button>
+            )}
             {error && <div style={styles.mdSignInError}>{error}</div>}
           </>
         )}
