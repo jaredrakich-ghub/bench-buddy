@@ -559,9 +559,11 @@ export const styles = {
   // same pill a coach already recognizes everywhere else, just not
   // tappable here (nothing to toggle mid-build; availability toggling
   // is a return-visit concern, handled by the existing grid instead).
+  // Real-device feedback: too short/cramped at first — vertical padding
+  // bumped 6->11 (horizontal untouched, only the height was flagged).
   mdQuickAddRow: {
     display: "flex", alignItems: "center", gap: 10, background: "#fff", borderRadius: tokens.radius.chip,
-    padding: "6px 6px 6px 16px", boxShadow: "0 3px 0 rgba(28,58,46,.08)", marginBottom: 6,
+    padding: "11px 6px 11px 16px", boxShadow: "0 3px 0 rgba(28,58,46,.08)", marginBottom: 6,
   },
   mdQuickAddNextNum: {
     width: 30, height: 30, borderRadius: "50%", background: tokens.color.pitchGreen, color: "#fff", flexShrink: 0,

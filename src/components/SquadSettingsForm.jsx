@@ -791,7 +791,14 @@ export default function SquadSettingsForm({
           />
           {hasText && <span style={styles.mdQuickAddEnterHint}>&#x21B5; Enter</span>}
         </div>
-        <div style={styles.mdQuickAddHint}>Tip: paste a whole list, one name per line — they're all added at once.</div>
+        {/* Real-device feedback: the original "paste a whole list, one
+            name per line" wording didn't land — simplified to name the
+            one mechanic (comma-separated) that also covers pasting,
+            rather than explaining the paste case as its own thing. Splits
+            on newlines too either way (handleQuickAddPaste/
+            commitQuickAdd above) — this is just what the hint says, not a
+            behavior change. */}
+        <div style={styles.mdQuickAddHint}>Tip: Separate names with commas</div>
         <div style={styles.mdQuickAddList}>
           {roster.length === 0 ? (
             <span style={styles.mdQuickAddEmpty}>Nobody added yet — start typing above</span>
@@ -1262,7 +1269,16 @@ export default function SquadSettingsForm({
           new team" and "Set up next game" already matched each other
           exactly; the ask was really "both are too roomy," not "these two
           disagree." */}
-      <div style={{ marginTop: 2 }}>
+      {/* Real-device feedback: this whole block sat flush with the header
+          pill's own outer rounded edge (both at 16px from the screen edge)
+          — but the pill's own real content (the crest circle) is inset a
+          further 20px inside that (measured live: crest left edge 36px vs
+          this block's own 16px), so "Who's here" read as spilling out
+          past where the header's actual content starts, not contained by
+          it. paddingLeft:20 lines this block's own left edge up with the
+          crest's, leaving the right edge untouched (only the left-edge
+          mismatch was ever flagged). */}
+      <div style={{ marginTop: 2, paddingLeft: 20 }}>
         {/* No "tap to drop out" / "Select all" here — both are
             return-visit concepts (toggling who's here today out of an
             existing squad) that don't apply while the squad itself is
@@ -1275,6 +1291,19 @@ export default function SquadSettingsForm({
         </div>
         {renderQuickAddSquad()}
       </div>
+
+      {/* Real-device feedback: the transition from the player list into
+          the game-settings tiles below read as one continuous block —
+          nothing marked where the roster ended and settings began. A
+          text label was tried and dropped before (see
+          renderGameSettingsAccordion's own comment on "The game" label),
+          so this is a plain rule instead, not a reintroduced heading.
+          Scoped to "inline" only (this div, not inside the shared
+          renderGameSettingsAccordion) — "edit"'s own plain "Game
+          settings" visit has no roster section above it at all, so a
+          divider forced in there would sit right under the header with
+          nothing to separate. */}
+      <div style={{ height: 1, background: tokens.color.rule, margin: "22px 0 18px 20px" }} />
 
       {renderGameSettingsAccordion()}
 
