@@ -231,6 +231,20 @@ export default function SubRotationPlanner({ user }) {
     setNewPlayerName("");
   };
 
+  // Batched sibling to addPlayer above — the first-time-setup quick-add
+  // flow's own multi-name paste path (SquadSettingsForm.jsx, "inline"
+  // variant): pasting a whole team sheet shouldn't mean one saveTeamData
+  // round-trip per name. Same per-player shape addPlayer uses, just
+  // applied to the roster/availableIds in one update instead of N.
+  const addPlayers = (names) => {
+    const trimmedNames = names.map((n) => n.trim()).filter(Boolean);
+    if (trimmedNames.length === 0) return;
+    const newEntries = trimmedNames.map((name) => ({ id: generateId(), name, keeperEligible: true }));
+    const roster = [...teamData.roster, ...newEntries];
+    saveTeamData({ ...teamData, roster });
+    setAvailableIds((prev) => [...prev, ...newEntries.map((e) => e.id)]); // new players default to available
+  };
+
   // Squad-change's own "+ Player" (a brand-new roster entry, not an
   // existing player toggling back) — deliberately does NOT touch
   // availableIds the way addPlayer above does. This can fire mid-game,
@@ -420,6 +434,8 @@ export default function SubRotationPlanner({ user }) {
     newPlayerName,
     setNewPlayerName,
     addPlayer,
+    addPlayers,
+    removePlayer,
     toggleAvailable,
     toggleKeeperEligible,
     setAllKeeperEligible,

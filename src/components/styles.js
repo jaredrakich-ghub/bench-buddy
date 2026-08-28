@@ -549,6 +549,46 @@ export const styles = {
     position: "sticky", right: 0, background: tokens.color.creamPaper,
   },
 
+  // ---- Quick-add squad (SquadSettingsForm.jsx, "inline" variant only —
+  // a brand-new team's very first roster, before there's anything to
+  // scan/toggle yet). Replaces mdBenchChipRow's 2-row scrolling grid for
+  // this one moment: that grid is built for *scanning an existing
+  // roster*, the wrong shape for *building one from nothing*. A plain
+  // wrapping flex list just grows as you go instead. Individual chips
+  // still reuse mdBenchChip/mdBenchChipNumber/mdBenchChipName directly —
+  // same pill a coach already recognizes everywhere else, just not
+  // tappable here (nothing to toggle mid-build; availability toggling
+  // is a return-visit concern, handled by the existing grid instead).
+  mdQuickAddRow: {
+    display: "flex", alignItems: "center", gap: 10, background: "#fff", borderRadius: tokens.radius.chip,
+    padding: "6px 6px 6px 16px", boxShadow: "0 3px 0 rgba(28,58,46,.08)", marginBottom: 6,
+  },
+  mdQuickAddNextNum: {
+    width: 30, height: 30, borderRadius: "50%", background: tokens.color.pitchGreen, color: "#fff", flexShrink: 0,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 13,
+  },
+  // fontSize 16, same iOS-zoom reason as mdSetupInput.
+  mdQuickAddInput: {
+    flex: 1, minWidth: 0, border: "none", outline: "none", background: "none", fontFamily: tokens.font.body,
+    fontWeight: 800, fontSize: 16, color: tokens.color.deepGreen,
+  },
+  mdQuickAddEnterHint: {
+    flexShrink: 0, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 12, color: tokens.color.mutedText,
+    background: tokens.color.creamPaper, borderRadius: tokens.radius.chip, padding: "5px 11px",
+  },
+  mdQuickAddHint: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 12.5, color: tokens.color.mutedText, margin: "0 0 12px 4px" },
+  mdQuickAddList: { display: "flex", flexWrap: "wrap", gap: 8, minHeight: 40, alignItems: "flex-start" },
+  mdQuickAddEmpty: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13.5, color: tokens.color.placeholderText, padding: "8px 4px" },
+  // Entrance only — real CSS @keyframes (see quickAddKeyframes,
+  // SquadSettingsForm.jsx), same reasoning MatchView.jsx's own motion
+  // uses: starts the instant the chip mounts, no JS trigger needed. A
+  // stable per-player key means an existing chip never remounts when a
+  // new one is added alongside it, so this naturally plays once per
+  // player rather than replaying the whole list. Skipped under
+  // prefers-reduced-motion (component checks, doesn't apply this style).
+  mdQuickAddChipEnter: { animation: "sqQuickAddPopIn 260ms cubic-bezier(.22,.9,.3,1)" },
+
   // The three "on pitch / minutes / sub every" tiles. Resting = plain white
   // value; tapping flips ONE tile dark with a −/+ stepper either side of
   // the number (see activeTile state in the component) — "no keyboard,

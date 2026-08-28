@@ -47,6 +47,38 @@ function BreaksIcon() {
     </svg>
   );
 }
+
+// Not shared with MatchView.jsx's/RotationProgressOverlay.jsx's own
+// identical hooks — same "scoped to this one file" reasoning those two
+// already use rather than an extraction nothing else needs yet.
+function usePrefersReducedMotion() {
+  const [reduced, setReduced] = useState(
+    () => typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const onChange = (e) => setReduced(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return reduced;
+}
+
+// Quick-add's own chip entrance (renderQuickAddSquad below) — real CSS
+// @keyframes, not a JS-timed transition, same reasoning MatchView.jsx's
+// own motion (confetti, the gold keeper ring) already documents: starts
+// the instant the element mounts, no JS trigger needed to fire it.
+function quickAddKeyframes() {
+  return (
+    <style>{`
+      @keyframes sqQuickAddPopIn {
+        from { opacity: 0; transform: scale(.7) translateY(6px); }
+        to { opacity: 1; transform: scale(1) translateY(0); }
+      }
+    `}</style>
+  );
+}
 // How many groups the match-screen interval tabs get visually split into —
 // "breakSegments" is the group count (2 = halves = 1 divider, 3 = thirds =
 // 2 dividers, and so on), not the divider count directly. See
@@ -132,6 +164,13 @@ export default function SquadSettingsForm({
   newPlayerName,
   setNewPlayerName,
   addPlayer,
+  // Quick-add's own multi-name paste path ("inline" variant), and its
+  // backspace-to-undo-last-entry path, respectively — see
+  // renderQuickAddSquad below. Both unused by "edit", which still only
+  // ever adds one player at a time via the existing addPlayer/newPlayerName
+  // pair, and never removes one from this screen at all.
+  addPlayers,
+  removePlayer,
   toggleAvailable,
   toggleKeeperEligible,
   setAllKeeperEligible,
@@ -266,6 +305,61 @@ export default function SquadSettingsForm({
   }, [activeTile]);
   const [expandedSection, setExpandedSection] = useState(initialExpandedSection); // "goal" | "swaps" | "breaks" | null
   const [showAddChip, setShowAddChip] = useState(false);
+  // Ref so submitAddChip (below) can hand focus back to the "edit"
+  // layout's own dashed-chip input after each add — see its own comment.
+  const addChipInputRef = useRef(null);
+  const reducedMotion = usePrefersReducedMotion();
+
+  // Quick-add ("inline" variant only) — its own local input state, kept
+  // separate from newPlayerName/setNewPlayerName rather than sharing them:
+  // "edit"'s dashed-chip flow and this one are different enough (multi-
+  // name paste, backspace-undo) that sharing state would mean untangling
+  // which behavior applies to which typed value. quickAddInputRef is what
+  // lets the field re-focus itself after each Enter/paste without ever
+  // actually losing focus from the coach's point of view.
+  const [quickAddText, setQuickAddText] = useState("");
+  const quickAddInputRef = useRef(null);
+
+  const commitQuickAdd = () => {
+    const parts = quickAddText.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean);
+    if (parts.length === 0) return;
+    addPlayers(parts);
+    setQuickAddText("");
+    quickAddInputRef.current?.focus();
+  };
+
+  const handleQuickAddKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      commitQuickAdd();
+    } else if (e.key === "Backspace" && quickAddText === "" && roster.length > 0) {
+      // Nothing typed and nothing to delete forward — treat this as
+      // "undo my last entry" instead, same as a messaging app's own
+      // edit-the-last-thing-I-sent shortcut. Pulls the name back into the
+      // field (cursor at the end) rather than just discarding it, so a
+      // typo is a re-type-and-Enter away, not a re-type-from-scratch.
+      e.preventDefault();
+      const last = roster[roster.length - 1];
+      removePlayer(last.id);
+      setQuickAddText(last.name);
+      requestAnimationFrame(() => {
+        quickAddInputRef.current?.setSelectionRange(last.name.length, last.name.length);
+      });
+    }
+  };
+
+  // A single pasted name (no separator) is left to the browser's own
+  // default paste behavior — only a multi-name block is worth
+  // intercepting. preventDefault only happens on that path, so a normal
+  // one-name paste still behaves exactly like typing.
+  const handleQuickAddPaste = (e) => {
+    const text = e.clipboardData.getData("text");
+    if (!/[\n,]/.test(text)) return;
+    e.preventDefault();
+    const parts = text.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean);
+    if (parts.length > 0) addPlayers(parts);
+    setQuickAddText("");
+  };
   // "Keepers" — shared by both layouts now (real-use feedback: turning
   // this off for anyone shouldn't be buried inside a Manage squad list a
   // coach might not open for a while — and Manage squad itself no longer
@@ -324,10 +418,16 @@ export default function SquadSettingsForm({
     setGameSettings({ ...gameSettings, keeperShiftMinutes: next === floor ? "" : next });
   };
 
+  // Real-use feedback (quick-add's own Enter-and-refocus flow prompted a
+  // look at this too): used to close the row after every add
+  // (setShowAddChip(false)), meaning a coach adding two or three late
+  // arrivals had to re-tap "+ Player" between each one. Now it stays open
+  // and refocused instead — tapping the same "+ Player" chip again still
+  // closes it whenever the coach is done, same toggle as before.
   const submitAddChip = () => {
     if (!newPlayerName.trim()) return;
     addPlayer();
-    setShowAddChip(false);
+    addChipInputRef.current?.focus();
   };
 
   // ---- Shared pieces --------------------------------------------------
@@ -641,6 +741,7 @@ export default function SquadSettingsForm({
         {showAddChip && (
           <div style={{ ...styles.mdSetupAddRow, marginTop: 8 }}>
             <input
+              ref={addChipInputRef}
               autoFocus
               style={styles.mdSetupInput}
               placeholder="Player name"
@@ -653,6 +754,56 @@ export default function SquadSettingsForm({
             </button>
           </div>
         )}
+      </>
+    );
+  }
+
+  // "inline" variant only — a brand-new team's very first roster, always
+  // starting from zero players (see the file-level comment: "inline" is
+  // either the very first team ever, or a freshly-added additional one;
+  // neither carries over an existing roster). Replaces renderSquadChips'
+  // scanning/toggling grid with an auto-advancing build-from-nothing flow:
+  // field auto-focused on arrival (no tap needed before typing starts),
+  // Enter commits and keeps focus (no "Add" button in the loop), a whole
+  // pasted list splits into that many players in one commit, and an empty
+  // Backspace undoes the last entry back into the field for a quick fix.
+  // Chips are plain (non-interactive) here on purpose — nothing to toggle
+  // yet; availability toggling is a return-visit concern already covered
+  // by renderSquadChips' own grid ("edit" variant, every game after this
+  // one).
+  function renderQuickAddSquad() {
+    const hasText = quickAddText.trim().length > 0;
+    return (
+      <>
+        {quickAddKeyframes()}
+        <div style={styles.mdQuickAddRow}>
+          <span style={styles.mdQuickAddNextNum}>{roster.length + 1}</span>
+          <input
+            ref={quickAddInputRef}
+            autoFocus
+            style={styles.mdQuickAddInput}
+            placeholder="Type a player's name"
+            value={quickAddText}
+            onChange={(e) => setQuickAddText(e.target.value)}
+            onKeyDown={handleQuickAddKeyDown}
+            onPaste={handleQuickAddPaste}
+            enterKeyHint="next"
+          />
+          {hasText && <span style={styles.mdQuickAddEnterHint}>&#x21B5; Enter</span>}
+        </div>
+        <div style={styles.mdQuickAddHint}>Tip: paste a whole list, one name per line — they're all added at once.</div>
+        <div style={styles.mdQuickAddList}>
+          {roster.length === 0 ? (
+            <span style={styles.mdQuickAddEmpty}>Nobody added yet — start typing above</span>
+          ) : (
+            roster.map((p) => (
+              <span key={p.id} style={{ ...styles.mdBenchChip, ...(reducedMotion ? {} : styles.mdQuickAddChipEnter) }}>
+                <span style={styles.mdBenchChipNumber}>{numberOf(p.id)}</span>
+                <span style={styles.mdBenchChipName}>{p.name}</span>
+              </span>
+            ))
+          )}
+        </div>
       </>
     );
   }
@@ -1112,13 +1263,17 @@ export default function SquadSettingsForm({
           exactly; the ask was really "both are too roomy," not "these two
           disagree." */}
       <div style={{ marginTop: 2 }}>
+        {/* No "tap to drop out" / "Select all" here — both are
+            return-visit concepts (toggling who's here today out of an
+            existing squad) that don't apply while the squad itself is
+            still being built from nothing for the very first time. Every
+            player quick-add creates defaults to available already
+            (addPlayer/addPlayers both do this) — see renderQuickAddSquad. */}
         <div style={styles.mdSetupHeaderInRow}>
           <div style={styles.mdSetupSectionTitle}>Who's here</div>
-          <span style={styles.mdSetupInChip}>{availableIds.length} in</span>
-          <span style={styles.mdSetupDropOutHint}>tap to drop out</span>
-          {renderSelectAll()}
+          <span style={styles.mdSetupInChip}>{roster.length} in</span>
         </div>
-        {renderSquadChips()}
+        {renderQuickAddSquad()}
       </div>
 
       {renderGameSettingsAccordion()}

@@ -23,6 +23,8 @@ function baseProps(overrides = {}) {
     newPlayerName: "",
     setNewPlayerName: vi.fn(),
     addPlayer: vi.fn(),
+    addPlayers: vi.fn(),
+    removePlayer: vi.fn(),
     toggleAvailable: vi.fn(),
     toggleKeeperEligible: vi.fn(),
     setAllKeeperEligible: vi.fn(),
@@ -409,14 +411,19 @@ describe("SquadSettingsForm — number tiles (tap to flip, stepper)", () => {
   });
 });
 
-describe("SquadSettingsForm — squad chips (availability)", () => {
+// This grid (tap-to-toggle chips, dashed "+ Player" reveal, Select all) is
+// now "edit"-only — see the "inline" variant's own quick-add describe
+// block below for its replacement there. confirmAvailability:true is what
+// makes "edit" render this section at all (see SquadSettingsForm.jsx's own
+// comment on that prop).
+describe("SquadSettingsForm — squad chips (availability, edit variant)", () => {
   it("tapping a player's chip calls toggleAvailable with their id", async () => {
     const toggleAvailable = vi.fn();
     const user = userEvent.setup();
     // Bob isn't keeper-eligible, so his only two appearances are the squad
     // chip and the Manage-squad row name — no In-goal chip to disambiguate
     // from, unlike Alice.
-    render(<SquadSettingsForm {...baseProps({ toggleAvailable })} />);
+    render(<SquadSettingsForm {...baseProps({ variant: "edit", confirmAvailability: true, toggleAvailable })} />);
     await user.click(screen.getAllByText("Bob")[0]);
     expect(toggleAvailable).toHaveBeenCalledWith("p2");
   });
@@ -425,7 +432,11 @@ describe("SquadSettingsForm — squad chips (availability)", () => {
     const addPlayer = vi.fn();
     const setNewPlayerName = vi.fn();
     const user = userEvent.setup();
-    render(<SquadSettingsForm {...baseProps({ addPlayer, setNewPlayerName, newPlayerName: "Cara" })} />);
+    render(
+      <SquadSettingsForm
+        {...baseProps({ variant: "edit", confirmAvailability: true, addPlayer, setNewPlayerName, newPlayerName: "Cara" })}
+      />
+    );
     await user.click(screen.getByText("Player"));
     fireEvent.keyDown(screen.getByPlaceholderText("Player name"), { key: "Enter" });
     expect(addPlayer).toHaveBeenCalledTimes(1);
@@ -434,13 +445,71 @@ describe("SquadSettingsForm — squad chips (availability)", () => {
   it("Select all / Clear all toggles the whole roster's availability", async () => {
     const setAvailableIds = vi.fn();
     const user = userEvent.setup();
-    render(<SquadSettingsForm {...baseProps({ availableIds: ["p1"], setAvailableIds })} />);
+    render(
+      <SquadSettingsForm {...baseProps({ variant: "edit", confirmAvailability: true, availableIds: ["p1"], setAvailableIds })} />
+    );
     await user.click(screen.getByText("Select all"));
     expect(setAvailableIds).toHaveBeenCalledWith(["p1", "p2"]);
   });
 
   it("hides Select all when the roster is empty", () => {
+    render(<SquadSettingsForm {...baseProps({ variant: "edit", confirmAvailability: true, roster: [], availableIds: [] })} />);
+    expect(screen.queryByText("Select all")).not.toBeInTheDocument();
+  });
+});
+
+// The "inline" variant's own roster-building UI — always a brand-new,
+// currently-empty-or-being-built squad (see SquadSettingsForm.jsx's file-
+// level comment on why "inline" never carries over an existing roster).
+// Zero taps to start typing, Enter commits and keeps focus, a whole pasted
+// list adds in one commit, and an empty Backspace undoes the last entry.
+describe("SquadSettingsForm — quick-add squad (inline variant)", () => {
+  it("auto-focuses the name field on arrival, with no reveal tap needed first", () => {
     render(<SquadSettingsForm {...baseProps({ roster: [], availableIds: [] })} />);
+    expect(screen.getByPlaceholderText("Type a player's name")).toHaveFocus();
+  });
+
+  it("shows the empty-state hint when nobody's been added yet", () => {
+    render(<SquadSettingsForm {...baseProps({ roster: [], availableIds: [] })} />);
+    expect(screen.getByText("Nobody added yet — start typing above")).toBeInTheDocument();
+  });
+
+  it("Enter commits the typed name via addPlayers and clears the field", () => {
+    const addPlayers = vi.fn();
+    render(<SquadSettingsForm {...baseProps({ roster: [], availableIds: [], addPlayers })} />);
+    const input = screen.getByPlaceholderText("Type a player's name");
+    fireEvent.change(input, { target: { value: "Cara" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(addPlayers).toHaveBeenCalledWith(["Cara"]);
+    expect(input).toHaveValue("");
+  });
+
+  it("pasting a multi-line list adds every name in one addPlayers call", () => {
+    const addPlayers = vi.fn();
+    render(<SquadSettingsForm {...baseProps({ roster: [], availableIds: [], addPlayers })} />);
+    const input = screen.getByPlaceholderText("Type a player's name");
+    const clipboardData = { getData: () => "Otis\nEli\nRocco" };
+    fireEvent.paste(input, { clipboardData });
+    expect(addPlayers).toHaveBeenCalledWith(["Otis", "Eli", "Rocco"]);
+  });
+
+  it("Backspace on an empty field removes the last player and refills their name for editing", () => {
+    const removePlayer = vi.fn();
+    render(<SquadSettingsForm {...baseProps({ removePlayer })} />); // ROSTER: Alice, Bob — Bob is last
+    const input = screen.getByPlaceholderText("Type a player's name");
+    fireEvent.keyDown(input, { key: "Backspace" });
+    expect(removePlayer).toHaveBeenCalledWith("p2");
+    expect(input).toHaveValue("Bob");
+  });
+
+  it("shows the running count against the roster, not availableIds", () => {
+    render(<SquadSettingsForm {...baseProps()} />); // 2 on the roster
+    expect(screen.getByText("2 in")).toBeInTheDocument();
+  });
+
+  it("doesn't show 'tap to drop out' or Select all — nothing to toggle yet", () => {
+    render(<SquadSettingsForm {...baseProps()} />);
+    expect(screen.queryByText("tap to drop out")).not.toBeInTheDocument();
     expect(screen.queryByText("Select all")).not.toBeInTheDocument();
   });
 });
