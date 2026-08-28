@@ -1562,6 +1562,17 @@ export const styles = {
     border: "none", padding: "3px 12px 3px 8px", marginBottom: 6, boxShadow: "0 3px 0 rgba(28,58,46,.10)",
     cursor: "pointer", textAlign: "left", font: "inherit",
   },
+  // Real-use feedback (TeamAccountScreen.jsx's "Signed in"/"Playing as a
+  // guest" rows): tapping one of these did nothing, since they're purely
+  // informational — but they shared mdPopoverRow's own raised-card
+  // shadow and pointer cursor, the exact same look every genuinely
+  // tappable row on this screen uses, so tapping one felt like a broken
+  // button rather than "there's nothing to tap here." Same shape/padding,
+  // no shadow, no pointer cursor — reads as a plain info card instead.
+  mdPopoverRowStatic: {
+    display: "flex", alignItems: "center", gap: 10, width: "100%", background: "#fff", borderRadius: tokens.radius.rowSm,
+    padding: "3px 12px 3px 8px", marginBottom: 6, cursor: "default",
+  },
   mdPopoverRowIconTile: {
     width: 33, height: 33, borderRadius: tokens.radius.iconTile, flexShrink: 0,
     display: "flex", alignItems: "center", justifyContent: "center", fontFamily: tokens.font.display, fontWeight: 800, fontSize: 17,
@@ -1627,6 +1638,16 @@ export const styles = {
   mdCogMenuLabel: {
     flex: 1, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 19, color: tokens.color.deepGreen,
     whiteSpace: "nowrap",
+  },
+  // Conversion nudge, anonymous-only — the Team & account cog-menu row
+  // only, not the cog button itself (real-use feedback: that one read as
+  // "too much before we've shown value"; this one only ever shows once a
+  // coach has deliberately opened the menu). Yellow, not literally red —
+  // red is reserved for injury everywhere else in this app
+  // (SquadSettingsForm.jsx has the same rule stated explicitly).
+  mdCogMenuRowDot: {
+    display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: tokens.color.yellow,
+    marginLeft: 6, verticalAlign: "middle",
   },
   mdCogMenuValue: {
     background: tokens.color.creamDeep, color: tokens.color.mutedText, fontFamily: tokens.font.body, fontWeight: 800,

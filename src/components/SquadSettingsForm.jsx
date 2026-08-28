@@ -992,44 +992,46 @@ export default function SquadSettingsForm({
   //     squad"... "+ Add a team" row, which passes onClose to actually
   //     return there) gets the exact same back-chevron shell as "edit" —
   //     the coach already knows this shape from Game settings.
-  const header =
-    variant === "inline" && !onClose ? (
-      <div style={styles.mdHeader}>
-        <div style={styles.mdHeaderTopRow}>
-          <div style={styles.mdCrestOuter}>{crestSrc && <img src={crestSrc} alt="" style={styles.mdCrestImg} />}</div>
-          <div style={styles.mdTeamNameStack}>
-            <div style={styles.mdTeamNameLabel}>Team</div>
-            <div style={styles.mdTeamName}>{title}</div>
+  // Real-device feedback: the very-first-team-ever case (variant "inline",
+  // no onClose — nowhere to go back to yet) used to get its own crest+
+  // "TEAM" label header (mdHeader), deliberately built to echo MatchView's
+  // own header shape so this first screen would "still read as the same
+  // screen family." In practice, reaching "Set up new team" two different
+  // ways (a genuinely first-ever team vs. Continue as Guest re-bootstrapping
+  // a fresh anonymous session) landed on two visibly different headers —
+  // smaller title, extra "TEAM" label, no back-chevron shell — which read
+  // as a bug, not a deliberate distinction. Now always the same mdSubHeader
+  // shape "Set up next game" and every other screen in this family already
+  // use — the back button simply doesn't render when there's no onClose
+  // (nowhere to go back to), and the small crest+name row above the title
+  // only ever rendered when teamName was passed anyway (never true for
+  // this call site), so nothing here changes for it either.
+  const header = (
+    // marginTop:0 override for "inline" only — mdSubHeader's own
+    // marginTop:12 is there for "edit"'s benefit, matching the zero top
+    // padding of the full-screen takeover it's nested in
+    // (mdFullScreenTakeoverInner), per that style's own comment. This
+    // header renders inside `main` instead when "inline" — `main` already
+    // has its own 12px top padding, so without this override the two
+    // stacked, landing this header 12px lower than "edit"'s, exactly what
+    // real-device feedback caught.
+    <div style={{ ...styles.mdSubHeader, ...(variant === "inline" ? { marginTop: 0 } : {}) }}>
+      {onClose && (
+        <button style={styles.mdSubHeaderBack} onClick={onClose} title="Back">
+          ‹
+        </button>
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {teamName && (
+          <div style={styles.mdSubHeaderTeamRow}>
+            {crestSrc && <img src={crestSrc} alt="" style={styles.mdSubHeaderTeamCrest} />}
+            <span style={styles.mdSubHeaderTeamName}>{teamName}</span>
           </div>
-        </div>
-      </div>
-    ) : (
-      // marginTop:0 override for "inline" only — mdSubHeader's own
-      // marginTop:12 is there for "edit"'s benefit, matching the zero top
-      // padding of the full-screen takeover it's nested in
-      // (mdFullScreenTakeoverInner), per that style's own comment. This
-      // header renders inside `main` instead when "inline" (an additional
-      // team's own "Set up new team", reached with a real onClose) —
-      // `main` already has its own 12px top padding, so without this
-      // override the two stacked, landing this header 12px lower than
-      // "edit"'s, exactly what real-device feedback caught.
-      <div style={{ ...styles.mdSubHeader, ...(variant === "inline" ? { marginTop: 0 } : {}) }}>
-        {onClose && (
-          <button style={styles.mdSubHeaderBack} onClick={onClose} title="Back">
-            ‹
-          </button>
         )}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          {teamName && (
-            <div style={styles.mdSubHeaderTeamRow}>
-              {crestSrc && <img src={crestSrc} alt="" style={styles.mdSubHeaderTeamCrest} />}
-              <span style={styles.mdSubHeaderTeamName}>{teamName}</span>
-            </div>
-          )}
-          <div style={styles.mdSubHeaderTitle}>{title}</div>
-        </div>
+        <div style={styles.mdSubHeaderTitle}>{title}</div>
       </div>
-    );
+    </div>
+  );
 
   // Tiles + interval preview/fairness chips + the First in goal today /
   // Keeper changes / Breaks accordion group — shared by both layouts now.
@@ -1297,24 +1299,6 @@ export default function SquadSettingsForm({
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100dvh" }}>
       {header}
 
-      {/* See showSignIn's own comment above for why this always shows,
-          with no stored flag or detection heuristic — genuinely empty
-          roster is the only condition, same one that's already true for
-          every brand-new anonymous session. */}
-      {isAnonymous && roster.length === 0 && (
-        <button
-          onClick={() => setShowSignIn(true)}
-          style={{
-            alignSelf: "center", marginTop: 10, background: "none", border: "none", cursor: "pointer",
-            fontFamily: tokens.font.body, fontWeight: 800, fontSize: 13.5, color: tokens.color.mutedText,
-            textDecoration: "underline",
-          }}
-        >
-          Already have a team? Sign in
-        </button>
-      )}
-      {showSignIn && <SignIn onClose={() => setShowSignIn(false)} />}
-
       {/* Real-use feedback, twice now: "a considerable amount of space
           between the header and the Who's here section" — this wrapper's
           own marginTop stacks with the header's own marginBottom (mdHeader
@@ -1364,6 +1348,34 @@ export default function SquadSettingsForm({
       {renderGameSettingsAccordion()}
 
       {renderWarningsAndSubmit()}
+
+      {/* Real-device feedback: this used to sit right under the header,
+          "eating into really important real estate" right where a coach
+          starts typing — moved below the submit button instead, so the
+          screen's own natural first impression (header -> Who's here)
+          goes back to how it was. Still always shows with no stored flag
+          or detection heuristic — genuinely empty roster is the only
+          condition, same one that's already true for every brand-new
+          anonymous session (see showSignIn's own declaration above).
+          marginTop separates it from the submit button's own bottom edge
+          (that button already carries its own marginBottom:30); marginBottom
+          is on top of main's own safe-area bottom padding (styles.js), not
+          instead of it — real-device feedback wanted a genuinely
+          comfortable gap to the bottom of the frame, not just whatever
+          the safe-area inset alone happened to leave. */}
+      {isAnonymous && roster.length === 0 && (
+        <button
+          onClick={() => setShowSignIn(true)}
+          style={{
+            alignSelf: "center", marginTop: 14, marginBottom: 10, background: "none", border: "none", cursor: "pointer",
+            fontFamily: tokens.font.body, fontWeight: 800, fontSize: 13.5, color: tokens.color.mutedText,
+            textDecoration: "underline",
+          }}
+        >
+          Already have a team? Sign in
+        </button>
+      )}
+      {showSignIn && <SignIn onClose={() => setShowSignIn(false)} />}
     </div>
   );
 }

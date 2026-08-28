@@ -227,26 +227,27 @@ export default function TeamAccountScreen({
             Account group below — sitting directly under "+ Add a team"
             groups it with the other "protect what you've built" action a
             coach is already looking at, rather than being tucked away in
-            Account where they'd have to go looking for it. Renamed "Save
-            your team" -> "Save Season Data" at the same time. Same
+            Account where they'd have to go looking for it. Renamed twice
+            now: "Save your team" -> "Save Season Data" -> "Save Sub
+            History" (real-use feedback: didn't say why it mattered). Same
             onClick/SaveTeamSheet underneath, unanonymous coaches still
             never see this at all (isAnonymous-gated, same as before). */}
         {isAnonymous && (
-          // Real-use feedback: the earlier ambient badges (on the cog
-          // button itself, and again on the "Team & account" menu row —
-          // MatchView.jsx) read as "too much before we've shown value" —
-          // visible on every screen of every match, before a coach had
-          // even finished a first game. Pulled both, in favor of a single
-          // small dot right on this row's own icon tile — the coach has
-          // already chosen to navigate into Team & account by the time
-          // they'd ever see it, so it reads as "this needs you," not
-          // "you're being nagged."
+          // Real-use feedback: an ambient badge on the cog button itself
+          // (visible on every screen of every match, before a coach had
+          // even finished a first game) read as "too much before we've
+          // shown value" — pulled that one. The "Team & account" menu row
+          // (MatchView.jsx) keeps its own dot though — that one's only
+          // ever seen after a coach has deliberately opened the menu, and
+          // real-use feedback wanted the trail to continue from there all
+          // the way down to this row, not jump straight from nothing to
+          // "surprise, here's a dot."
           <button style={{ ...styles.mdPopoverRow, marginTop: 8 }} onClick={() => setShowSaveTeam(true)}>
             <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintYellow, position: "relative" }}>
               <Save size={16} color={tokens.color.deepGreen} />
               <span style={styles.mdTeamAcctActionDot} />
             </span>
-            <span style={styles.mdPopoverRowLabel}>Save Season Data</span>
+            <span style={styles.mdPopoverRowLabel}>Save Sub History</span>
             <span style={styles.mdPopoverRowChevron}>›</span>
           </button>
         )}
@@ -278,29 +279,33 @@ export default function TeamAccountScreen({
           <span style={styles.mdPopoverGroupRule} />
         </div>
         {isAnonymous ? (
-          // The actual action moved to "Save Season Data" under "+ Add a
-          // team" above — this is purely informational now (same
-          // no-op-button pattern "Signed in" already uses below), so the
-          // Account group doesn't just skip straight to Delete my account
-          // with nothing explaining the anonymous state at all. Real-use
-          // framing, not "not signed in" — the coach hasn't done anything
-          // wrong; their team already works exactly as it should on this
-          // device.
-          <button style={styles.mdPopoverRow} onClick={() => {}}>
+          // The actual action moved to "Save Sub History" under "+ Add a
+          // team" above — this row is purely informational, so it's a
+          // plain div now, not a button. Real-use feedback: tapping it
+          // (reasonably, given it shared the exact same raised-card/
+          // pointer-cursor look every real button on this screen uses)
+          // did nothing, which reads as broken rather than "there's
+          // nothing to tap here." mdPopoverRowStatic drops the shadow and
+          // pointer cursor that implied it was one. "Signed in" below gets
+          // the same fix, for the same reason — it was never actually
+          // interactive either. Real-use framing, not "not signed in" —
+          // the coach hasn't done anything wrong; their team already
+          // works exactly as it should on this device.
+          <div style={styles.mdPopoverRowStatic}>
             <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintNeutral }}>
               <User size={16} color={tokens.color.mutedText} />
             </span>
             <span style={styles.mdPopoverRowLabel}>Playing as a guest</span>
-          </button>
+          </div>
         ) : (
           <>
-            <button style={styles.mdPopoverRow} onClick={() => {}}>
+            <div style={styles.mdPopoverRowStatic}>
               <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintNeutral }}>
                 <User size={16} color={tokens.color.mutedText} />
               </span>
               <span style={styles.mdPopoverRowLabel}>Signed in</span>
               {userEmail && <span style={styles.mdPopoverRowValue}>{userEmail}</span>}
-            </button>
+            </div>
             <button style={styles.mdPopoverRow} onClick={onSignOut}>
               <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintNeutral }}>
                 <LogOut size={16} color={tokens.color.mutedText} />

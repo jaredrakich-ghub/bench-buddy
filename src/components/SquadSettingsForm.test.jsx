@@ -56,19 +56,29 @@ const FAIRNESS_ROSTER = Array.from({ length: 7 }, (_, i) => ({ id: `p${i + 1}`, 
 const FAIRNESS_SETTINGS = { fieldSize: 5, gameMinutes: 42, subIntervalMinutes: 6 };
 
 describe("SquadSettingsForm — rendering (inline / A3 layout)", () => {
-  // Real-use feedback ("needs a lot of care as this is the user's first
-  // experience with the app"): this header used to always be a plain
-  // title-row + optional ✕. Now context-aware — no onClose (a genuinely
-  // new team, straight off sign-in) gets the crest+title shell, no back
-  // control at all; onClose (an *additional* team, added via Team &
-  // account) gets the exact same back-chevron shell "edit" uses.
-  it("shows crest+title with no back control for a first-ever team (no onClose)", () => {
+  // Real-use feedback, round 1 ("needs a lot of care as this is the
+  // user's first experience with the app"): this header used to always be
+  // a plain title-row + optional ✕. Made context-aware — no onClose (a
+  // genuinely new team, straight off sign-in) got its own crest+"TEAM"-
+  // label shell, echoing MatchView's own header; onClose (an *additional*
+  // team, added via Team & account) got the same back-chevron shell
+  // "edit" uses.
+  //
+  // Round 2, real-device feedback: reaching "Set up new team" two
+  // different ways (a genuinely first-ever team vs. Continue as Guest
+  // re-bootstrapping a fresh anonymous session) landed on two visibly
+  // different headers — read as a bug, not a deliberate distinction. Both
+  // now get the same back-chevron shell; the back button itself still
+  // only renders when there's actually an onClose to call.
+  it("shows the same header shell with no back control for a first-ever team (no onClose)", () => {
     render(<SquadSettingsForm {...baseProps({ title: "Set up new team" })} />);
     expect(screen.getByText("Set up new team")).toBeInTheDocument();
     expect(screen.queryByTitle("Back")).not.toBeInTheDocument();
+    // Not the old crest+"TEAM"-label shell any more.
+    expect(screen.queryByText("Team")).not.toBeInTheDocument();
   });
 
-  it("shows the same back-chevron header 'edit' uses for an additional team (onClose provided)", async () => {
+  it("shows the same header shell with a working back control for an additional team (onClose provided)", async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
     render(<SquadSettingsForm {...baseProps({ title: "Set up new team", onClose })} />);

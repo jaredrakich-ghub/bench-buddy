@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Play, Pause, BarChart2, History, ArrowDown, ArrowUp, ArrowLeftRight, Save } from "lucide-react";
+import { Play, Pause, BarChart2, ArrowDown, ArrowUp, ArrowLeftRight, Save } from "lucide-react";
 import {
   intervalAtElapsed, computeNextChangeBadges, computeBreakBoundaries, pairChanges, computeFairnessSpread,
   intervalNeedsSubConfirm, buildFinal60Steps,
@@ -2252,11 +2252,13 @@ export default function MatchView({
               {/* Real-use feedback: moved out of Team & account entirely
                   (not just linked here too) — "take Season Minutes out of
                   the Team & Account menu and put it below Minutes Today in
-                  the main menu." Same yellow tint as Today's Minutes right
-                  above it — the two are a deliberate pair, distinguished by
-                  icon (History, not BarChart2) rather than color. */}
+                  the main menu." Same yellow tint AND same icon as Today's
+                  Minutes right above it now, too — real-use feedback found
+                  the earlier distinct icon (History) read as a weaker
+                  pairing than just reusing BarChart2; the label text
+                  ("Today's" vs "Season") already does the distinguishing. */}
               <span style={{ ...styles.mdCogMenuIconTile, ...styles.mdTintYellow }}>
-                <History size={16} color={tokens.color.deepGreen} />
+                <BarChart2 size={16} color={tokens.color.deepGreen} />
               </span>
               <span style={styles.mdCogMenuLabel}>Season Minutes</span>
               <span style={styles.mdCogMenuChevron}>›</span>
@@ -2304,7 +2306,20 @@ export default function MatchView({
               }}
             >
               <span style={styles.mdCogMenuCrestIcon}>{crestSrc && <img src={crestSrc} alt="" style={styles.mdCogMenuCrestImg} />}</span>
-              <span style={styles.mdCogMenuLabel}>Team &amp; account</span>
+              {/* Dot nested inside the label span, not a sibling — the
+                  label's own flex:1 would otherwise stretch it away from
+                  the text it's meant to sit right next to, pushing it all
+                  the way over against mdCogMenuValue instead. Real-use
+                  feedback: re-added after a first pass removed it
+                  alongside the cog button's own ambient badge — this one
+                  earns its keep, since it only ever shows once a coach
+                  has deliberately opened the menu, continuing the trail
+                  down to Save Sub History (TeamAccountScreen.jsx) rather
+                  than jumping straight from nothing to that row. */}
+              <span style={styles.mdCogMenuLabel}>
+                Team &amp; account
+                {isAnonymous && <span style={styles.mdCogMenuRowDot} />}
+              </span>
               <span style={styles.mdCogMenuValue}>{teamName}</span>
               <span style={styles.mdCogMenuChevron}>›</span>
             </button>

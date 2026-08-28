@@ -54,22 +54,24 @@ describe("TeamAccountScreen — Account group (progressive auth)", () => {
     expect(screen.getByText("Signed in")).toBeInTheDocument();
     expect(screen.getByText("coach@example.com")).toBeInTheDocument();
     expect(screen.getByText("Sign out")).toBeInTheDocument();
-    expect(screen.queryByText("Save Season Data")).not.toBeInTheDocument();
+    expect(screen.queryByText("Save Sub History")).not.toBeInTheDocument();
   });
 
   // Real-use feedback: relocated from the Account group to sit directly
-  // under "+ Add a team" in Your teams, and renamed "Save your team" ->
-  // "Save Season Data" — see TeamAccountScreen.jsx's own comment on why.
-  it("shows 'Save Season Data' in the same group as + Add a team, for an anonymous account", () => {
+  // under "+ Add a team" in Your teams, and renamed twice since — "Save
+  // your team" -> "Save Season Data" -> "Save Sub History" (didn't say
+  // why it mattered) — see TeamAccountScreen.jsx's own comment on why.
+  it("shows 'Save Sub History' in the same group as + Add a team, for an anonymous account", () => {
     render(<TeamAccountScreen {...baseProps({ isAnonymous: true })} />);
-    expect(screen.getByText("Save Season Data")).toBeInTheDocument();
+    expect(screen.getByText("Save Sub History")).toBeInTheDocument();
     expect(screen.queryByText("Save your team")).not.toBeInTheDocument();
+    expect(screen.queryByText("Save Season Data")).not.toBeInTheDocument();
     expect(screen.queryByText("Signed in")).not.toBeInTheDocument();
     expect(screen.queryByText("Sign out")).not.toBeInTheDocument();
     // Your teams group, not Account — shares a group container with
     // "+ Add a team" (DOM order/exact adjacency isn't asserted here).
     const yourTeamsGroup = screen.getByText("Add a team").closest("div");
-    expect(yourTeamsGroup).toContainElement(screen.getByText("Save Season Data"));
+    expect(yourTeamsGroup).toContainElement(screen.getByText("Save Sub History"));
   });
 
   // The Account group isn't just empty for an anonymous account now that
@@ -80,11 +82,26 @@ describe("TeamAccountScreen — Account group (progressive auth)", () => {
     expect(screen.getByText("Playing as a guest")).toBeInTheDocument();
   });
 
-  it("tapping 'Save Season Data' opens the linking sheet", async () => {
+  // Real-use feedback: tapping it did nothing, since it's purely
+  // informational — a plain div now, not a button, so it doesn't share
+  // the raised-card/pointer-cursor look every genuinely tappable row on
+  // this screen uses (see TeamAccountScreen.jsx's own comment on
+  // mdPopoverRowStatic).
+  it("'Playing as a guest' is a plain div, not a button", () => {
+    render(<TeamAccountScreen {...baseProps({ isAnonymous: true })} />);
+    expect(screen.getByText("Playing as a guest").closest("button")).toBeNull();
+  });
+
+  it("'Signed in' is also a plain div, not a button", () => {
+    render(<TeamAccountScreen {...baseProps({ isAnonymous: false })} />);
+    expect(screen.getByText("Signed in").closest("button")).toBeNull();
+  });
+
+  it("tapping 'Save Sub History' opens the linking sheet", async () => {
     const user = userEvent.setup();
     render(<TeamAccountScreen {...baseProps({ isAnonymous: true })} />);
     expect(screen.queryByTestId("save-team-screen")).not.toBeInTheDocument();
-    await user.click(screen.getByText("Save Season Data"));
+    await user.click(screen.getByText("Save Sub History"));
     expect(screen.getByTestId("save-team-screen")).toBeInTheDocument();
   });
 
@@ -92,9 +109,9 @@ describe("TeamAccountScreen — Account group (progressive auth)", () => {
   // (the cog button, and the Team & account menu row) that read as "too
   // much before we've shown value" — this row's own icon tile is now the
   // only place any such indicator shows.
-  it("shows a small dot on Save Season Data's own icon tile", () => {
+  it("shows a small dot on Save Sub History's own icon tile", () => {
     render(<TeamAccountScreen {...baseProps({ isAnonymous: true })} />);
-    const row = screen.getByText("Save Season Data").closest("button");
+    const row = screen.getByText("Save Sub History").closest("button");
     expect(row.querySelector('[style*="border-radius: 50%"]')).toBeTruthy();
   });
 
