@@ -1331,6 +1331,57 @@ describe("MatchView — match complete", () => {
   });
 });
 
+// Conversion nudges — resumed after being deferred pending three
+// prerequisite fixes (Add Player visibility, SaveTeamSheet alignment,
+// header padding), all shipped earlier this session. Anonymous-only
+// throughout: a signed-in coach has nothing to save.
+describe("MatchView — conversion nudges (anonymous only)", () => {
+  it("shows the end-of-game nudge once the match is complete, for an anonymous session", () => {
+    render(<MatchView {...baseProps({ activeInterval: 1, elapsedSec: 12 * 60, isAnonymous: true })} />);
+    expect(screen.getByText(/Fair minutes for everyone today/)).toBeInTheDocument();
+  });
+
+  it("does not show the nudge for a signed-in session, even once the match is complete", () => {
+    render(<MatchView {...baseProps({ activeInterval: 1, elapsedSec: 12 * 60, isAnonymous: false })} />);
+    expect(screen.queryByText(/Fair minutes for everyone today/)).not.toBeInTheDocument();
+  });
+
+  it("does not show the nudge before the match is complete, even for an anonymous session", () => {
+    render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0, isAnonymous: true })} />);
+    expect(screen.queryByText(/Fair minutes for everyone today/)).not.toBeInTheDocument();
+  });
+
+  it("the nudge's Save your team button opens SaveTeamSheet, reusing the same component Team & account uses", async () => {
+    const user = userEvent.setup();
+    render(<MatchView {...baseProps({ activeInterval: 1, elapsedSec: 12 * 60, isAnonymous: true })} />);
+    expect(screen.queryByTestId("save-team-screen")).not.toBeInTheDocument();
+    await user.click(screen.getByText("Save your team"));
+    expect(screen.getByTestId("save-team-screen")).toBeInTheDocument();
+  });
+
+  it("shows a badge on the cog button and on the Team & account row, for an anonymous session", async () => {
+    const user = userEvent.setup();
+    render(<MatchView {...baseProps({ isAnonymous: true })} />);
+    const cogBtn = screen.getByTitle("Menu");
+    expect(cogBtn.querySelector('[style*="border-radius: 50%"]')).toBeTruthy();
+
+    await user.click(cogBtn);
+    const teamRow = within(screen.getByTestId("cog-popover")).getByText("Team & account").closest("button");
+    expect(teamRow.querySelector('[style*="border-radius: 50%"]')).toBeTruthy();
+  });
+
+  it("shows no badge anywhere for a signed-in session", async () => {
+    const user = userEvent.setup();
+    render(<MatchView {...baseProps({ isAnonymous: false })} />);
+    const cogBtn = screen.getByTitle("Menu");
+    expect(cogBtn.querySelector('[style*="border-radius: 50%"]')).toBeFalsy();
+
+    await user.click(cogBtn);
+    const teamRow = within(screen.getByTestId("cog-popover")).getByText("Team & account").closest("button");
+    expect(teamRow.querySelector('[style*="border-radius: 50%"]')).toBeFalsy();
+  });
+});
+
 // Whatever actually changes `plan` (a swap, a late arrival, an injury, a
 // squad change) all funnel through this same prop, so these drive the
 // toast the same way: a fresh plan reference landing after the initial

@@ -222,6 +222,24 @@ export default function TeamAccountScreen({
             <Plus size={16} style={{ marginRight: 6 }} /> Add a team
           </button>
         )}
+
+        {/* Real-use feedback: relocated here from its own row in the
+            Account group below — sitting directly under "+ Add a team"
+            groups it with the other "protect what you've built" action a
+            coach is already looking at, rather than being tucked away in
+            Account where they'd have to go looking for it. Renamed "Save
+            your team" -> "Save Season Data" at the same time. Same
+            onClick/SaveTeamSheet underneath, unanonymous coaches still
+            never see this at all (isAnonymous-gated, same as before). */}
+        {isAnonymous && (
+          <button style={{ ...styles.mdPopoverRow, marginTop: 8 }} onClick={() => setShowSaveTeam(true)}>
+            <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintYellow }}>
+              <Save size={16} color={tokens.color.deepGreen} />
+            </span>
+            <span style={styles.mdPopoverRowLabel}>Save Season Data</span>
+            <span style={styles.mdPopoverRowChevron}>›</span>
+          </button>
+        )}
       </div>
 
       <div style={styles.mdPopoverGroup}>
@@ -250,16 +268,19 @@ export default function TeamAccountScreen({
           <span style={styles.mdPopoverGroupRule} />
         </div>
         {isAnonymous ? (
-          // Real-use framing, not "not signed in" — the coach hasn't done
-          // anything wrong or missed a step; their team already works
-          // exactly as it should on this device. This is only about
-          // whether it *also* survives losing this device/browser.
-          <button style={styles.mdPopoverRow} onClick={() => setShowSaveTeam(true)}>
-            <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintYellow }}>
-              <Save size={16} color={tokens.color.deepGreen} />
+          // The actual action moved to "Save Season Data" under "+ Add a
+          // team" above — this is purely informational now (same
+          // no-op-button pattern "Signed in" already uses below), so the
+          // Account group doesn't just skip straight to Delete my account
+          // with nothing explaining the anonymous state at all. Real-use
+          // framing, not "not signed in" — the coach hasn't done anything
+          // wrong; their team already works exactly as it should on this
+          // device.
+          <button style={styles.mdPopoverRow} onClick={() => {}}>
+            <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintNeutral }}>
+              <User size={16} color={tokens.color.mutedText} />
             </span>
-            <span style={styles.mdPopoverRowLabel}>Save your team</span>
-            <span style={styles.mdPopoverRowChevron}>›</span>
+            <span style={styles.mdPopoverRowLabel}>Playing as a guest</span>
           </button>
         ) : (
           <>

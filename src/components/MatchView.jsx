@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Play, Pause, BarChart2, History, ArrowDown, ArrowUp, ArrowLeftRight } from "lucide-react";
+import { Play, Pause, BarChart2, History, ArrowDown, ArrowUp, ArrowLeftRight, Save } from "lucide-react";
 import {
   intervalAtElapsed, computeNextChangeBadges, computeBreakBoundaries, pairChanges, computeFairnessSpread,
   intervalNeedsSubConfirm, buildFinal60Steps,
@@ -12,6 +12,7 @@ import { styles, tokens } from "./styles.js";
 import { GearIcon, KitShirt, MedicalCross } from "./matchDayIcons.jsx";
 import { RotateIcon } from "./strokeIcons.jsx";
 import FairnessMark from "./FairnessMark.jsx";
+import SaveTeamSheet from "./SaveTeamSheet.jsx";
 
 // Full-time celebration (backlog #4) — same palette RotationProgressOverlay
 // already uses for its own success-state confetti, duplicated locally
@@ -703,9 +704,17 @@ export default function MatchView({
   onShowSettings,
   onShowSquadChange,
   onShowTeamSwitcher,
+  isAnonymous,
 }) {
   const totalGameSec = plan[plan.length - 1].endMin * 60;
   const isMatchComplete = elapsedSec >= totalGameSec;
+  // Conversion nudges (end-of-game prompt below, the cog-button red dot) —
+  // both anonymous-only, both reuse this same final interval's onField/
+  // bench split for SaveTeamSheet's own "team photo", independent of
+  // whichever tab activeInterval currently has selected (a coach could be
+  // reviewing an earlier interval after the game's already over).
+  const finalInterval = plan[plan.length - 1];
+  const [showSaveTeam, setShowSaveTeam] = useState(false);
 
   // Full-time celebration (backlog #4) — a one-time confetti burst over
   // the match-complete banner. confettiFiredRef, not just isMatchComplete
@@ -1557,7 +1566,7 @@ export default function MatchView({
             <div style={styles.mdTeamName}>{teamName}</div>
           </div>
           <button
-            style={{ ...styles.mdCogBtn, ...(cogOrigin ? { ...styles.mdOriginLit, ...styles.mdCogBtnLit } : {}) }}
+            style={{ ...styles.mdCogBtn, position: "relative", ...(cogOrigin ? { ...styles.mdOriginLit, ...styles.mdCogBtnLit } : {}) }}
             onClick={(e) => {
               // Read the rect synchronously, before handing off to the
               // updater callback — by the time that runs, the synthetic
@@ -1568,6 +1577,13 @@ export default function MatchView({
             title="Menu"
           >
             <GearIcon size={28} />
+            {/* Conversion nudge: passive "something in here needs
+                attention" badge, anonymous-only — visible without even
+                opening the menu, same pattern an app icon's own
+                notification badge uses. Mirrored on the Team & account row
+                inside the opened menu below, so the trail continues once
+                the coach is actually in the menu. */}
+            {isAnonymous && <span style={styles.mdCogBtnDot} />}
           </button>
         </div>
         {/* position:relative — this row's only change — anchors the
@@ -1653,6 +1669,23 @@ export default function MatchView({
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Conversion nudge, anonymous-only: the moment a coach has just
+          seen the most value (a finished, fairly-rotated game) is a
+          better ask than mid-setup. Deliberately its own row below the
+          match-complete banner, not inside it — that banner still carries
+          its own pre-redesign color tokens (see its own comment above),
+          and this should read in the current design system instead.
+          Reuses SaveTeamSheet directly, same component TeamAccountScreen's
+          own "Save Season Data" row opens — no second sheet built. */}
+      {isMatchComplete && isAnonymous && (
+        <div style={styles.mdEndOfGameNudge}>
+          <span style={styles.mdEndOfGameNudgeText}>Fair minutes for everyone today. Save this team so it's here next game too.</span>
+          <button style={styles.mdEndOfGameNudgeBtn} onClick={() => setShowSaveTeam(true)}>
+            <Save size={14} /> Save your team
+          </button>
         </div>
       )}
 
@@ -2278,7 +2311,17 @@ export default function MatchView({
               }}
             >
               <span style={styles.mdCogMenuCrestIcon}>{crestSrc && <img src={crestSrc} alt="" style={styles.mdCogMenuCrestImg} />}</span>
-              <span style={styles.mdCogMenuLabel}>Team &amp; account</span>
+              {/* Dot nested inside the label span, not a sibling — the
+                  label's own flex:1 would otherwise stretch it away from
+                  the text it's meant to sit right next to, pushing it all
+                  the way over against mdCogMenuValue instead. Mirrors the
+                  cog button's own badge (see above) — the trail continues
+                  once the coach is actually inside the menu, not just a
+                  hint on the button that vanishes once it's tapped. */}
+              <span style={styles.mdCogMenuLabel}>
+                Team &amp; account
+                {isAnonymous && <span style={styles.mdCogMenuRowDot} />}
+              </span>
               <span style={styles.mdCogMenuValue}>{teamName}</span>
               <span style={styles.mdCogMenuChevron}>›</span>
             </button>
@@ -2322,6 +2365,16 @@ export default function MatchView({
       >
         {sheetAnnouncement}
       </div>
+
+      {showSaveTeam && (
+        <SaveTeamSheet
+          onFieldPlayers={finalInterval.onField}
+          benchIds={finalInterval.bench}
+          nameOf={nameOf}
+          numberOf={numberOf}
+          onClose={() => setShowSaveTeam(false)}
+        />
+      )}
     </section>
   );
 }

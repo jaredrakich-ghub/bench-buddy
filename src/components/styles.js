@@ -248,6 +248,23 @@ export const styles = {
     flex: "0 0 auto", background: "rgba(255,255,255,0.9)", color: colors.ink, border: "none", borderRadius: 8,
     padding: "7px 11px", fontWeight: 800, fontSize: 11, cursor: "pointer", whiteSpace: "nowrap",
   },
+  // Conversion nudge (MatchView.jsx, isMatchComplete && isAnonymous) — its
+  // own row below matchCompleteBanner, deliberately not sharing that
+  // banner's own pre-redesign colour tokens (colors.field/colors.ink
+  // above) — this uses the current tokens.color.* system instead.
+  mdEndOfGameNudge: {
+    display: "flex", alignItems: "center", gap: 10, background: tokens.color.mint, borderRadius: 14,
+    padding: "10px 12px", marginBottom: 8,
+  },
+  mdEndOfGameNudgeText: {
+    flex: 1, fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13, color: tokens.color.deepGreen, lineHeight: 1.35,
+  },
+  mdEndOfGameNudgeBtn: {
+    flex: "0 0 auto", display: "flex", alignItems: "center", gap: 6, background: tokens.color.pitchGreen,
+    color: tokens.color.creamPaper, border: "none", borderRadius: 12, padding: "9px 13px",
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 13, cursor: "pointer", whiteSpace: "nowrap",
+    boxShadow: tokens.shadow.solid(3, tokens.color.greenShadow),
+  },
   intervalTabsWrap: { position: "relative", marginBottom: 8 },
   // Once a game has enough intervals to overflow a phone-width screen, this
   // row scrolls horizontally. Two things make that read as an intentional
@@ -1100,6 +1117,17 @@ export const styles = {
     background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
     flexShrink: 0,
   },
+  // Conversion nudge: "something in this menu needs attention" badge on
+  // the cog button itself, anonymous-only (MatchView.jsx). Yellow, not
+  // literally red — red is reserved for injury everywhere else in this
+  // app (SquadSettingsForm.jsx has the same rule stated explicitly); a red
+  // dot here could genuinely read as an injury alert mid-match. Matches
+  // the existing yellow tint (mdTintYellow) the Save action already uses
+  // elsewhere (TeamAccountScreen's own Save Season Data row).
+  mdCogBtnDot: {
+    position: "absolute", top: -2, right: -2, width: 14, height: 14, borderRadius: "50%",
+    background: tokens.color.yellow, border: `2px solid ${tokens.color.creamPaper}`,
+  },
   // Just the clock digits + caption now — the Start/Pause/Resume control
   // moved back down to the action bar (README > A2-Match-actionbar >
   // Action bar: "single clock button" on the same row as the countdown,
@@ -1594,6 +1622,14 @@ export const styles = {
   mdCogMenuLabel: {
     flex: 1, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 19, color: tokens.color.deepGreen,
     whiteSpace: "nowrap",
+  },
+  // Inline sibling to mdCogBtnDot above (same color/reasoning) — nested
+  // inside mdCogMenuLabel's own text, not a flex sibling of it, so it sits
+  // right next to "Team & account" instead of being stretched away by the
+  // label's own flex:1.
+  mdCogMenuRowDot: {
+    display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: tokens.color.yellow,
+    marginLeft: 6, verticalAlign: "middle",
   },
   mdCogMenuValue: {
     background: tokens.color.creamDeep, color: tokens.color.mutedText, fontFamily: tokens.font.body, fontWeight: 800,

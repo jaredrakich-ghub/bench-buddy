@@ -539,6 +539,7 @@ export default function SubRotationPlanner({ user }) {
             teamName={teamData.name}
             crestSrc={headerMascot}
             availableCount={availableIds.length}
+            isAnonymous={user.isAnonymous}
             gameSettingsSummary={`${gameSettings.fieldSize} a side · sub ${gameSettings.subIntervalMinutes}′`}
             onInjury={handleInjury}
             onBringBack={bringBack}

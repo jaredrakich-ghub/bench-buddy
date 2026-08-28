@@ -54,21 +54,37 @@ describe("TeamAccountScreen — Account group (progressive auth)", () => {
     expect(screen.getByText("Signed in")).toBeInTheDocument();
     expect(screen.getByText("coach@example.com")).toBeInTheDocument();
     expect(screen.getByText("Sign out")).toBeInTheDocument();
-    expect(screen.queryByText("Save your team")).not.toBeInTheDocument();
+    expect(screen.queryByText("Save Season Data")).not.toBeInTheDocument();
   });
 
-  it("shows a single 'Save your team' row for an anonymous account instead", () => {
+  // Real-use feedback: relocated from the Account group to sit directly
+  // under "+ Add a team" in Your teams, and renamed "Save your team" ->
+  // "Save Season Data" — see TeamAccountScreen.jsx's own comment on why.
+  it("shows 'Save Season Data' in the same group as + Add a team, for an anonymous account", () => {
     render(<TeamAccountScreen {...baseProps({ isAnonymous: true })} />);
-    expect(screen.getByText("Save your team")).toBeInTheDocument();
+    expect(screen.getByText("Save Season Data")).toBeInTheDocument();
+    expect(screen.queryByText("Save your team")).not.toBeInTheDocument();
     expect(screen.queryByText("Signed in")).not.toBeInTheDocument();
     expect(screen.queryByText("Sign out")).not.toBeInTheDocument();
+    // Your teams group, not Account — shares a group container with
+    // "+ Add a team" (DOM order/exact adjacency isn't asserted here).
+    const yourTeamsGroup = screen.getByText("Add a team").closest("div");
+    expect(yourTeamsGroup).toContainElement(screen.getByText("Save Season Data"));
   });
 
-  it("tapping 'Save your team' opens the linking sheet", async () => {
+  // The Account group isn't just empty for an anonymous account now that
+  // the actual action moved out of it — a plain informational row takes
+  // its place instead (see TeamAccountScreen.jsx's own comment).
+  it("shows a plain 'Playing as a guest' row in the Account group for an anonymous account", () => {
+    render(<TeamAccountScreen {...baseProps({ isAnonymous: true })} />);
+    expect(screen.getByText("Playing as a guest")).toBeInTheDocument();
+  });
+
+  it("tapping 'Save Season Data' opens the linking sheet", async () => {
     const user = userEvent.setup();
     render(<TeamAccountScreen {...baseProps({ isAnonymous: true })} />);
     expect(screen.queryByTestId("save-team-screen")).not.toBeInTheDocument();
-    await user.click(screen.getByText("Save your team"));
+    await user.click(screen.getByText("Save Season Data"));
     expect(screen.getByTestId("save-team-screen")).toBeInTheDocument();
   });
 
