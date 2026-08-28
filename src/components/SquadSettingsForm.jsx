@@ -1297,9 +1297,12 @@ export default function SquadSettingsForm({
           crest circle's own edge (36px) — corrected to line up with the
           yellow header pill's own outer edge instead (its actual painted
           boundary, 16px, same as main's own base inset), not a child
-          element floating inside it. That's this block's original,
-          unmodified inset — no override needed here at all. */}
-      <div style={{ marginTop: 2 }}>
+          element floating inside it.
+          Round 3: good against the pill, but wanted nudging another 3px
+          right — this block only (heading, quick-add row, chips, tip),
+          not the divider below, which stays flush with the pill on
+          purpose (see its own comment). */}
+      <div style={{ marginTop: 2, paddingLeft: 3 }}>
         {/* No "tap to drop out" / "Select all" here — both are
             return-visit concepts (toggling who's here today out of an
             existing squad) that don't apply while the squad itself is

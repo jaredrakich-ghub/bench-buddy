@@ -914,6 +914,16 @@ export const styles = {
     background: tokens.color.pitchGreen, borderRadius: 24, padding: "0 17px", textAlign: "center",
     fontFamily: tokens.font.display, fontWeight: 800, fontSize: 21, color: "#fff",
     boxShadow: "0 5px 0 #1C5B3A", border: "none", cursor: "pointer",
+    // Real-device feedback: first tap after scrolling down to reach this
+    // button did nothing, second tap worked — a known mobile Safari/Chrome
+    // behavior where fast scroll momentum can absorb the first tap as a
+    // stop-scrolling gesture rather than a real click, on a plain
+    // whole-page scroll like this screen uses (no scroll listeners,
+    // overlays, or touch-action rules found anywhere near this button, so
+    // not something in this codebase causing it). touch-action:manipulation
+    // tells the browser to skip its own tap-ambiguity handling on this
+    // element — the standard mitigation for exactly this symptom.
+    touchAction: "manipulation",
   },
 
   // ---- The app's shared "caution" confirm sheet — a lighter-weight,
