@@ -739,7 +739,7 @@ export default function SquadSettingsForm({
   function renderSquadChips() {
     return (
       <>
-        <div style={styles.mdBenchChipRow}>
+        <div style={styles.mdSquadChipWrapRow}>
           {roster.map((p) => {
             const isAvailable = availableIds.includes(p.id);
             return (
@@ -755,10 +755,7 @@ export default function SquadSettingsForm({
               </button>
             );
           })}
-          <button
-            style={{ ...styles.mdSetupAddChip, ...styles.mdSetupAddChipSticky }}
-            onClick={() => setShowAddChip((v) => !v)}
-          >
+          <button style={styles.mdSetupAddChip} onClick={() => setShowAddChip((v) => !v)}>
             <Plus size={14} /> Player
           </button>
         </div>

@@ -1682,7 +1682,7 @@ export default function MatchView({
           own "Save Season Data" row opens — no second sheet built. */}
       {isMatchComplete && isAnonymous && (
         <div style={styles.mdEndOfGameNudge}>
-          <span style={styles.mdEndOfGameNudgeText}>Fair minutes for everyone today. Save this team so it's here next game too.</span>
+          <span style={styles.mdEndOfGameNudgeText}>Save this team so it's here next game too.</span>
           <button style={styles.mdEndOfGameNudgeBtn} onClick={() => setShowSaveTeam(true)}>
             <Save size={14} /> Save your team
           </button>

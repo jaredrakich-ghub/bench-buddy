@@ -552,19 +552,23 @@ export const styles = {
     borderRadius: tokens.radius.chip, padding: "6px 14px", background: "transparent", cursor: "pointer",
     fontFamily: tokens.font.body, fontWeight: 800, fontSize: 15, color: tokens.color.mutedText,
   },
-  // Real-use feedback: as the roster grid (mdBenchChipRow) fills past two
-  // rows, it grows sideways and scrolls rather than wrapping — and this
-  // chip, appended after every roster chip in that same scrolling grid,
-  // scrolled away with them, off past whatever was currently in view.
-  // Sticky pins it to the right edge of the grid's own scroll viewport
-  // instead, so it's the one thing in this row that's always visible,
-  // in the same spot, regardless of squad size or scroll position — a
-  // solid (not transparent) background is what actually sells that, since
-  // chips scrolling underneath a sticky item would otherwise show through
-  // its dashed border.
-  mdSetupAddChipSticky: {
-    position: "sticky", right: 0, background: tokens.color.creamPaper,
-  },
+  // Real-use feedback: "edit"'s own Who's-here row used to be
+  // mdBenchChipRow (a 2-row grid that grows sideways and scrolls once it
+  // fills past two rows) with a position:sticky "+ Player" chip pinned to
+  // the scroll viewport's right edge — real-device feedback found that
+  // sticky chip visually overlapping real player chips scrolling
+  // underneath it "looks very strange." Replaced with this plain wrapping
+  // row instead: every chip (including "+ Player") just wraps to as many
+  // rows as it needs, so there's no hidden horizontal scroll and nothing
+  // needs sticky positioning to stay visible — the overlap problem is
+  // gone by construction, not patched. Also brings this screen's own
+  // visual shape in line with "inline"'s quick-add list (real-use
+  // feedback: "Set up new team and Set up next game have the same
+  // visuals here for who is here") — this row's own chips stay
+  // interactive (tap to toggle availability), unlike quick-add's, since
+  // toggling who's here today from an existing roster is still this
+  // screen's actual job.
+  mdSquadChipWrapRow: { display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" },
 
   // ---- Quick-add squad (SquadSettingsForm.jsx, "inline" variant only —
   // a brand-new team's very first roster, before there's anything to

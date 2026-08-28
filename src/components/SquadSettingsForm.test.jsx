@@ -417,6 +417,23 @@ describe("SquadSettingsForm — number tiles (tap to flip, stepper)", () => {
 // makes "edit" render this section at all (see SquadSettingsForm.jsx's own
 // comment on that prop).
 describe("SquadSettingsForm — squad chips (availability, edit variant)", () => {
+  // Real-use feedback: this row used to be the same 2-row scrolling grid
+  // as the pitch screen's own bench chips (mdBenchChipRow), with the
+  // "+ Player" chip pinned position:sticky to the scroll viewport's right
+  // edge — real-device feedback found that sticky chip visually
+  // overlapping real player chips scrolling underneath it "looks very
+  // strange." Now a plain wrapping row instead — every chip, "+ Player"
+  // included, just wraps to as many rows as it needs, no scroll, no
+  // sticky positioning needed at all.
+  it("wraps chips in a plain row instead of the old scrolling grid with a sticky + Player chip", () => {
+    render(<SquadSettingsForm {...baseProps({ variant: "edit", confirmAvailability: true })} />);
+    const addChip = screen.getByText("Player").closest("button");
+    expect(addChip.style.position).not.toBe("sticky");
+    const chipRow = addChip.parentElement;
+    expect(chipRow.style.flexWrap).toBe("wrap");
+    expect(chipRow.style.display).toBe("flex");
+  });
+
   it("tapping a player's chip calls toggleAvailable with their id", async () => {
     const toggleAvailable = vi.fn();
     const user = userEvent.setup();

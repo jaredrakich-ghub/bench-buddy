@@ -1338,17 +1338,17 @@ describe("MatchView — match complete", () => {
 describe("MatchView — conversion nudges (anonymous only)", () => {
   it("shows the end-of-game nudge once the match is complete, for an anonymous session", () => {
     render(<MatchView {...baseProps({ activeInterval: 1, elapsedSec: 12 * 60, isAnonymous: true })} />);
-    expect(screen.getByText(/Fair minutes for everyone today/)).toBeInTheDocument();
+    expect(screen.getByText(/Save this team so it's here next game too/)).toBeInTheDocument();
   });
 
   it("does not show the nudge for a signed-in session, even once the match is complete", () => {
     render(<MatchView {...baseProps({ activeInterval: 1, elapsedSec: 12 * 60, isAnonymous: false })} />);
-    expect(screen.queryByText(/Fair minutes for everyone today/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Save this team so it's here next game too/)).not.toBeInTheDocument();
   });
 
   it("does not show the nudge before the match is complete, even for an anonymous session", () => {
     render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0, isAnonymous: true })} />);
-    expect(screen.queryByText(/Fair minutes for everyone today/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Save this team so it's here next game too/)).not.toBeInTheDocument();
   });
 
   it("the nudge's Save your team button opens SaveTeamSheet, reusing the same component Team & account uses", async () => {
