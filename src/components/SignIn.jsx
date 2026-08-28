@@ -94,7 +94,13 @@ export default function SignIn({ initialError = "", showGuestOption = false, onC
   };
 
   return (
-    <div style={{ ...styles.mdSignInWrap, position: "relative" }}>
+    // mdSignInWrap is already position:fixed (styles.js) — that's a valid
+    // containing block for the close button's own position:absolute just
+    // as well as position:relative would be, so no override needed here
+    // any more (an earlier version of this line set position:"relative"
+    // for exactly that reason, which silently overrode mdSignInWrap's own
+    // position:fixed once that was added — caught live, not by a test).
+    <div style={styles.mdSignInWrap}>
       <style>{fontStyle}</style>
       {onClose && (
         <button style={styles.mdSignInCloseBtn} onClick={onClose} aria-label="Close">

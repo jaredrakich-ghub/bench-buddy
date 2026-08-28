@@ -78,6 +78,17 @@ describe("SquadSettingsForm — rendering (inline / A3 layout)", () => {
     expect(screen.queryByText("Team")).not.toBeInTheDocument();
   });
 
+  // Real-device feedback: "Set up new team" looked "very plain" without
+  // its crest once the header unified onto the back-chevron shell —
+  // crestSrc alone (no teamName — nothing to name yet on this screen) is
+  // enough to show it now, decoupled from teamName's own presence.
+  it("shows the crest on its own when crestSrc is given but teamName isn't", () => {
+    const { container } = render(<SquadSettingsForm {...baseProps({ title: "Set up new team", crestSrc: "mascot.jpg" })} />);
+    // Decorative image (alt="") — not exposed via role="img", so queried
+    // directly rather than through an accessibility-tree lookup.
+    expect(container.querySelector('img[src="mascot.jpg"]')).toBeInTheDocument();
+  });
+
   it("shows the same header shell with a working back control for an additional team (onClose provided)", async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();

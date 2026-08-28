@@ -1022,10 +1022,19 @@ export default function SquadSettingsForm({
         </button>
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
-        {teamName && (
+        {/* Real-device feedback: "Set up new team" looked "very plain"
+            without its crest once the header unified onto this shell —
+            crestSrc and teamName are independent now (either alone is
+            enough to render this row), not gated together behind
+            teamName. "Set up new team" passes crestSrc with no teamName
+            (nothing to name yet) and gets just the crest; "Set up next
+            game" deliberately passes neither (a real, separate decision
+            — "no crest logo" for that screen specifically) and still
+            shows nothing here at all. */}
+        {(teamName || crestSrc) && (
           <div style={styles.mdSubHeaderTeamRow}>
             {crestSrc && <img src={crestSrc} alt="" style={styles.mdSubHeaderTeamCrest} />}
-            <span style={styles.mdSubHeaderTeamName}>{teamName}</span>
+            {teamName && <span style={styles.mdSubHeaderTeamName}>{teamName}</span>}
           </div>
         )}
         <div style={styles.mdSubHeaderTitle}>{title}</div>

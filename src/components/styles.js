@@ -2112,8 +2112,20 @@ export const styles = {
   // real flow instead: same lockup/button/footer shapes the README
   // specifies, "Sign in with Google" where it says "Send me a link", and a
   // reassurance line that's actually true of what happens.
+  // position:fixed/inset:0/zIndex:50/overflowY:auto — same shape
+  // mdFullScreenTakeoverOuter already uses for every other full-screen
+  // overlay in this app. Real-use feedback: SquadSettingsForm's own
+  // "Already have a team?" link opens this deep inside a scrolled page
+  // (right after the submit button, near the bottom) — with the old
+  // minHeight:100vh (a normal block-flow element), it rendered wherever
+  // that DOM position happened to fall, which on a scrolled page could be
+  // entirely below the visible viewport. Baked the fix in here rather
+  // than requiring every caller to wrap it — AuthGate's own root-level
+  // usage (the whole app, nothing else in the DOM to stack against) is
+  // unaffected either way.
   mdSignInWrap: {
-    minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+    position: "fixed", inset: 0, zIndex: 50, overflowY: "auto",
+    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
     background: tokens.color.creamPaper, backgroundImage: paperTexture, padding: "40px 28px",
   },
   // Only rendered when SignIn.jsx's own onClose is set (SquadSettingsForm's

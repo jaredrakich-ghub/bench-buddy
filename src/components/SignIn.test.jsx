@@ -45,6 +45,22 @@ describe("SignIn", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  // Real-device feedback: opened deep inside a scrolled page
+  // (SquadSettingsForm's own "Already have a team?" link, near the
+  // bottom), this rendered wherever that DOM position happened to fall —
+  // entirely below the visible viewport on a scrolled page, easy to
+  // mistake for the link doing nothing. mdSignInWrap (styles.js) is
+  // position:fixed for exactly this reason; caught live, not by a test,
+  // that an inline position:"relative" override (added earlier, for the
+  // close button's own positioning context — no longer needed now that
+  // mdSignInWrap itself provides one) was silently winning over it. This
+  // guards the actual computed outcome directly, not just the style
+  // object's own shape.
+  it("is position:fixed to the viewport, not wherever it happens to land in normal document flow", () => {
+    const { container } = render(<SignIn onClose={() => {}} />);
+    expect(container.firstChild.style.position).toBe("fixed");
+  });
+
   describe("Google", () => {
     it("calls signInWithGoogle when tapped, showing a signing-in state meanwhile", async () => {
       let resolveSignIn;

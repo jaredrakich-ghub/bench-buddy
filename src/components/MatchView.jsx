@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Play, Pause, BarChart2, ArrowDown, ArrowUp, ArrowLeftRight, Save } from "lucide-react";
+import { Play, Pause, BarChart2, History, ArrowDown, ArrowUp, ArrowLeftRight, Save } from "lucide-react";
 import {
   intervalAtElapsed, computeNextChangeBadges, computeBreakBoundaries, pairChanges, computeFairnessSpread,
   intervalNeedsSubConfirm, buildFinal60Steps,
@@ -2235,9 +2235,12 @@ export default function MatchView({
                   in the first place. Real-use feedback caught both.
                   "Today's Minutes" (not bare "Minutes") — real-use
                   feedback, once Season Minutes sat right below it the two
-                  needed to read as clearly distinct at a glance. */}
+                  needed to read as clearly distinct at a glance.
+                  Icon swapped with Season Minutes below (History, not
+                  BarChart2) — real-use feedback: a better pairing this way
+                  round than the original assignment. */}
               <span style={{ ...styles.mdCogMenuIconTile, ...styles.mdTintYellow }}>
-                <BarChart2 size={16} color={tokens.color.deepGreen} />
+                <History size={16} color={tokens.color.deepGreen} />
               </span>
               <span style={styles.mdCogMenuLabel}>Today's Minutes</span>
               <span style={styles.mdCogMenuChevron}>›</span>
@@ -2252,11 +2255,10 @@ export default function MatchView({
               {/* Real-use feedback: moved out of Team & account entirely
                   (not just linked here too) — "take Season Minutes out of
                   the Team & Account menu and put it below Minutes Today in
-                  the main menu." Same yellow tint AND same icon as Today's
-                  Minutes right above it now, too — real-use feedback found
-                  the earlier distinct icon (History) read as a weaker
-                  pairing than just reusing BarChart2; the label text
-                  ("Today's" vs "Season") already does the distinguishing. */}
+                  the main menu." Same yellow tint as Today's Minutes right
+                  above it — the two are a deliberate pair. Icon swapped
+                  with Today's Minutes above (BarChart2, not History) —
+                  real-use feedback: a better pairing this way round. */}
               <span style={{ ...styles.mdCogMenuIconTile, ...styles.mdTintYellow }}>
                 <BarChart2 size={16} color={tokens.color.deepGreen} />
               </span>
