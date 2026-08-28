@@ -118,6 +118,22 @@ export default function RotationProgressOverlay({ averageMinutes, maxDifference,
   // building -> success switch (~1800ms later) it actually exists for.
   const [heightTransitionReady, setHeightTransitionReady] = useState(false);
 
+  // Real-device feedback: right after tapping "Build new rotation" from a
+  // long, scrolled-down settings form, this overlay's own position:fixed
+  // centering (top:50% below) could land wrong — the "View my rotation"
+  // button wasn't tappable until the coach scrolled the background, which
+  // settled it. The settings form swaps for the (shorter) match screen in
+  // place, with no navigation/reload to reset scroll on its own — so the
+  // browser was left holding a stale scrollTop against a now-shorter
+  // document, exactly the kind of state known to break position:fixed's
+  // viewport math on mobile Safari until something forces a reflow.
+  // Resetting scroll the instant this overlay mounts is that reflow, done
+  // on purpose instead of leaving it to chance (or to the coach noticing
+  // they need to scroll).
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   useEffect(() => {
     let raf;
     let attempts = 0;

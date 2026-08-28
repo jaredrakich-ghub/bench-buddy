@@ -18,6 +18,11 @@ function stubMatchMedia(matches) {
 beforeEach(() => {
   vi.useFakeTimers();
   stubMatchMedia(false);
+  // jsdom doesn't implement real scrolling — calling the component's own
+  // scroll-reset-on-mount (see its own comment) logs a virtual-console
+  // "not implemented" error otherwise, which the no-console-errors test
+  // below would (rightly, for a real error) fail on.
+  window.scrollTo = vi.fn();
 });
 afterEach(() => {
   cleanup();
@@ -32,6 +37,16 @@ function flushFrame() {
 }
 
 describe("RotationProgressOverlay", () => {
+  // Real-device feedback: mounting this over a long, scrolled-down
+  // settings form left "View my rotation" untappable until the coach
+  // manually scrolled — traced to a stale scrollTop against the (shorter)
+  // match screen underneath breaking this overlay's own position:fixed
+  // centering. See the component's own comment on its scroll-reset effect.
+  it("resets scroll to the top on mount", () => {
+    render(<RotationProgressOverlay averageMinutes={22} maxDifference={2} intervalLen={5} onContinue={() => {}} />);
+    expect(window.scrollTo).toHaveBeenCalledWith(0, 0);
+  });
+
   it("opens as a labelled, busy dialog over a scrim", () => {
     render(<RotationProgressOverlay averageMinutes={22} maxDifference={2} intervalLen={5} onContinue={() => {}} />);
     const dialog = screen.getByRole("dialog");
