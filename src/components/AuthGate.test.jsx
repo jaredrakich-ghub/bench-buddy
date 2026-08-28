@@ -14,9 +14,11 @@ vi.mock("../lib/auth.js", () => ({
   completeEmailLinkSignInIfPresent: vi.fn(),
   completeEmailLinkSignInWithEmail: vi.fn(),
   signInWithExistingCredential: vi.fn(),
+  consumeJustSignedOutFlag: vi.fn(),
 }));
 import {
   onAuthChange, signInAnon, completeEmailLinkSignInIfPresent, completeEmailLinkSignInWithEmail, signInWithExistingCredential,
+  consumeJustSignedOutFlag,
 } from "../lib/auth.js";
 import AuthGate from "./AuthGate.jsx";
 
@@ -30,6 +32,10 @@ beforeEach(() => {
   // isn't a return visit via an emailed magic link at all. Tests covering
   // that flow specifically override this per-test.
   completeEmailLinkSignInIfPresent.mockResolvedValue(null);
+  // Ditto — most nulls in these tests are a brand-new visitor, not someone
+  // who just tapped Sign out. The one test that's specifically about that
+  // path overrides this itself.
+  consumeJustSignedOutFlag.mockReturnValue(false);
 });
 
 // onAuthChange's real shape: calls back immediately with the current state,
@@ -80,6 +86,24 @@ describe("AuthGate", () => {
     // actually does, same as it would for a real Firebase round-trip.
     auth.emit({ uid: "guest-1", isAnonymous: true });
     expect(await screen.findByText("App content for guest-1")).toBeInTheDocument();
+  });
+
+  // Real-use feedback: signing out used to always land back in a fresh
+  // anonymous session, so the only way back to an existing Google-linked
+  // account was through Save your team's own "your changes will be lost"
+  // conflict sheet — alarming, even when there was nothing real to lose.
+  // consumeJustSignedOutFlag is how AuthGate tells this null apart from a
+  // brand-new visitor's — signOutUser (auth.js) sets it right before
+  // signing out.
+  it("goes straight to sign-in, skipping the anonymous bootstrap, right after an explicit sign-out", async () => {
+    consumeJustSignedOutFlag.mockReturnValue(true);
+    mockAuthChange(null);
+    render(<AuthGate>{() => <div>App content</div>}</AuthGate>);
+
+    expect(await screen.findByText("Sign in with Google")).toBeInTheDocument();
+    expect(signInAnon).not.toHaveBeenCalled();
+    // Not a failure — no error banner, unlike the anon-bootstrap-failed case.
+    expect(screen.queryByText(/Couldn't start a guest session/)).not.toBeInTheDocument();
   });
 
   it("falls back to the real sign-in screen, with an explanatory error, if the guest session can't be started", async () => {

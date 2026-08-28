@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   onAuthChange, signInAnon, completeEmailLinkSignInIfPresent, completeEmailLinkSignInWithEmail,
-  signInWithExistingCredential,
+  signInWithExistingCredential, consumeJustSignedOutFlag,
 } from "../lib/auth.js";
 import SignIn from "./SignIn.jsx";
 import LoadingScreen from "./LoadingScreen.jsx";
@@ -19,10 +19,19 @@ import { styles, tokens } from "./styles.js";
 // TeamAccountScreen's own upgrade prompt (user.isAnonymous).
 //
 // anonFailed is its own piece of state, not folded into `user`, so a
-// failed attempt can't be confused with "genuinely signed out" (which,
-// with this gate, should now never actually happen — even Sign Out just
-// leads straight back to a fresh anonymous session, not a blank slate with
-// nothing signed in at all).
+// failed attempt can't be confused with a deliberate sign-out.
+//
+// Real-use feedback: Sign Out used to always drop straight back into a
+// fresh anonymous session — but that meant the *only* way back to an
+// existing Google-linked account was through Save your team's own
+// conflict-recovery sheet, which reads as an alarming "your changes will
+// be lost" warning even when there's nothing real to lose (an empty
+// scratch team nobody wanted in the first place). skippedAnonAfterSignOut
+// (below) skips the anonymous bootstrap entirely right after an explicit
+// sign-out and goes straight to <SignIn/> instead — no throwaway team ever
+// gets created for that path. consumeJustSignedOutFlag (auth.js) is what
+// tells this apart from a brand-new visitor's first-ever null, since
+// Firebase's onAuthChange reports both the exact same way.
 //
 // emailLinkPhase handles the *other* progressive-auth entry point — a
 // coach returning via the emailed magic link from SaveTeamSheet's own
@@ -35,6 +44,7 @@ import { styles, tokens } from "./styles.js";
 export default function AuthGate({ children }) {
   const [user, setUser] = useState(undefined); // undefined = still checking, null = no session (about to auto-anon)
   const [anonFailed, setAnonFailed] = useState(false);
+  const [skippedAnonAfterSignOut, setSkippedAnonAfterSignOut] = useState(false);
   const [emailLinkPhase, setEmailLinkPhase] = useState("checking"); // checking | none | needsEmail | conflict | error
   const [emailLinkConflict, setEmailLinkConflict] = useState(null);
   const [emailInput, setEmailInput] = useState("");
@@ -47,13 +57,19 @@ export default function AuthGate({ children }) {
 
   useEffect(() => {
     if (user !== null) return;
-    let cancelled = false;
     // Cleared at the start of every attempt, not just on success — a
     // previous failure (e.g. a transient network blip right as the app
     // loaded) shouldn't permanently pin this to the SignIn fallback for
-    // the rest of the session once `user` cycles back to null again
-    // (a sign-out, most likely).
+    // the rest of the session once `user` cycles back to null again.
     setAnonFailed(false);
+    setSkippedAnonAfterSignOut(false);
+    if (consumeJustSignedOutFlag()) {
+      // See this file's own top comment — deliberately skip the anonymous
+      // bootstrap for this specific null, straight to <SignIn/> below.
+      setSkippedAnonAfterSignOut(true);
+      return undefined;
+    }
+    let cancelled = false;
     signInAnon().catch(() => {
       // Most likely the Anonymous provider isn't turned on yet in the
       // Firebase console (a one-time setup step, not a code bug) — either
@@ -180,6 +196,11 @@ export default function AuthGate({ children }) {
   if (user === null) {
     if (anonFailed) {
       return <SignIn initialError="Couldn't start a guest session — sign in with Google to continue." />;
+    }
+    // No initialError here — this isn't a failure, it's the deliberate
+    // straight-to-sign-in path right after tapping Sign out.
+    if (skippedAnonAfterSignOut) {
+      return <SignIn />;
     }
     return <LoadingScreen message="Loading…" />;
   }

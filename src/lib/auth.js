@@ -144,7 +144,22 @@ async function finishEmailLinkSignIn(email) {
   }
 }
 
+// Set the instant signOutUser() runs, consumed (read + reset) once by
+// AuthGate the next time it sees user===null — that's how it tells "the
+// coach just explicitly signed out" apart from "genuinely no session at
+// all yet" (a brand-new first-ever visit), since Firebase's onAuthChange
+// reports both as the exact same null. See AuthGate.jsx's own comment for
+// what each case does differently.
+let justSignedOut = false;
+
+export function consumeJustSignedOutFlag() {
+  const value = justSignedOut;
+  justSignedOut = false;
+  return value;
+}
+
 export async function signOutUser() {
+  justSignedOut = true;
   await signOut(auth);
 }
 
