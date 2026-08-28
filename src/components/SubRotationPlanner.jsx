@@ -427,6 +427,7 @@ export default function SubRotationPlanner({ user }) {
   // rather than duplicated at each call site.
   const squadSettingsProps = {
     roster: teamData.roster,
+    isAnonymous: user.isAnonymous,
     gameSettings,
     setGameSettings,
     availableIds,

@@ -88,6 +88,16 @@ describe("TeamAccountScreen — Account group (progressive auth)", () => {
     expect(screen.getByTestId("save-team-screen")).toBeInTheDocument();
   });
 
+  // Real-use feedback: moved here from two ambient badges on MatchView.jsx
+  // (the cog button, and the Team & account menu row) that read as "too
+  // much before we've shown value" — this row's own icon tile is now the
+  // only place any such indicator shows.
+  it("shows a small dot on Save Season Data's own icon tile", () => {
+    render(<TeamAccountScreen {...baseProps({ isAnonymous: true })} />);
+    const row = screen.getByText("Save Season Data").closest("button");
+    expect(row.querySelector('[style*="border-radius: 50%"]')).toBeTruthy();
+  });
+
   it("'Delete my account' still works the same regardless of isAnonymous", () => {
     render(<TeamAccountScreen {...baseProps({ isAnonymous: true })} />);
     expect(screen.getByText("Delete my account")).toBeInTheDocument();

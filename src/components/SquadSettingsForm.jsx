@@ -9,6 +9,7 @@ import { fmtClock } from "../lib/clock.js";
 import { useSheetDrag } from "../hooks/useSheetDrag.js";
 import { styles, tokens } from "./styles.js";
 import { RotateIcon } from "./strokeIcons.jsx";
+import SignIn from "./SignIn.jsx";
 
 // Drawn (stroke, not solid-fill) icons for the edit layout's own four
 // accordion-section badges, plus the "rebuild rotation" confirm sheet's
@@ -157,6 +158,10 @@ const SECTION_BADGE = {
 // "permanent" exclusion right away, not lose track of it.
 export default function SquadSettingsForm({
   roster,
+  // "inline" only — drives the "Already have a team? Sign in" link (see
+  // its own comment further down) when this is a genuinely empty
+  // anonymous session. Unused by "edit" (never anonymous-relevant there).
+  isAnonymous,
   gameSettings,
   setGameSettings,
   availableIds,
@@ -319,6 +324,18 @@ export default function SquadSettingsForm({
   // actually losing focus from the coach's point of view.
   const [quickAddText, setQuickAddText] = useState("");
   const quickAddInputRef = useRef(null);
+
+  // "Already have a team? Sign in" — real-use feedback: an anonymous
+  // session can end up genuinely empty for reasons that have nothing to
+  // do with being a new coach (Safari clearing storage, a new device/
+  // browser) — landing on this screen with no visible way back to a real
+  // account otherwise means digging through Team & account -> Save Season
+  // Data -> the Google conflict screen just to realize that's the way
+  // back in. Always shown (no stored flag, no detection heuristic) —
+  // costs a genuine first-time coach nothing since they just never tap
+  // it, and can't fail to appear the way a persisted flag could if
+  // whatever wiped the session also wiped that flag.
+  const [showSignIn, setShowSignIn] = useState(false);
 
   // Split out from commitQuickAdd below so blur (handleQuickAddBlur) can
   // commit without also stealing focus back — see its own comment for why
@@ -1279,6 +1296,24 @@ export default function SquadSettingsForm({
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100dvh" }}>
       {header}
+
+      {/* See showSignIn's own comment above for why this always shows,
+          with no stored flag or detection heuristic — genuinely empty
+          roster is the only condition, same one that's already true for
+          every brand-new anonymous session. */}
+      {isAnonymous && roster.length === 0 && (
+        <button
+          onClick={() => setShowSignIn(true)}
+          style={{
+            alignSelf: "center", marginTop: 10, background: "none", border: "none", cursor: "pointer",
+            fontFamily: tokens.font.body, fontWeight: 800, fontSize: 13.5, color: tokens.color.mutedText,
+            textDecoration: "underline",
+          }}
+        >
+          Already have a team? Sign in
+        </button>
+      )}
+      {showSignIn && <SignIn onClose={() => setShowSignIn(false)} />}
 
       {/* Real-use feedback, twice now: "a considerable amount of space
           between the header and the Who's here section" — this wrapper's

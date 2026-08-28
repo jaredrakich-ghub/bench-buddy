@@ -1121,17 +1121,6 @@ export const styles = {
     background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
     flexShrink: 0,
   },
-  // Conversion nudge: "something in this menu needs attention" badge on
-  // the cog button itself, anonymous-only (MatchView.jsx). Yellow, not
-  // literally red — red is reserved for injury everywhere else in this
-  // app (SquadSettingsForm.jsx has the same rule stated explicitly); a red
-  // dot here could genuinely read as an injury alert mid-match. Matches
-  // the existing yellow tint (mdTintYellow) the Save action already uses
-  // elsewhere (TeamAccountScreen's own Save Season Data row).
-  mdCogBtnDot: {
-    position: "absolute", top: -2, right: -2, width: 14, height: 14, borderRadius: "50%",
-    background: tokens.color.yellow, border: `2px solid ${tokens.color.creamPaper}`,
-  },
   // Just the clock digits + caption now — the Start/Pause/Resume control
   // moved back down to the action bar (README > A2-Match-actionbar >
   // Action bar: "single clock button" on the same row as the countdown,
@@ -1577,6 +1566,18 @@ export const styles = {
     width: 33, height: 33, borderRadius: tokens.radius.iconTile, flexShrink: 0,
     display: "flex", alignItems: "center", justifyContent: "center", fontFamily: tokens.font.display, fontWeight: 800, fontSize: 17,
   },
+  // Conversion nudge, moved here from two ambient badges (the cog button
+  // itself, and the Team & account cog-menu row — both MatchView.jsx) that
+  // real-use feedback found read as "too much before we've shown value."
+  // This is now the only place any dot shows — TeamAccountScreen.jsx's own
+  // Save Season Data row, on its icon tile, only ever seen once a coach
+  // has already chosen to navigate in here. Yellow, not literally red —
+  // red is reserved for injury everywhere else in this app
+  // (SquadSettingsForm.jsx has the same rule stated explicitly).
+  mdTeamAcctActionDot: {
+    position: "absolute", top: -2, right: -2, width: 12, height: 12, borderRadius: "50%",
+    background: tokens.color.yellow, border: `2px solid ${tokens.color.creamPaper}`,
+  },
   mdPopoverRowLabel: { flex: 1, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 19, color: tokens.color.deepGreen },
   mdPopoverRowValue: {
     background: tokens.color.creamDeep, color: tokens.color.mutedText, fontFamily: tokens.font.body, fontWeight: 800,
@@ -1626,14 +1627,6 @@ export const styles = {
   mdCogMenuLabel: {
     flex: 1, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 19, color: tokens.color.deepGreen,
     whiteSpace: "nowrap",
-  },
-  // Inline sibling to mdCogBtnDot above (same color/reasoning) — nested
-  // inside mdCogMenuLabel's own text, not a flex sibling of it, so it sits
-  // right next to "Team & account" instead of being stretched away by the
-  // label's own flex:1.
-  mdCogMenuRowDot: {
-    display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: tokens.color.yellow,
-    marginLeft: 6, verticalAlign: "middle",
   },
   mdCogMenuValue: {
     background: tokens.color.creamDeep, color: tokens.color.mutedText, fontFamily: tokens.font.body, fontWeight: 800,
@@ -2101,6 +2094,16 @@ export const styles = {
   mdSignInWrap: {
     minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
     background: tokens.color.creamPaper, backgroundImage: paperTexture, padding: "40px 28px",
+  },
+  // Only rendered when SignIn.jsx's own onClose is set (SquadSettingsForm's
+  // "Already have a team? Sign in" link) — plain white on this screen's own
+  // light cream background, not mdSaveTeamClose's translucent-on-dark-green
+  // treatment (wrong contrast here; that one's built for its own pitch band).
+  mdSignInCloseBtn: {
+    position: "absolute", top: 20, right: 20, width: 36, height: 36, borderRadius: 12,
+    background: "#fff", border: "none", display: "flex", alignItems: "center", justifyContent: "center",
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 18, color: tokens.color.mutedText,
+    cursor: "pointer", boxShadow: "0 2px 0 rgba(28,58,46,.08)",
   },
   mdSignInLockup: { display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 32 },
   // 132px, "one step down" from A0-Launch's own 168px crest — same

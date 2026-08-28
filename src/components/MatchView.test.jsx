@@ -1359,20 +1359,15 @@ describe("MatchView — conversion nudges (anonymous only)", () => {
     expect(screen.getByTestId("save-team-screen")).toBeInTheDocument();
   });
 
-  it("shows a badge on the cog button and on the Team & account row, for an anonymous session", async () => {
+  // Real-use feedback: these two ambient badges (visible on every screen
+  // of every match, before a coach had even finished a first game) read
+  // as "too much before we've shown value" — removed in favor of a single
+  // dot on TeamAccountScreen.jsx's own Save Season Data row instead (see
+  // its own test coverage), only ever seen once a coach has already
+  // chosen to navigate into Team & account.
+  it("shows no badge on the cog button or the Team & account row, even for an anonymous session", async () => {
     const user = userEvent.setup();
     render(<MatchView {...baseProps({ isAnonymous: true })} />);
-    const cogBtn = screen.getByTitle("Menu");
-    expect(cogBtn.querySelector('[style*="border-radius: 50%"]')).toBeTruthy();
-
-    await user.click(cogBtn);
-    const teamRow = within(screen.getByTestId("cog-popover")).getByText("Team & account").closest("button");
-    expect(teamRow.querySelector('[style*="border-radius: 50%"]')).toBeTruthy();
-  });
-
-  it("shows no badge anywhere for a signed-in session", async () => {
-    const user = userEvent.setup();
-    render(<MatchView {...baseProps({ isAnonymous: false })} />);
     const cogBtn = screen.getByTitle("Menu");
     expect(cogBtn.querySelector('[style*="border-radius: 50%"]')).toBeFalsy();
 

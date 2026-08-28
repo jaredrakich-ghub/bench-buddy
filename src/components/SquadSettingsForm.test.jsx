@@ -3,6 +3,15 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import "@testing-library/jest-dom/vitest";
 import { render, screen, fireEvent, cleanup, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+// SignIn.jsx (rendered when the "Already have a team?" link is tapped —
+// see the describe block below) reaches into ../lib/auth.js on import;
+// mocked here so a test render never touches the real Firebase SDK, same
+// as SignIn.test.jsx's own mock.
+vi.mock("../lib/auth.js", () => ({
+  signInWithGoogle: vi.fn(),
+  sendLoginEmailLink: vi.fn(),
+  signInAnon: vi.fn(),
+}));
 import SquadSettingsForm from "./SquadSettingsForm.jsx";
 
 afterEach(cleanup);
@@ -548,6 +557,46 @@ describe("SquadSettingsForm — quick-add squad (inline variant)", () => {
     render(<SquadSettingsForm {...baseProps()} />);
     expect(screen.queryByText("tap to drop out")).not.toBeInTheDocument();
     expect(screen.queryByText("Select all")).not.toBeInTheDocument();
+  });
+});
+
+// Real-use feedback: an anonymous session can end up genuinely empty for
+// reasons that have nothing to do with being a new coach (Safari clearing
+// storage, a new device/browser) — this link is the way back to a real
+// account without digging through Team & account -> Save Season Data ->
+// the Google conflict screen. Always shown for this exact condition, no
+// stored flag or detection heuristic (see SquadSettingsForm.jsx's own
+// comment on showSignIn for why).
+describe("SquadSettingsForm — 'Already have a team? Sign in' link (inline variant)", () => {
+  it("shows only for an anonymous session with a genuinely empty roster", () => {
+    render(<SquadSettingsForm {...baseProps({ isAnonymous: true, roster: [], availableIds: [] })} />);
+    expect(screen.getByText("Already have a team? Sign in")).toBeInTheDocument();
+  });
+
+  it("hides once the roster has anyone on it, even for an anonymous session", () => {
+    render(<SquadSettingsForm {...baseProps({ isAnonymous: true })} />); // ROSTER has Alice, Bob
+    expect(screen.queryByText("Already have a team? Sign in")).not.toBeInTheDocument();
+  });
+
+  it("hides for a non-anonymous session, even with an empty roster", () => {
+    render(<SquadSettingsForm {...baseProps({ isAnonymous: false, roster: [], availableIds: [] })} />);
+    expect(screen.queryByText("Already have a team? Sign in")).not.toBeInTheDocument();
+  });
+
+  it("opens SignIn as a dismissible overlay, closing back to this screen", async () => {
+    const user = userEvent.setup();
+    render(<SquadSettingsForm {...baseProps({ isAnonymous: true, roster: [], availableIds: [] })} />);
+    expect(screen.queryByText("Sign in with Google")).not.toBeInTheDocument();
+
+    await user.click(screen.getByText("Already have a team? Sign in"));
+    expect(screen.getByText("Sign in with Google")).toBeInTheDocument();
+    expect(screen.getByText("Sign in with Email")).toBeInTheDocument();
+    // Not a sign-out — nothing to fall back to as a guest again from here.
+    expect(screen.queryByText("Continue as Guest")).not.toBeInTheDocument();
+
+    await user.click(screen.getByLabelText("Close"));
+    expect(screen.queryByText("Sign in with Google")).not.toBeInTheDocument();
+    expect(screen.getByText("Already have a team? Sign in")).toBeInTheDocument();
   });
 });
 

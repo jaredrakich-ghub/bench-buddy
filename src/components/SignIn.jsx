@@ -32,7 +32,13 @@ import headerMascot from "../assets/header-mascot.jpg";
 // initialError: set only by AuthGate's own anon-bootstrap-failed path —
 // every other case (the sign-out path, or this screen's very first render
 // before progressive auth existed at all) leaves it omitted.
-export default function SignIn({ initialError = "", showGuestOption = false }) {
+//
+// onClose: only set when SquadSettingsForm.jsx's own "Already have a
+// team? Sign in" link opens this as a dismissible overlay, mid-anonymous-
+// session — every other caller (AuthGate, which renders this as the
+// entire app, nothing else to go back to) leaves it omitted, and no close
+// control renders at all in that case.
+export default function SignIn({ initialError = "", showGuestOption = false, onClose }) {
   // idle (provider picker, whether or not `error` also has something to
   // show alongside it) | email | sendingEmail | emailSent | emailError —
   // no separate "error"/"signingIn" phases: which provider is currently
@@ -88,8 +94,13 @@ export default function SignIn({ initialError = "", showGuestOption = false }) {
   };
 
   return (
-    <div style={styles.mdSignInWrap}>
+    <div style={{ ...styles.mdSignInWrap, position: "relative" }}>
       <style>{fontStyle}</style>
+      {onClose && (
+        <button style={styles.mdSignInCloseBtn} onClick={onClose} aria-label="Close">
+          ✕
+        </button>
+      )}
       <div style={styles.mdSignInLockup}>
         <div style={styles.mdSignInCrest}>
           <img src={headerMascot} alt="" style={styles.mdSignInCrestImg} />

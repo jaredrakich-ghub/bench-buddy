@@ -232,9 +232,19 @@ export default function TeamAccountScreen({
             onClick/SaveTeamSheet underneath, unanonymous coaches still
             never see this at all (isAnonymous-gated, same as before). */}
         {isAnonymous && (
+          // Real-use feedback: the earlier ambient badges (on the cog
+          // button itself, and again on the "Team & account" menu row —
+          // MatchView.jsx) read as "too much before we've shown value" —
+          // visible on every screen of every match, before a coach had
+          // even finished a first game. Pulled both, in favor of a single
+          // small dot right on this row's own icon tile — the coach has
+          // already chosen to navigate into Team & account by the time
+          // they'd ever see it, so it reads as "this needs you," not
+          // "you're being nagged."
           <button style={{ ...styles.mdPopoverRow, marginTop: 8 }} onClick={() => setShowSaveTeam(true)}>
-            <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintYellow }}>
+            <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintYellow, position: "relative" }}>
               <Save size={16} color={tokens.color.deepGreen} />
+              <span style={styles.mdTeamAcctActionDot} />
             </span>
             <span style={styles.mdPopoverRowLabel}>Save Season Data</span>
             <span style={styles.mdPopoverRowChevron}>›</span>

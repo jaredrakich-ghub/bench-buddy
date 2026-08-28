@@ -1566,7 +1566,7 @@ export default function MatchView({
             <div style={styles.mdTeamName}>{teamName}</div>
           </div>
           <button
-            style={{ ...styles.mdCogBtn, position: "relative", ...(cogOrigin ? { ...styles.mdOriginLit, ...styles.mdCogBtnLit } : {}) }}
+            style={{ ...styles.mdCogBtn, ...(cogOrigin ? { ...styles.mdOriginLit, ...styles.mdCogBtnLit } : {}) }}
             onClick={(e) => {
               // Read the rect synchronously, before handing off to the
               // updater callback — by the time that runs, the synthetic
@@ -1577,13 +1577,6 @@ export default function MatchView({
             title="Menu"
           >
             <GearIcon size={28} />
-            {/* Conversion nudge: passive "something in here needs
-                attention" badge, anonymous-only — visible without even
-                opening the menu, same pattern an app icon's own
-                notification badge uses. Mirrored on the Team & account row
-                inside the opened menu below, so the trail continues once
-                the coach is actually in the menu. */}
-            {isAnonymous && <span style={styles.mdCogBtnDot} />}
           </button>
         </div>
         {/* position:relative — this row's only change — anchors the
@@ -2311,17 +2304,7 @@ export default function MatchView({
               }}
             >
               <span style={styles.mdCogMenuCrestIcon}>{crestSrc && <img src={crestSrc} alt="" style={styles.mdCogMenuCrestImg} />}</span>
-              {/* Dot nested inside the label span, not a sibling — the
-                  label's own flex:1 would otherwise stretch it away from
-                  the text it's meant to sit right next to, pushing it all
-                  the way over against mdCogMenuValue instead. Mirrors the
-                  cog button's own badge (see above) — the trail continues
-                  once the coach is actually inside the menu, not just a
-                  hint on the button that vanishes once it's tapped. */}
-              <span style={styles.mdCogMenuLabel}>
-                Team &amp; account
-                {isAnonymous && <span style={styles.mdCogMenuRowDot} />}
-              </span>
+              <span style={styles.mdCogMenuLabel}>Team &amp; account</span>
               <span style={styles.mdCogMenuValue}>{teamName}</span>
               <span style={styles.mdCogMenuChevron}>›</span>
             </button>

@@ -31,6 +31,18 @@ describe("SignIn", () => {
     // Guest is opt-in (showGuestOption) — not shown by default, i.e. not
     // on the anon-bootstrap-failed path (AuthGate never passes it there).
     expect(screen.queryByText("Continue as Guest")).not.toBeInTheDocument();
+    // No close control unless a caller (SquadSettingsForm's "Already have
+    // a team?" link) explicitly opens this as a dismissible overlay —
+    // AuthGate itself renders this as the entire app, nothing to go back to.
+    expect(screen.queryByLabelText("Close")).not.toBeInTheDocument();
+  });
+
+  it("shows a close button when onClose is given, and calls it when tapped", async () => {
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(<SignIn onClose={onClose} />);
+    await user.click(screen.getByLabelText("Close"));
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   describe("Google", () => {
