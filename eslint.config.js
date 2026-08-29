@@ -86,6 +86,10 @@ export default [
     // app's own source, generated-looking minified names throughout) —
     // not something this project maintains or ships, so it's not this
     // linter's job to grade it.
-    ignores: ["dist/**", "node_modules/**", "docs/design_handoff_bench_buddy_match_day/**"],
+    // public/sw.js: a raw service worker, served as-is (Vite's convention
+    // for public/) — runs in the service-worker global scope (self,
+    // caches, clients), not the browser/Node globals this config's other
+    // rules assume, so it's not this linter's job either.
+    ignores: ["dist/**", "node_modules/**", "docs/design_handoff_bench_buddy_match_day/**", "public/**"],
   },
 ];

@@ -1,0 +1,13 @@
+{
+  "name": "Bench Buddy",
+  "short_name": "Bench Buddy",
+  "description": "Fair minutes, easy subs.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#FFF6E5",
+  "theme_color": "#1C3A2E",
+  "icons": [
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
