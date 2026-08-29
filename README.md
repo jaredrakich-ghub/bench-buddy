@@ -4,7 +4,7 @@ A sideline substitution rotation planner for 5-a-side youth football —
 fair playing time, fair goalkeeper time, a live match timer, and manual
 overrides for injuries and swaps.
 
-Live at **<https://jaredrakich-ghub.github.io/bench-buddy/>**.
+Live at **<https://benchbuddysports.com/>**.
 
 This started as a single component built as a Claude.ai "artifact." It's
 since grown into a real account-backed app — Google sign-in, Firestore
