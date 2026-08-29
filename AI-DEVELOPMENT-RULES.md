@@ -122,7 +122,21 @@ Can it be implemented incrementally?
 How will it be tested?
 When in doubt, prefer the option that is simpler, safer, reversible, and easier for the human owner to understand.
 
-14. Avoid the command line where a GUI alternative exists
+14. Efficiency and scope control
+Before starting a multi-step task, use the simplest approach that gets a
+correct result — don't reach for a complex or exploratory method (e.g.
+round-tripping data through a browser, chaining several tools together)
+when a direct one is available.
+If a task starts requiring noticeably more steps than its apparent size
+warrants, stop and reconsider rather than pushing through — simplify scope,
+or check in with the owner, instead of continuing to spend time and tokens
+on the original approach.
+Never hand-transcribe large machine-generated data (e.g. base64 blobs,
+long hashes) between tool outputs and files — pipe it programmatically
+instead. Needing to manually retype that kind of data is itself a signal
+the approach needs to change, not just proceed carefully.
+
+15. Avoid the command line where a GUI alternative exists
 The project owner is not comfortable using PowerShell/Command Prompt and prefers not to.
 
 Before asking the owner to run a terminal command, check whether the same result is achievable through a GUI instead — a web console (e.g. the Firebase console's Rules editor instead of `firebase deploy`), a desktop app already in use (e.g. GitHub Desktop instead of `git`/`gh` CLI), or a settings page — and use that path if it exists.
