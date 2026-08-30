@@ -28,18 +28,6 @@ function GloveIcon() {
     </svg>
   );
 }
-// Two straight opposite-pointing arrows, not a curved/circular swap
-// glyph — a curved pair fuses into a blob at 44px tile size.
-function SwapIcon() {
-  return (
-    <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={tokens.color.pitchGreen} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20 8.5H5" />
-      <path d="M8.6 5 5 8.5l3.6 3.5" />
-      <path d="M4 15.5h15" />
-      <path d="M15.4 12l3.6 3.5-3.6 3.5" />
-    </svg>
-  );
-}
 function BreaksIcon() {
   return (
     <svg width={21} height={21} viewBox="0 0 24 24" fill="none" stroke={tokens.color.actionBar} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -115,11 +103,14 @@ const TILE_ORDER = [
 // neutral distinct from "goal"'s own headerYellow, even though both reuse
 // the same GloveIcon glyph — the two sections are related, just not
 // visually identical), not yet a shared token.
+// "goal" now covers the single merged "Goal Keeper Options" row (Keepers +
+// First in goal today + Keeper changes, all folded into one accordion
+// entry — real-use feedback, three separate GK-related rows read as
+// clutter). "swaps"/"keepers" as their own top-level badges are gone with
+// the rows that used them.
 const SECTION_BADGE = {
   goal: { Icon: GloveIcon, bg: tokens.color.headerYellow },
-  swaps: { Icon: SwapIcon, bg: tokens.color.mint },
   breaks: { Icon: BreaksIcon, bg: tokens.color.creamDeep },
-  keepers: { Icon: GloveIcon, bg: "#EADFC2" },
 };
 
 // README > A3-Setup / A4-Setup (`#3a`, `#4a`, `#4b`). Two layouts, both
@@ -230,15 +221,6 @@ export default function SquadSettingsForm({
     () => roster.filter((p) => availableIds.includes(p.id) && p.keeperEligible),
     [roster, availableIds]
   );
-  // "inline" layout's own Keepers collapsed-row value — see
-  // renderKeeperEligibilityRows below for the full section.
-  const keepersValue =
-    roster.length === 0
-      ? "Add squad first"
-      : keeperEligibleIds.length === roster.length
-      ? "Shared by all"
-      : `${keeperEligibleIds.length} of ${roster.length}`;
-
   // If the currently-picked kid stops being available or loses their glove
   // (unticked mid-setup), the pick would silently go stale until submit —
   // clear it right away instead so the button state stays honest.
@@ -403,13 +385,11 @@ export default function SquadSettingsForm({
   };
   // "Keepers" — shared by both layouts now (real-use feedback: turning
   // this off for anyone shouldn't be buried inside a Manage squad list a
-  // coach might not open for a while — and Manage squad itself no longer
-  // even lives here, see renderKeepersSection/ManageSquadScreen.jsx). Its
-  // own independent collapse state, not folded into expandedSection above
-  // — it sits alongside that group (real-use feedback: directly against
-  // First in goal today, which it feeds), not competing with it for "one
-  // thing open at a time".
-  const [keepersExpanded, setKeepersExpanded] = useState(false);
+  // coach might not open for a while — Manage squad itself no longer even
+  // lives here, see ManageSquadScreen.jsx). Real-use feedback: folded into
+  // the single "Goal Keeper Options" accordion entry alongside First in
+  // goal today/Keeper changes (expandedSection === "goal", below) rather
+  // than its own separate row — three GK-related rows read as clutter.
   // Progressive disclosure for the sub-interval fairness picker (see
   // renderSubIntervalRecs below) — collapsed behind a tappable "Improve
   // fairness" prompt until a coach actually asks to see it. Real-use
@@ -877,59 +857,10 @@ export default function SquadSettingsForm({
     ));
   }
 
-  // "Keepers" — shared by both layouts now (real-use feedback: "This
-  // should be available under Set up a New Team Screen and Set Up Next
-  // Game" — extended to every "edit" render, not just the match-complete
-  // one, so a coach flipping eligibility mid-season via plain Game
-  // settings doesn't lose the only place that was ever reachable, now
-  // that Manage squad's own 🧤 toggle is gone). Called from inside
-  // renderGameSettingsAccordion below, as the first card in the same
-  // flex-column stack as First in goal today/Keeper changes/Breaks — real
-  // -use feedback wanted it sitting directly against the section it
-  // depends on, not separated from it by the tiles/fairness note above
-  // (no own margin here; the flex column's own gap handles spacing).
-  function renderKeepersSection() {
-    return (
-      <>
-        {keepersExpanded ? (
-          <div style={styles.mdSetupCard}>
-            <div style={styles.mdSetupCardHeaderRow}>
-              <div style={styles.mdSetupCardTitle}>Keepers</div>
-              {/* Real-use feedback: everyone's already eligible by
-                  default, so this exists for restoring that after turning
-                  some off. One tap both confirms the whole squad and moves
-                  on — it also collapses the card back down, the same way
-                  finishing this step naturally hands off to the settings
-                  group below it. */}
-              {roster.length > 0 && (
-                <button
-                  style={{ ...styles.selectAllBtn, marginLeft: 0 }}
-                  onClick={() => {
-                    setAllKeeperEligible(true);
-                    setKeepersExpanded(false);
-                  }}
-                >
-                  Select all
-                </button>
-              )}
-              <span style={styles.mdSetupCardCollapseBtn} onClick={() => setKeepersExpanded(false)} role="button" tabIndex={0} title="Collapse">
-                <ChevronDown size={22} strokeWidth={3} />
-              </span>
-            </div>
-            <div style={styles.mdSetupHint}>Everyone can play in goal by default — turn off anyone who shouldn't.</div>
-            <div style={{ marginTop: 8 }}>{renderKeeperEligibilityRows()}</div>
-          </div>
-        ) : (
-          <button style={styles.mdSetupAccordionRow} onClick={() => setKeepersExpanded(true)}>
-            {sectionBadge("keepers")}
-            <span style={styles.mdSetupAccordionLabel}>Keepers</span>
-            <span style={styles.mdSetupAccordionValue}>{keepersValue}</span>
-            <span style={styles.mdSetupAccordionChevron}>›</span>
-          </button>
-        )}
-      </>
-    );
-  }
+  // "Keepers" (who's eligible today) — now folded directly into the
+  // merged "Goal Keeper Options" card as its first sub-section, see
+  // renderGameSettingsAccordion below. No longer its own accordion row —
+  // real-use feedback, three separate GK-related rows read as clutter.
 
   // Real-use feedback: "inline" (first-time setup) should now "appear
   // exactly how it does the Game settings screen" — including this
@@ -1035,8 +966,15 @@ export default function SquadSettingsForm({
           that screen) and is unaffected either way. If a crest is ever
           wanted on "Set up next game" too, that's crestSrc+teamName
           together, which still gets the smaller inline treatment below —
-          a real design call to make then, not implied by this one. */}
-      {crestSrc && !teamName ? (
+          a real design call to make then, not implied by this one.
+          Further real-device feedback: also requires !onClose — a
+          returning coach adding an *additional* team (onClose set, a real
+          "back" destination exists) got the crest AND the back-chevron
+          together, which read as two competing headers. The crest is only
+          for the genuine first-ever-team case with nowhere to go back to;
+          anyone with a back button already knows this screen shape from
+          Game settings and just needs the chevron. */}
+      {crestSrc && !teamName && !onClose ? (
         <>
           <div style={styles.mdCrestOuter}>
             <img src={crestSrc} alt="" style={styles.mdCrestImg} />
@@ -1090,19 +1028,19 @@ export default function SquadSettingsForm({
             without this the button could end up sitting right against
             the submit button with no breathing room. */}
         <div style={{ marginTop: 22, marginBottom: 20, display: "flex", flexDirection: "column", gap: 9 }}>
-          {renderKeepersSection()}
-
+          {/* "Goal Keeper Options" — real-use feedback: Keepers/First in
+              goal today/Keeper changes used to be three separate accordion
+              rows, which read as clutter once you actually saw them stacked
+              together. Merged into one entry now; each sub-section below
+              keeps its own existing content/controls unchanged (Keepers'
+              own white-pill eligibility rows are already dark-card-safe,
+              renderInGoalChips/renderKeeperSwapStepper already support the
+              onDark styling this card uses) — only the outer collapse
+              wrapper changed, from three to one. */}
           {expandedSection === "goal" ? (
             <div style={{ ...styles.mdSetupCard, ...styles.mdSetupCardDark }}>
-              {/* No section badge once expanded — real-device feedback,
-                  didn't look right there. Header row is title + chevron
-                  only, same shape every expanded card uses now — the
-                  value badge moved to its own line below, rather than
-                  competing with the title and a long player name for
-                  space on one line (that combination could wrap the
-                  title onto two lines on a phone-width screen). */}
               <div style={styles.mdSetupCardHeaderRow}>
-                <div style={{ ...styles.mdSetupCardTitle, ...styles.mdSetupCardTitleOnDark }}>First in goal today</div>
+                <div style={{ ...styles.mdSetupCardTitle, ...styles.mdSetupCardTitleOnDark }}>Goal Keeper Options</div>
                 <span
                   style={styles.mdSetupCardChevronOnDark}
                   onClick={() => setExpandedSection(null)}
@@ -1113,52 +1051,45 @@ export default function SquadSettingsForm({
                   <ChevronDown size={22} strokeWidth={3} />
                 </span>
               </div>
-              <span style={{ ...styles.mdSetupCardValueBadge, ...(startingGkId ? styles.mdSetupCardValueBadgeSet : {}), marginTop: 10 }}>
-                {startingGkId ? roster.find((p) => p.id === startingGkId)?.name : "Random"}
-              </span>
-              <div style={{ marginTop: 12 }}>{renderInGoalChips(true)}</div>
-              <div style={styles.mdSetupCardCaptionOnDark}>Tap a name to pick who starts in goal today.</div>
+
+              <div style={{ marginTop: 16 }}>
+                <div style={styles.mdSetupGkSubHeaderRow}>
+                  <span style={styles.mdSetupGkSubTitle}>Keepers</span>
+                  {roster.length > 0 && (
+                    <button style={styles.mdSetupGkSelectAllOnDark} onClick={() => setAllKeeperEligible(true)}>
+                      Select all
+                    </button>
+                  )}
+                </div>
+                <div style={styles.mdSetupCardCaptionOnDark}>Everyone can play in goal by default — turn off anyone who shouldn't.</div>
+                <div style={{ marginTop: 8 }}>{renderKeeperEligibilityRows()}</div>
+              </div>
+
+              <div style={styles.mdSetupGkDivider} />
+
+              <div>
+                <span style={styles.mdSetupGkSubTitle}>First in goal today</span>
+                <div>
+                  <span style={{ ...styles.mdSetupCardValueBadge, ...(startingGkId ? styles.mdSetupCardValueBadgeSet : {}), marginTop: 10 }}>
+                    {startingGkId ? roster.find((p) => p.id === startingGkId)?.name : "Random"}
+                  </span>
+                </div>
+                <div style={{ marginTop: 12 }}>{renderInGoalChips(true)}</div>
+                <div style={styles.mdSetupCardCaptionOnDark}>Tap a name to pick who starts in goal today.</div>
+              </div>
+
+              <div style={styles.mdSetupGkDivider} />
+
+              <div>
+                <span style={styles.mdSetupGkSubTitle}>Keeper changes</span>
+                <div style={{ marginTop: 10 }}>{renderKeeperSwapStepper(true)}</div>
+                <div style={styles.mdSetupCardCaptionOnDark}>Leave at the sub length to rotate keepers every window.</div>
+              </div>
             </div>
           ) : (
             <button style={styles.mdSetupAccordionRow} onClick={() => setExpandedSection("goal")}>
               {sectionBadge("goal")}
-              <span style={styles.mdSetupAccordionLabel}>First in goal today</span>
-              <span style={styles.mdSetupAccordionValue}>
-                {startingGkId ? roster.find((p) => p.id === startingGkId)?.name : "Random"}
-              </span>
-              <span style={styles.mdSetupAccordionChevron}>›</span>
-            </button>
-          )}
-
-          {expandedSection === "swaps" ? (
-            <div style={{ ...styles.mdSetupCard, ...styles.mdSetupCardDark }}>
-              {/* Same "header row = title + chevron only" shape as every
-                  other expanded card now — the stepper moved below rather
-                  than sharing the header row with the chevron (real-
-                  device feedback: adding the chevron alongside the title
-                  and stepper's 3 buttons wrapped "Keeper changes" onto
-                  two lines on a phone-width screen; there just wasn't
-                  room for all of it on one line). */}
-              <div style={styles.mdSetupCardHeaderRow}>
-                <div style={{ ...styles.mdSetupCardTitle, ...styles.mdSetupCardTitleOnDark }}>Keeper changes</div>
-                <span
-                  style={styles.mdSetupCardChevronOnDark}
-                  onClick={() => setExpandedSection(null)}
-                  role="button"
-                  tabIndex={0}
-                  title="Collapse"
-                >
-                  <ChevronDown size={22} strokeWidth={3} />
-                </span>
-              </div>
-              <div style={{ marginTop: 10 }}>{renderKeeperSwapStepper(true)}</div>
-              <div style={styles.mdSetupCardCaptionOnDark}>Leave at the sub length to rotate keepers every window.</div>
-            </div>
-          ) : (
-            <button style={styles.mdSetupAccordionRow} onClick={() => setExpandedSection("swaps")}>
-              {sectionBadge("swaps")}
-              <span style={styles.mdSetupAccordionLabel}>Keeper changes</span>
-              <span style={styles.mdSetupAccordionValue}>Every {keeperSwapValue}′</span>
+              <span style={styles.mdSetupAccordionLabel}>Goal Keeper Options</span>
               <span style={styles.mdSetupAccordionChevron}>›</span>
             </button>
           )}
@@ -1369,7 +1300,11 @@ export default function SquadSettingsForm({
           settings" visit has no roster section above it at all, so a
           divider forced in there would sit right under the header with
           nothing to separate. */}
-      <div style={{ height: 1, background: tokens.color.rule, margin: "22px 0 13px" }} />
+      {/* Real-use feedback: the gap above this rule (22px, from the last
+          chip) and the gap below it (used to be 13px here + 14px from
+          renderGameSettingsAccordion's own tiles wrapper = 27px) didn't
+          match — trimmed to 8 so the two sides land equal at 22px each. */}
+      <div style={{ height: 1, background: tokens.color.rule, margin: "22px 0 8px" }} />
 
       {renderGameSettingsAccordion()}
 

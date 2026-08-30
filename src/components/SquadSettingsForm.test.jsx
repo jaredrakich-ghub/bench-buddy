@@ -108,6 +108,19 @@ describe("SquadSettingsForm — rendering (inline / A3 layout)", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  // Real-use feedback (real-device screenshot): an additional team (onClose
+  // set, a genuine back destination exists) showed the crest AND the
+  // back-chevron together, reading as two competing headers. The crest is
+  // for the genuine first-ever-team case only — anyone with a back button
+  // already knows this screen shape from Game settings.
+  it("shows the back chevron instead of the crest when onClose is given, even with a crestSrc", () => {
+    const { container } = render(
+      <SquadSettingsForm {...baseProps({ title: "Set up new team", crestSrc: "mascot.jpg", onClose: vi.fn() })} />
+    );
+    expect(screen.getByTitle("Back")).toBeInTheDocument();
+    expect(container.querySelector('img[src="mascot.jpg"]')).not.toBeInTheDocument();
+  });
+
   it("shows the three tiles, the squad, and the sub-window preview", () => {
     render(<SquadSettingsForm {...baseProps()} />);
     expect(screen.getByText("5")).toBeInTheDocument(); // on pitch
@@ -118,16 +131,24 @@ describe("SquadSettingsForm — rendering (inline / A3 layout)", () => {
   });
 
   // Real-use feedback: "inline" should now "appear exactly how it does
-  // the Game settings screen" — First in goal today, Keeper changes, and
-  // Breaks all collapsed by default here too, not open flat the way
-  // "inline" used to show them. Manage squad no longer lives in this
-  // accordion at all (moved to ManageSquadScreen.jsx, reached from Team &
-  // account) — nothing here to collapse.
-  it("collapses First in goal today, Keeper changes, and Breaks by default, same as 'edit'", () => {
+  // the Game settings screen" — Goal Keeper Options and Breaks collapsed
+  // by default here too, not open flat the way "inline" used to show
+  // them. Manage squad no longer lives in this accordion at all (moved to
+  // ManageSquadScreen.jsx, reached from Team & account) — nothing here to
+  // collapse.
+  //
+  // Real-use feedback, later: Keepers/First in goal today/Keeper changes
+  // used to be three separate collapsed rows here — merged into one
+  // "Goal Keeper Options" entry (three separate GK-related rows read as
+  // clutter). Collapsed, none of the three sub-section labels are in the
+  // DOM at all yet — they only render once the merged card is expanded.
+  it("collapses Goal Keeper Options and Breaks by default, same as 'edit'", () => {
     render(<SquadSettingsForm {...baseProps()} />);
-    expect(screen.getByText("First in goal today")).toBeInTheDocument();
-    expect(screen.getByText("Keeper changes")).toBeInTheDocument();
+    expect(screen.getByText("Goal Keeper Options")).toBeInTheDocument();
     expect(screen.getByText("Breaks")).toBeInTheDocument();
+    expect(screen.queryByText("First in goal today")).not.toBeInTheDocument();
+    expect(screen.queryByText("Keeper changes")).not.toBeInTheDocument();
+    expect(screen.queryByText("Keepers")).not.toBeInTheDocument();
     expect(screen.queryByText("Manage squad")).not.toBeInTheDocument();
     expect(screen.queryByTitle("Collapse")).not.toBeInTheDocument(); // nothing expanded
     expect(screen.queryByText("Tap a name to pick who starts in goal today.")).not.toBeInTheDocument();
@@ -136,66 +157,58 @@ describe("SquadSettingsForm — rendering (inline / A3 layout)", () => {
   // Real-use feedback: Who's here should be the very first thing a coach
   // does, not tiles/settings — DOCUMENT_POSITION_FOLLOWING confirms each
   // element genuinely comes *after* the previous one in the DOM, not just
-  // that all three happen to be present somewhere. Keepers itself moved
-  // again on later feedback: it now sits right against First in goal
-  // today (after the tiles), not immediately after Who's here.
-  it("orders Who's here, then the tiles, then Keepers directly against First in goal today", () => {
+  // that all three happen to be present somewhere.
+  it("orders Who's here, then the tiles, then Goal Keeper Options, then Breaks", () => {
     render(<SquadSettingsForm {...baseProps()} />);
     const whosHere = screen.getByText("Who's here");
     const tile = screen.getByText("on pitch");
-    const keepers = screen.getByText("Keepers");
-    const firstInGoal = screen.getByText("First in goal today");
+    const gkOptions = screen.getByText("Goal Keeper Options");
+    const breaks = screen.getByText("Breaks");
     expect(whosHere.compareDocumentPosition(tile) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(tile.compareDocumentPosition(keepers) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(keepers.compareDocumentPosition(firstInGoal) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(tile.compareDocumentPosition(gkOptions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(gkOptions.compareDocumentPosition(breaks) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
 });
 
-describe("SquadSettingsForm — Keepers (inline / A3 layout only)", () => {
-  it("defaults to collapsed, its value reflecting who's actually eligible", () => {
+// Real-use feedback: Keepers/First in goal today/Keeper changes used to be
+// three separate accordion entries — merged into one "Goal Keeper Options"
+// card now (three GK-related rows read as clutter). No collapsed-row value
+// badge any more (there's no single clean value once three settings are
+// combined into one row) — these tests cover the merged card's own Keepers
+// sub-section specifically; "In goal today"/"Keeper swaps stepper" below
+// cover its other two sub-sections.
+describe("SquadSettingsForm — Keepers sub-section (inside the merged Goal Keeper Options card)", () => {
+  it("defaults to collapsed — no eligibility toggle rows in the DOM yet", () => {
     render(<SquadSettingsForm {...baseProps()} />); // ROSTER: Alice eligible, Bob not
-    expect(screen.getByText("Keepers")).toBeInTheDocument();
-    expect(screen.getByText("1 of 2")).toBeInTheDocument();
-    expect(screen.queryByTitle("Toggle keeper-eligible")).not.toBeInTheDocument(); // collapsed
-  });
-
-  it("reads 'Shared by all' once every player is actually eligible", () => {
-    const allEligible = [{ id: "p1", name: "Alice", keeperEligible: true }, { id: "p2", name: "Bob", keeperEligible: true }];
-    render(<SquadSettingsForm {...baseProps({ roster: allEligible })} />);
-    expect(screen.getByText("Shared by all")).toBeInTheDocument();
-  });
-
-  it("reads 'Add squad first' when the roster is empty", () => {
-    render(<SquadSettingsForm {...baseProps({ roster: [], availableIds: [] })} />);
-    expect(screen.getByText("Add squad first")).toBeInTheDocument();
+    expect(screen.getByText("Goal Keeper Options")).toBeInTheDocument();
+    expect(screen.queryByTitle("Toggle keeper-eligible")).not.toBeInTheDocument();
   });
 
   it("expands to show a toggle row per player; tapping one calls toggleKeeperEligible with their id", async () => {
     const toggleKeeperEligible = vi.fn();
     const user = userEvent.setup();
     render(<SquadSettingsForm {...baseProps({ toggleKeeperEligible })} />);
-    await user.click(screen.getByText("Keepers"));
+    await user.click(screen.getByText("Goal Keeper Options"));
+    expect(screen.getByText("Keepers")).toBeInTheDocument();
     expect(screen.getByText("Everyone can play in goal by default — turn off anyone who shouldn't.")).toBeInTheDocument();
     await user.click(screen.getAllByTitle("Toggle keeper-eligible")[0]);
     expect(toggleKeeperEligible).toHaveBeenCalledWith("p1");
   });
 
-  it("expanded, offers Select all, which marks everyone eligible and collapses the card back down", async () => {
+  it("expanded, offers Select all, which marks everyone eligible", async () => {
     const setAllKeeperEligible = vi.fn();
     const user = userEvent.setup();
     render(<SquadSettingsForm {...baseProps({ setAllKeeperEligible })} />);
-    await user.click(screen.getByText("Keepers"));
+    await user.click(screen.getByText("Goal Keeper Options"));
     await user.click(screen.getByText("Select all"));
     expect(setAllKeeperEligible).toHaveBeenCalledWith(true);
-    // Back to collapsed — the toggle rows are gone again.
-    expect(screen.queryByTitle("Toggle keeper-eligible")).not.toBeInTheDocument();
   });
 
   it("doesn't offer Select all when the roster is empty, showing the empty state instead", async () => {
     const user = userEvent.setup();
     render(<SquadSettingsForm {...baseProps({ roster: [], availableIds: [] })} />);
-    await user.click(screen.getByText("Keepers"));
+    await user.click(screen.getByText("Goal Keeper Options"));
     expect(screen.queryByText("Select all")).not.toBeInTheDocument();
     expect(screen.getByText("No players yet — add your squad above.")).toBeInTheDocument();
   });
@@ -205,13 +218,14 @@ describe("SquadSettingsForm — Keepers (inline / A3 layout only)", () => {
   // just the match-complete one), since Manage squad's own 🧤 toggle is
   // gone from there too now and plain Game settings needs somewhere to
   // reach eligibility just as much as the other two contexts do.
-  it("also appears in the 'edit' layout, directly after the header", () => {
+  it("also appears in the 'edit' layout, directly after the header", async () => {
+    const user = userEvent.setup();
     render(<SquadSettingsForm {...baseProps({ variant: "edit", title: "Game settings" })} />);
     const header = screen.getByText("Game settings");
-    const keepers = screen.getByText("Keepers");
-    expect(header.compareDocumentPosition(keepers) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    const firstInGoal = screen.getByText("First in goal today");
-    expect(keepers.compareDocumentPosition(firstInGoal) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const gkOptions = screen.getByText("Goal Keeper Options");
+    expect(header.compareDocumentPosition(gkOptions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await user.click(gkOptions);
+    expect(screen.getByText("Keepers")).toBeInTheDocument();
   });
 });
 
@@ -253,14 +267,15 @@ describe("SquadSettingsForm — rendering (edit / A4 layout)", () => {
     expect(container.querySelector("img")).not.toBeInTheDocument();
   });
 
-  it("shows the three advanced sections collapsed to one-line rows carrying their current value", () => {
+  // Goal Keeper Options carries no collapsed-row value of its own any more
+  // (see the merged-card describe block above) — Breaks still does.
+  it("shows Goal Keeper Options and Breaks collapsed to one-line rows, Breaks carrying its current value", () => {
     render(<SquadSettingsForm {...baseProps({ variant: "edit" })} />);
-    expect(screen.getByText("First in goal today")).toBeInTheDocument();
-    expect(screen.getByText("Random")).toBeInTheDocument(); // no starting keeper picked
-    expect(screen.getByText("Keeper changes")).toBeInTheDocument();
-    expect(screen.getByText("Every 6′")).toBeInTheDocument(); // defaults to subIntervalMinutes
+    expect(screen.getByText("Goal Keeper Options")).toBeInTheDocument();
     expect(screen.getByText("Breaks")).toBeInTheDocument();
     expect(screen.getByText("None")).toBeInTheDocument();
+    expect(screen.queryByText("First in goal today")).not.toBeInTheDocument();
+    expect(screen.queryByText("Keeper changes")).not.toBeInTheDocument();
   });
 
   it("opens with nothing expanded by default (no initialExpandedSection)", () => {
@@ -313,17 +328,23 @@ describe("SquadSettingsForm — rendering (edit / A4 layout)", () => {
     expect(screen.queryByText("Thirds")).not.toBeInTheDocument(); // that's the chip's own label, only shown once expanded
   });
 
-  it("expands a section in place when tapped, and only one at a time", async () => {
+  // Goal Keeper Options and Breaks are still mutually exclusive (one
+  // expandedSection at a time) — but Goal Keeper Options' own three
+  // sub-sections (Keepers/First in goal today/Keeper changes) all open
+  // together now, not one at a time within it.
+  it("expands Goal Keeper Options to show all three of its sub-sections at once, and only one top-level section at a time", async () => {
     const user = userEvent.setup();
     render(<SquadSettingsForm {...baseProps({ variant: "edit" })} />);
 
-    await user.click(screen.getByText("First in goal today"));
+    await user.click(screen.getByText("Goal Keeper Options"));
+    expect(screen.getByText("Keepers")).toBeInTheDocument();
     expect(screen.getByText("Tap a name to pick who starts in goal today.")).toBeInTheDocument();
-
-    // Opening Keeper changes closes the In-goal card back to its one-liner.
-    await user.click(screen.getByText("Keeper changes"));
-    expect(screen.queryByText("Tap a name to pick who starts in goal today.")).not.toBeInTheDocument();
     expect(screen.getByText("Leave at the sub length to rotate keepers every window.")).toBeInTheDocument();
+
+    // Opening Breaks closes Goal Keeper Options back to its one-liner.
+    await user.click(screen.getByText("Breaks"));
+    expect(screen.queryByText("Tap a name to pick who starts in goal today.")).not.toBeInTheDocument();
+    expect(screen.getAllByText(/sub windows/).length).toBeGreaterThan(0);
   });
 
   it("collapses an expanded section back via its chevron", async () => {
@@ -369,15 +390,18 @@ describe("SquadSettingsForm — rendering (edit / A4 layout)", () => {
 
   // Real-use feedback: "Keeper Change[s]...we need to add in a collapse
   // arrow" — its own expanded card had no way to close itself before
-  // (only opening a different section closed it).
-  it("gives Keeper changes its own collapse chevron too", async () => {
+  // (only opening a different section closed it). Now Keeper changes is a
+  // sub-section of the merged Goal Keeper Options card, which carries the
+  // one collapse chevron for all three sub-sections together.
+  it("gives Goal Keeper Options one collapse chevron that closes all three of its sub-sections", async () => {
     const user = userEvent.setup();
     render(<SquadSettingsForm {...baseProps({ variant: "edit" })} />);
-    await user.click(screen.getByText("Keeper changes"));
+    await user.click(screen.getByText("Goal Keeper Options"));
     expect(screen.getByText("Leave at the sub length to rotate keepers every window.")).toBeInTheDocument();
     await user.click(screen.getByTitle("Collapse"));
     expect(screen.queryByText("Leave at the sub length to rotate keepers every window.")).not.toBeInTheDocument();
-    expect(screen.getByText("Keeper changes")).toBeInTheDocument(); // back to its one-line row
+    expect(screen.queryByText("Keepers")).not.toBeInTheDocument();
+    expect(screen.getByText("Goal Keeper Options")).toBeInTheDocument(); // back to its one-line row
   });
 
 });
@@ -440,13 +464,17 @@ describe("SquadSettingsForm — number tiles (tap to flip, stepper)", () => {
   it("tapping outside the tiles row settles a flipped tile back too, not just tapping its own body", async () => {
     const user = userEvent.setup();
     render(<SquadSettingsForm {...baseProps({ variant: "edit" })} />);
+    const tilesRow = screen.getByText("on pitch").closest("div").parentElement;
     await user.click(screen.getByText("on pitch"));
     // Keeper changes' own stepper isn't in the DOM yet in the edit layout
     // (that section starts collapsed) -- just this tile's own "-" here.
     expect(screen.getAllByText("−")).toHaveLength(1);
-    // Tapping a wholly unrelated section, not another tile.
-    await user.click(screen.getByText("First in goal today"));
-    expect(screen.queryByText("−")).not.toBeInTheDocument(); // the tile settled back
+    // Tapping a wholly unrelated section, not another tile. This also
+    // expands Goal Keeper Options, which reveals Keeper changes' own
+    // separate "−" stepper — so the check below is scoped to the tiles
+    // row specifically, not a document-wide absence of "−" text.
+    await user.click(screen.getByText("Goal Keeper Options"));
+    expect(within(tilesRow).queryByText("−")).not.toBeInTheDocument(); // the tile settled back
     expect(screen.getByTitle("Collapse")).toBeInTheDocument(); // the outside tap's own action still happened
   });
 });
@@ -632,15 +660,23 @@ describe("SquadSettingsForm — 'Already have a team? Sign in' link (inline vari
 });
 
 describe("SquadSettingsForm — In goal today (starting keeper)", () => {
-  // First in goal today is a collapsed accordion row by default in both
-  // layouts now — these open straight to it via initialExpandedSection,
-  // same as the "rendering (edit / A4)" tests do.
+  // Goal Keeper Options is a collapsed accordion row by default in both
+  // layouts now — these open straight to it via initialExpandedSection
+  // (still "goal", the merged card's own key), same as the "rendering
+  // (edit / A4)" tests do. Expanding it also shows the Keepers
+  // eligibility list (same merged card, see the sub-section describe
+  // block above) — which renders Alice's name a second time, in a plain
+  // (non-button) row, so tests below disambiguate via .closest("button")
+  // to reliably target her actual in-goal chip.
   it("only lists players who are both available and keeper-eligible", () => {
     render(<SquadSettingsForm {...baseProps({ variant: "edit", initialExpandedSection: "goal" })} />); // Alice eligible, Bob not
-    // Just Alice's own in-goal chip — no Who's-here chip row or Manage
-    // squad list in the "edit" layout to duplicate her name elsewhere.
-    expect(screen.getAllByText("Alice")).toHaveLength(1);
-    expect(screen.queryByText("Bob")).not.toBeInTheDocument();
+    const aliceChip = screen.getAllByText("Alice").find((el) => el.closest("button"));
+    expect(aliceChip).toBeTruthy();
+    // Bob legitimately still appears once, in the same merged card's own
+    // Keepers eligibility list (every roster player, toggleable, by
+    // design) — just not as his own in-goal chip.
+    const bobChip = screen.queryAllByText("Bob").find((el) => el.closest("button"));
+    expect(bobChip).toBeFalsy();
   });
 
   it("shows a hint instead of an empty card when nobody eligible is available", () => {
@@ -652,25 +688,19 @@ describe("SquadSettingsForm — In goal today (starting keeper)", () => {
     const setStartingGkId = vi.fn();
     const user = userEvent.setup();
     render(<SquadSettingsForm {...baseProps({ variant: "edit", initialExpandedSection: "goal", setStartingGkId })} />);
-    await user.click(screen.getByText("Alice"));
+    const aliceChip = screen.getAllByText("Alice").find((el) => el.closest("button"));
+    await user.click(aliceChip);
     expect(setStartingGkId).toHaveBeenCalledWith("p1");
   });
 
   // Real-use feedback: "Player name starts" read oddly next to "Random" —
-  // just the name reads as the plain fact it is, both in the collapsed
-  // row's own value and the expanded card's value badge.
+  // just the name reads as the plain fact it is, in the expanded card's
+  // own value badge. (The merged Goal Keeper Options row no longer shows
+  // a value at all when collapsed — see the merged-card describe block's
+  // own comment on why — so there's nothing to check there any more.)
   it("shows just the player's name once picked, not 'name starts'", () => {
     render(<SquadSettingsForm {...baseProps({ variant: "edit", initialExpandedSection: "goal", startingGkId: "p1" })} />);
-    // getByText's default exact-match means this alone already rules out
-    // "Alice starts" as the actual text — a looser /starts/ document-wide
-    // check would false-positive on the caption below ("...who starts in
-    // goal today"), which is unrelated static copy.
-    expect(screen.getByText("Alice")).toBeInTheDocument();
-    expect(screen.queryByText("Alice starts")).not.toBeInTheDocument();
-
-    cleanup();
-    render(<SquadSettingsForm {...baseProps({ variant: "edit", startingGkId: "p1" })} />); // collapsed row
-    expect(screen.getByText("Alice")).toBeInTheDocument();
+    expect(screen.getAllByText("Alice").length).toBeGreaterThan(0);
     expect(screen.queryByText("Alice starts")).not.toBeInTheDocument();
   });
 
@@ -700,19 +730,20 @@ describe("SquadSettingsForm — In goal today (starting keeper)", () => {
   });
 });
 
-// Keeper changes and Breaks are collapsed accordion rows by default in
-// both layouts now — these open straight to them via
-// initialExpandedSection, same as the "rendering (edit / A4)" tests do.
+// Keeper changes is now a sub-section of the merged Goal Keeper Options
+// card ("goal", same key as First in goal today/Keepers) — these open
+// straight to it via initialExpandedSection, same as the "rendering
+// (edit / A4)" tests do.
 describe("SquadSettingsForm — Keeper swaps stepper", () => {
   it("defaults to the sub interval length when keeperShiftMinutes is unset", () => {
-    render(<SquadSettingsForm {...baseProps({ variant: "edit", initialExpandedSection: "swaps" })} />);
+    render(<SquadSettingsForm {...baseProps({ variant: "edit", initialExpandedSection: "goal" })} />);
     expect(screen.getByText("6′")).toBeInTheDocument();
   });
 
   it("+ steps up from the sub interval and records a real override", async () => {
     const setGameSettings = vi.fn();
     const user = userEvent.setup();
-    render(<SquadSettingsForm {...baseProps({ variant: "edit", initialExpandedSection: "swaps", setGameSettings })} />);
+    render(<SquadSettingsForm {...baseProps({ variant: "edit", initialExpandedSection: "goal", setGameSettings })} />);
     await user.click(screen.getByText("+"));
     expect(setGameSettings).toHaveBeenCalledWith({ fieldSize: 5, gameMinutes: 40, subIntervalMinutes: 6, keeperShiftMinutes: 7 });
   });
@@ -723,7 +754,7 @@ describe("SquadSettingsForm — Keeper swaps stepper", () => {
     render(
       <SquadSettingsForm
         {...baseProps({
-          variant: "edit", initialExpandedSection: "swaps",
+          variant: "edit", initialExpandedSection: "goal",
           gameSettings: { fieldSize: 5, gameMinutes: 40, subIntervalMinutes: 6, keeperShiftMinutes: 7 }, setGameSettings,
         })}
       />

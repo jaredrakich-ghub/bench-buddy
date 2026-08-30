@@ -739,6 +739,20 @@ export const styles = {
   },
   mdSetupCardCaptionOnDark: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13, color: tokens.color.mutedOnDark, marginTop: 8 },
 
+  // The merged "Goal Keeper Options" card's own 3 sub-sections (Keepers /
+  // First in goal today / Keeper changes) — smaller than mdSetupCardTitle
+  // since it's a sub-heading inside that bigger title now, not a card
+  // title of its own. mdSetupGkSelectAllOnDark exists because the shared
+  // selectAllBtn style is dark-green-on-transparent, built for a light
+  // card — invisible on this one's own dark-green background.
+  mdSetupGkSubHeaderRow: { display: "flex", alignItems: "center", gap: 10 },
+  mdSetupGkSubTitle: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 16, color: tokens.color.creamPaper, flex: 1 },
+  mdSetupGkSelectAllOnDark: {
+    background: "transparent", color: tokens.color.creamPaper, border: `1px solid ${tokens.color.creamPaper}`, borderRadius: 999,
+    padding: "3px 9px", fontWeight: 700, fontSize: 11, cursor: "pointer",
+  },
+  mdSetupGkDivider: { height: 1, background: "rgba(255,255,255,0.15)", margin: "16px 0" },
+
   // Inline stepper — "Swap every" / "Keeper swaps", a smaller always-on
   // −/+ pair next to a label (not a flip-to-edit tile like mdSetupTile).
   mdSetupInlineStepRow: { marginLeft: "auto", display: "flex", alignItems: "center", gap: 9 },
@@ -1557,9 +1571,13 @@ export const styles = {
   mdPopoverGroupDot: { width: 8, height: 8, borderRadius: "50%", flexShrink: 0 },
   mdPopoverGroupLabel: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 16, color: tokens.color.mutedText },
   mdPopoverGroupRule: { flex: 1, height: 1, background: tokens.color.rule },
+  // Real-use feedback: these rows read as "too thin" next to Game
+  // settings' own accordion rows — padding and icon tile size now match
+  // mdSetupAccordionRow/mdSetupRowIconTile exactly, so the two screens'
+  // rows land the same height.
   mdPopoverRow: {
     display: "flex", alignItems: "center", gap: 10, width: "100%", background: "#fff", borderRadius: tokens.radius.rowSm,
-    border: "none", padding: "3px 12px 3px 8px", marginBottom: 6, boxShadow: "0 3px 0 rgba(28,58,46,.10)",
+    border: "none", padding: "13px 15px", marginBottom: 6, boxShadow: "0 3px 0 rgba(28,58,46,.10)",
     cursor: "pointer", textAlign: "left", font: "inherit",
   },
   // Real-use feedback (TeamAccountScreen.jsx's "Signed in"/"Playing as a
@@ -1571,10 +1589,10 @@ export const styles = {
   // no shadow, no pointer cursor — reads as a plain info card instead.
   mdPopoverRowStatic: {
     display: "flex", alignItems: "center", gap: 10, width: "100%", background: "#fff", borderRadius: tokens.radius.rowSm,
-    padding: "3px 12px 3px 8px", marginBottom: 6, cursor: "default",
+    padding: "13px 15px", marginBottom: 6, cursor: "default",
   },
   mdPopoverRowIconTile: {
-    width: 33, height: 33, borderRadius: tokens.radius.iconTile, flexShrink: 0,
+    width: 44, height: 44, borderRadius: 16, flexShrink: 0,
     display: "flex", alignItems: "center", justifyContent: "center", fontFamily: tokens.font.display, fontWeight: 800, fontSize: 17,
   },
   // Conversion nudge, moved here from two ambient badges (the cog button

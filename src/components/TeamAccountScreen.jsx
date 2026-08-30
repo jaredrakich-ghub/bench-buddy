@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Pencil, Trash2, Plus, Shirt, User, LogOut, Save } from "lucide-react";
+import { Pencil, Trash2, Plus, Shirt, User, LogOut, LogIn, Save } from "lucide-react";
 import { styles, tokens } from "./styles.js";
 import SaveTeamSheet from "./SaveTeamSheet.jsx";
+import SignIn from "./SignIn.jsx";
 
 // README > A8-Team-account (#10e) — "everything that is not match-day."
 // Absorbs the old TeamSwitcher modal's team list/switch/rename/delete/add
@@ -40,6 +41,12 @@ export default function TeamAccountScreen({
   // other sheet-open flag elsewhere in this app, e.g. MatchView's own
   // resetConfirmOpen) since nothing outside this screen needs to know.
   const [showSaveTeam, setShowSaveTeam] = useState(false);
+  // Real-use feedback: "another area to allow a user to sign in if
+  // they've been triggered down the wrong journey" — a second way in
+  // besides SquadSettingsForm's own "Already have a team? Sign in" link,
+  // for a coach who's already navigated here instead. Same SignIn
+  // overlay, same onClose-dismissible pattern.
+  const [showSignIn, setShowSignIn] = useState(false);
   const [showAddInput, setShowAddInput] = useState(false);
   const [addName, setAddName] = useState("");
   // Real-use feedback: creating a team gave no sign anything was
@@ -109,7 +116,6 @@ export default function TeamAccountScreen({
 
       <div style={styles.mdPopoverGroup}>
         <div style={styles.mdPopoverGroupHeader}>
-          <span style={{ ...styles.mdPopoverGroupDot, background: tokens.color.pitchGreen }} />
           <span style={styles.mdTeamAcctGroupLabel}>Your teams</span>
           <span style={styles.mdPopoverGroupRule} />
         </div>
@@ -255,7 +261,6 @@ export default function TeamAccountScreen({
 
       <div style={styles.mdPopoverGroup}>
         <div style={styles.mdPopoverGroupHeader}>
-          <span style={{ ...styles.mdPopoverGroupDot, background: tokens.color.goldText }} />
           <span style={styles.mdTeamAcctGroupLabel}>Squad</span>
           <span style={styles.mdPopoverGroupRule} />
         </div>
@@ -274,7 +279,6 @@ export default function TeamAccountScreen({
 
       <div style={styles.mdPopoverGroup}>
         <div style={styles.mdPopoverGroupHeader}>
-          <span style={{ ...styles.mdPopoverGroupDot, background: tokens.color.chevron }} />
           <span style={styles.mdTeamAcctGroupLabel}>Account</span>
           <span style={styles.mdPopoverGroupRule} />
         </div>
@@ -291,12 +295,21 @@ export default function TeamAccountScreen({
           // interactive either. Real-use framing, not "not signed in" —
           // the coach hasn't done anything wrong; their team already
           // works exactly as it should on this device.
-          <div style={styles.mdPopoverRowStatic}>
-            <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintNeutral }}>
-              <User size={16} color={tokens.color.mutedText} />
-            </span>
-            <span style={styles.mdPopoverRowLabel}>Playing as a guest</span>
-          </div>
+          <>
+            <div style={styles.mdPopoverRowStatic}>
+              <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintNeutral }}>
+                <User size={16} color={tokens.color.mutedText} />
+              </span>
+              <span style={styles.mdPopoverRowLabel}>Playing as a guest</span>
+            </div>
+            <button style={styles.mdPopoverRow} onClick={() => setShowSignIn(true)}>
+              <span style={{ ...styles.mdPopoverRowIconTile, ...styles.mdTintNeutral }}>
+                <LogIn size={16} color={tokens.color.mutedText} />
+              </span>
+              <span style={styles.mdPopoverRowLabel}>Sign in</span>
+              <span style={styles.mdPopoverRowChevron}>›</span>
+            </button>
+          </>
         ) : (
           <>
             <div style={styles.mdPopoverRowStatic}>
@@ -367,6 +380,7 @@ export default function TeamAccountScreen({
           onClose={() => setShowSaveTeam(false)}
         />
       )}
+      {showSignIn && <SignIn onClose={() => setShowSignIn(false)} />}
     </section>
   );
 }

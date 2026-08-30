@@ -12,6 +12,10 @@ vi.mock("../lib/auth.js", () => ({
   linkGoogleAccount: vi.fn(),
   signInWithExistingCredential: vi.fn(),
   sendLoginEmailLink: vi.fn(),
+  // SignIn.jsx's own imports (rendered by the new "Sign in" row below) —
+  // same mock shape as SignIn.test.jsx's own.
+  signInWithGoogle: vi.fn(),
+  signInAnon: vi.fn(),
 }));
 import TeamAccountScreen from "./TeamAccountScreen.jsx";
 
@@ -90,6 +94,24 @@ describe("TeamAccountScreen — Account group (progressive auth)", () => {
   it("'Playing as a guest' is a plain div, not a button", () => {
     render(<TeamAccountScreen {...baseProps({ isAnonymous: true })} />);
     expect(screen.getByText("Playing as a guest").closest("button")).toBeNull();
+  });
+
+  // Real-use feedback: "another area to allow a user to sign in if
+  // they've been triggered down the wrong journey" — a second way in
+  // besides SquadSettingsForm's own "Already have a team? Sign in" link.
+  it("shows a working 'Sign in' button under 'Playing as a guest' for an anonymous account, opening the SignIn overlay", async () => {
+    const user = userEvent.setup();
+    render(<TeamAccountScreen {...baseProps({ isAnonymous: true })} />);
+    const signInBtn = screen.getByText("Sign in").closest("button");
+    expect(signInBtn).not.toBeNull();
+    expect(screen.queryByText("Bench Buddy", { selector: "h1" })).not.toBeInTheDocument();
+    await user.click(signInBtn);
+    expect(screen.getByText("Bench Buddy", { selector: "h1" })).toBeInTheDocument(); // SignIn overlay's own wordmark
+  });
+
+  it("doesn't show a 'Sign in' row at all for a non-anonymous account", () => {
+    render(<TeamAccountScreen {...baseProps({ isAnonymous: false })} />);
+    expect(screen.queryByText("Sign in")).not.toBeInTheDocument();
   });
 
   it("'Signed in' is also a plain div, not a button", () => {
