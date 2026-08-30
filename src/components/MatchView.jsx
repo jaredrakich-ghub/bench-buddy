@@ -123,7 +123,7 @@ function usePrefersReducedMotion() {
 // exactly matching FairnessMark's own size/shape so it reads as one
 // piece — FairnessMark stays untouched, "same ring, same beam, same
 // proportions" as the 44px success-card mark, nothing redrawn.
-function FairnessToastMark({ spreadMin, intervalLen }) {
+function FairnessToastMark({ spreadMin, intervalLen, gameMinutes }) {
   const [revealed, setRevealed] = useState(false);
   const reducedMotion = usePrefersReducedMotion();
   useEffect(() => {
@@ -146,7 +146,7 @@ function FairnessToastMark({ spreadMin, intervalLen }) {
       }}
     >
       <div style={{ width: 56, height: 56, borderRadius: "50%", boxShadow: "0 5px 14px rgba(20,32,28,.16)" }}>
-        <FairnessMark spreadMin={spreadMin} intervalLen={intervalLen} size={56} ringWidth={3.8} glyphSize={29} />
+        <FairnessMark spreadMin={spreadMin} intervalLen={intervalLen} gameMinutes={gameMinutes} size={56} ringWidth={3.8} glyphSize={29} />
       </div>
       {/* Not drawn, but still in the accessibility tree — the aria-live
           region above still announces this once even though the words
@@ -157,7 +157,7 @@ function FairnessToastMark({ spreadMin, intervalLen }) {
           overflow: "hidden", clip: "rect(0,0,0,0)", whiteSpace: "nowrap", border: 0,
         }}
       >
-        {getFairnessState(spreadMin, intervalLen).toast}
+        {getFairnessState(spreadMin, intervalLen, gameMinutes).toast}
       </span>
     </div>
   );
@@ -764,6 +764,11 @@ export default function MatchView({
   // cheap stand-in rather than threading gameSettings.subIntervalMinutes
   // through as a whole separate prop just for this.
   const intervalLen = plan[0].endMin - plan[0].startMin;
+  // Same reasoning, for the whole game's own length (getFairnessState's
+  // combined fairness rule needs it too) — the last interval's own endMin,
+  // not gameSettings.gameMinutes, so this always matches what was actually
+  // built rather than whatever the settings screen currently shows.
+  const gameMinutes = plan[plan.length - 1].endMin;
   const [toastTriggerCount, setToastTriggerCount] = useState(0); // 0 = never triggered yet, so nothing renders on first mount
   // Primed with the CURRENT plan, not a bare "have we run yet" boolean —
   // real-device bug caught testing this in the actual app (not visible in
@@ -1622,7 +1627,9 @@ export default function MatchView({
               is still fading still gets its own full enter transition and
               its own aria-live announcement, instead of silently no-op'ing
               because the underlying visibility flag was already "shown". */}
-          {toastTriggerCount > 0 && <FairnessToastMark key={toastTriggerCount} spreadMin={spreadMin} intervalLen={intervalLen} />}
+          {toastTriggerCount > 0 && (
+            <FairnessToastMark key={toastTriggerCount} spreadMin={spreadMin} intervalLen={intervalLen} gameMinutes={gameMinutes} />
+          )}
         </div>
       </div>
       {/* Reclaimed header height (caption moved beside the timer instead of

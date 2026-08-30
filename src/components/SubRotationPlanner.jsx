@@ -214,6 +214,10 @@ export default function SubRotationPlanner({ user }) {
       // same length by construction, so the first one is a safe,
       // cheap stand-in for the whole game's own interval length.
       intervalLen: plan[0].endMin - plan[0].startMin,
+      // Same combined fairness rule also needs the whole game's own
+      // length — the last interval's own endMin, not gameSettings, so it
+      // always matches what was actually built.
+      gameMinutes: plan[plan.length - 1].endMin,
     });
   }, [plan, availableIds, keeperEligibleIds]);
 
@@ -718,6 +722,7 @@ export default function SubRotationPlanner({ user }) {
           averageMinutes={rotationOverlayStats.averageMinutes}
           maxDifference={rotationOverlayStats.maxDifference}
           intervalLen={rotationOverlayStats.intervalLen}
+          gameMinutes={rotationOverlayStats.gameMinutes}
           onContinue={() => {
             setRotationOverlayStats(null);
             setShowSettingsModal(false);

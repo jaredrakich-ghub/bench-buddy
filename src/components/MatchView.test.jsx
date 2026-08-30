@@ -1405,23 +1405,28 @@ describe("MatchView — mid-match fairness toast", () => {
 
   // defaultPlan/planWithP7Injured: p7 never appears on either interval's
   // onField list in either fixture, so their spread against all 7
-  // available players is 12 (p1/p2/p3/p5 at 12 min each vs. p7 at 0),
-  // against this fixture's own 6-min intervals — 2 intervals' worth
-  // (12 min), over the 10-min ceiling for that band, so "nearly fair"
-  // (getFairnessState, fairness.js) either way, same toast copy for
-  // both plans.
+  // available players is 12 (p1/p2/p3/p5 at 12 min each vs. p7 at 0).
+  // Against this fixture's own 6-min intervals alone that's 2 intervals'
+  // worth, over the 10-min ceiling for that band — "nearly fair" by the
+  // interval-scaled bands alone. But getFairnessState's combined rule also
+  // weighs this against the whole game's own length, and this fixture's
+  // "game" is only 12 minutes total (2x6-min intervals) — a 12-minute
+  // spread in a 12-minute game is 100% of it, about as severe an
+  // imbalance as exists, so the combined rule (real-use feedback,
+  // validated against real generated plans) correctly escalates this
+  // synthetic fixture to "needs attention" rather than "nearly fair".
   it("shows just the fairness mark on the trigger — no visible pill or on-screen words, real-use feedback retired that", () => {
     const { rerender } = render(<MatchView {...baseProps()} />);
     rerender(<MatchView {...baseProps({ plan: planWithP7Injured })} />);
     act(() => vi.advanceTimersByTime(16)); // flush the entrance rAF
 
     // The mark itself: drawn, 56px, correctly labelled by state.
-    const mark = screen.getByRole("img", { name: "Nearly fair" });
+    const mark = screen.getByRole("img", { name: "Needs attention" });
     expect(mark).toHaveStyle({ width: "56px", height: "56px" });
 
     // The toast copy is still in the DOM (so aria-live still announces
     // it once) but visually hidden — not a drawn pill with visible text.
-    const words = screen.getByText("Nearly even");
+    const words = screen.getByText("Evening it up");
     expect(words).toHaveStyle({ position: "absolute", width: "1px", height: "1px", overflow: "hidden" });
     expect(words.closest('[aria-live="polite"]')).toBeInTheDocument();
   });
@@ -1430,7 +1435,7 @@ describe("MatchView — mid-match fairness toast", () => {
     const { rerender } = render(<MatchView {...baseProps()} />);
     rerender(<MatchView {...baseProps({ plan: planWithP7Injured })} />);
     act(() => vi.advanceTimersByTime(16));
-    const toast = screen.getByText("Nearly even").closest('[aria-live="polite"]');
+    const toast = screen.getByText("Evening it up").closest('[aria-live="polite"]');
     expect(toast).toHaveStyle({ opacity: "1" });
 
     act(() => vi.advanceTimersByTime(5000));
@@ -1441,7 +1446,7 @@ describe("MatchView — mid-match fairness toast", () => {
     const { rerender } = render(<MatchView {...baseProps()} />);
     rerender(<MatchView {...baseProps({ plan: planWithP7Injured })} />);
     act(() => vi.advanceTimersByTime(16));
-    const toast = screen.getByText("Nearly even").closest('[aria-live="polite"]');
+    const toast = screen.getByText("Evening it up").closest('[aria-live="polite"]');
     expect(toast).toHaveStyle({ pointerEvents: "none" });
   });
 });

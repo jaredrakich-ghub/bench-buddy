@@ -13,8 +13,12 @@ import { tokens } from "./styles.js";
 // own rotation — the fairness bands scale with it (getFairnessState,
 // fairness.js), not a fixed minute count, since a given gap in minutes
 // means something different for a short sub window than a long one.
-export default function FairnessMark({ spreadMin, intervalLen, size = 44, ringWidth = 3, glyphSize = 22 }) {
-  const { ring, tilt, label } = getFairnessState(spreadMin, intervalLen);
+// gameMinutes: the whole game's own length — real-use feedback, the same
+// gap also means something different in a 20-minute game than a 60-minute
+// one, which intervalLen alone can't capture; see getFairnessState's own
+// comment for the validated combination rule.
+export default function FairnessMark({ spreadMin, intervalLen, gameMinutes, size = 44, ringWidth = 3, glyphSize = 22 }) {
+  const { ring, tilt, label } = getFairnessState(spreadMin, intervalLen, gameMinutes);
   return (
     <div
       role="img"
