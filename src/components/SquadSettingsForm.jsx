@@ -1081,7 +1081,7 @@ export default function SquadSettingsForm({
               <div style={styles.mdSetupGkDivider} />
 
               <div>
-                <span style={styles.mdSetupGkSubTitle}>Keeper changes</span>
+                <span style={styles.mdSetupGkSubTitle}>Keeper changes every</span>
                 <div style={{ marginTop: 10 }}>{renderKeeperSwapStepper(true)}</div>
                 <div style={styles.mdSetupCardCaptionOnDark}>Leave at the sub length to rotate keepers every window.</div>
               </div>
@@ -1090,7 +1090,12 @@ export default function SquadSettingsForm({
             <button style={styles.mdSetupAccordionRow} onClick={() => setExpandedSection("goal")}>
               {sectionBadge("goal")}
               <span style={styles.mdSetupAccordionLabel}>Goal Keeper Options</span>
-              <span style={styles.mdSetupAccordionChevron}>›</span>
+              {/* No value badge on this row (see the merged-card comment
+                  above) — every other row's chevron reaches the right edge
+                  via its own value span's marginLeft:auto; without one
+                  here, marginLeft:auto goes directly on the chevron
+                  instead, so it still lands flush with Breaks' own. */}
+              <span style={{ ...styles.mdSetupAccordionChevron, marginLeft: "auto" }}>›</span>
             </button>
           )}
 
