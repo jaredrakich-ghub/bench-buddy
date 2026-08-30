@@ -115,6 +115,61 @@ describe("assignKeepers", () => {
   });
 });
 
+// Real bug (real-use report): with exactly one keeper-eligible player,
+// buildBenchSchedule's plain round-robin arithmetic had no idea who was
+// keeper-eligible, so it could cycle that sole player onto the bench like
+// anyone else — leaving genuinely nobody eligible to fill goal that
+// interval (an empty goal, assignKeepers' own gk=null fallback). Fixed by
+// excluding a sole eligible keeper from the bench-cycling pool entirely —
+// see buildFixedPlan's own comment.
+describe("buildFixedPlan / generateFixedPlan — sole eligible keeper", () => {
+  it("never leaves a null/empty goal, and the sole keeper is never benched, across a full game", () => {
+    const ids = ["p1", "p2", "p3", "p4", "p5", "p6", "p7"];
+    const { intervals } = buildFixedPlan({
+      rotationOrder: ids, gameMinutes: 45, numIntervals: 9, fieldSize: 5, keeperEligibleIds: ["p1"],
+    });
+    intervals.forEach((iv) => {
+      const gk = iv.onField.find((p) => p.isGk);
+      expect(gk).toBeTruthy(); // never null — the exact bug reported
+      expect(gk.id).toBe("p1");
+      expect(iv.bench).not.toContain("p1");
+      expect(iv.onField.some((p) => p.id === "p1")).toBe(true);
+    });
+    // Everyone else still rotates bench turns fairly among themselves.
+    const benchCounts = {};
+    ids.filter((id) => id !== "p1").forEach((id) => (benchCounts[id] = 0));
+    intervals.forEach((iv) => iv.bench.forEach((id) => (benchCounts[id] += 1)));
+    const values = Object.values(benchCounts);
+    expect(Math.max(...values) - Math.min(...values)).toBeLessThanOrEqual(1);
+  });
+
+  it("holds through generateFixedPlan (the real entry point), including repairKeeperBalance/repairOutfieldBalance", () => {
+    const ids = ["p1", "p2", "p3", "p4", "p5", "p6", "p7"];
+    const { intervals } = generateFixedPlan({
+      availableIds: ids, gameMinutes: 45, numIntervals: 9, fieldSize: 5, keeperEligibleIds: ["p4"],
+    });
+    intervals.forEach((iv) => {
+      const gk = iv.onField.find((p) => p.isGk);
+      expect(gk?.id).toBe("p4");
+      expect(iv.bench).not.toContain("p4");
+    });
+  });
+
+  it("leaves normal multi-keeper behavior (2+ eligible) untouched — the sole-keeper exemption doesn't fire", () => {
+    const ids = ["p1", "p2", "p3", "p4", "p5", "p6", "p7"];
+    const { intervals } = buildFixedPlan({
+      rotationOrder: ids, gameMinutes: 45, numIntervals: 9, fieldSize: 5, keeperEligibleIds: ["p1", "p2"],
+    });
+    // Both eligible players do get bench turns like anyone else here —
+    // confirms the exemption is scoped to exactly one eligible player.
+    const benchCounts = {};
+    ids.forEach((id) => (benchCounts[id] = 0));
+    intervals.forEach((iv) => iv.bench.forEach((id) => (benchCounts[id] += 1)));
+    expect(benchCounts.p1).toBeGreaterThan(0);
+    expect(benchCounts.p2).toBeGreaterThan(0);
+  });
+});
+
 describe("buildFixedPlan / generateFixedPlan — real live-game regression fixtures", () => {
   it("6 players, 45-min game, 5-min subs (the original live game): bench->keeper holds at every transition", () => {
     const ids = ["Jack", "Atu", "Rocco", "George", "Hugo", "Otis"];

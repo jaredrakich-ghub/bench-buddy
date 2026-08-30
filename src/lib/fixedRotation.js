@@ -262,7 +262,28 @@ export function buildFixedPlan({
   const intervalLen = gameMinutes / numIntervals;
   const intervalsToBuild = numIntervals - startIndex;
 
-  const benchSchedule = buildBenchSchedule({ rotationOrder, numIntervals: intervalsToBuild, benchSpots });
+  // Real bug (real-use report): buildBenchSchedule below is plain
+  // round-robin arithmetic with no idea who's keeper-eligible, so with
+  // exactly one eligible player it could — and reliably did — cycle them
+  // onto the bench like anyone else, leaving genuinely nobody eligible to
+  // fill goal that interval (assignKeepers' own documented fallback:
+  // gk = null, an empty goal). There's no fair way to give a sole keeper a
+  // bench turn without leaving the goal empty, so they're excluded from
+  // the bench-cycling pool entirely here — on the field, in goal, every
+  // interval, full game. benchSpots itself doesn't need adjusting:
+  // removing one player from the cycling pool and reducing the effective
+  // on-field headcount by that same one player both shrink by 1, so their
+  // difference (what benchSpots actually measures) is unchanged — bench
+  // turns among everyone else still rotate exactly as before.
+  // repairKeeperBalance/repairOutfieldBalance (buildFairSchedule, below)
+  // can't undo this: both only ever move a player who's currently outfield
+  // or currently benched, and the exempted keeper is structurally never
+  // either.
+  const eligibleInOrder = rotationOrder.filter((id) => (keeperEligibleIds || []).includes(id));
+  const soleKeeperId = eligibleInOrder.length === 1 ? eligibleInOrder[0] : null;
+  const benchCycleOrder = soleKeeperId ? rotationOrder.filter((id) => id !== soleKeeperId) : rotationOrder;
+
+  const benchSchedule = buildBenchSchedule({ rotationOrder: benchCycleOrder, numIntervals: intervalsToBuild, benchSpots });
   const gkPerInterval = assignKeepers({
     rotationOrder, benchSchedule, keeperEligibleIds, keeperShiftIntervals, startingGkId,
     startIndex, currentGkId, previousOnFieldIds, initialGkMinutes, intervalLen,
