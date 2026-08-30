@@ -501,9 +501,14 @@ export function isFairSpread(spread, intervalLen) {
 // already generated for it, so the caller doesn't need to regenerate it.
 export function pickFairStartingGk({ candidates, planArgs, random = Math.random }) {
   const intervalLen = planArgs.gameMinutes / planArgs.numIntervals;
+  // Not currently called from anywhere live (checked) — fixed alongside
+  // recommendSubIntervals' own identical gap anyway, so it isn't a landmine
+  // waiting for whoever wires this up next. See fairnessRelevantIds' own
+  // comment for the underlying bug.
+  const relevantIds = fairnessRelevantIds(planArgs.availableIds, planArgs.keeperEligibleIds);
   const attempts = candidates.map((id) => {
     const { intervals } = generatePlan({ ...planArgs, startingGkId: id });
-    return { id, intervals, spread: computeFairnessSpread(intervals, planArgs.availableIds) };
+    return { id, intervals, spread: computeFairnessSpread(intervals, relevantIds) };
   });
   const fair = attempts.filter((a) => isFairSpread(a.spread, intervalLen));
   const pool = fair.length > 0 ? fair : attempts;
@@ -525,12 +530,20 @@ export function pickFairStartingGk({ candidates, planArgs, random = Math.random 
 // single plain generatePlan (nothing to vary the starting keeper across).
 export function recommendSubIntervals({ candidateMinutes, gameMinutes, fieldSize, availableIds, keeperEligibleIds }) {
   const startingCandidates = availableIds.filter((id) => keeperEligibleIds.includes(id));
+  // Real bug report, found via a sole-keeper squad: this missed the same
+  // fairnessRelevantIds fix every other computeFairnessSpread caller
+  // already got — every candidate's own spread was inflated by the sole
+  // keeper's structurally-always-100% on-field time, so `fair` came back
+  // false for every single candidate regardless of the real outfield
+  // rotation, and the "Improve fairness" prompt never cleared no matter
+  // what a coach picked.
+  const relevantIds = fairnessRelevantIds(availableIds, keeperEligibleIds);
   return candidateMinutes.map((subIntervalMinutes) => {
     const { numIntervals, intervalLen } = computeIntervals(gameMinutes, subIntervalMinutes);
     const planArgs = { availableIds, gameMinutes, numIntervals, fieldSize, keeperEligibleIds };
     const spreads = (startingCandidates.length > 0 ? startingCandidates : [null]).map((startingGkId) => {
       const { intervals } = generatePlan(startingGkId ? { ...planArgs, startingGkId } : planArgs);
-      return computeFairnessSpread(intervals, availableIds);
+      return computeFairnessSpread(intervals, relevantIds);
     });
     const bestSpread = Math.min(...spreads);
     return { subIntervalMinutes, numIntervals, intervalLen, bestSpread, fair: isFairSpread(bestSpread, intervalLen) };

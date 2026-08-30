@@ -861,6 +861,21 @@ describe("recommendSubIntervals", () => {
     expect(result).toHaveLength(5);
     result.forEach((r) => expect(typeof r.bestSpread).toBe("number"));
   });
+
+  // Real bug report: a sole eligible keeper's own structurally-always-100%
+  // on-field time was inflating every candidate's own spread the same way
+  // it inflated the fairness badge (see fairnessRelevantIds' own comment)
+  // — every candidate came back fair:false regardless of the real outfield
+  // rotation, so "Improve fairness" never cleared no matter what a coach
+  // picked, even a genuinely dead-even one.
+  it("rates a genuinely fair candidate as fair for a sole eligible keeper — not always false", () => {
+    const soleKeeper = ["p1", "p2", "p3", "p4", "p5", "p6", "p7"];
+    const result = recommendSubIntervals({
+      candidateMinutes: [4, 5, 6, 7, 8], gameMinutes: 45, fieldSize: 5, availableIds: soleKeeper, keeperEligibleIds: ["p1"],
+    });
+    const five = result.find((r) => r.subIntervalMinutes === 5);
+    expect(five).toMatchObject({ bestSpread: 0, fair: true });
+  });
 });
 
 // Real-use feedback ("we don't want the goalkeepers to be the only ones
