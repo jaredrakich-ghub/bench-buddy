@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { intervalAtElapsed, computeFairnessSpread, computeAveragePitchMinutes } from "../lib/rotation.js";
+import { intervalAtElapsed, computeFairnessSpread, computeAveragePitchMinutes, fairnessRelevantIds } from "../lib/rotation.js";
 import { computeLiveElapsedSec } from "../lib/clock.js";
 import { generateId } from "../lib/id.js";
 import { getSquadNumber } from "../lib/squadNumber.js";
@@ -208,14 +208,14 @@ export default function SubRotationPlanner({ user }) {
     pendingOverlayRef.current = false;
     setRotationOverlayStats({
       averageMinutes: Math.round(computeAveragePitchMinutes(plan, availableIds)),
-      maxDifference: Math.round(computeFairnessSpread(plan, availableIds)),
+      maxDifference: Math.round(computeFairnessSpread(plan, fairnessRelevantIds(availableIds, keeperEligibleIds))),
       // The fairness bands scale with this (getFairnessState,
       // fairness.js) — every interval in a freshly built plan is the
       // same length by construction, so the first one is a safe,
       // cheap stand-in for the whole game's own interval length.
       intervalLen: plan[0].endMin - plan[0].startMin,
     });
-  }, [plan, availableIds]);
+  }, [plan, availableIds, keeperEligibleIds]);
 
   if (loading || !teamData) {
     return <LoadingScreen message="Loading squad…" />;

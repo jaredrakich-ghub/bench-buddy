@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Shuffle, ChevronDown, Check } from "lucide-react";
 import {
   computeIntervals, computeBreakBoundaries, keeperShiftIntervalsFor, generatePlan, computeFairnessSpread, isFairSpread,
-  recommendSubIntervals, assessKeeperShift,
+  recommendSubIntervals, assessKeeperShift, fairnessRelevantIds,
 } from "../lib/rotation.js";
 import { validateGameSettings } from "../lib/validation.js";
 import { fmtClock } from "../lib/clock.js";
@@ -245,7 +245,7 @@ export default function SquadSettingsForm({
       keeperShiftIntervals: shiftIntervals,
       startingGkId,
     });
-    const spread = computeFairnessSpread(intervals, availableIds);
+    const spread = computeFairnessSpread(intervals, fairnessRelevantIds(availableIds, keeperEligibleIds));
     if (isFairSpread(spread, intervalLen)) return null;
     const name = roster.find((p) => p.id === startingGkId)?.name ?? "this player";
     return `Starting ${name} in goal means some players could get up to ${Math.round(spread)} more minutes than others today.`;

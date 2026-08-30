@@ -22,6 +22,7 @@ import {
   buildFinal60Steps,
   repairBenchToKeeper,
   assessKeeperShift,
+  fairnessRelevantIds,
 } from "./rotation.js";
 
 describe("intervalAtElapsed", () => {
@@ -917,6 +918,39 @@ describe("assessKeeperShift", () => {
       subIntervalMinutes: 5, keeperShiftMinutes: 5,
     });
     expect(result).toBeNull();
+  });
+});
+
+// Real bug report: a sole eligible keeper's own total on-field time
+// (structurally the whole game — see buildFixedPlan/fixedRotation.js's
+// own sole-keeper exemption) was skewing computeFairnessSpread's own
+// max-min comparison, rating a genuinely dead-even game "Needs
+// attention" purely from that gap. See fairnessRelevantIds' own comment.
+describe("fairnessRelevantIds", () => {
+  const SEVEN = ["p1", "p2", "p3", "p4", "p5", "p6", "p7"];
+
+  it("excludes a sole eligible keeper, leaving everyone else untouched", () => {
+    expect(fairnessRelevantIds(SEVEN, ["p1"])).toEqual(["p2", "p3", "p4", "p5", "p6", "p7"]);
+  });
+
+  it("real numbers: a dead-even 7-player sole-keeper game reads spread=0 once the keeper's excluded, not 15", () => {
+    const { numIntervals } = computeIntervals(45, 5);
+    const { intervals } = generatePlan({ availableIds: SEVEN, gameMinutes: 45, numIntervals, fieldSize: 5, keeperEligibleIds: ["p1"] });
+    // Confirms the actual game really is dead-even among the 6 rotating
+    // players first — this isn't a test that's just trusting the fix.
+    const summary = computeMinutesSummary(intervals, SEVEN);
+    const nonKeeper = summary.filter((r) => r.id !== "p1");
+    nonKeeper.forEach((r) => expect(r.outfieldMin).toBe(30));
+    expect(summary.find((r) => r.id === "p1").gkMin).toBe(45);
+
+    expect(computeFairnessSpread(intervals, SEVEN)).toBe(15); // the bug, unfixed
+    expect(computeFairnessSpread(intervals, fairnessRelevantIds(SEVEN, ["p1"]))).toBe(0); // fixed
+  });
+
+  it("leaves the id list untouched for 0, 2+, or everyone eligible — only a genuine sole keeper is excluded", () => {
+    expect(fairnessRelevantIds(SEVEN, [])).toEqual(SEVEN);
+    expect(fairnessRelevantIds(SEVEN, ["p1", "p2"])).toEqual(SEVEN);
+    expect(fairnessRelevantIds(SEVEN, SEVEN)).toEqual(SEVEN);
   });
 });
 

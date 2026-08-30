@@ -421,6 +421,25 @@ export function repairBenchToKeeper({
 
 // The gap between whoever ended up with the most total on-field time (gk +
 // outfield combined) and whoever ended up with the least, across a whole
+// Real bug report: a sole eligible keeper's own total on-field time is
+// structurally always the whole game (buildFixedPlan/fixedRotation.js's
+// own sole-keeper exemption — they never bench, by design, not by
+// unfairness). Feeding that into computeFairnessSpread below alongside
+// everyone else's genuinely rotating time always reads as a huge,
+// alarming gap, even when the outfield rotation among everyone else is
+// dead even — confirmed with a real 7-player game (keeper 45 min, all 6
+// others exactly 30/15) still rating "Needs attention" purely from that
+// gap. Every caller of computeFairnessSpread should route its
+// availableIds through this first; a no-op unless there's genuinely one
+// eligible keeper (2-3 eligible keepers DO rotate bench/outfield time
+// like everyone else, so their own on-field time stays a meaningful,
+// comparable number — nothing to exclude there).
+export function fairnessRelevantIds(availableIds, keeperEligibleIds) {
+  const eligibleAvailable = availableIds.filter((id) => (keeperEligibleIds || []).includes(id));
+  if (eligibleAvailable.length !== 1) return availableIds;
+  return availableIds.filter((id) => id !== eligibleAvailable[0]);
+}
+
 // plan. The same measurement the "distributes outfield minutes fairly"
 // test already checks, pulled out as real, reusable code rather than only
 // living inside a test — see pickFairStartingGk below for why.

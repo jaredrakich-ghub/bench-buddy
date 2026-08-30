@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Play, Pause, BarChart2, History, ArrowDown, ArrowUp, ArrowLeftRight, Save } from "lucide-react";
 import {
-  intervalAtElapsed, computeNextChangeBadges, computeBreakBoundaries, pairChanges, computeFairnessSpread,
+  intervalAtElapsed, computeNextChangeBadges, computeBreakBoundaries, pairChanges, computeFairnessSpread, fairnessRelevantIds,
   intervalNeedsSubConfirm, buildFinal60Steps,
 } from "../lib/rotation.js";
 import { getFairnessState } from "../lib/fairness.js";
@@ -758,7 +758,7 @@ export default function MatchView({
   // wiring a bespoke event through every individual mutation — and
   // recomputing the spread fresh each time means this always reflects
   // the game from here on, not a stale snapshot from kickoff.
-  const spreadMin = computeFairnessSpread(plan, availableIds);
+  const spreadMin = computeFairnessSpread(plan, fairnessRelevantIds(availableIds, keeperEligibleIds));
   // The rotation's own intervals are all the same length by construction
   // (computeIntervals splits the game evenly) — the first one is a safe,
   // cheap stand-in rather than threading gameSettings.subIntervalMinutes
