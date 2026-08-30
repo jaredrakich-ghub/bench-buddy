@@ -88,10 +88,17 @@ const BREAK_OPTIONS = [
 // "None" stays a plain noun — "Breaks Every none" doesn't parse.
 const BREAK_VALUE_LABEL = { 1: "None", 2: "Every half", 3: "Every third", 4: "Every quarter" };
 
+// Real-use feedback: "total" resting/"minutes" flipped (game length) and
+// "sub every" resting/"minutes" flipped (sub interval) — the resting label
+// names *what the number is*, the flipped label names *the unit you're
+// stepping in*, once you're actually looking at the stepper. Only two of
+// the three tiles change here — "on pitch" already reads fine as both
+// (a headcount has no separate unit worth naming). activeLabel falls back
+// to label when unset, so fieldSize needs nothing extra.
 const TILE_ORDER = [
   { key: "fieldSize", label: "on pitch", min: 2, step: 1 },
-  { key: "gameMinutes", label: "minutes", min: 5, step: 5 },
-  { key: "subIntervalMinutes", label: "sub every", min: 2, step: 1 },
+  { key: "gameMinutes", label: "total", activeLabel: "minutes", min: 5, step: 5 },
+  { key: "subIntervalMinutes", label: "sub every", activeLabel: "minutes", min: 2, step: 1 },
 ];
 
 // A small tinted icon tile per edit-layout accordion section (collapsed
@@ -483,7 +490,7 @@ export default function SquadSettingsForm({
   function renderTiles() {
     return (
       <div ref={tilesRowRef} style={styles.settingsGrid}>
-        {TILE_ORDER.map(({ key, label }) => {
+        {TILE_ORDER.map(({ key, label, activeLabel = label }) => {
           const isActive = activeTile === key;
           const value = gameSettings[key];
           if (!isActive) {
@@ -520,7 +527,7 @@ export default function SquadSettingsForm({
                   +
                 </button>
               </div>
-              <span style={{ ...styles.mdSetupTileLabel, ...styles.mdSetupTileActiveLabel }}>{label}</span>
+              <span style={{ ...styles.mdSetupTileLabel, ...styles.mdSetupTileActiveLabel }}>{activeLabel}</span>
             </div>
           );
         })}
@@ -676,7 +683,7 @@ export default function SquadSettingsForm({
           −
         </button>
         <span style={{ ...styles.mdSetupInlineStepValue, ...(onDark ? styles.mdSetupInlineStepValueOnDark : {}) }}>
-          {keeperSwapValue}′
+          {keeperSwapValue} mins
         </span>
         <button
           style={{ ...styles.mdSetupInlineStepBtn, ...(onDark ? styles.mdSetupInlineStepBtnPlusOnDark : styles.mdSetupInlineStepBtnPlus) }}
@@ -1102,14 +1109,16 @@ export default function SquadSettingsForm({
                 <span style={styles.mdSetupGkSubTitle}>Keeper changes every</span>
                 <div style={{ marginTop: 10 }}>{renderKeeperSwapStepper(true)}</div>
                 {keeperSqueeze ? (
-                  <div style={styles.mdSetupGkSqueezeWarning}>
-                    With only {inGoalCandidates.length} keepers, changing every {keeperSwapValue}′ means they'll get much less
-                    time outfield than the rest of the squad.{" "}
+                  <div style={styles.mdSetupGkSqueezeBox}>
+                    <div style={styles.mdSetupGkSqueezeText}>
+                      With only {inGoalCandidates.length} keepers, changing every {keeperSwapValue} mins means they'll get much
+                      less time outfield than the rest of the squad.
+                    </div>
                     <button
-                      style={{ ...styles.mdSetupGkSelectAllOnDark, marginLeft: 4 }}
+                      style={styles.mdSetupGkSqueezeBtn}
                       onClick={() => setGameSettings({ ...gameSettings, keeperShiftMinutes: keeperSqueeze.suggestedKeeperShiftMinutes })}
                     >
-                      Use {keeperSqueeze.suggestedKeeperShiftMinutes}′ instead
+                      Use {keeperSqueeze.suggestedKeeperShiftMinutes} mins instead
                     </button>
                   </div>
                 ) : (

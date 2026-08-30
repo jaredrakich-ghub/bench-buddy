@@ -756,7 +756,21 @@ export const styles = {
   // not an error, so yellow (tokens.color.yellow, the same gold already
   // used for a picked keeper's own value badge on this dark card), not
   // red — red is reserved for injury everywhere else in this app.
-  mdSetupGkSqueezeWarning: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13, color: tokens.color.yellow, marginTop: 8 },
+  // Real-device feedback: the plain text version of this felt cramped —
+  // now a real padded callout (same "tinted box, same accent as its own
+  // border" shape mdSetupWarning uses for the red validation errors, just
+  // yellow, this being a caution not an error), with its own genuinely
+  // bigger, solid button below the text rather than a small inline link
+  // squeezed onto the same line.
+  mdSetupGkSqueezeBox: {
+    marginTop: 10, background: "rgba(245,185,59,0.14)", border: "1px solid rgba(245,185,59,0.4)",
+    borderRadius: 12, padding: "12px 14px",
+  },
+  mdSetupGkSqueezeText: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13, color: tokens.color.yellow, lineHeight: 1.4 },
+  mdSetupGkSqueezeBtn: {
+    marginTop: 10, background: tokens.color.yellow, color: tokens.color.deepGreen, border: "none", borderRadius: 999,
+    padding: "9px 18px", fontFamily: tokens.font.body, fontWeight: 800, fontSize: 13.5, cursor: "pointer",
+  },
 
   // Inline stepper — "Swap every" / "Keeper swaps", a smaller always-on
   // −/+ pair next to a label (not a flip-to-edit tile like mdSetupTile).
@@ -769,8 +783,12 @@ export const styles = {
   mdSetupInlineStepBtnPlus: { background: tokens.color.pitchGreen, color: "#fff" },
   mdSetupInlineStepBtnMinusOnDark: { background: tokens.color.creamPaper, color: tokens.color.deepGreen },
   mdSetupInlineStepBtnPlusOnDark: { background: tokens.color.yellow, color: tokens.color.deepGreen },
+  // minWidth was 64, sized for "5′" — "10 mins" (real-use feedback: word
+  // out, not an apostrophe) needs real room not to wrap or crowd the +/-
+  // buttons either side of it.
   mdSetupInlineStepValue: {
-    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 26, color: tokens.color.deepGreen, minWidth: 64, textAlign: "center",
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 26, color: tokens.color.deepGreen, minWidth: 110,
+    textAlign: "center", whiteSpace: "nowrap",
   },
   mdSetupInlineStepValueOnDark: { color: tokens.color.yellow },
 

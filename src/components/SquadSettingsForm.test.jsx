@@ -432,9 +432,33 @@ describe("SquadSettingsForm — number tiles (tap to flip, stepper)", () => {
     const setGameSettings = vi.fn();
     const user = userEvent.setup();
     render(<SquadSettingsForm {...baseProps({ setGameSettings })} />);
-    await user.click(screen.getByText("minutes"));
+    await user.click(screen.getByText("total")); // resting label — "minutes" only shows once flipped open
     await user.click(screen.getAllByText("+")[0]);
     expect(setGameSettings).toHaveBeenCalledWith({ fieldSize: 5, gameMinutes: 45, subIntervalMinutes: 6 });
+  });
+
+  // Real-use feedback: "total" resting / "minutes" flipped (the number's
+  // own unit, once you're actually looking at the stepper) — was a single
+  // shared "minutes" label for both states before.
+  it("shows 'total' at rest and 'minutes' once flipped open, for the game-length tile", async () => {
+    const user = userEvent.setup();
+    render(<SquadSettingsForm {...baseProps()} />);
+    expect(screen.getByText("total")).toBeInTheDocument();
+    expect(screen.queryByText("minutes")).not.toBeInTheDocument();
+    await user.click(screen.getByText("total"));
+    expect(screen.getByText("minutes")).toBeInTheDocument();
+    expect(screen.queryByText("total")).not.toBeInTheDocument();
+  });
+
+  // Same flipped-state word, for consistency — "sub every" itself is
+  // unchanged at rest.
+  it("keeps 'sub every' at rest but also shows 'minutes' once flipped open, for the sub-interval tile", async () => {
+    const user = userEvent.setup();
+    render(<SquadSettingsForm {...baseProps()} />);
+    expect(screen.getByText("sub every")).toBeInTheDocument();
+    await user.click(screen.getByText("sub every"));
+    expect(screen.getByText("minutes")).toBeInTheDocument();
+    expect(screen.queryByText("sub every")).not.toBeInTheDocument();
   });
 
   it("won't step below the tile's own minimum", async () => {
@@ -757,7 +781,7 @@ describe("SquadSettingsForm — keeper-squeeze nudge", () => {
   it("warns and offers a one-tap fix when 2 keepers on a short shift would squeeze their own outfield time", () => {
     render(<SquadSettingsForm {...squeezeProps()} />);
     expect(screen.getByText(/With only 2 keepers, changing every 5.* means they'll get much less/)).toBeInTheDocument();
-    expect(screen.getByText("Use 10′ instead")).toBeInTheDocument();
+    expect(screen.getByText("Use 10 mins instead")).toBeInTheDocument();
     // The plain, no-warning caption is gone while the warning shows.
     expect(screen.queryByText("Leave at the sub length to rotate keepers every window.")).not.toBeInTheDocument();
   });
@@ -766,7 +790,7 @@ describe("SquadSettingsForm — keeper-squeeze nudge", () => {
     const setGameSettings = vi.fn();
     const user = userEvent.setup();
     render(<SquadSettingsForm {...squeezeProps({ setGameSettings })} />);
-    await user.click(screen.getByText("Use 10′ instead"));
+    await user.click(screen.getByText("Use 10 mins instead"));
     expect(setGameSettings).toHaveBeenCalledWith({ fieldSize: 5, gameMinutes: 40, subIntervalMinutes: 5, keeperShiftMinutes: 10 });
   });
 
@@ -786,7 +810,7 @@ describe("SquadSettingsForm — keeper-squeeze nudge", () => {
 describe("SquadSettingsForm — Keeper swaps stepper", () => {
   it("defaults to the sub interval length when keeperShiftMinutes is unset", () => {
     render(<SquadSettingsForm {...baseProps({ variant: "edit", initialExpandedSection: "goal" })} />);
-    expect(screen.getByText("6′")).toBeInTheDocument();
+    expect(screen.getByText("6 mins")).toBeInTheDocument();
   });
 
   it("+ steps up from the sub interval and records a real override", async () => {
