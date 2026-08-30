@@ -752,6 +752,11 @@ export const styles = {
     padding: "3px 9px", fontWeight: 700, fontSize: 11, cursor: "pointer",
   },
   mdSetupGkDivider: { height: 1, background: "rgba(255,255,255,0.15)", margin: "16px 0" },
+  // The keeper-squeeze nudge (rotation.js: assessKeeperShift) — a caution,
+  // not an error, so yellow (tokens.color.yellow, the same gold already
+  // used for a picked keeper's own value badge on this dark card), not
+  // red — red is reserved for injury everywhere else in this app.
+  mdSetupGkSqueezeWarning: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13, color: tokens.color.yellow, marginTop: 8 },
 
   // Inline stepper — "Swap every" / "Keeper swaps", a smaller always-on
   // −/+ pair next to a label (not a flip-to-edit tile like mdSetupTile).

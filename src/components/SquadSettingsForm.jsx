@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Shuffle, ChevronDown, Check } from "lucide-react";
 import {
   computeIntervals, computeBreakBoundaries, keeperShiftIntervalsFor, generatePlan, computeFairnessSpread, isFairSpread,
-  recommendSubIntervals,
+  recommendSubIntervals, assessKeeperShift,
 } from "../lib/rotation.js";
 import { validateGameSettings } from "../lib/validation.js";
 import { fmtClock } from "../lib/clock.js";
@@ -266,6 +266,24 @@ export default function SquadSettingsForm({
     });
   }, [validation.valid, gameSettings.gameMinutes, gameSettings.fieldSize, availableIds, keeperEligibleIds]);
   const currentRec = subIntervalRecs?.find((r) => Number(gameSettings.subIntervalMinutes) === r.subIntervalMinutes);
+
+  // Real-use feedback ("we don't want the goalkeepers to be the only ones
+  // either in goal or on the bench"): a small keeper-eligible pool (2-3)
+  // paired with a short keeper-shift can squeeze those players' own real
+  // outfield time — see assessKeeperShift's own comment (rotation.js) for
+  // the full reasoning. Gated on validation.valid, same as the other
+  // settings-derived checks on this screen.
+  const keeperSqueeze = useMemo(() => {
+    if (!validation.valid) return null;
+    return assessKeeperShift({
+      availableIds,
+      gameMinutes: gameSettings.gameMinutes,
+      fieldSize: gameSettings.fieldSize,
+      keeperEligibleIds,
+      subIntervalMinutes: gameSettings.subIntervalMinutes,
+      keeperShiftMinutes: gameSettings.keeperShiftMinutes,
+    });
+  }, [validation.valid, gameSettings.gameMinutes, gameSettings.fieldSize, gameSettings.subIntervalMinutes, gameSettings.keeperShiftMinutes, availableIds, keeperEligibleIds]);
 
   // Which tile ("fieldSize" | "gameMinutes" | "subIntervalMinutes") is
   // flipped dark with its stepper showing — one at a time. Which of the
@@ -1083,7 +1101,20 @@ export default function SquadSettingsForm({
               <div>
                 <span style={styles.mdSetupGkSubTitle}>Keeper changes every</span>
                 <div style={{ marginTop: 10 }}>{renderKeeperSwapStepper(true)}</div>
-                <div style={styles.mdSetupCardCaptionOnDark}>Leave at the sub length to rotate keepers every window.</div>
+                {keeperSqueeze ? (
+                  <div style={styles.mdSetupGkSqueezeWarning}>
+                    With only {inGoalCandidates.length} keepers, changing every {keeperSwapValue}′ means they'll get much less
+                    time outfield than the rest of the squad.{" "}
+                    <button
+                      style={{ ...styles.mdSetupGkSelectAllOnDark, marginLeft: 4 }}
+                      onClick={() => setGameSettings({ ...gameSettings, keeperShiftMinutes: keeperSqueeze.suggestedKeeperShiftMinutes })}
+                    >
+                      Use {keeperSqueeze.suggestedKeeperShiftMinutes}′ instead
+                    </button>
+                  </div>
+                ) : (
+                  <div style={styles.mdSetupCardCaptionOnDark}>Leave at the sub length to rotate keepers every window.</div>
+                )}
               </div>
             </div>
           ) : (

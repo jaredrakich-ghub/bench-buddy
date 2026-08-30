@@ -21,6 +21,7 @@ import {
   pairChanges,
   buildFinal60Steps,
   repairBenchToKeeper,
+  assessKeeperShift,
 } from "./rotation.js";
 
 describe("intervalAtElapsed", () => {
@@ -858,6 +859,64 @@ describe("recommendSubIntervals", () => {
     const result = recommendSubIntervals({ ...args, keeperEligibleIds: [] });
     expect(result).toHaveLength(5);
     result.forEach((r) => expect(typeof r.bestSpread).toBe("number"));
+  });
+});
+
+// Real-use feedback ("we don't want the goalkeepers to be the only ones
+// either in goal or on the bench"). Every case below is a real run
+// verified against generatePlan/computeMinutesSummary's actual output, not
+// hand-picked numbers.
+describe("assessKeeperShift", () => {
+  const NINE = ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"];
+
+  it("flags a real squeeze: 9 players, 2 keepers, 5-a-side, 5-min subs — a keeper's own outfield time drops to 5 of 40 minutes", () => {
+    const result = assessKeeperShift({
+      availableIds: NINE, gameMinutes: 40, fieldSize: 5, keeperEligibleIds: ["p1", "p2"],
+      subIntervalMinutes: 5, keeperShiftMinutes: 5,
+    });
+    expect(result).toEqual({ currentShare: 0.2, suggestedKeeperShiftMinutes: 10 });
+  });
+
+  it("the suggested shift genuinely helps — both keepers' own outfield minutes even out, not just look better on paper", () => {
+    const { numIntervals } = computeIntervals(40, 5);
+    const { intervals } = generatePlan({
+      availableIds: NINE, gameMinutes: 40, numIntervals, fieldSize: 5, keeperEligibleIds: ["p1", "p2"],
+      keeperShiftIntervals: keeperShiftIntervalsFor(5, 10),
+    });
+    const summary = computeMinutesSummary(intervals, NINE).filter((r) => ["p1", "p2"].includes(r.id));
+    summary.forEach((r) => expect(r.outfieldMin).toBe(10)); // up from 5/20 worst-case at the 5-min shift
+  });
+
+  it("stays quiet once the setting's already fine — doesn't nag a coach who already picked a longer shift", () => {
+    const result = assessKeeperShift({
+      availableIds: NINE, gameMinutes: 40, fieldSize: 5, keeperEligibleIds: ["p1", "p2"],
+      subIntervalMinutes: 5, keeperShiftMinutes: 20,
+    });
+    expect(result).toBeNull();
+  });
+
+  it("doesn't apply to a sole eligible keeper — that's buildFixedPlan's own separate, already-fixed case", () => {
+    const result = assessKeeperShift({
+      availableIds: NINE, gameMinutes: 40, fieldSize: 5, keeperEligibleIds: ["p1"],
+      subIntervalMinutes: 5, keeperShiftMinutes: 5,
+    });
+    expect(result).toBeNull();
+  });
+
+  it("doesn't apply once the eligible pool is large enough that keeper duty is already spread thin", () => {
+    const result = assessKeeperShift({
+      availableIds: NINE, gameMinutes: 40, fieldSize: 5, keeperEligibleIds: NINE,
+      subIntervalMinutes: 5, keeperShiftMinutes: 5,
+    });
+    expect(result).toBeNull();
+  });
+
+  it("doesn't apply with less bench pressure — 7-a-side (fieldSize 7), same 9 players and 2 keepers, stays under the threshold", () => {
+    const result = assessKeeperShift({
+      availableIds: NINE, gameMinutes: 45, fieldSize: 7, keeperEligibleIds: ["p1", "p2"],
+      subIntervalMinutes: 5, keeperShiftMinutes: 5,
+    });
+    expect(result).toBeNull();
   });
 });
 

@@ -734,6 +734,55 @@ describe("SquadSettingsForm — In goal today (starting keeper)", () => {
 // card ("goal", same key as First in goal today/Keepers) — these open
 // straight to it via initialExpandedSection, same as the "rendering
 // (edit / A4)" tests do.
+// Real-use feedback ("we don't want the goalkeepers to be the only ones
+// either in goal or on the bench") — see assessKeeperShift's own tests
+// (rotation.test.js) for the underlying numbers this scenario is drawn
+// from directly (9 players, 2 eligible, 5-a-side, 5-min subs — a real,
+// verified squeeze, not a hand-picked one).
+const SQUEEZE_ROSTER = Array.from({ length: 9 }, (_, i) => ({
+  id: `p${i + 1}`, name: `Player ${i + 1}`, keeperEligible: i < 2,
+}));
+const SQUEEZE_IDS = SQUEEZE_ROSTER.map((p) => p.id);
+const squeezeProps = (overrides = {}) =>
+  baseProps({
+    variant: "edit",
+    initialExpandedSection: "goal",
+    roster: SQUEEZE_ROSTER,
+    availableIds: SQUEEZE_IDS,
+    gameSettings: { fieldSize: 5, gameMinutes: 40, subIntervalMinutes: 5 },
+    ...overrides,
+  });
+
+describe("SquadSettingsForm — keeper-squeeze nudge", () => {
+  it("warns and offers a one-tap fix when 2 keepers on a short shift would squeeze their own outfield time", () => {
+    render(<SquadSettingsForm {...squeezeProps()} />);
+    expect(screen.getByText(/With only 2 keepers, changing every 5.* means they'll get much less/)).toBeInTheDocument();
+    expect(screen.getByText("Use 10′ instead")).toBeInTheDocument();
+    // The plain, no-warning caption is gone while the warning shows.
+    expect(screen.queryByText("Leave at the sub length to rotate keepers every window.")).not.toBeInTheDocument();
+  });
+
+  it("tapping the fix applies the suggested keeperShiftMinutes", async () => {
+    const setGameSettings = vi.fn();
+    const user = userEvent.setup();
+    render(<SquadSettingsForm {...squeezeProps({ setGameSettings })} />);
+    await user.click(screen.getByText("Use 10′ instead"));
+    expect(setGameSettings).toHaveBeenCalledWith({ fieldSize: 5, gameMinutes: 40, subIntervalMinutes: 5, keeperShiftMinutes: 10 });
+  });
+
+  it("stays quiet — plain caption, no warning — once a longer shift is already set", () => {
+    render(<SquadSettingsForm {...squeezeProps({ gameSettings: { fieldSize: 5, gameMinutes: 40, subIntervalMinutes: 5, keeperShiftMinutes: 20 } })} />);
+    expect(screen.getByText("Leave at the sub length to rotate keepers every window.")).toBeInTheDocument();
+    expect(screen.queryByText(/would squeeze|means they'll get much less/)).not.toBeInTheDocument();
+  });
+
+  it("stays quiet for a normal squad where everyone (or nearly everyone) is keeper-eligible", () => {
+    const everyoneEligible = SQUEEZE_ROSTER.map((p) => ({ ...p, keeperEligible: true }));
+    render(<SquadSettingsForm {...squeezeProps({ roster: everyoneEligible })} />);
+    expect(screen.getByText("Leave at the sub length to rotate keepers every window.")).toBeInTheDocument();
+  });
+});
+
 describe("SquadSettingsForm — Keeper swaps stepper", () => {
   it("defaults to the sub interval length when keeperShiftMinutes is unset", () => {
     render(<SquadSettingsForm {...baseProps({ variant: "edit", initialExpandedSection: "goal" })} />);

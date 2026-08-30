@@ -518,6 +518,63 @@ export function recommendSubIntervals({ candidateMinutes, gameMinutes, fieldSize
   });
 }
 
+// Real-use feedback ("we don't want the goalkeepers to be the only ones
+// either in goal or on the bench"): with a small keeper-eligible pool (2 or
+// 3, not everyone — see the length check below) and a keeper-shift length
+// that changes keeper every single sub interval, the two keepers are
+// essentially always either in goal or cycling through normal bench turns
+// like anyone else, with little of their own pitch time left over to
+// actually run outfield. Not a formula-guessed threshold — same "simulate
+// real candidates, measure, pick the best" shape recommendSubIntervals
+// above already uses, just measuring a different thing (each eligible
+// player's own outfield share of their own pitch time, not the whole
+// squad's overall spread).
+//
+// A sole eligible keeper is a separate, already-fixed case (see
+// buildFixedPlan/fixedRotation.js's own sole-keeper exemption) with no
+// bench-vs-outfield tradeoff to speak of — they never bench at all, so
+// this deliberately doesn't apply there (length < 2 below), and doesn't
+// apply once the pool is large enough that keeper duty is already spread
+// thin across many players (length > 3).
+const KEEPER_SQUEEZE_MIN_OUTFIELD_SHARE = 0.4;
+
+function worstKeeperOutfieldShare({ eligibleAvailable, planArgs, availableIds, subIntervalMinutes, keeperShiftMinutes }) {
+  const keeperShiftIntervals = keeperShiftIntervalsFor(subIntervalMinutes, keeperShiftMinutes);
+  const { intervals } = generatePlan({ ...planArgs, keeperShiftIntervals });
+  const summary = computeMinutesSummary(intervals, availableIds);
+  const shares = eligibleAvailable.map((id) => {
+    const row = summary.find((r) => r.id === id);
+    const pitchMin = row.outfieldMin + row.gkMin;
+    return pitchMin > 0 ? row.outfieldMin / pitchMin : 1;
+  });
+  return Math.min(...shares);
+}
+
+export function assessKeeperShift({ availableIds, gameMinutes, fieldSize, keeperEligibleIds, subIntervalMinutes, keeperShiftMinutes }) {
+  const eligibleAvailable = availableIds.filter((id) => (keeperEligibleIds || []).includes(id));
+  if (eligibleAvailable.length < 2 || eligibleAvailable.length > 3) return null;
+
+  const { numIntervals } = computeIntervals(gameMinutes, subIntervalMinutes);
+  const planArgs = { availableIds, gameMinutes, numIntervals, fieldSize, keeperEligibleIds };
+  const measure = (shiftMinutes) =>
+    worstKeeperOutfieldShare({ eligibleAvailable, planArgs, availableIds, subIntervalMinutes, keeperShiftMinutes: shiftMinutes });
+
+  const currentShare = measure(keeperShiftMinutes);
+  if (currentShare >= KEEPER_SQUEEZE_MIN_OUTFIELD_SHARE) return null; // today's setting is already fine
+
+  // Whole multiples of the sub interval, capped well under half the game —
+  // never suggest a shift long enough to cover most of the match outright.
+  const candidates = [2, 3, 4].map((mult) => subIntervalMinutes * mult).filter((m) => m < gameMinutes / 2);
+  let best = null;
+  for (const candidateMinutes of candidates) {
+    const share = measure(candidateMinutes);
+    if (!best || share > best.share) best = { minutes: candidateMinutes, share };
+  }
+  if (!best || best.share <= currentShare) return null; // nothing on offer actually helps
+
+  return { currentShare, suggestedKeeperShiftMinutes: best.minutes };
+}
+
 // Totals each player's time across the whole plan, split into outfield,
 // keeper, bench, and (if it happened) injured/sidelined minutes — a
 // full-game projection, not a mid-game snapshot (see SummaryModal.jsx,
