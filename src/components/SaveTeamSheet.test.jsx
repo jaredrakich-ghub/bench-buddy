@@ -6,9 +6,10 @@ import userEvent from "@testing-library/user-event";
 
 vi.mock("../lib/auth.js", () => ({
   linkGoogleAccount: vi.fn(),
+  signInWithExistingCredential: vi.fn(),
   sendLoginEmailLink: vi.fn(),
 }));
-import { linkGoogleAccount, sendLoginEmailLink } from "../lib/auth.js";
+import { linkGoogleAccount, signInWithExistingCredential, sendLoginEmailLink } from "../lib/auth.js";
 import SaveTeamSheet from "./SaveTeamSheet.jsx";
 
 afterEach(() => {
@@ -71,22 +72,24 @@ describe("SaveTeamSheet", () => {
     expect(linkGoogleAccount).not.toHaveBeenCalled();
   });
 
-  // linkGoogleAccount is a real top-level redirect now (auth.js's own
-  // comment on why) — this component never sees a success or conflict
-  // outcome itself any more (the whole app reloads before that exists),
-  // so there's no "closes on success" test here any more: that entire
-  // resolution — success, conflict, or a real failure — is AuthGate's own
-  // job now (AuthGate.test.jsx), on the load that comes back from Google.
-  // What's left to cover here is only the synchronous kickoff itself.
   describe("Google", () => {
-    it("kicks off the redirect without closing the sheet itself", async () => {
-      linkGoogleAccount.mockResolvedValue(undefined);
+    it("links and closes on success", async () => {
+      linkGoogleAccount.mockResolvedValue({ ok: true });
       const onClose = vi.fn();
       const user = userEvent.setup();
       render(<SaveTeamSheet {...baseProps({ onClose })} />);
       await user.click(screen.getByText("Continue with Google"));
       expect(linkGoogleAccount).toHaveBeenCalledTimes(1);
-      expect(onClose).not.toHaveBeenCalled();
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it("stays quiet if the popup was just closed/cancelled", async () => {
+      linkGoogleAccount.mockRejectedValue({ code: "auth/popup-closed-by-user" });
+      const user = userEvent.setup();
+      render(<SaveTeamSheet {...baseProps()} />);
+      await user.click(screen.getByText("Continue with Google"));
+      await screen.findByText("Continue with Google");
+      expect(screen.queryByText(/Couldn't sign in/)).not.toBeInTheDocument();
     });
 
     it("shows a friendly error on a real failure", async () => {
@@ -95,6 +98,36 @@ describe("SaveTeamSheet", () => {
       render(<SaveTeamSheet {...baseProps()} />);
       await user.click(screen.getByText("Continue with Google"));
       expect(await screen.findByText(/Couldn't sign in/)).toBeInTheDocument();
+    });
+
+    it("offers the explicit choice on a conflict, and 'Sign in to that account' uses the exact credential", async () => {
+      const conflictCredential = { providerId: "google.com", token: "fake" };
+      linkGoogleAccount.mockResolvedValue({ ok: false, conflictCredential });
+      signInWithExistingCredential.mockResolvedValue(undefined);
+      const onClose = vi.fn();
+      const user = userEvent.setup();
+      render(<SaveTeamSheet {...baseProps({ onClose })} />);
+
+      await user.click(screen.getByText("Continue with Google"));
+      expect(await screen.findByText("Already saved elsewhere")).toBeInTheDocument();
+      expect(screen.getByText(/left behind/)).toBeInTheDocument();
+
+      await user.click(screen.getByText("Sign in to that account"));
+      expect(signInWithExistingCredential).toHaveBeenCalledWith(conflictCredential);
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it("Cancel on the conflict screen backs out without switching accounts", async () => {
+      linkGoogleAccount.mockResolvedValue({ ok: false, conflictCredential: {} });
+      const onClose = vi.fn();
+      const user = userEvent.setup();
+      render(<SaveTeamSheet {...baseProps({ onClose })} />);
+      await user.click(screen.getByText("Continue with Google"));
+      await screen.findByText("Already saved elsewhere");
+      await user.click(screen.getByText("Cancel"));
+      expect(signInWithExistingCredential).not.toHaveBeenCalled();
+      expect(onClose).not.toHaveBeenCalled();
+      expect(screen.getByText("Continue with Google")).toBeInTheDocument(); // back to resting
     });
   });
 

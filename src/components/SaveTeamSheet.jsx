@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { linkGoogleAccount, sendLoginEmailLink } from "../lib/auth.js";
+import {
+  linkGoogleAccount, signInWithExistingCredential, sendLoginEmailLink,
+} from "../lib/auth.js";
 import { KitShirt } from "./matchDayIcons.jsx";
 import { GoogleIcon, EnvelopeIcon } from "./authIcons.jsx";
 import { styles } from "./styles.js";
@@ -106,39 +108,47 @@ function benchPillText(benchIds, nameOf) {
 // gate. Full-screen, dismissible (the ✕), never blocking the rest of the
 // app.
 //
-// Phases beyond the resting "pick a provider" one:
+// Three phases beyond the resting "pick a provider" one:
 //  - email: block 6/A9-Signin's own field+button, reused verbatim, as an
 //    in-place state swap within this same shell rather than a separate
 //    gate screen — block 16 doesn't say what "Continue with Email" opens
 //    into, and this app's older magic-link screen already has the exact
 //    values for exactly that content.
-//  - error: any other failure kicking off a provider's own redirect.
-// Notably absent: a "conflict" phase (this identity already belongs to a
-// *different* existing Bench Buddy account). Real edge case, but this
-// component never actually handles it — Google's redirect navigates the
-// whole app away before this sheet could ever show anything again, and the
-// emailed-link path was always completed back in AuthGate.jsx, not here.
-// Both providers' conflict recovery lives there now, one shared prompt for
-// both (AuthFlowPrompt).
+//  - conflict: this identity already belongs to a *different* existing
+//    Bench Buddy account (auth/credential-already-in-use) — not in the
+//    spec at all (a real edge case discovered building this), same
+//    explicit-choice recovery Google and Email both share.
+//  - error: any other failure.
 export default function SaveTeamSheet({ onFieldPlayers, benchIds, nameOf, numberOf, onClose }) {
-  const [phase, setPhase] = useState("idle"); // idle | linking | error | email | sendingEmail | emailSent | emailError
+  const [phase, setPhase] = useState("idle"); // idle | linking | conflict | switching | error | email | sendingEmail | emailSent | emailError
+  const [conflictCredential, setConflictCredential] = useState(null);
   const [email, setEmail] = useState("");
 
   const handleGoogle = async () => {
     setPhase("linking");
     try {
-      await linkGoogleAccount();
-      // linkGoogleAccount is a real top-level redirect now (real-phone
-      // popup handshakes routinely never came back — see auth.js's own
-      // comment on why) — this sheet, and the whole app underneath it, is
-      // about to navigate away entirely. The eventual outcome (linked,
-      // conflict, or a real failure) only exists on the *next* load,
-      // picked up by AuthGate — including a plain cancel, which just comes
-      // back as nothing to report at all, not an error.
+      const result = await linkGoogleAccount();
+      if (result.ok) {
+        onClose();
+        return;
+      }
+      setConflictCredential(result.conflictCredential);
+      setPhase("conflict");
+    } catch (err) {
+      if (err?.code === "auth/popup-closed-by-user" || err?.code === "auth/cancelled-popup-request") {
+        setPhase("idle");
+      } else {
+        setPhase("error");
+      }
+    }
+  };
+
+  const handleSwitchToExisting = async () => {
+    setPhase("switching");
+    try {
+      await signInWithExistingCredential(conflictCredential);
+      onClose();
     } catch {
-      // A synchronous failure kicking off the redirect itself (e.g.
-      // genuinely offline) — everything about the redirect's own outcome
-      // surfaces later, via AuthGate, not here.
       setPhase("error");
     }
   };
@@ -199,7 +209,23 @@ export default function SaveTeamSheet({ onFieldPlayers, benchIds, nameOf, number
       </div>
 
       <div style={styles.mdSaveTeamSheet}>
-        {phase === "email" || phase === "sendingEmail" || phase === "emailError" ? (
+        {phase === "conflict" || phase === "switching" ? (
+          <>
+            <div style={styles.mdSaveTeamHeading}>Already saved elsewhere</div>
+            <div style={styles.mdSaveTeamBody}>
+              This account already has a Bench Buddy team saved. Sign in to that account? What you've done on this
+              device that hasn't been saved yet will be left behind.
+            </div>
+            <div style={styles.mdSaveTeamButtonList}>
+              <button style={styles.mdCautionSheetBtnPrimary} onClick={handleSwitchToExisting} disabled={phase === "switching"}>
+                Sign in to that account
+              </button>
+              <button style={styles.mdCautionSheetBtnSecondary} onClick={() => setPhase("idle")} disabled={phase === "switching"}>
+                Cancel
+              </button>
+            </div>
+          </>
+        ) : phase === "email" || phase === "sendingEmail" || phase === "emailError" ? (
           <>
             <div style={styles.mdSaveTeamHeading}>Save your team</div>
             <div style={styles.mdSaveTeamBody}>

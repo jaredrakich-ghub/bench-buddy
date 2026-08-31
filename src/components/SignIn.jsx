@@ -55,16 +55,14 @@ export default function SignIn({ initialError = "", showGuestOption = false, onC
     setSigningInVia("google");
     try {
       await signInWithGoogle();
-      // signInWithGoogle is a real top-level redirect now (real-phone
-      // popup handshakes routinely never came back — see auth.js's own
-      // comment on why) — this page is about to navigate away entirely,
-      // so there's no "success" to react to here. The eventual outcome
-      // only exists on the *next* load, picked up by AuthGate.
-    } catch {
-      // A synchronous failure kicking off the redirect itself (e.g.
-      // genuinely offline) — anything about the redirect's own outcome
-      // (including a plain cancel) surfaces later, via AuthGate, not here.
-      setError("Couldn't sign in — check your connection and try again.");
+      // onAuthChange (AuthGate) swaps this whole screen out on success —
+      // this only matters if that takes a moment, so the button doesn't
+      // sit stuck on "Signing in…" in the meantime.
+    } catch (err) {
+      // A cancelled/closed popup isn't a real error worth showing.
+      if (err?.code !== "auth/popup-closed-by-user" && err?.code !== "auth/cancelled-popup-request") {
+        setError("Couldn't sign in — check your connection and try again.");
+      }
     }
     setSigningInVia(null);
   };

@@ -76,18 +76,21 @@ describe("SignIn", () => {
       await screen.findByText("Sign in with Google"); // back to the resting label once it resolves
     });
 
-    // Real-use feedback: signInWithGoogle is a top-level redirect now (see
-    // auth.js's own comment on why) — a plain cancel doesn't throw a
-    // distinguishable "popup closed" error the way it used to, it's just
-    // no pending result on the next load (AuthGate.test.jsx covers that
-    // side). What this component can still fail on is the synchronous
-    // kickoff itself — a genuine, real error either way.
     it("shows a friendly error on a real failure", async () => {
       signInWithGoogle.mockRejectedValue({ code: "auth/network-request-failed" });
       const user = userEvent.setup();
       render(<SignIn />);
       await user.click(screen.getByText("Sign in with Google"));
       expect(await screen.findByText(/Couldn't sign in/)).toBeInTheDocument();
+    });
+
+    it("stays quiet if the popup was just closed/cancelled by the user", async () => {
+      signInWithGoogle.mockRejectedValue({ code: "auth/popup-closed-by-user" });
+      const user = userEvent.setup();
+      render(<SignIn />);
+      await user.click(screen.getByText("Sign in with Google"));
+      await screen.findByText("Sign in with Google"); // back to resting, signingIn cleared
+      expect(screen.queryByText(/Couldn't sign in/)).not.toBeInTheDocument();
     });
   });
 
