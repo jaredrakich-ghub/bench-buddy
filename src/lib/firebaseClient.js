@@ -9,7 +9,15 @@ import { getFirestore, initializeFirestore, persistentLocalCache, persistentMult
 
 const firebaseConfig = {
   apiKey: "AIzaSyD0beRPZuAhja8VoPVpoyJ2WhFbY4y34ZA",
-  authDomain: "bench-buddy-ada85.firebaseapp.com",
+  // Custom auth domain (Firebase Hosting -> auth.benchbuddysports.com,
+  // CNAME'd at GoDaddy) instead of the default *.firebaseapp.com — real-use
+  // feedback: Google's own sign-in consent screen shows this domain
+  // verbatim ("Sign in to continue to..."), and the generic Firebase one
+  // read as untrustworthy to an average user. Requires
+  // auth.benchbuddysports.com to also be listed under Authentication ->
+  // Settings -> Authorized domains in the Firebase console, or every
+  // redirect through it gets rejected as an unauthorized domain.
+  authDomain: "auth.benchbuddysports.com",
   projectId: "bench-buddy-ada85",
   storageBucket: "bench-buddy-ada85.firebasestorage.app",
   messagingSenderId: "159916947909",
