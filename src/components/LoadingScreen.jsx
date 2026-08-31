@@ -19,7 +19,9 @@ export default function LoadingScreen({ message = "Loading…" }) {
       <div style={styles.spinnerWrap}>
         <div style={styles.ring} />
         <div style={styles.logoCrop}>
-          <img src={headerMascot} alt="" style={styles.logoImg} />
+          <div style={styles.logoSuper}>
+            <img src={headerMascot} alt="" style={styles.logoImg} />
+          </div>
         </div>
       </div>
       <div style={styles.text}>{message}</div>
@@ -53,6 +55,21 @@ const styles = {
   logoCrop: {
     width: 132, height: 132, borderRadius: "50%", overflow: "hidden", boxShadow: "0 0 0 2px rgba(255,255,255,0.7)",
   },
-  logoImg: { width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 46%", transform: "scale(1.7)" },
+  // Real-use feedback: at 132px the SVG read soft/blurry — the browser
+  // rasterizes an <img src="*.svg"> at its laid-out box size and only
+  // *then* applies a CSS transform, so the old plain scale(1.7) on a
+  // 132px box was stretching an already-132px-ish bitmap, not
+  // re-rendering the vector at the final size (a raster JPG never showed
+  // this because its native resolution was already well above 132px, so
+  // stretching it further was imperceptible — a vector source has no such
+  // safety margin). logoSuper renders the whole crop at 3x (396px) —
+  // genuinely re-rasterizing the vector there, sharp — then scales the
+  // *result* back down to fit logoCrop's real 132px box. Downscaling a
+  // raster always looks clean; only upscaling exposed the softness. Pure
+  // supersampling: logoImg's own relative crop math (objectPosition,
+  // scale(1.7)) is untouched, so the framing is pixel-for-pixel the same,
+  // just computed at higher resolution first.
+  logoSuper: { width: 396, height: 396, transform: "scale(0.3333333)", transformOrigin: "0 0" },
+  logoImg: { width: 396, height: 396, objectFit: "cover", objectPosition: "50% 46%", transform: "scale(1.7)" },
   text: { color: colors.grass, fontWeight: 700, fontSize: 14 },
 };
