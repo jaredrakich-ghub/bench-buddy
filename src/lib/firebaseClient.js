@@ -31,6 +31,23 @@ const app = initializeApp(firebaseConfig);
 // initializeAppCheck needs a real browser (loads reCAPTCHA's own script,
 // uses browser storage) — same reasoning as hasIndexedDb below.
 if (typeof window !== "undefined") {
+  // Local dev only: the reCAPTCHA Enterprise key above is domain-restricted
+  // in the Google Cloud console to Bench Buddy's real deployed domain, not
+  // localhost — so `npm run dev` can never get a valid App Check token, and
+  // once enforcement is switched on for a service in the Firebase console,
+  // every request from a local dev server gets rejected (surfaces as a
+  // Firestore "Missing or insufficient permissions" error, indistinguishable
+  // from a real rules failure). The debug provider is Firebase's own
+  // sanctioned way around this: it prints a random token to the console on
+  // first run, which then needs registering once in Firebase console → App
+  // Check → this web app → "Manage debug tokens" — after that, this same
+  // token is reused across restarts (self, not sessionStorage, so it resets
+  // on a hard refresh of Vite's page but not on every hot-reload).
+  // import.meta.env.DEV is compiled to `false` in a production build, so
+  // this branch — and any debug token — never ships to real users.
+  if (import.meta.env.DEV) {
+    self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+  }
   initializeAppCheck(app, {
     provider: new ReCaptchaEnterpriseProvider("6Lc2kZ0tAAAAAGb_9fvYEVDTwdhu-LGQc3Pvg1Z0"),
     isTokenAutoRefreshEnabled: true,
