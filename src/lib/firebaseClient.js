@@ -9,20 +9,23 @@ import { getFirestore, initializeFirestore, persistentLocalCache, persistentMult
 
 const firebaseConfig = {
   apiKey: "AIzaSyD0beRPZuAhja8VoPVpoyJ2WhFbY4y34ZA",
-  // TEMPORARY diagnostic revert (was "auth.benchbuddysports.com") — real-use
-  // feedback: Google sign-in silently fails on iPhone (every browser, not
-  // just the installed home-screen app — all share the same underlying
-  // WebKit engine on iOS) since switching to the custom domain, bouncing
-  // back to a fresh guest session rather than completing. iOS "Prevent
-  // Cross-Site Tracking" is confirmed OFF on the affected device, ruling
-  // out the obvious ITP explanation, so this isolates a different
-  // variable: does the brand-new, no-history custom domain itself behave
-  // differently on iOS than the long-established, heavily-used
-  // *.firebaseapp.com one, for some other reason? Revert back to
-  // auth.benchbuddysports.com once root-caused — the Hosting connection,
-  // DNS, and Authorized-domains entry are all still live, this is purely
-  // a config value for testing.
-  authDomain: "bench-buddy-ada85.firebaseapp.com",
+  // Custom auth domain (Firebase Hosting -> auth.benchbuddysports.com,
+  // CNAME'd at GoDaddy) instead of the default *.firebaseapp.com — real-use
+  // feedback: Google's own sign-in consent screen shows this domain
+  // verbatim ("Sign in to continue to..."), and the generic Firebase one
+  // read as untrustworthy to an average user. Requires
+  // auth.benchbuddysports.com to also be listed under Authentication ->
+  // Settings -> Authorized domains in the Firebase console, or every
+  // sign-in through it gets rejected as an unauthorized domain.
+  //
+  // Briefly reverted to the default domain to isolate an unrelated iOS
+  // sign-in failure (root cause: the popup-vs-redirect sign-in mechanism,
+  // not the domain — see auth.js's own comment) — restored now that
+  // that's fixed. Popup doesn't have redirect's "does the return trip land
+  // in the same storage context" problem, so there's no reason to expect
+  // this domain change to interact badly with it the way it seemed to
+  // (misleadingly) with redirect.
+  authDomain: "auth.benchbuddysports.com",
   projectId: "bench-buddy-ada85",
   storageBucket: "bench-buddy-ada85.firebasestorage.app",
   messagingSenderId: "159916947909",
