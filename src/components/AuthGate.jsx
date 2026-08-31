@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   onAuthChange, signInAnon, completeEmailLinkSignInIfPresent, completeEmailLinkSignInWithEmail,
-  signInWithExistingCredential, consumeJustSignedOutFlag,
+  signInWithExistingCredential, consumeJustSignedOutFlag, getGoogleRedirectResult,
 } from "../lib/auth.js";
 import SignIn from "./SignIn.jsx";
 import LoadingScreen from "./LoadingScreen.jsx";
@@ -49,6 +49,16 @@ export default function AuthGate({ children }) {
   const [emailLinkConflict, setEmailLinkConflict] = useState(null);
   const [emailInput, setEmailInput] = useState("");
   const [emailLinkBusy, setEmailLinkBusy] = useState(false);
+  // The other progressive-auth return trip: signInWithGoogle
+  // (SignIn.jsx) or linkGoogleAccount (SaveTeamSheet.jsx) redirected away
+  // to Google and this load is the one coming back. Checked independently
+  // of the email-link effect below — whichever order they resolve in, at
+  // most one of them will ever actually have something to report for any
+  // single load, since a coach only ever completes one of these flows at a
+  // time.
+  const [googleRedirectPhase, setGoogleRedirectPhase] = useState("checking"); // checking | none | conflict | error
+  const [googleRedirectConflict, setGoogleRedirectConflict] = useState(null);
+  const [googleRedirectBusy, setGoogleRedirectBusy] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthChange(setUser);
@@ -67,8 +77,11 @@ export default function AuthGate({ children }) {
     // Real-use feedback, reproduced twice in a row: signing back in with
     // Google after a sign-out briefly flashed back to the sign-in screen
     // before finishing on its own. Cause: onAuthStateChanged can bounce
-    // through more than one null while signInWithPopup resolves — a known
-    // Firebase quirk — and consumeJustSignedOutFlag is one-shot, so a
+    // through more than one null while a Google sign-in resolves — a known
+    // Firebase quirk (originally seen with signInWithPopup; nothing about
+    // the switch to signInWithRedirect rules out the same settling
+    // behaviour, so this guard stays) — and consumeJustSignedOutFlag is
+    // one-shot, so a
     // *second* null in that same burst found it already consumed and fell
     // through to signInAnon() below, right in the middle of the real
     // Google sign-in completing. Once either fallback state is already
@@ -148,13 +161,47 @@ export default function AuthGate({ children }) {
     setEmailLinkBusy(false);
   };
 
-  if (emailLinkPhase === "checking") {
+  useEffect(() => {
+    let cancelled = false;
+    getGoogleRedirectResult()
+      .then((result) => {
+        if (cancelled) return;
+        // null (not returning from Google at all) and { ok: true } both
+        // mean "nothing special to show" — a real sign-in or link success
+        // is already on its way through the ordinary onAuthChange
+        // subscription above, same as any other auth-state change.
+        if (!result || result.ok) setGoogleRedirectPhase("none");
+        else {
+          setGoogleRedirectConflict(result.conflictCredential);
+          setGoogleRedirectPhase("conflict");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setGoogleRedirectPhase("error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const switchToGoogleConflictAccount = async () => {
+    setGoogleRedirectBusy(true);
+    try {
+      await signInWithExistingCredential(googleRedirectConflict);
+      setGoogleRedirectPhase("none");
+    } catch {
+      setGoogleRedirectPhase("error");
+    }
+    setGoogleRedirectBusy(false);
+  };
+
+  if (emailLinkPhase === "checking" || googleRedirectPhase === "checking") {
     return <LoadingScreen message="Loading…" />;
   }
 
   if (emailLinkPhase === "needsEmail") {
     return (
-      <EmailLinkPrompt
+      <AuthFlowPrompt
         title="Confirm your email"
         body="Enter the email address you used to request this link — it looks like it was opened on a different device or browser than the one that sent it."
       >
@@ -171,13 +218,13 @@ export default function AuthGate({ children }) {
             {emailLinkBusy ? "Signing in…" : "Continue"}
           </button>
         </form>
-      </EmailLinkPrompt>
+      </AuthFlowPrompt>
     );
   }
 
   if (emailLinkPhase === "conflict") {
     return (
-      <EmailLinkPrompt
+      <AuthFlowPrompt
         title="Already saved elsewhere"
         body="This email already has a Bench Buddy team saved. Sign in to that account? What you've done on this device that hasn't been saved yet will be left behind."
       >
@@ -187,17 +234,43 @@ export default function AuthGate({ children }) {
         <button style={styles.mdCautionSheetBtnSecondary} onClick={() => setEmailLinkPhase("none")} disabled={emailLinkBusy}>
           Cancel
         </button>
-      </EmailLinkPrompt>
+      </AuthFlowPrompt>
     );
   }
 
   if (emailLinkPhase === "error") {
     return (
-      <EmailLinkPrompt title="That link didn't work" body="It may have expired or already been used. Open Team & account and tap Save your team to request a new one.">
+      <AuthFlowPrompt title="That link didn't work" body="It may have expired or already been used. Open Team & account and tap Save your team to request a new one.">
         <button style={styles.mdCautionSheetBtnPrimary} onClick={() => setEmailLinkPhase("none")}>
           Continue
         </button>
-      </EmailLinkPrompt>
+      </AuthFlowPrompt>
+    );
+  }
+
+  if (googleRedirectPhase === "conflict") {
+    return (
+      <AuthFlowPrompt
+        title="Already saved elsewhere"
+        body="This Google account already has a Bench Buddy team saved. Sign in to that account? What you've done on this device that hasn't been saved yet will be left behind."
+      >
+        <button style={styles.mdCautionSheetBtnPrimary} onClick={switchToGoogleConflictAccount} disabled={googleRedirectBusy}>
+          Sign in to that account
+        </button>
+        <button style={styles.mdCautionSheetBtnSecondary} onClick={() => setGoogleRedirectPhase("none")} disabled={googleRedirectBusy}>
+          Cancel
+        </button>
+      </AuthFlowPrompt>
+    );
+  }
+
+  if (googleRedirectPhase === "error") {
+    return (
+      <AuthFlowPrompt title="Couldn't sign in with Google" body="Something went wrong completing that — check your connection and try again.">
+        <button style={styles.mdCautionSheetBtnPrimary} onClick={() => setGoogleRedirectPhase("none")}>
+          Continue
+        </button>
+      </AuthFlowPrompt>
     );
   }
 
@@ -223,12 +296,15 @@ export default function AuthGate({ children }) {
   return children(user);
 }
 
-// A plain centred card for the two real-but-rare email-link states above —
-// not part of any design-handoff spec (this whole flow only exists because
-// a magic link can complete on page load, before the app has anywhere
-// better to put it), so it deliberately borrows plain, generic styling
-// rather than inventing pixel-perfect values nobody specified.
-function EmailLinkPrompt({ title, body, children }) {
+// A plain centred card for the real-but-rare states above — both the
+// email-link and Google-redirect return trips, since neither is part of
+// any design-handoff spec (this whole shape only exists because a
+// redirect/magic-link can complete on page load, before the app has
+// anywhere better to put it) — deliberately plain, generic styling rather
+// than inventing pixel-perfect values nobody specified. data-testid stays
+// "email-link-prompt" (not renamed alongside the component) — existing
+// tests already query it, and it's still accurate for that flow's own use.
+function AuthFlowPrompt({ title, body, children }) {
   return (
     <div
       style={{

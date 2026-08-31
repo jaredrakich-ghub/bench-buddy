@@ -4,7 +4,8 @@
 // it so the rest of the app deals with plain functions/callbacks, not
 // Firebase's API shape directly.
 import {
-  GoogleAuthProvider, EmailAuthProvider, signInWithPopup, signInAnonymously, linkWithPopup, linkWithCredential,
+  GoogleAuthProvider, EmailAuthProvider, signInAnonymously, linkWithCredential,
+  signInWithRedirect, linkWithRedirect, getRedirectResult,
   signInWithCredential, sendSignInLinkToEmail, isSignInWithEmailLink,
   signOut, onAuthStateChanged, deleteUser, reauthenticateWithPopup,
 } from "firebase/auth";
@@ -21,8 +22,23 @@ const googleProvider = new GoogleAuthProvider();
 // happens then.
 const EMAIL_LINK_STORAGE_KEY = "bb-email-link-address";
 
+// Real-use feedback: signInWithPopup routinely never came back on a real
+// phone — tapping "Continue" in the Google prompt (or confirming a 2FA
+// challenge in the Gmail app) sent the OS out of the page's own window
+// entirely, and by the time control returned there was no live
+// window.opener left for Firebase to hand the result back through, so the
+// promise just hung forever. Redirect doesn't depend on that channel at
+// all — it's a real top-level navigation to Google and back, which mobile
+// browsers (and an installed home-screen app) handle reliably. The
+// trade-off is real and worth knowing: the whole app reloads on return, so
+// whatever screen was open before tapping Sign in is gone, same as any
+// other full navigation — acceptable here since this only ever fires from
+// the sign-in screen itself, before there's anything on-screen to lose.
+// The actual result only shows up on that next load, via
+// getGoogleRedirectResult() below (checked in AuthGate.jsx, same pattern
+// already used for the emailed magic-link return).
 export async function signInWithGoogle() {
-  await signInWithPopup(auth, googleProvider);
+  await signInWithRedirect(auth, googleProvider);
 }
 
 // Progressive auth: every first-time visitor gets one of these automatically
@@ -42,23 +58,40 @@ export async function signInAnon() {
 // current anonymous session's *existing* uid, rather than creating a new
 // account and migrating data across — every team/roster/rotation already
 // saved under this uid just keeps working, untouched, the moment this
-// succeeds. Deliberately linkWithPopup (not signInWithPopup) for exactly
-// that reason.
+// succeeds.
 //
-// Returns { ok: true } on success, or { ok: false, conflictCredential }
-// when this Google account already belongs to a *different* Bench Buddy
-// account (auth/credential-already-in-use — a real scenario: the same
-// coach already signed in normally with this account on another device).
-// That's not a generic failure, so it's not thrown — the caller
-// (SaveTeamSheet.jsx) needs the credential itself to offer "sign in to
-// that account instead" without prompting the Google popup a second time,
-// which is exactly what GoogleAuthProvider.credentialFromError hands back.
-// Any other error is a real failure and does throw, same as everywhere
-// else auth calls in this app.
+// Redirect, not popup — same real-phone failure as signInWithGoogle above
+// (the 2FA-confirm-then-nothing-happens symptom), and the same reload
+// trade-off applies. This one's reached from Save your team specifically,
+// so it's worth being explicit: whatever screen was open when the coach
+// tapped it is gone once they're back — acceptable for now (this app has
+// no in-progress-match state that isn't already synced to Firestore
+// separately), but a real UX cost, not a free fix.
+//
+// Doesn't return a result — a redirect navigates away before this promise
+// would ever resolve with one. The actual outcome (linked, conflict, or a
+// real failure) only exists on the *next* load, via
+// getGoogleRedirectResult() below.
 export async function linkGoogleAccount() {
+  await linkWithRedirect(auth.currentUser, googleProvider);
+}
+
+// Checked once on every app load (AuthGate, alongside the equivalent
+// email-link check) for a pending result from either signInWithGoogle or
+// linkGoogleAccount above — both funnel through this same Firebase-side
+// mechanism, so one function covers both callers. Three outcomes:
+//  - null: the overwhelmingly common case — this load isn't returning from
+//    a Google redirect at all.
+//  - { ok: true }: signed in or linked successfully.
+//  - { ok: false, conflictCredential }: this Google identity already
+//    belongs to a *different* Bench Buddy account (same real scenario as
+//    the old popup flow's own conflict case) — not thrown, since the
+//    caller needs the credential itself to offer "sign in to that account
+//    instead" without a second round-trip to Google.
+export async function getGoogleRedirectResult() {
   try {
-    await linkWithPopup(auth.currentUser, googleProvider);
-    return { ok: true };
+    const result = await getRedirectResult(auth);
+    return result ? { ok: true } : null;
   } catch (err) {
     if (err.code === "auth/credential-already-in-use") {
       return { ok: false, conflictCredential: GoogleAuthProvider.credentialFromError(err) };

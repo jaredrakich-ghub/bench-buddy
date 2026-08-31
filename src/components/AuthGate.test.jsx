@@ -15,10 +15,11 @@ vi.mock("../lib/auth.js", () => ({
   completeEmailLinkSignInWithEmail: vi.fn(),
   signInWithExistingCredential: vi.fn(),
   consumeJustSignedOutFlag: vi.fn(),
+  getGoogleRedirectResult: vi.fn(),
 }));
 import {
   onAuthChange, signInAnon, completeEmailLinkSignInIfPresent, completeEmailLinkSignInWithEmail, signInWithExistingCredential,
-  consumeJustSignedOutFlag,
+  consumeJustSignedOutFlag, getGoogleRedirectResult,
 } from "../lib/auth.js";
 import AuthGate from "./AuthGate.jsx";
 
@@ -36,6 +37,10 @@ beforeEach(() => {
   // who just tapped Sign out. The one test that's specifically about that
   // path overrides this itself.
   consumeJustSignedOutFlag.mockReturnValue(false);
+  // Ditto again — most loads aren't returning from a Google redirect
+  // either. The "returning via Google" describe block below overrides
+  // this itself.
+  getGoogleRedirectResult.mockResolvedValue(null);
 });
 
 // onAuthChange's real shape: calls back immediately with the current state,
@@ -211,6 +216,78 @@ describe("AuthGate", () => {
       render(<AuthGate>{() => <div>App content</div>}</AuthGate>);
 
       expect(await screen.findByText("That link didn't work")).toBeInTheDocument();
+      await user.click(screen.getByText("Continue"));
+      expect(await screen.findByText("App content")).toBeInTheDocument();
+    });
+  });
+
+  // The third progressive-auth entry point: a coach returning from
+  // Google's own consent screen, via either signInWithGoogle (SignIn.jsx's
+  // fallback screen) or linkGoogleAccount (SaveTeamSheet's "Continue with
+  // Google") — both now a real top-level redirect rather than a popup
+  // (real-phone 2FA confirmations routinely never made it back through a
+  // popup's own window.opener channel — see auth.js's own comment), so
+  // this load coming back is the only place either flow's actual outcome
+  // ever surfaces.
+  describe("returning via a Google sign-in/link redirect", () => {
+    it("does nothing extra on an ordinary load that isn't a Google return at all", async () => {
+      getGoogleRedirectResult.mockResolvedValue(null);
+      mockAuthChange({ uid: "u1", isAnonymous: false });
+      render(<AuthGate>{() => <div>App content</div>}</AuthGate>);
+      expect(await screen.findByText("App content")).toBeInTheDocument();
+    });
+
+    it("a successful sign-in or link needs no dedicated UI — the ordinary user state already reflects it", async () => {
+      getGoogleRedirectResult.mockResolvedValue({ ok: true });
+      mockAuthChange({ uid: "coach-1", isAnonymous: false });
+      render(<AuthGate>{(user) => <div>App content for {user.uid}</div>}</AuthGate>);
+      expect(await screen.findByText("App content for coach-1")).toBeInTheDocument();
+      expect(screen.queryByText("Already saved elsewhere")).not.toBeInTheDocument();
+    });
+
+    it("offers the explicit choice when the Google identity already belongs to a different account", async () => {
+      getGoogleRedirectResult.mockResolvedValue({ ok: false, conflictCredential: { fake: true } });
+      mockAuthChange({ uid: "guest-1", isAnonymous: true });
+      render(<AuthGate>{() => <div>App content</div>}</AuthGate>);
+
+      expect(await screen.findByText("Already saved elsewhere")).toBeInTheDocument();
+      expect(screen.getByText(/left behind/)).toBeInTheDocument();
+    });
+
+    it("'Sign in to that account' completes the switch with the redirect's own credential", async () => {
+      getGoogleRedirectResult.mockResolvedValue({ ok: false, conflictCredential: { fake: true } });
+      signInWithExistingCredential.mockResolvedValue(undefined);
+      mockAuthChange({ uid: "guest-1", isAnonymous: true });
+      const user = userEvent.setup();
+      render(<AuthGate>{() => <div>App content</div>}</AuthGate>);
+
+      await screen.findByText("Already saved elsewhere");
+      await user.click(screen.getByText("Sign in to that account"));
+
+      expect(signInWithExistingCredential).toHaveBeenCalledWith({ fake: true });
+      expect(await screen.findByText("App content")).toBeInTheDocument();
+    });
+
+    it("Cancel on the conflict screen backs out without switching accounts", async () => {
+      getGoogleRedirectResult.mockResolvedValue({ ok: false, conflictCredential: { fake: true } });
+      mockAuthChange({ uid: "guest-1", isAnonymous: true });
+      const user = userEvent.setup();
+      render(<AuthGate>{() => <div>App content</div>}</AuthGate>);
+
+      await screen.findByText("Already saved elsewhere");
+      await user.click(screen.getByText("Cancel"));
+
+      expect(signInWithExistingCredential).not.toHaveBeenCalled();
+      expect(await screen.findByText("App content")).toBeInTheDocument();
+    });
+
+    it("a real failure explains itself and lets the coach continue with whatever session they've already got", async () => {
+      getGoogleRedirectResult.mockRejectedValue({ code: "auth/network-request-failed" });
+      mockAuthChange({ uid: "guest-1", isAnonymous: true });
+      const user = userEvent.setup();
+      render(<AuthGate>{() => <div>App content</div>}</AuthGate>);
+
+      expect(await screen.findByText("Couldn't sign in with Google")).toBeInTheDocument();
       await user.click(screen.getByText("Continue"));
       expect(await screen.findByText("App content")).toBeInTheDocument();
     });
