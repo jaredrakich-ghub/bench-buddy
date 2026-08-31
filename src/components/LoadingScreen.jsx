@@ -1,5 +1,5 @@
 import { colors } from "./styles.js";
-import headerMascot from "../assets/header-mascot.jpg";
+import headerMascot from "../assets/header-mascot.svg";
 
 // Shared "something's loading" screen — used both by AuthGate (checking
 // whether a session already exists) and SubRotationPlanner (loading the

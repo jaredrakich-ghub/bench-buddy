@@ -18,7 +18,7 @@ import ManageSquadScreen from "./ManageSquadScreen.jsx";
 import SquadChangeScreen from "./SquadChangeScreen.jsx";
 import LoadingScreen from "./LoadingScreen.jsx";
 import RotationProgressOverlay from "./RotationProgressOverlay.jsx";
-import headerMascot from "../assets/header-mascot.jpg";
+import headerMascot from "../assets/header-mascot.svg";
 
 // Both of these are now read-only, used exactly once each: migrating an
 // existing browser's local data into the signed-in user's Firestore account

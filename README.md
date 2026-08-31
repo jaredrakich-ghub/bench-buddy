@@ -93,6 +93,7 @@ emulator-only `demo-bench-buddy-test`, not the real one.
 
 ## Credits
 
-The header mascot (`src/assets/header-mascot.jpg`) is a free illustration
-from [Vecteezy](https://www.vecteezy.com/vector-art/49165452-soccer-player-with-ball-flat-style-element-illustration-on-white-background-free-vector),
+The header mascot (`src/assets/header-mascot.svg`) is Vecteezy's
+["AI Reimagine" vector re-render](https://www.vecteezy.com/vector-art/49165452-soccer-player-with-ball-flat-style-element-illustration-on-white-background-free-vector)
+of the same free illustration used before (previously shipped as a JPG),
 used under Vecteezy's free license, which requires attribution.

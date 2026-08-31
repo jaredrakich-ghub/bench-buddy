@@ -2,7 +2,7 @@ import { useState } from "react";
 import { signInWithGoogle, sendLoginEmailLink, signInAnon } from "../lib/auth.js";
 import { fontStyle, styles, tokens } from "./styles.js";
 import { GoogleIcon, EnvelopeIcon, GuestIcon } from "./authIcons.jsx";
-import headerMascot from "../assets/header-mascot.jpg";
+import headerMascot from "../assets/header-mascot.svg";
 
 // AuthGate's fallback — rendered whenever there's no session to hand the
 // rest of the app: either an anonymous session couldn't even be started,
