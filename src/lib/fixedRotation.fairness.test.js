@@ -282,6 +282,50 @@ describe("buildFairSchedule / generateFixedPlan — outfield fairness sweep", ()
     expect(worstRange).toBeLessThan(8); // sanity ceiling only — catches true breakage, not the known gap above
   });
 
+  // Real-use report: 7 players, 3 of them keeper-eligible, 15-min keeper
+  // shift on a 45-min/5-min-sub game — a 200-seed sweep of the OLD engine
+  // (buildFixedPlan's bench schedule and keeper assignment as two fully
+  // separate passes) found keeper turns as lopsided as 7-of-9 intervals
+  // for one eligible player against 0 for another, and a null-keeper
+  // (empty goal) bug in an unrelated configuration along the way (10
+  // players, 2 eligible, 25-min shift: 70/100 seeds had a genuinely empty
+  // goal at some point). buildKeeperAwareSchedule (deciding bench and
+  // keeper together, one interval at a time, instead of bench-schedule-
+  // first) fixes both: re-running the same sweep this test used to
+  // characterize the OLD engine's failure now gets any-keeper-spread down
+  // from 252/300 to 17/300 and worst keeper range from 7 to 6, with zero
+  // null-keeper intervals across every configuration checked. Not
+  // asserting 0/300 — some spread is a genuine structural limit once
+  // "prefer an arriving player" (bench->keeper, still enforced — see
+  // buildKeeperAwareSchedule's own comment) and "give this player their
+  // whole planned block" can't both be satisfied every single time — but
+  // the order-of-magnitude improvement is real and worth locking in.
+  it("keeper-turn spread for a real partial-eligibility, multi-interval-shift configuration stays far below the old engine's worst case", () => {
+    const availableIds = ["p1", "p2", "p3", "p4", "p5", "p6", "p7"];
+    const keeperEligibleIds = ["p1", "p2", "p3"];
+    let anySpread = 0;
+    let worstRange = 0;
+    let nullGkFound = false;
+    for (let seed = 1; seed <= 300; seed++) {
+      let s = seed;
+      const random = () => {
+        s = (s * 1103515245 + 12345) & 0x7fffffff;
+        return s / 0x7fffffff;
+      };
+      const { intervals } = generateFixedPlan({
+        availableIds, gameMinutes: 45, numIntervals: 9, fieldSize: 5, keeperEligibleIds,
+        keeperShiftIntervals: 3, random,
+      });
+      intervals.forEach((iv) => { if (!iv.onField.some((p) => p.isGk)) nullGkFound = true; });
+      const fairness = calculateFairness(intervals, availableIds, keeperEligibleIds);
+      if (fairness.keeperRange > 0) anySpread++;
+      worstRange = Math.max(worstRange, fairness.keeperRange);
+    }
+    expect(nullGkFound).toBe(false);
+    expect(anySpread).toBeLessThan(60); // old engine: 252/300 — real ceiling, not a coincidence of one run
+    expect(worstRange).toBeLessThanOrEqual(6); // old engine's worst was 7; a first (reverted) fix attempt hit 9
+  });
+
   it("keeps bench range within 1 of the theoretical best, and never sacrifices outfield fairness to improve it", () => {
     const squadSizes = [6, 7, 8, 9, 10];
     const fieldSizes = [4, 5];

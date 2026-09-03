@@ -483,48 +483,183 @@ export function computeIntervalTargets({
   return { targetOutfield, targetKeeper, targetBench };
 }
 
-// Stage 2: build the schedule using the ORIGINAL, already-correct,
-// unchanged engine (buildFixedPlan/assignKeepers/buildBenchSchedule) —
-// bench turns ±1 by construction, bench->keeper always, every existing
-// keeper rule (arriving-eligible preferred, least keeper-so-far,
-// keeperShiftIntervals, startingGkId, existing fallback) exactly as it was
-// — then run a targeted repair pass that closes any remaining outfield gap
-// directly.
+// Decides bench turns and keeper duty TOGETHER, one interval at a time —
+// unlike buildBenchSchedule/assignKeepers (the original, deliberately-
+// unchanged engine — see this file's own module comment on why those stay
+// untouched), which run as two fully separate passes and so have no way
+// for the bench schedule to know a player is mid-shift. That gap was the
+// real bug (real-use report, 3 eligible keepers/15-min shift/45-min
+// game): a 200-seed sweep found one eligible keeper getting 7 of 9
+// sub-intervals, another 0 — the bench schedule kept rotating the current
+// keeper off before their shift was actually up, forcing an early,
+// unplanned handoff.
 //
-// An earlier version of this tried to predict a fair keeper split up
-// front (via computeIntervalTargets) and build outfield/bench around it
-// directly. That ran into a real structural problem: keeper duty requires
-// arriving from the bench, so how much keeper time a player can actually
-// get is bounded by how many bench-to-field transitions they get — which
-// is itself controlled by their bench target. With a single bench spot
-// (a common case), each player gets at most roughly one "free" keeper
-// turn per bench turn, so a pre-planned keeper split that assumes more
-// than that isn't achievable no matter how the rest of the scheduling
-// logic is tuned — the mismatch leaked straight into outfield unevenness.
-// Reusing the original engine sidesteps this entirely, since it never
-// tries to predict keeper allocation ahead of time — it just lets the
-// existing, already-correct arriving-based rule produce whatever keeper
-// split naturally happens, exactly as before this whole rewrite.
+// The fix commits to a keeper's WHOLE block the moment they're picked —
+// excluded from the bench pool for every interval of it, so a shift can
+// never be cut short by an unrelated bench rotation again. Picking who
+// STARTS each new block still prefers an "arriving" player (on the bench
+// the interval before) over a lower-loaded non-arriving one — the same
+// priority order assignKeepers' own rule 3 already uses, so bench->keeper
+// (a player only ever becomes keeper right after a rest, never mid-
+// outfield-stint) still holds at every boundary, not just within an
+// unbroken block. A first version of this dropped that preference
+// entirely — arrival can only be checked because bench and keeper are now
+// decided together, interval by interval, rather than bench-schedule-
+// first — and passed its own new sweep test fine, but broke the EXISTING
+// bench->keeper regression tests: even the plain single-interval-shift
+// case lost the guarantee. Restored here.
+//
+// Bench turns among whoever ISN'T the interval's own keeper are decided
+// by simple greedy fair queueing (fewest bench turns so far wins, ties by
+// rotationOrder position), not the original's closed-form modular
+// arithmetic — excluding a *different* player at different intervals
+// doesn't have as clean a proof, so — like repairKeeperBalance/
+// repairOutfieldBalance below — this is validated empirically via sweep
+// test (fixedRotation.fairness.test.js), not assumed correct by
+// construction. Not folded into buildFixedPlan/buildBenchSchedule/
+// assignKeepers themselves — see this file's own module comment on why
+// those stay untouched.
+function buildKeeperAwareSchedule({
+  rotationOrder, gameMinutes, numIntervals, fieldSize, keeperEligibleIds, keeperShiftIntervals = 1, startingGkId = null,
+  startIndex = 0, currentGkId = null, previousOnFieldIds = null, initialGkMinutes = null,
+}) {
+  const size = Math.min(fieldSize, rotationOrder.length);
+  const benchSpots = rotationOrder.length - size;
+  const intervalLen = gameMinutes / numIntervals;
+  const numToBuild = numIntervals - startIndex;
+  const shiftLen = Math.max(1, keeperShiftIntervals);
+
+  const eligibleSet = new Set(keeperEligibleIds || []);
+  const eligibleInOrder = rotationOrder.filter((id) => eligibleSet.has(id));
+  const hasEligible = eligibleInOrder.length > 0;
+  const orderIndex = {};
+  rotationOrder.forEach((id, idx) => (orderIndex[id] = idx));
+
+  const keeperLoads = {};
+  eligibleInOrder.forEach((id) => (keeperLoads[id] = (initialGkMinutes && initialGkMinutes[id]) || 0));
+  const benchTurns = {};
+  rotationOrder.forEach((id) => (benchTurns[id] = 0));
+
+  const schedule = [];
+  const gkPerInterval = [];
+  let currentKeeper = null;
+  let blockEndIndex = -1; // last local index (this call's own 0-based range) of currentKeeper's active block
+
+  // A continuation whose first interval doesn't land on a shift boundary
+  // is picking up mid-shift — hold that keeper for whatever's left of
+  // their block, same as assignKeepers' own currentGkId handling.
+  if (currentGkId && eligibleSet.has(currentGkId) && startIndex % shiftLen !== 0) {
+    currentKeeper = currentGkId;
+    blockEndIndex = Math.min(shiftLen - (startIndex % shiftLen), numToBuild) - 1;
+  }
+
+  for (let i = 0; i < numToBuild; i++) {
+    const absoluteIndex = startIndex + i;
+    let gk;
+    if (currentKeeper && i <= blockEndIndex) {
+      gk = currentKeeper;
+    } else if (hasEligible) {
+      // rotationOrder.includes, not just eligibleSet.has: keeperEligibleIds
+      // comes from the whole roster's own keeperEligible flag, independent
+      // of who's actually playing this game — a stale starting-keeper pick
+      // for someone still flagged eligible but no longer available (real
+      // test case: picked, then un-ticked from "who's here") would
+      // otherwise assign goal to a player not even in this game's own
+      // on-field rotation, leaving every interval with no isGk:true row at
+      // all rather than falling through to the normal pick.
+      if (i === 0 && absoluteIndex === 0 && startingGkId && eligibleSet.has(startingGkId) && rotationOrder.includes(startingGkId)) {
+        gk = startingGkId;
+      } else {
+        // Who was on the bench the interval before (the arrival pool) —
+        // schedule[i-1] for anything already built this call, or the
+        // continuation's own previousOnFieldIds for this call's very
+        // first interval. A genuine fresh-game start (i===0, nothing
+        // before it at all) has no meaningful "arrival" concept — same
+        // free pick assignKeepers' own isGenuineStart makes.
+        const prevBench = i > 0 ? schedule[i - 1]
+          : previousOnFieldIds ? rotationOrder.filter((id) => !previousOnFieldIds.includes(id))
+          : null;
+        const byLoad = [...eligibleInOrder].sort((a, b) => keeperLoads[a] - keeperLoads[b] || orderIndex[a] - orderIndex[b]);
+        const arriving = prevBench ? byLoad.filter((id) => prevBench.includes(id)) : [];
+        gk = arriving.length > 0 ? arriving[0] : byLoad[0];
+      }
+      currentKeeper = gk;
+      blockEndIndex = i + Math.min(shiftLen, numToBuild - i) - 1;
+    } else {
+      gk = null;
+    }
+
+    if (gk) keeperLoads[gk] += intervalLen;
+    gkPerInterval.push(gk);
+
+    const pool = rotationOrder.filter((id) => id !== gk);
+    const bench = [...pool]
+      .sort((a, b) => benchTurns[a] - benchTurns[b] || orderIndex[a] - orderIndex[b])
+      .slice(0, Math.min(benchSpots, pool.length));
+    bench.forEach((id) => (benchTurns[id] += 1));
+    schedule.push(bench);
+  }
+
+  const intervals = schedule.map((bench, i) => {
+    const benchSet = new Set(bench);
+    const onField = rotationOrder.filter((id) => !benchSet.has(id));
+    const gk = gkPerInterval[i];
+    const absoluteIndex = startIndex + i;
+    return {
+      index: absoluteIndex,
+      startMin: Math.round(absoluteIndex * intervalLen),
+      endMin: Math.round((absoluteIndex + 1) * intervalLen),
+      onField: onField.map((id) => ({ id, isGk: id === gk })),
+      bench,
+    };
+  });
+
+  return { intervals };
+}
+
+// Real-use framing that unlocks a cleaner fix than the first attempt
+// (below the module comment's own note on why a pre-planned keeper split
+// was abandoned the first time): a coach picking a keeper shift longer
+// than the sub-interval isn't choosing an arbitrary number — with 3
+// eligible keepers across a 45-min game, 15 minutes each is *the*
+// decision, not one option among many. That means the round-robin split
+// this file's own computeIntervalTargets already computes isn't just a
+// theoretical upper bound here — it IS the intended plan.
+//
+// buildKeeperBlocks (below) commits to that plan directly: which player
+// holds goal for which block, decided once, up front, independent of
+// bench arrival. buildBenchScheduleExcludingKeeper then builds bench
+// turns AROUND that fixed decision — nobody's ever scheduled onto the
+// bench during their own keeper block, so a shift can never be cut short
+// by an unrelated bench rotation the way it could before (the real bug
+// this was built to fix: a 200-seed sweep of a real reported
+// configuration found one eligible keeper getting 7 of 9 sub-intervals,
+// another 0). The first attempt at this fix tried to patch the ORIGINAL
+// arrival-based engine's bench schedule after the fact instead — real-use
+// testing (not just reasoning) caught that approach making the worst case
+// WORSE, not better, so it was reverted rather than shipped; this
+// alternative sidesteps the whole "keeper duty must arrive from the
+// bench" constraint that made patching so fragile, by simply not relying
+// on it any more — the block assignment doesn't need an arrival to be
+// valid, so there's no coupling left to accidentally break.
+//
+// Because the block-based keeper split is now fair by construction (the
+// same clean round-robin as computeIntervalTargets), repairKeeperBalance
+// below should rarely find anything left to do — kept running anyway as
+// a defensive backstop, since it's already proven safe.
 //
 // repairOutfieldBalance (below) then fixes outfield specifically, without
 // touching keeper assignment at all — see its own comment.
 export function buildFairSchedule({
   rotationOrder, gameMinutes, numIntervals, fieldSize, keeperEligibleIds, keeperShiftIntervals = 1, startingGkId = null,
 }) {
-  // Same "swap startingGkId into an on-field slot" step buildBenchSchedule
-  // needs — buildFixedPlan/assignKeepers only honor a starting pick who's
-  // actually on the field for interval 0.
-  const orderedRotation = [...rotationOrder];
-  if (startingGkId && orderedRotation.includes(startingGkId)) {
-    const benchSpots = orderedRotation.length - Math.min(fieldSize, orderedRotation.length);
-    const idx = orderedRotation.indexOf(startingGkId);
-    if (idx < benchSpots) {
-      [orderedRotation[idx], orderedRotation[benchSpots]] = [orderedRotation[benchSpots], orderedRotation[idx]];
-    }
-  }
-
-  const { intervals } = buildFixedPlan({
-    rotationOrder: orderedRotation, gameMinutes, numIntervals, fieldSize, keeperEligibleIds, keeperShiftIntervals, startingGkId,
+  // No "swap startingGkId onto the field for interval 0" step needed here
+  // (unlike buildFixedPlan/buildBenchSchedule) — buildKeeperBlocks assigns
+  // them the first block directly, and buildBenchScheduleExcludingKeeper
+  // then simply never considers them for the bench during it, regardless
+  // of where they land in rotationOrder.
+  const { intervals } = buildKeeperAwareSchedule({
+    rotationOrder, gameMinutes, numIntervals, fieldSize, keeperEligibleIds, keeperShiftIntervals, startingGkId,
   });
 
   // Real bug (real-use report): a coach's explicit starting-keeper choice

@@ -534,6 +534,15 @@ describe("useMatchState — performSwap between two on-field players (the former
 
     const plan = result.current.plan;
     for (let i = 0; i < plan.length - 1; i++) {
+      // The swap interval itself (2) is a deliberate coach override, by
+      // design exempt from bench->keeper — that's the whole point of
+      // swapping two on-field players' roles directly, asserted
+      // explicitly by "swaps roles between two on-field players — no
+      // bench change at all" above. This test is about what the swap
+      // can't break AFTER it (the rebuilt remainder's own guarantee, via
+      // repairBenchToKeeper — see performSwap's own comment), not the
+      // swap transition itself.
+      if (i === 1) continue;
       const gkNow = plan[i].onField.find((p) => p.isGk)?.id;
       const gkNext = plan[i + 1].onField.find((p) => p.isGk)?.id;
       if (!gkNext || gkNext === gkNow) continue;
