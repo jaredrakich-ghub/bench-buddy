@@ -784,3 +784,99 @@ describe("useMatchState — resetClock", () => {
     expect(result.current.injuredThisGame).toEqual(["p2"]);
   });
 });
+
+// RotationProgressOverlay's "Improve pitch fairness"/"Improve bench
+// fairness" -> preview -> "Use this rotation" flow. previewImprovedFairness
+// must be side-effect-free (Try again/Back in the overlay discard a
+// candidate with nothing to undo); useImprovedPlan must commit exactly like
+// startPlanning's own tail (same reset list resetClock's own test above
+// checks piece by piece).
+describe("useMatchState — previewImprovedFairness / useImprovedPlan", () => {
+  it("previewImprovedFairness returns a candidate without touching plan or any other match state", () => {
+    const { result } = setupWithPlan();
+    const planBefore = result.current.plan;
+    act(() => {
+      result.current.setElapsedSec(200);
+      result.current.setActiveInterval(1);
+      result.current.setSubLog({ 0: 150 });
+    });
+
+    let candidate;
+    act(() => {
+      candidate = result.current.previewImprovedFairness("pitch");
+    });
+
+    expect(candidate.intervals.length).toBe(planBefore.length);
+    expect(candidate.stats).toEqual(
+      expect.objectContaining({
+        averageMinutes: expect.any(Number),
+        maxDifference: expect.any(Number),
+        intervalLen: expect.any(Number),
+        gameMinutes: expect.any(Number),
+      })
+    );
+    expect(candidate.rows.length).toBe(ROSTER.length);
+    expect(candidate.rows[0]).toEqual(expect.objectContaining({ id: expect.any(String), outfieldMin: expect.any(Number), gkMin: expect.any(Number), benchMin: expect.any(Number) }));
+
+    // Nothing about the live match changed — same plan reference, same
+    // elapsed/interval/sub-log this test set up before calling it.
+    expect(result.current.plan).toBe(planBefore);
+    expect(result.current.elapsedSec).toBe(200);
+    expect(result.current.activeInterval).toBe(1);
+    expect(result.current.subLog).toEqual({ 0: 150 });
+  });
+
+  it("previewImprovedFairness works for the bench metric too, returning its own candidate", () => {
+    const { result } = setupWithPlan();
+    let candidate;
+    act(() => {
+      candidate = result.current.previewImprovedFairness("bench");
+    });
+    expect(candidate.intervals.length).toBe(result.current.plan.length);
+    expect(candidate.rows.length).toBe(ROSTER.length);
+  });
+
+  it("previewImprovedFairness returns null when settings are invalid, same guard startPlanning itself has", () => {
+    const { result } = setup(); // no availableIds/gameSettings set — invalid
+    let candidate;
+    act(() => {
+      candidate = result.current.previewImprovedFairness("pitch");
+    });
+    expect(candidate).toBeNull();
+  });
+
+  it("useImprovedPlan commits the candidate and resets match state exactly like startPlanning's own tail", () => {
+    const { result } = setupWithPlan();
+    let candidate;
+    act(() => {
+      candidate = result.current.previewImprovedFairness("pitch");
+    });
+
+    // Dirty up match state first, same as resetClock's own test above, so
+    // the commit's reset list is actually exercised, not just its no-ops.
+    act(() => {
+      result.current.setRunStartedAt(Date.now());
+      result.current.setTimerRunning(true);
+      result.current.setBaseElapsedSec(400);
+      result.current.setElapsedSec(400);
+      result.current.setActiveInterval(1);
+      result.current.setSubLog({ 0: 340 });
+      result.current.setInjuredThisGame(["p2"]);
+      result.current.setSwapPickId("p3");
+      result.current.setStartingGkId("p1");
+    });
+
+    act(() => result.current.useImprovedPlan(candidate.intervals));
+
+    expect(result.current.plan).toBe(candidate.intervals); // the candidate itself, not a re-generated one
+    expect(result.current.activeInterval).toBe(0);
+    expect(result.current.injuredThisGame).toEqual([]);
+    expect(result.current.elapsedSec).toBe(0);
+    expect(result.current.baseElapsedSec).toBe(0);
+    expect(result.current.runStartedAt).toBeNull();
+    expect(result.current.timerRunning).toBe(false);
+    expect(result.current.subLog).toEqual({});
+    expect(result.current.swapPickId).toBeNull();
+    expect(result.current.startingGkId).toBeNull();
+  });
+});

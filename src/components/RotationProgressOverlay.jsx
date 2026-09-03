@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useId, useMemo } from "react";
 import { getFairnessState } from "../lib/fairness.js";
 import FairnessMark from "./FairnessMark.jsx";
-import { tokens } from "./styles.js";
+import { tokens, styles } from "./styles.js";
 
 const STEPS = [
   { icon: "⚽", label: "Checking playing time" },
@@ -89,7 +89,16 @@ function usePrefersReducedMotion() {
 // its own focus/keyboard trap. Two states in one card, never unmounted
 // between them (title/border swap in place): "building" (three steps
 // revealing in sequence) then "success" (the fairness result + confetti).
-export default function RotationProgressOverlay({ averageMinutes, maxDifference, intervalLen, gameMinutes, onContinue }) {
+// onImprove/onUseImprovedPlan/nameOf/numberOf are all optional — omitting
+// any of them (every existing caller, before this feature) falls straight
+// back to the original single "View my rotation" button for every tier,
+// needs-attention included. Real callers wire onImprove to
+// useMatchState's previewImprovedFairness (builds a candidate, doesn't
+// touch match state) and onUseImprovedPlan to useImprovedPlan (commits
+// one) — see SubRotationPlanner.jsx's call site.
+export default function RotationProgressOverlay({
+  averageMinutes, maxDifference, intervalLen, gameMinutes, onContinue, onImprove, onUseImprovedPlan, nameOf, numberOf,
+}) {
   const [phase, setPhase] = useState("building"); // "building" | "success"
   const [activeStep, setActiveStep] = useState(0); // 0,1,2 — which step is the current "in progress" one
   const [mounted, setMounted] = useState(false); // flips true one frame after mount, so the enter transition actually has a "from" state to animate away from
@@ -97,6 +106,38 @@ export default function RotationProgressOverlay({ averageMinutes, maxDifference,
   const titleId = useId();
   const cardRef = useRef(null);
   const continueBtnRef = useRef(null);
+
+  // The "Needs attention -> Solve" decision tree (menu of Improve pitch/
+  // Improve bench/View anyway) lives entirely in this component's own
+  // local state — SubRotationPlanner only ever sees the two calls below,
+  // never "which screen of the sheet is showing". solveView only matters
+  // once isNeedsAttention is true; improvedCandidate holds whichever
+  // candidate onImprove most recently returned (plus which metric it was
+  // built for, so "Try again" can re-ask for the same one).
+  const [solveView, setSolveView] = useState("menu"); // "menu" | "preview"
+  const [improvedCandidate, setImprovedCandidate] = useState(null); // { intervals, stats, rows, metric } | null
+
+  const handleImprove = useCallback(
+    (metric) => {
+      const result = onImprove?.(metric);
+      if (!result) return; // defensive — a plan already exists by the time this is reachable, so buildFreshPlanArgs failing here isn't expected
+      setImprovedCandidate({ ...result, metric });
+      setSolveView("preview");
+    },
+    [onImprove]
+  );
+  const handleTryAgain = useCallback(() => {
+    if (improvedCandidate) handleImprove(improvedCandidate.metric);
+  }, [improvedCandidate, handleImprove]);
+  const handleBack = useCallback(() => {
+    setImprovedCandidate(null);
+    setSolveView("menu");
+  }, []);
+  const handleUseImproved = useCallback(() => {
+    if (!improvedCandidate) return;
+    onUseImprovedPlan?.(improvedCandidate.intervals);
+    onContinue();
+  }, [improvedCandidate, onUseImprovedPlan, onContinue]);
 
   // Real-use feedback: the checklist used to unmount the instant the
   // result was ready and the result mounted fresh in its place, so the
@@ -134,6 +175,14 @@ export default function RotationProgressOverlay({ averageMinutes, maxDifference,
     window.scrollTo(0, 0);
   }, []);
 
+  // Re-runs on [solveView, improvedCandidate] too, not just on mount — the
+  // needs-attention menu/preview swap changes the result layer's own real
+  // content height (a candidate's per-player list is taller than the
+  // three-button menu, and different candidates can differ slightly too),
+  // and the stage's own height (stageHeight, below) has to track that or
+  // the swapped-in content clips against whatever was measured on first
+  // mount. Same retry-until-both-truthy logic as the original mount-only
+  // version — cheap to re-run, and idempotent when nothing changed.
   useEffect(() => {
     let raf;
     let attempts = 0;
@@ -149,7 +198,7 @@ export default function RotationProgressOverlay({ averageMinutes, maxDifference,
     };
     raf = requestAnimationFrame(measure);
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [solveView, improvedCandidate]);
 
   useEffect(() => {
     if (heights.checklist && heights.result) setHeightTransitionReady(true);
@@ -190,12 +239,15 @@ export default function RotationProgressOverlay({ averageMinutes, maxDifference,
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  // Once success appears, hand focus to the one real action in the card.
+  // Once success appears, hand focus to the one real action in the card —
+  // also re-fires on [solveView], since continueBtnRef is reattached to a
+  // different button (menu's first option vs. preview's "Use this
+  // rotation") each time the needs-attention decision tree changes screen.
   useEffect(() => {
     if (phase !== "success") return;
     const raf = requestAnimationFrame(() => continueBtnRef.current?.focus());
     return () => cancelAnimationFrame(raf);
-  }, [phase]);
+  }, [phase, solveView]);
 
   // Keeps Tab from ever leaving the card while it's open. During
   // "building" there's nothing focusable inside at all — the result
@@ -243,6 +295,19 @@ export default function RotationProgressOverlay({ averageMinutes, maxDifference,
 
   const transition = (css) => (reducedMotion ? "none" : css);
   const fairness = getFairnessState(maxDifference, intervalLen, gameMinutes);
+  // The decision tree only ever activates for the tier the just-built plan
+  // actually landed on, and only when the caller actually wired both
+  // callbacks — see the component's own top comment.
+  const isNeedsAttention = fairness.key === "needsAttention" && Boolean(onImprove) && Boolean(onUseImprovedPlan);
+  const showingCandidate = isNeedsAttention && solveView === "preview" && Boolean(improvedCandidate);
+  // Whichever plan's numbers the top "Fairness" card/paragraph/average row
+  // should currently reflect — the original just-built plan everywhere
+  // except while actually previewing a candidate, where the whole point is
+  // to show what THAT candidate achieved instead.
+  const displayStats = showingCandidate ? improvedCandidate.stats : { averageMinutes, maxDifference, intervalLen, gameMinutes };
+  const displayFairness = showingCandidate
+    ? getFairnessState(displayStats.maxDifference, displayStats.intervalLen, displayStats.gameMinutes)
+    : fairness;
 
   return (
     <>
@@ -398,15 +463,15 @@ export default function RotationProgressOverlay({ averageMinutes, maxDifference,
                   FairnessMark just renders here, in place, and appears via
                   this same crossfade every other piece of the result
                   layer already uses — no separate motion, no travel. */}
-              <FairnessMark spreadMin={maxDifference} intervalLen={intervalLen} gameMinutes={gameMinutes} size={44} ringWidth={3} glyphSize={22} />
-              <span style={{ fontFamily: tokens.font.display, fontWeight: 800, fontSize: 17, color: tokens.color.deepGreen }}>{fairness.label}</span>
+              <FairnessMark spreadMin={displayStats.maxDifference} intervalLen={displayStats.intervalLen} gameMinutes={displayStats.gameMinutes} size={44} ringWidth={3} glyphSize={22} />
+              <span style={{ fontFamily: tokens.font.display, fontWeight: 800, fontSize: 17, color: tokens.color.deepGreen }}>{displayFairness.label}</span>
             </div>
 
             {/* "pitch time", not "minutes" — pitch, goal, and bench are
                 counted separately everywhere else in the app, so a bare
                 "N min each" here would be ambiguous about which. */}
             <p style={{ margin: 0, fontFamily: tokens.font.body, fontWeight: 700, fontSize: 14.5, color: tokens.color.groupLabel, lineHeight: 1.45, textWrap: "pretty", textAlign: "center" }}>
-              Pitch time is within {maxDifference} min for every child.
+              Pitch time is within {displayStats.maxDifference} min for every child.
             </p>
 
             <div style={{ background: tokens.color.creamDeep, borderRadius: 20, padding: "12px 16px", display: "flex", alignItems: "center" }}>
@@ -414,28 +479,111 @@ export default function RotationProgressOverlay({ averageMinutes, maxDifference,
                 Average pitch time
               </span>
               <span style={{ fontFamily: tokens.font.display, fontWeight: 800, fontSize: 24, color: tokens.color.deepGreen, marginLeft: "auto", whiteSpace: "nowrap" }}>
-                ≈ {averageMinutes} min
+                ≈ {displayStats.averageMinutes} min
               </span>
             </div>
 
-            <button
-              ref={continueBtnRef}
-              onClick={onContinue}
-              // Never focusable early — aria-hidden on the layer above
-              // already keeps it out of the accessibility tree while
-              // hidden, but that alone doesn't reliably stop a mouse-Tab
-              // from landing on it in every browser, same reasoning as
-              // SquadSettingsForm's own overlayOpen guard.
-              tabIndex={phase === "success" ? undefined : -1}
-              style={{
-                width: "100%", height: 60, borderRadius: 22, border: "none",
-                background: tokens.color.pitchGreen, boxShadow: `0 4px 0 ${tokens.color.greenShadow}`,
-                fontFamily: tokens.font.display, fontWeight: 800, fontSize: 20, color: tokens.color.creamPaper,
-                cursor: "pointer",
-              }}
-            >
-              View my rotation
-            </button>
+            {/* Every button below shares the same "never focusable early"
+                reasoning as the original single button had — aria-hidden on
+                the layer above already keeps them out of the accessibility
+                tree while hidden, but that alone doesn't reliably stop a
+                mouse-Tab from landing on one in every browser, same
+                reasoning as SquadSettingsForm's own overlayOpen guard. */}
+            {!isNeedsAttention ? (
+              <button
+                ref={continueBtnRef}
+                onClick={onContinue}
+                tabIndex={phase === "success" ? undefined : -1}
+                style={{
+                  width: "100%", height: 60, borderRadius: 22, border: "none",
+                  background: tokens.color.pitchGreen, boxShadow: `0 4px 0 ${tokens.color.greenShadow}`,
+                  fontFamily: tokens.font.display, fontWeight: 800, fontSize: 20, color: tokens.color.creamPaper,
+                  cursor: "pointer",
+                }}
+              >
+                View my rotation
+              </button>
+            ) : solveView === "menu" ? (
+              // The decision tree itself — "Needs attention" no longer
+              // dead-ends at the same button every other tier gets. Two
+              // active fixes plus the honest opt-out (fix it by hand during
+              // the match, exactly like every tier already lets a coach do).
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <button
+                  ref={continueBtnRef}
+                  onClick={() => handleImprove("pitch")}
+                  tabIndex={phase === "success" ? undefined : -1}
+                  style={{ ...styles.mdCautionSheetBtnPrimary, width: "100%", flex: "none" }}
+                >
+                  Improve pitch fairness
+                </button>
+                <button
+                  onClick={() => handleImprove("bench")}
+                  tabIndex={phase === "success" ? undefined : -1}
+                  style={{ ...styles.mdCautionSheetBtnSecondary, width: "100%", flex: "none" }}
+                >
+                  Improve bench fairness
+                </button>
+                <button
+                  onClick={onContinue}
+                  tabIndex={phase === "success" ? undefined : -1}
+                  style={{
+                    width: "100%", height: 44, borderRadius: 22, border: "none", background: "transparent",
+                    fontFamily: tokens.font.body, fontWeight: 800, fontSize: 15, color: tokens.color.mutedText, cursor: "pointer",
+                  }}
+                >
+                  View rotation anyway
+                </button>
+              </div>
+            ) : (
+              // Preview — showing what "Improve pitch/bench fairness" just
+              // found, per player, before anything is actually committed.
+              // Same row shape SummaryModal.jsx's Today's Minutes already
+              // renders, condensed, so this reads as the same table a coach
+              // already knows rather than a new visual language.
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div>
+                  <div style={styles.mdMinutesColHeads}>
+                    <span style={styles.mdMinutesColHeadPitch}>PITCH</span>
+                    <span style={styles.mdMinutesColHeadGoal}>GOAL</span>
+                    <span style={styles.mdMinutesColHeadBench}>BENCH</span>
+                  </div>
+                  <div style={{ ...styles.mdMinutesList, maxHeight: 190, overflowY: "auto" }}>
+                    {improvedCandidate.rows.map((r) => (
+                      <div key={r.id} style={styles.mdMinutesRow}>
+                        <span style={styles.mdMinutesDisc}>{numberOf ? numberOf(r.id) : ""}</span>
+                        <span style={styles.mdMinutesName}>{nameOf ? nameOf(r.id) : r.id}</span>
+                        <span style={{ ...styles.mdMinutesValuePitch, ...(Math.round(r.outfieldMin) === 0 ? styles.mdMinutesZero : {}) }}>
+                          {Math.round(r.outfieldMin) === 0 ? "—" : Math.round(r.outfieldMin)}
+                        </span>
+                        <span style={{ ...styles.mdMinutesValueGoal, ...(Math.round(r.gkMin) === 0 ? styles.mdMinutesZero : {}) }}>
+                          {Math.round(r.gkMin) === 0 ? "—" : Math.round(r.gkMin)}
+                        </span>
+                        <span style={{ ...styles.mdMinutesValueBench, ...(Math.round(r.benchMin) === 0 ? styles.mdMinutesZero : {}) }}>
+                          {Math.round(r.benchMin) === 0 ? "—" : Math.round(r.benchMin)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <button
+                  ref={continueBtnRef}
+                  onClick={handleUseImproved}
+                  tabIndex={phase === "success" ? undefined : -1}
+                  style={{ ...styles.mdCautionSheetBtnPrimary, width: "100%", flex: "none" }}
+                >
+                  Use this rotation
+                </button>
+                <div style={styles.mdCautionSheetBtnRow}>
+                  <button onClick={handleTryAgain} tabIndex={phase === "success" ? undefined : -1} style={styles.mdCautionSheetBtnSecondary}>
+                    Try again
+                  </button>
+                  <button onClick={handleBack} tabIndex={phase === "success" ? undefined : -1} style={styles.mdCautionSheetBtnSecondary}>
+                    Back
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from "react";
 import {
   intervalAtElapsed, computeIntervals, buildCarryState, generatePlan, keeperShiftIntervalsFor, lastGkId,
   resolveBringBack, computeMinutesSummary, repairBenchToKeeper, extractGkByInterval,
+  computeAveragePitchMinutes, computeFairnessSpread, fairnessRelevantIds,
 } from "../lib/rotation.js";
-import { generateFixedPlan } from "../lib/fixedRotation.js";
+import { generateFixedPlan, generateFixedPlanBiasedFor } from "../lib/fixedRotation.js";
 import { validateGameSettings } from "../lib/validation.js";
 import { computeLiveElapsedSec } from "../lib/clock.js";
 import { defaultSettings } from "../lib/teams.js";
@@ -152,12 +153,14 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
 
   const keeperEligibleIds = teamData ? teamData.roster.filter((p) => p.keeperEligible).map((p) => p.id) : [];
 
-  // Returns whether a plan was actually (re)generated, so the caller —
-  // which owns the settings-modal open/close state, not this hook — knows
-  // whether to close it. (It's meant to close on every successful submit;
-  // it was left open by mistake for a while after plan/modal state got
-  // split across hooks, since nothing in here could reach the modal flag.)
-  const startPlanning = () => {
+  // Validates + assembles the args generateFixedPlan (or, for the "Improve
+  // pitch/bench fairness" flow below, generateFixedPlanBiasedFor) needs to
+  // build a FRESH game's plan — split out of startPlanning so
+  // previewImprovedFairness can build the exact same args without
+  // duplicating the validation/self-heal/persist logic. Returns null on
+  // invalid settings (same contract startPlanning's own early-return used
+  // to have).
+  const buildFreshPlanArgs = () => {
     // Defensive: availableIds can end up holding an id with no matching
     // roster entry any more — a race between two rapid roster saves
     // (addPlayer/addPlayers/removePlayer in SubRotationPlanner.jsx) can
@@ -173,9 +176,9 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
 
     // Defense in depth: SquadSettingsForm already disables the submit
     // button when settings are invalid, but this guard stays here too so
-    // startPlanning itself can never run with e.g. subIntervalMinutes <= 0,
+    // a fresh plan can never be built from e.g. subIntervalMinutes <= 0,
     // which would otherwise hang the tab in an infinite loop.
-    if (!validateGameSettings(gameSettings, validAvailableIds.length).valid) return false;
+    if (!validateGameSettings(gameSettings, validAvailableIds.length).valid) return null;
 
     // Archiving the just-finished game to season history used to happen
     // here — moved to the clock's own tick effect above, firing right at
@@ -187,7 +190,7 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
     saveTeamData((prev) => ({ ...prev, settings }));
     const { numIntervals } = computeIntervals(settings.gameMinutes, settings.subIntervalMinutes);
     const keeperShiftIntervals = keeperShiftIntervalsFor(settings.subIntervalMinutes, settings.keeperShiftMinutes);
-    const planArgs = {
+    return {
       availableIds: validAvailableIds,
       gameMinutes: settings.gameMinutes,
       numIntervals,
@@ -195,6 +198,34 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
       keeperEligibleIds,
       keeperShiftIntervals,
     };
+  };
+
+  // The tail every fresh plan (startPlanning's own build, or a candidate
+  // from the "Improve pitch/bench fairness" preview) commits through —
+  // pulled out so useImprovedPlan below can apply an already-built
+  // candidate without re-deriving or duplicating this reset list.
+  const commitFreshPlan = (intervals) => {
+    setPlan(intervals);
+    lastLiveIntervalRef.current = 0;
+    setActiveInterval(0);
+    setInjuredThisGame([]);
+    setElapsedSec(0);
+    setBaseElapsedSec(0);
+    setRunStartedAt(null);
+    setTimerRunning(false);
+    setSubLog({});
+    setSwapPickId(null);
+    setStartingGkId(null);
+  };
+
+  // Returns whether a plan was actually (re)generated, so the caller —
+  // which owns the settings-modal open/close state, not this hook — knows
+  // whether to close it. (It's meant to close on every successful submit;
+  // it was left open by mistake for a while after plan/modal state got
+  // split across hooks, since nothing in here could reach the modal flag.)
+  const startPlanning = () => {
+    const planArgs = buildFreshPlanArgs();
+    if (!planArgs) return false;
 
     // A fresh game (no carryState) uses the new fixed-rotation engine —
     // Path B, see fixedRotation.js — which guarantees bench->keeper always
@@ -216,20 +247,49 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
     // is well-tested, and it's better to ship the fresh-game improvement
     // now than delay it waiting on a mid-game-continuation design.
     const { intervals } = generateFixedPlan({ ...planArgs, startingGkId });
-
-    setPlan(intervals);
-    lastLiveIntervalRef.current = 0;
-    setActiveInterval(0);
-    setInjuredThisGame([]);
-    setElapsedSec(0);
-    setBaseElapsedSec(0);
-    setRunStartedAt(null);
-    setTimerRunning(false);
-    setSubLog({});
-    setSwapPickId(null);
-    setStartingGkId(null);
+    commitFreshPlan(intervals);
     return true;
   };
+
+  // RotationProgressOverlay's "Improve pitch fairness"/"Improve bench
+  // fairness" action, for a plan that's just landed on "Needs attention".
+  // Builds a candidate via generateFixedPlanBiasedFor and returns it for
+  // PREVIEW ONLY — deliberately mirrors buildFreshPlanArgs/generateFixedPlan
+  // exactly (same settings, same startingGkId) but never calls
+  // commitFreshPlan itself, so nothing about the match/plan state changes
+  // until the coach actually taps "Use this rotation" (useImprovedPlan,
+  // below) — "Try again" or "Back" in the overlay can discard this candidate
+  // with nothing to undo. Returns null on invalid settings (shouldn't
+  // happen here — a plan already exists — but mirrors startPlanning's own
+  // guard rather than assuming).
+  //
+  // metric: "pitch" (even out outfield/ball-touch minutes — the Today's
+  // Minutes PITCH column) or "bench" (even out the BENCH column).
+  const previewImprovedFairness = (metric) => {
+    const planArgs = buildFreshPlanArgs();
+    if (!planArgs) return null;
+    const best = generateFixedPlanBiasedFor(metric, { ...planArgs, startingGkId });
+    if (!best) return null;
+    const { intervals } = best;
+    return {
+      intervals,
+      stats: {
+        averageMinutes: Math.round(computeAveragePitchMinutes(intervals, planArgs.availableIds)),
+        maxDifference: Math.round(computeFairnessSpread(intervals, fairnessRelevantIds(planArgs.availableIds, keeperEligibleIds))),
+        // Every interval in a freshly built plan is the same length by
+        // construction — same reasoning as SubRotationPlanner's own
+        // rotationOverlayStats effect.
+        intervalLen: intervals[0].endMin - intervals[0].startMin,
+        gameMinutes: intervals[intervals.length - 1].endMin,
+      },
+      rows: computeMinutesSummary(intervals, planArgs.availableIds),
+    };
+  };
+
+  // Commits a candidate from previewImprovedFairness — the intervals are
+  // already fully built, so this is just commitFreshPlan under a name that
+  // matches what the overlay's "Use this rotation" button is actually doing.
+  const useImprovedPlan = (intervals) => commitFreshPlan(intervals);
 
   // rebuild the remainder of the plan from the current interval onward using
   // a given set of injured (sidelined) player ids
@@ -563,5 +623,6 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
     saveError, setSaveError,
     keeperEligibleIds,
     startPlanning, handleInjury, bringBack, performSwap, addArrival, removeAvailability, resetClock,
+    previewImprovedFairness, useImprovedPlan,
   };
 }

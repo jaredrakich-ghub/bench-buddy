@@ -889,6 +889,122 @@ function repairOutfieldBalance(intervals, availableIds, keeperEligibleIds, prote
   }
 }
 
+// The bench-fairness counterpart to repairOutfieldBalance above — same
+// swap mechanics and the same bench->keeper safety guarantees (never
+// pulls someone off the bench right before their own scheduled keeper
+// block starts; the same "handoff" escape hatch lets the block go to
+// whoever else can safely hold it instead), but scored against BENCH
+// range instead of outfield range.
+//
+// Exists because repairOutfieldBalance always runs as part of the
+// standard buildFairSchedule pipeline and always chases OUTFIELD range
+// down regardless of what's actually wanted. Once outfield is pinned
+// tight, bench range becomes a near-pure function of how keeper minutes
+// are spread — bench = total - outfield - keeper, so once outfield is
+// equal across everyone, a keeper-eligible player's extra keeper minutes
+// come directly out of THEIR bench time relative to a non-eligible
+// teammate's, and no amount of reshuffling the starting rotation order
+// changes that as long as something keeps re-tightening outfield
+// afterward. Confirmed via a real sweep (fixedRotation.test.js):
+// generateFixedPlanBiasedFor("bench", ...) plateaued around bench range 3
+// on the real-use 7-player/3-eligible-keeper configuration when it only
+// searched over generateFixedPlan's own standard (outfield-tightening)
+// pipeline. This pass is what actually closes that gap — by letting
+// outfield range drift wider on purpose in exchange for a tighter bench
+// range, exactly the trade-off a coach asking for "Improve bench
+// fairness" wants. Used only by buildBenchFairSchedule, below —
+// buildFairSchedule/repairOutfieldBalance (the pitch/default path) are
+// completely untouched.
+function repairBenchBalance(intervals, availableIds, keeperEligibleIds, protectFirstKeeper = false) {
+  const eligibleSet = new Set(keeperEligibleIds || []);
+  const benchCount = {};
+  availableIds.forEach((id) => (benchCount[id] = 0));
+  intervals.forEach((iv) => iv.bench.forEach((id) => { if (benchCount[id] !== undefined) benchCount[id] += 1; }));
+
+  // most = most-benched (wants a turn OFF the bench); least = least-
+  // benched (has a turn to spare ONTO the bench) — the reverse pairing
+  // from repairOutfieldBalance's most/least, since this pass chases the
+  // opposite column.
+  function tryMove(most, least) {
+    for (let i = 0; i < intervals.length; i++) {
+      if (protectFirstKeeper && i === 0) continue;
+      const iv = intervals[i];
+      const mostIsBench = iv.bench.includes(most);
+      const leastIsOutfield = iv.onField.some((p) => p.id === least && !p.isGk);
+      if (!mostIsBench || !leastIsOutfield) continue;
+
+      // Blocked if `most` is about to arrive off THIS exact bench turn
+      // into a keeper block starting next interval — pulling them onto
+      // the field now instead would mean they never actually arrived
+      // from the bench, breaking their own scheduled transition.
+      const nextGk = intervals[i + 1]?.onField.find((p) => p.isGk);
+      if (!nextGk || nextGk.id !== most) {
+        iv.onField = iv.onField.map((p) => (p.id === least ? { id: most, isGk: false } : p));
+        iv.bench = iv.bench.map((id) => (id === most ? least : id));
+        benchCount[most] -= 1;
+        benchCount[least] += 1;
+        return true;
+      }
+
+      // Handoff: still make the interval-i swap (most takes least's
+      // outfield slot, least takes most's bench slot) — but hand `most`'s
+      // now-orphaned keeper block to `least` instead, who's just
+      // legitimately arrived onto the bench at i and can hold it from
+      // there. `most` keeps playing (as outfield, not keeper) for that
+      // whole span instead, taking over the outfield presence `least`
+      // vacates for it. Only safe when `least` is keeper-eligible and was
+      // genuinely outfield (not something else) for the entire block
+      // already.
+      if (!eligibleSet.has(least)) continue;
+      let blockEnd = i + 1;
+      while (intervals[blockEnd + 1]?.onField.find((p) => p.isGk)?.id === most) blockEnd++;
+      let leastPlaysOutfieldWholeBlock = true;
+      for (let k = i + 1; k <= blockEnd; k++) {
+        if (!intervals[k].onField.some((p) => p.id === least && !p.isGk)) { leastPlaysOutfieldWholeBlock = false; break; }
+      }
+      if (!leastPlaysOutfieldWholeBlock) continue;
+
+      iv.onField = iv.onField.map((p) => (p.id === least ? { id: most, isGk: false } : p));
+      iv.bench = iv.bench.map((id) => (id === most ? least : id));
+      for (let k = i + 1; k <= blockEnd; k++) {
+        intervals[k].onField = intervals[k].onField.map((p) => {
+          if (p.id === most) return { id: most, isGk: false };
+          if (p.id === least) return { id: least, isGk: true };
+          return p;
+        });
+      }
+      // Neither player's BENCH time changes across the handed-off block
+      // itself (most: keeper -> outfield there, least: outfield -> keeper
+      // there — neither state is "bench") — only the interval-i swap
+      // itself moves any bench time, same delta as the simple branch above.
+      benchCount[most] -= 1;
+      benchCount[least] += 1;
+      return true;
+    }
+    return false;
+  }
+
+  const maxIterations = intervals.length * availableIds.length * 3;
+  for (let iter = 0; iter < maxIterations; iter++) {
+    const vals = availableIds.map((id) => benchCount[id]);
+    const maxVal = Math.max(...vals);
+    const minVal = Math.min(...vals);
+    if (maxVal - minVal <= 1) break;
+
+    const mostCandidates = availableIds.filter((id) => benchCount[id] === maxVal);
+    const leastCandidates = availableIds.filter((id) => benchCount[id] === minVal);
+
+    let didSomething = false;
+    for (const most of mostCandidates) {
+      for (const least of leastCandidates) {
+        if (tryMove(most, least)) { didSomething = true; break; }
+      }
+      if (didSomething) break;
+    }
+    if (!didSomething) break; // no safe improving move left for any tied pair — a genuine limit
+  }
+}
+
 // Reports how fair a plan actually turned out, in INTERVAL counts (not
 // minutes — the thresholds below are defined in "substitution intervals",
 // and every fresh-game interval is the same length, so counts and minutes
@@ -956,6 +1072,90 @@ export function generateFixedPlan({
 }) {
   const rotationOrder = shuffle(availableIds, random);
   return buildFairSchedule({ rotationOrder, gameMinutes, numIntervals, fieldSize, keeperEligibleIds, keeperShiftIntervals, startingGkId });
+}
+
+// Bench-targeted counterpart to buildFairSchedule, used only by
+// generateFixedPlanBiasedFor("bench", ...) below. Same base
+// (buildKeeperAwareSchedule) and the same repairKeeperBalance pass —
+// keeper duty stays evenly split among eligible players regardless of
+// which column this is optimizing for — but finishes with
+// repairBenchBalance instead of repairOutfieldBalance. Deliberately NOT
+// both: the two passes pull in different directions once keeper
+// eligibility is uneven (repairOutfieldBalance tightens outfield at
+// bench's expense; repairBenchBalance does the reverse), so running them
+// in sequence would have each partially undo the other's work.
+// buildFairSchedule itself (the pitch/default path startPlanning uses)
+// is completely untouched by this.
+function buildBenchFairSchedule({
+  rotationOrder, gameMinutes, numIntervals, fieldSize, keeperEligibleIds, keeperShiftIntervals = 1, startingGkId = null,
+}) {
+  const { intervals } = buildKeeperAwareSchedule({
+    rotationOrder, gameMinutes, numIntervals, fieldSize, keeperEligibleIds, keeperShiftIntervals, startingGkId,
+  });
+  // Same real bug/fix this protects against as buildFairSchedule's own
+  // identical guard — see its comment.
+  const protectFirstKeeper = Boolean(startingGkId) && intervals[0]?.onField.some((p) => p.id === startingGkId && p.isGk);
+  repairKeeperBalance(intervals, keeperEligibleIds, protectFirstKeeper);
+  repairBenchBalance(intervals, rotationOrder, keeperEligibleIds, protectFirstKeeper);
+  return { intervals };
+}
+
+// A coach-facing "Improve pitch fairness" / "Improve bench fairness"
+// action (RotationProgressOverlay's needs-attention menu, via
+// useMatchState's previewImprovedFairness) — a SEARCH over an already-
+// trusted pipeline, not a bespoke one-off algorithm: "pitch" searches
+// generateFixedPlan's own standard pipeline (buildFairSchedule, ending in
+// repairOutfieldBalance); "bench" searches buildBenchFairSchedule's
+// parallel one (ending in repairBenchBalance instead). Both reshuffle
+// rotationOrder via Math.random on every attempt, and the deterministic
+// repair passes downstream of that land at genuinely different points on
+// the pitch/bench trade-off frontier depending on that starting order —
+// confirmed against two real games with the same roster shape landing at
+// different points on that curve. So: build `attempts` independent
+// candidates, score each with calculateFairness's own outfieldRange/
+// benchRange (interval counts, not minutes — fine here, every candidate
+// shares the same interval length so counts and minutes agree up to that
+// same constant factor), and keep whichever is tightest on the requested
+// metric. Ties are broken by the OTHER metric's range, so neither option
+// gratuitously widens the metric it isn't targeting any further than the
+// tied candidates already do. Stops the moment a candidate hits range 0
+// on the target metric — nothing beats perfect.
+//
+// Why two pipelines rather than one search over one pipeline: an earlier
+// version searched generateFixedPlan alone for both metrics — worked well
+// for "pitch" (worst case across a 40-seed sweep of the real-use
+// 7-player/3-eligible-keeper configuration landed at outfield range <=1),
+// but "bench" plateaued around range 3 on that same configuration,
+// because repairOutfieldBalance runs unconditionally inside
+// buildFairSchedule and always re-tightens outfield regardless of the
+// shuffle — see repairBenchBalance's own comment for the full mechanism.
+// That's the evidence-based trigger for buildBenchFairSchedule above, not
+// a starting assumption.
+//
+// metric: "pitch" (minimize outfieldMin/outfieldRange spread — the Today's
+// Minutes PITCH column) or "bench" (minimize the BENCH column). planArgs
+// is exactly generateFixedPlan's own argument object, reused as-is.
+export function generateFixedPlanBiasedFor(metric, planArgs, attempts = 30) {
+  const { availableIds, keeperEligibleIds } = planArgs;
+  const buildCandidate =
+    metric === "bench"
+      ? () => buildBenchFairSchedule({ ...planArgs, rotationOrder: shuffle(availableIds, Math.random) })
+      : () => generateFixedPlan(planArgs);
+
+  let best = null;
+  let bestKey = null;
+  for (let i = 0; i < attempts; i++) {
+    const { intervals } = buildCandidate();
+    const fairness = calculateFairness(intervals, availableIds, keeperEligibleIds);
+    const primary = metric === "bench" ? fairness.benchRange : fairness.outfieldRange;
+    const secondary = metric === "bench" ? fairness.outfieldRange : fairness.benchRange;
+    if (!best || primary < bestKey[0] || (primary === bestKey[0] && secondary < bestKey[1])) {
+      best = { intervals, outfieldRange: fairness.outfieldRange, benchRange: fairness.benchRange };
+      bestKey = [primary, secondary];
+    }
+    if (primary === 0) break;
+  }
+  return best;
 }
 
 // Rebuilds the *remainder* of an in-progress game from `startInterval`

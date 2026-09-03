@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildBenchSchedule, assignKeepers, buildFixedPlan, generateFixedPlan, continueFixedPlan, countDoubleStacked, computeOutfieldSpread,
+  generateFixedPlanBiasedFor, calculateFairness,
 } from "./fixedRotation.js";
 import { buildCarryState, lastGkId } from "./rotation.js";
 
@@ -320,5 +321,94 @@ describe("continueFixedPlan — mid-game rebuild (not yet wired into the app)", 
       keeperEligibleIds: ["p1", "p2", "p3", "p4"], carryState, previousOnFieldIds: ["p1", "p2", "p3"],
     });
     expect(intervals[0].bench).toEqual(["p4"]);
+  });
+});
+
+// RotationProgressOverlay's "Improve pitch fairness"/"Improve bench
+// fairness" action (via useMatchState's previewImprovedFairness), for a
+// plan that's just landed on "Needs attention". A SEARCH over
+// generateFixedPlan's own already-trusted pipeline, not a new repair
+// algorithm — see the function's own comment for why that's deliberate.
+describe("generateFixedPlanBiasedFor", () => {
+  const IDS7 = ["p1", "p2", "p3", "p4", "p5", "p6", "p7"];
+  const KEEPERS3 = ["p1", "p2", "p3"];
+  // The exact real-use shape this feature was built for: 7 players,
+  // 5-a-side, 3 eligible keepers, 45-minute game, 15-minute keeper shift
+  // (numIntervals 9 at 5-minute sub-intervals, keeperShiftIntervals 3).
+  const REAL_USE_ARGS = { availableIds: IDS7, gameMinutes: 45, numIntervals: 9, fieldSize: 5, keeperEligibleIds: KEEPERS3, keeperShiftIntervals: 3 };
+
+  it("finds a materially tighter outfield spread than a single ungoverned generateFixedPlan call, on the real-use configuration", () => {
+    let ungovernedWorst = 0;
+    let biasedWorst = 0;
+    for (let seed = 0; seed < 40; seed++) {
+      const { intervals: plain } = generateFixedPlan(REAL_USE_ARGS);
+      const plainRange = calculateFairness(plain, IDS7, KEEPERS3).outfieldRange;
+      ungovernedWorst = Math.max(ungovernedWorst, plainRange);
+
+      const best = generateFixedPlanBiasedFor("pitch", REAL_USE_ARGS);
+      const actualRange = calculateFairness(best.intervals, IDS7, KEEPERS3).outfieldRange;
+      expect(actualRange).toBe(best.outfieldRange); // self-reported number matches the real plan it returned
+      biasedWorst = Math.max(biasedWorst, actualRange);
+    }
+    // A single ungoverned call can land as poorly as the "Needs attention"
+    // screenshot that motivated this feature (outfield range well past the
+    // ideal <=1 threshold). The biased search's worst case across the same
+    // 40 seeds should sit at or near ideal — a real, visible improvement,
+    // not a marginal one.
+    expect(biasedWorst).toBeLessThanOrEqual(1);
+    expect(biasedWorst).toBeLessThanOrEqual(ungovernedWorst);
+  });
+
+  it("finds a materially tighter bench spread than a single ungoverned generateFixedPlan call, on the real-use configuration", () => {
+    let biasedWorst = 0;
+    for (let seed = 0; seed < 40; seed++) {
+      const best = generateFixedPlanBiasedFor("bench", REAL_USE_ARGS);
+      const actualRange = calculateFairness(best.intervals, IDS7, KEEPERS3).benchRange;
+      expect(actualRange).toBe(best.benchRange);
+      biasedWorst = Math.max(biasedWorst, actualRange);
+    }
+    expect(biasedWorst).toBeLessThanOrEqual(1);
+  });
+
+  it("never regresses past a single ungoverned call, across a spread of squad/field-size shapes", () => {
+    const configs = [
+      { availableIds: ["p1", "p2", "p3", "p4", "p5", "p6"], gameMinutes: 40, numIntervals: 8, fieldSize: 4, keeperEligibleIds: ["p1", "p2"], keeperShiftIntervals: 2 },
+      { availableIds: ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"], gameMinutes: 30, numIntervals: 6, fieldSize: 6, keeperEligibleIds: ["p1", "p2", "p3"], keeperShiftIntervals: 1 },
+      REAL_USE_ARGS,
+    ];
+    for (const args of configs) {
+      for (const metric of ["pitch", "bench"]) {
+        for (let seed = 0; seed < 10; seed++) {
+          const { intervals: plain } = generateFixedPlan(args);
+          const plainFairness = calculateFairness(plain, args.availableIds, args.keeperEligibleIds);
+          const plainRange = metric === "bench" ? plainFairness.benchRange : plainFairness.outfieldRange;
+
+          const best = generateFixedPlanBiasedFor(metric, args);
+          const bestRange = metric === "bench" ? best.benchRange : best.outfieldRange;
+          expect(bestRange).toBeLessThanOrEqual(plainRange);
+        }
+      }
+    }
+  });
+
+  it("stays fast enough to feel instant for a preview — no spinner needed", () => {
+    const bigArgs = {
+      availableIds: Array.from({ length: 16 }, (_, i) => `p${i + 1}`),
+      gameMinutes: 60, numIntervals: 10, fieldSize: 9,
+      keeperEligibleIds: ["p1", "p2", "p3", "p4"], keeperShiftIntervals: 2,
+    };
+    const start = performance.now();
+    generateFixedPlanBiasedFor("pitch", bigArgs, 30);
+    const elapsedMs = performance.now() - start;
+    // Generous margin for a slow CI machine — this is a sanity check
+    // against something pathological, not a tight perf budget.
+    expect(elapsedMs).toBeLessThan(500);
+  });
+
+  it("returns a fully-formed candidate even with attempts=1 (no crash on the smallest possible search)", () => {
+    const best = generateFixedPlanBiasedFor("pitch", REAL_USE_ARGS, 1);
+    expect(best.intervals.length).toBe(REAL_USE_ARGS.numIntervals);
+    expect(typeof best.outfieldRange).toBe("number");
+    expect(typeof best.benchRange).toBe("number");
   });
 });

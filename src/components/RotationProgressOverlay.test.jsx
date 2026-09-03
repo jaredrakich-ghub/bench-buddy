@@ -171,3 +171,175 @@ describe("RotationProgressOverlay", () => {
     errorSpy.mockRestore();
   });
 });
+
+// "Needs attention" no longer dead-ends at the same single button every
+// other tier gets — see fairness.js: maxDifference 30 vs intervalLen 5
+// (well past both the interval-scaled and game-share needsAttention
+// thresholds) puts every test below solidly in that tier.
+describe("RotationProgressOverlay — needs-attention Solve flow", () => {
+  function fakeCandidate(overrides = {}) {
+    return {
+      intervals: [{ startMin: 0, endMin: 5, onField: [], bench: [] }],
+      stats: { averageMinutes: 20, maxDifference: 1, intervalLen: 5, gameMinutes: 45 },
+      rows: [
+        { id: "p1", outfieldMin: 20, gkMin: 15, benchMin: 10 },
+        { id: "p2", outfieldMin: 30, gkMin: 0, benchMin: 15 },
+      ],
+      ...overrides,
+    };
+  }
+
+  it("falls back to the plain 'View my rotation' button when onImprove/onUseImprovedPlan aren't wired, even at needs-attention", () => {
+    render(<RotationProgressOverlay averageMinutes={22} maxDifference={30} intervalLen={5} gameMinutes={45} onContinue={() => {}} />);
+    act(() => vi.advanceTimersByTime(1800));
+    expect(screen.getByRole("button", { name: "View my rotation" })).toBeInTheDocument();
+    expect(screen.queryByText("Improve pitch fairness")).not.toBeInTheDocument();
+  });
+
+  it("shows the three-choice menu instead, once onImprove/onUseImprovedPlan are wired", () => {
+    render(
+      <RotationProgressOverlay
+        averageMinutes={22} maxDifference={30} intervalLen={5} gameMinutes={45}
+        onContinue={() => {}} onImprove={() => fakeCandidate()} onUseImprovedPlan={() => {}}
+      />
+    );
+    act(() => vi.advanceTimersByTime(1800));
+    expect(screen.getByRole("button", { name: "Improve pitch fairness" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Improve bench fairness" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "View rotation anyway" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "View my rotation" })).not.toBeInTheDocument();
+  });
+
+  it("'View rotation anyway' behaves exactly like the plain button — calls onContinue directly", () => {
+    const onContinue = vi.fn();
+    render(
+      <RotationProgressOverlay
+        averageMinutes={22} maxDifference={30} intervalLen={5} gameMinutes={45}
+        onContinue={onContinue} onImprove={() => fakeCandidate()} onUseImprovedPlan={() => {}}
+      />
+    );
+    act(() => vi.advanceTimersByTime(1800));
+    screen.getByRole("button", { name: "View rotation anyway" }).click();
+    expect(onContinue).toHaveBeenCalledTimes(1);
+  });
+
+  it("tapping Improve pitch fairness calls onImprove('pitch') and shows the candidate's own preview", () => {
+    const onImprove = vi.fn(() => fakeCandidate());
+    render(
+      <RotationProgressOverlay
+        averageMinutes={22} maxDifference={30} intervalLen={5} gameMinutes={45}
+        onContinue={() => {}} onImprove={onImprove} onUseImprovedPlan={() => {}}
+      />
+    );
+    act(() => vi.advanceTimersByTime(1800));
+    act(() => screen.getByRole("button", { name: "Improve pitch fairness" }).click());
+
+    expect(onImprove).toHaveBeenCalledWith("pitch");
+    // The candidate's own stats now drive the top card — Fair (spread 1 vs
+    // interval 5), not the original Needs attention.
+    expect(screen.getByRole("img", { name: "Fair" })).toBeInTheDocument();
+    expect(screen.getByText("Pitch time is within 1 min for every child.")).toBeInTheDocument();
+    // Per-player preview rows.
+    expect(screen.getByRole("button", { name: "Use this rotation" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Improve pitch fairness" })).not.toBeInTheDocument();
+  });
+
+  it("Improve bench fairness calls onImprove('bench')", () => {
+    const onImprove = vi.fn(() => fakeCandidate());
+    render(
+      <RotationProgressOverlay
+        averageMinutes={22} maxDifference={30} intervalLen={5} gameMinutes={45}
+        onContinue={() => {}} onImprove={onImprove} onUseImprovedPlan={() => {}}
+      />
+    );
+    act(() => vi.advanceTimersByTime(1800));
+    act(() => screen.getByRole("button", { name: "Improve bench fairness" }).click());
+    expect(onImprove).toHaveBeenCalledWith("bench");
+  });
+
+  it("Use this rotation calls onUseImprovedPlan with the candidate's intervals, then onContinue", () => {
+    const candidate = fakeCandidate();
+    const onUseImprovedPlan = vi.fn();
+    const onContinue = vi.fn();
+    render(
+      <RotationProgressOverlay
+        averageMinutes={22} maxDifference={30} intervalLen={5} gameMinutes={45}
+        onContinue={onContinue} onImprove={() => candidate} onUseImprovedPlan={onUseImprovedPlan}
+      />
+    );
+    act(() => vi.advanceTimersByTime(1800));
+    act(() => screen.getByRole("button", { name: "Improve pitch fairness" }).click());
+    act(() => screen.getByRole("button", { name: "Use this rotation" }).click());
+
+    expect(onUseImprovedPlan).toHaveBeenCalledWith(candidate.intervals);
+    expect(onContinue).toHaveBeenCalledTimes(1);
+  });
+
+  it("Try again re-invokes onImprove with the same metric the preview was already showing", () => {
+    const onImprove = vi.fn(() => fakeCandidate());
+    render(
+      <RotationProgressOverlay
+        averageMinutes={22} maxDifference={30} intervalLen={5} gameMinutes={45}
+        onContinue={() => {}} onImprove={onImprove} onUseImprovedPlan={() => {}}
+      />
+    );
+    act(() => vi.advanceTimersByTime(1800));
+    act(() => screen.getByRole("button", { name: "Improve bench fairness" }).click());
+    act(() => screen.getByRole("button", { name: "Try again" }).click());
+
+    expect(onImprove).toHaveBeenCalledTimes(2);
+    expect(onImprove).toHaveBeenNthCalledWith(1, "bench");
+    expect(onImprove).toHaveBeenNthCalledWith(2, "bench");
+    // Still on the preview, not bounced back to the menu.
+    expect(screen.getByRole("button", { name: "Use this rotation" })).toBeInTheDocument();
+  });
+
+  it("Back discards the candidate and returns to the three-choice menu, without calling onUseImprovedPlan", () => {
+    const onUseImprovedPlan = vi.fn();
+    render(
+      <RotationProgressOverlay
+        averageMinutes={22} maxDifference={30} intervalLen={5} gameMinutes={45}
+        onContinue={() => {}} onImprove={() => fakeCandidate()} onUseImprovedPlan={onUseImprovedPlan}
+      />
+    );
+    act(() => vi.advanceTimersByTime(1800));
+    act(() => screen.getByRole("button", { name: "Improve pitch fairness" }).click());
+    act(() => screen.getByRole("button", { name: "Back" }).click());
+
+    expect(screen.getByRole("button", { name: "Improve pitch fairness" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Improve bench fairness" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Use this rotation" })).not.toBeInTheDocument();
+    expect(onUseImprovedPlan).not.toHaveBeenCalled();
+    // Back at the ORIGINAL plan's own tier, not the candidate's.
+    expect(screen.getByRole("img", { name: "Needs attention" })).toBeInTheDocument();
+  });
+
+  it("shows player names via nameOf/numberOf when provided, falling back to the raw id otherwise", () => {
+    render(
+      <RotationProgressOverlay
+        averageMinutes={22} maxDifference={30} intervalLen={5} gameMinutes={45}
+        onContinue={() => {}} onImprove={() => fakeCandidate()} onUseImprovedPlan={() => {}}
+      />
+    );
+    act(() => vi.advanceTimersByTime(1800));
+    act(() => screen.getByRole("button", { name: "Improve pitch fairness" }).click());
+    expect(screen.getByText("p1")).toBeInTheDocument(); // no nameOf given — falls back to the raw id
+
+    cleanup();
+    stubMatchMedia(false);
+    window.scrollTo = vi.fn();
+    render(
+      <RotationProgressOverlay
+        averageMinutes={22} maxDifference={30} intervalLen={5} gameMinutes={45}
+        onContinue={() => {}} onImprove={() => fakeCandidate()} onUseImprovedPlan={() => {}}
+        nameOf={(id) => ({ p1: "Atu", p2: "Eli" })[id]} numberOf={(id) => ({ p1: 2, p2: 3 })[id]}
+      />
+    );
+    act(() => vi.advanceTimersByTime(1800));
+    act(() => screen.getByRole("button", { name: "Improve pitch fairness" }).click());
+    expect(screen.getByText("Atu")).toBeInTheDocument();
+    expect(screen.getByText("Eli")).toBeInTheDocument();
+  });
+});

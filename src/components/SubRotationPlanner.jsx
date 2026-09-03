@@ -45,6 +45,7 @@ export default function SubRotationPlanner({ user }) {
     startingGkId, setStartingGkId,
     keeperEligibleIds,
     startPlanning, handleInjury, bringBack, performSwap, addArrival, removeAvailability, resetClock,
+    previewImprovedFairness, useImprovedPlan,
   } = match;
 
   const [newPlayerName, setNewPlayerName] = useState("");
@@ -727,6 +728,10 @@ export default function SubRotationPlanner({ user }) {
             setRotationOverlayStats(null);
             setShowSettingsModal(false);
           }}
+          onImprove={previewImprovedFairness}
+          onUseImprovedPlan={useImprovedPlan}
+          nameOf={nameOf}
+          numberOf={numberOf}
         />
       )}
     </div>
