@@ -526,8 +526,21 @@ export function buildFairSchedule({
   const { intervals } = buildFixedPlan({
     rotationOrder: orderedRotation, gameMinutes, numIntervals, fieldSize, keeperEligibleIds, keeperShiftIntervals, startingGkId,
   });
-  repairKeeperBalance(intervals, keeperEligibleIds);
-  repairOutfieldBalance(intervals, rotationOrder, keeperEligibleIds);
+
+  // Real bug (real-use report): a coach's explicit starting-keeper choice
+  // was getting silently overridden ~1 in 5 times — not by anything above
+  // (assignKeepers itself honors it unconditionally at interval 0), but by
+  // these two repair passes below, which have no concept of "this
+  // assignment was a deliberate choice, not just where the fairness
+  // arithmetic happened to land" and will happily swap it away if that
+  // improves the numbers elsewhere. protectFirstKeeper tells both passes to
+  // never use interval 0 as a swap/handoff point when it's actually holding
+  // the requested starting keeper — every other interval, including the
+  // rest of that same keeper's first shift block, is still fully open to
+  // repair, same as before.
+  const protectFirstKeeper = Boolean(startingGkId) && intervals[0]?.onField.some((p) => p.id === startingGkId && p.isGk);
+  repairKeeperBalance(intervals, keeperEligibleIds, protectFirstKeeper);
+  repairOutfieldBalance(intervals, rotationOrder, keeperEligibleIds, protectFirstKeeper);
   return { intervals };
 }
 
@@ -553,7 +566,7 @@ export function buildFairSchedule({
 // for that whole shift block. Neither player's bench time changes at all;
 // this is purely "who holds the gloves," which is exactly the dial the
 // spec says is fine to turn to protect outfield fairness.
-function repairKeeperBalance(intervals, keeperEligibleIds) {
+function repairKeeperBalance(intervals, keeperEligibleIds, protectFirstKeeper = false) {
   const eligible = [...new Set(keeperEligibleIds || [])];
   if (eligible.length < 2) return;
   const keeperCount = {};
@@ -565,6 +578,7 @@ function repairKeeperBalance(intervals, keeperEligibleIds) {
 
   function tryMove(most, least) {
     for (let i = 0; i < intervals.length; i++) {
+      if (protectFirstKeeper && i === 0) continue; // the coach's explicit starting-keeper pick — never a swap point
       const gk = intervals[i].onField.find((p) => p.isGk);
       if (!gk || gk.id !== most) continue;
       if (!intervals[i].onField.some((p) => p.id === least && !p.isGk)) continue;
@@ -662,7 +676,7 @@ function repairKeeperBalance(intervals, keeperEligibleIds) {
 // though other tied candidates had a perfectly good move sitting right
 // there. Giving up after just one pair meant this repair pass did nothing
 // at all for that configuration despite real headroom existing.
-function repairOutfieldBalance(intervals, availableIds, keeperEligibleIds) {
+function repairOutfieldBalance(intervals, availableIds, keeperEligibleIds, protectFirstKeeper = false) {
   const eligibleSet = new Set(keeperEligibleIds || []);
   const outfieldCount = {};
   availableIds.forEach((id) => (outfieldCount[id] = 0));
@@ -670,6 +684,14 @@ function repairOutfieldBalance(intervals, availableIds, keeperEligibleIds) {
 
   function tryMove(most, least) {
     for (let i = 0; i < intervals.length; i++) {
+      // Belt-and-braces alongside repairKeeperBalance's own guard: a swap
+      // *starting* at interval 0 never actually changes interval 0's own
+      // keeper (only k >= i+1 ever gets marked isGk in the handoff branch
+      // below) — this can't currently fire in practice, but skipping it
+      // outright keeps that true by construction rather than by accident,
+      // so a future change to this function can't silently reopen the
+      // exact bug repairKeeperBalance's own fix closed.
+      if (protectFirstKeeper && i === 0) continue;
       const iv = intervals[i];
       const mostIsOutfield = iv.onField.some((p) => p.id === most && !p.isGk);
       const leastIsBench = iv.bench.includes(least);

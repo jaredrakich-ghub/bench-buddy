@@ -323,6 +323,36 @@ describe("buildFairSchedule / generateFixedPlan — outfield fairness sweep", ()
     expect(fairness.outfieldRange).toBeLessThanOrEqual(2);
   });
 
+  // Real-use report: the single-fixed-seed test above (0.42) happened to
+  // land on a shuffle where this held anyway — it never actually exercised
+  // the failure. A real coach's 7-player/5-a-side/3-eligible/15-min-shift
+  // game hit it 18% of the time: repairKeeperBalance/repairOutfieldBalance
+  // have no concept of "this assignment was a deliberate choice" and will
+  // happily swap interval 0's keeper away if that improves the numbers
+  // elsewhere. Sweeps many seeds specifically WITH a multi-interval keeper
+  // shift (keeperShiftIntervals > 1) — the earlier test above left it at
+  // the 1-interval default, which never gave the repair passes a genuine
+  // reason to touch interval 0 in the first place.
+  it("startingGkId survives repairKeeperBalance/repairOutfieldBalance across many seeds, with a multi-interval keeper shift", () => {
+    const ids = ["p1", "p2", "p3", "p4", "p5", "p6", "p7"]; // the reported 5-a-side/7-player squad
+    const eligible = ["p1", "p2", "p3"]; // 3 eligible keepers, same as reported
+    let violations = 0;
+    for (let seed = 1; seed <= 300; seed++) {
+      let s = seed;
+      const random = () => {
+        s = (s * 1103515245 + 12345) & 0x7fffffff;
+        return s / 0x7fffffff;
+      };
+      const { intervals } = generateFixedPlan({
+        availableIds: ids, gameMinutes: 45, numIntervals: 9, fieldSize: 5, keeperEligibleIds: eligible,
+        keeperShiftIntervals: 3, startingGkId: "p2", random,
+      });
+      const firstGk = intervals[0].onField.find((p) => p.isGk);
+      if (!firstGk || firstGk.id !== "p2") violations++;
+    }
+    expect(violations).toBe(0);
+  });
+
   it("partial keeper eligibility (not everyone can keep goal) still keeps outfield fairness intact", () => {
     const ids = Array.from({ length: 9 }, (_, i) => `p${i + 1}`);
     const eligible = ["p1", "p2", "p3"]; // only a third of the squad can keep goal
