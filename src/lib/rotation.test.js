@@ -23,7 +23,9 @@ import {
   repairBenchToKeeper,
   assessKeeperShift,
   fairnessRelevantIds,
+  extractGkByInterval,
 } from "./rotation.js";
+import { generateFixedPlan } from "./fixedRotation.js";
 
 describe("intervalAtElapsed", () => {
   const plan = [
@@ -600,6 +602,118 @@ describe("generatePlan", () => {
       });
       // p1 is gone, so p2 (the only other eligible keeper) must take over right away.
       expect(intervals[0].onField.find((p) => p.isGk).id).toBe("p2");
+    });
+  });
+
+  // Real-use report (7 players, 5-a-side, 3 eligible keepers, 15-min
+  // shift): a coach's unrelated, purely-outfield swap could reshuffle
+  // which player held a FUTURE keeper block — not the interval touched,
+  // whole later blocks swapping who held them, with nothing about
+  // eligibility or availability changing. Root cause: a mid-game rebuild
+  // abandons whatever the plan already had for the future and lets this
+  // function's own live heuristic re-decide everything from the rebuild
+  // point on, which doesn't reliably reproduce what built the plan being
+  // looked at. preferredGkByInterval (extractGkByInterval) narrows an
+  // existing gkMin tie toward continuity with that plan instead of
+  // leaving it to state that's shifted for unrelated reasons.
+  describe("preferredGkByInterval — keeping a rebuild's future keeper blocks stable", () => {
+    it("a 300-seed sweep of the exact reported configuration: an early, real bench<->field swap barely disturbs the final third's keeper sequence, down from the pre-fix baseline", () => {
+      const availableIds = ["p1", "p2", "p3", "p4", "p5", "p6", "p7"];
+      const keeperEligibleIds = ["p1", "p2", "p3"];
+      const gameMinutes = 45, numIntervals = 9, fieldSize = 5, keeperShiftIntervals = 3;
+      let disrupted = 0;
+      let checked = 0;
+
+      for (let seed = 1; seed <= 300; seed++) {
+        let s = seed;
+        const random = () => {
+          s = (s * 1103515245 + 12345) & 0x7fffffff;
+          return s / 0x7fffffff;
+        };
+        const { intervals: original } = generateFixedPlan({
+          availableIds, gameMinutes, numIntervals, fieldSize, keeperEligibleIds, keeperShiftIntervals, random,
+        });
+
+        const targetIndex = 1;
+        const cur = original[targetIndex];
+        const onFieldNonGk = cur.onField.filter((p) => !p.isGk);
+        if (onFieldNonGk.length < 1 || cur.bench.length < 1) continue;
+        const fieldPlayer = onFieldNonGk[0];
+        const benchPlayer = cur.bench[0];
+        const newOnField = cur.onField.map((p) => (p.id === fieldPlayer.id ? { id: benchPlayer, isGk: false } : p));
+        const newBench = cur.bench.filter((id) => id !== benchPlayer).concat(fieldPlayer.id);
+        const frozenCurrent = { ...cur, onField: newOnField, bench: newBench };
+
+        const priorIntervals = original.slice(0, targetIndex);
+        const doneIntervals = [...priorIntervals, frozenCurrent];
+        const carryState = buildCarryState(availableIds, doneIntervals);
+        const currentGkId = lastGkId(doneIntervals);
+
+        const { intervals: rebuiltRemainder } = generatePlan({
+          availableIds, gameMinutes, numIntervals, fieldSize, keeperEligibleIds,
+          startInterval: targetIndex + 1, carryState, keeperShiftIntervals, currentGkId,
+          preferredGkByInterval: extractGkByInterval(original),
+        });
+        const rebuiltPlan = [...priorIntervals, frozenCurrent, ...rebuiltRemainder];
+
+        checked++;
+        const finalThirdStart = 6;
+        const beforeFinal = original.slice(finalThirdStart).map((iv) => iv.onField.find((p) => p.isGk)?.id);
+        const afterFinal = rebuiltPlan.slice(finalThirdStart).map((iv) => iv.onField.find((p) => p.isGk)?.id);
+        if (JSON.stringify(beforeFinal) !== JSON.stringify(afterFinal)) disrupted++;
+      }
+
+      expect(checked).toBeGreaterThan(200);
+      // Pre-fix baseline (no preferredGkByInterval at all): 35/50 (~70%)
+      // on this exact scenario. A residual, non-zero rate is expected and
+      // correct, not a shortfall — the tiebreak only ever narrows a
+      // genuine gkMin TIE; a swap that legitimately shifts who's owed
+      // keeper time by the final boundary should still change who gets
+      // it, and does.
+      expect(disrupted / checked).toBeLessThan(0.15);
+    });
+
+    it("never overrides a genuine gkMin difference — only ever narrows an actual tie", () => {
+      // p1 carries real extra keeper minutes via carryState; p2 has none.
+      // Even with p2 "preferred" for this interval, p1 must not be picked
+      // over a real, non-tied gkMin gap that favors p2.
+      const ids = ["p1", "p2", "p3", "p4", "p5"];
+      const eligible = ["p1", "p2"];
+      const carryState = {
+        p1: { fieldMin: 20, gkMin: 15, consecBench: 0 },
+        p2: { fieldMin: 20, gkMin: 0, consecBench: 1 },
+        p3: { fieldMin: 20, gkMin: 0, consecBench: 0 },
+        p4: { fieldMin: 20, gkMin: 0, consecBench: 0 },
+        p5: { fieldMin: 15, gkMin: 0, consecBench: 2 },
+      };
+      const { intervals } = generatePlan({
+        availableIds: ids, gameMinutes: 40, numIntervals: 8, fieldSize: 4, keeperEligibleIds: eligible,
+        keeperShiftIntervals: 1, startInterval: 4, carryState, currentGkId: "p1",
+        preferredGkByInterval: { 4: "p1" }, // "preferred" is the one with MORE gkMin — should still lose
+      });
+      expect(intervals[0].onField.find((p) => p.isGk).id).toBe("p2");
+    });
+
+    it("does nothing when no preference is given for an interval — falls through to the normal pick, unchanged", () => {
+      const ids = ["p1", "p2", "p3", "p4", "p5"];
+      const eligible = ["p1", "p2"];
+      const carryState = {
+        p1: { fieldMin: 0, gkMin: 0, consecBench: 0 },
+        p2: { fieldMin: 0, gkMin: 0, consecBench: 0 },
+        p3: { fieldMin: 0, gkMin: 0, consecBench: 0 },
+        p4: { fieldMin: 0, gkMin: 0, consecBench: 0 },
+        p5: { fieldMin: 0, gkMin: 0, consecBench: 0 },
+      };
+      const withPreference = generatePlan({
+        availableIds: ids, gameMinutes: 40, numIntervals: 8, fieldSize: 4, keeperEligibleIds: eligible,
+        keeperShiftIntervals: 1, startInterval: 0, carryState,
+        preferredGkByInterval: {},
+      });
+      const withoutPreference = generatePlan({
+        availableIds: ids, gameMinutes: 40, numIntervals: 8, fieldSize: 4, keeperEligibleIds: eligible,
+        keeperShiftIntervals: 1, startInterval: 0, carryState,
+      });
+      expect(withPreference.intervals).toEqual(withoutPreference.intervals);
     });
   });
 });

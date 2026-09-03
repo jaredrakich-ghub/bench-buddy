@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import {
   intervalAtElapsed, computeIntervals, buildCarryState, generatePlan, keeperShiftIntervalsFor, lastGkId,
-  resolveBringBack, computeMinutesSummary, repairBenchToKeeper,
+  resolveBringBack, computeMinutesSummary, repairBenchToKeeper, extractGkByInterval,
 } from "../lib/rotation.js";
 import { generateFixedPlan } from "../lib/fixedRotation.js";
 import { validateGameSettings } from "../lib/validation.js";
@@ -251,6 +251,7 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
       carryState,
       keeperShiftIntervals,
       currentGkId,
+      preferredGkByInterval: extractGkByInterval(plan),
     });
     // Guarantees the rebuild's new keeper (if it changes here) actually
     // arrives from the bench, same as a fresh game — see the function's
@@ -311,6 +312,7 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
       carryState,
       keeperShiftIntervals,
       currentGkId,
+      preferredGkByInterval: extractGkByInterval(plan),
     });
     // See handleInjury's identical call for why — guarantees a keeper
     // change here actually arrives from the bench.
@@ -375,6 +377,7 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
       carryState,
       keeperShiftIntervals,
       currentGkId,
+      preferredGkByInterval: extractGkByInterval(plan),
     });
     repairBenchToKeeper({
       intervals: rebuiltRemainder, keeperEligibleIds, currentGkId, carryState,
@@ -415,6 +418,7 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
       carryState,
       keeperShiftIntervals,
       currentGkId,
+      preferredGkByInterval: extractGkByInterval(plan),
     });
     repairBenchToKeeper({
       intervals: rebuiltRemainder, keeperEligibleIds, currentGkId, carryState,
@@ -502,6 +506,7 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
       carryState,
       keeperShiftIntervals,
       currentGkId,
+      preferredGkByInterval: extractGkByInterval(plan),
     });
     // See handleInjury's identical call for why — guarantees a keeper
     // change here actually arrives from the bench. This is the exact

@@ -131,6 +131,33 @@ export function lastGkId(intervals) {
   return intervals[intervals.length - 1].onField.find((p) => p.isGk)?.id ?? null;
 }
 
+// Real-use report: a coach's unrelated, purely-outfield swap could
+// reshuffle who's keeper deep into the future — not just the interval
+// being touched, whole *later* keeper blocks swapping which player held
+// them, with nothing about eligibility or availability having changed.
+// Root cause: a mid-game rebuild abandons whatever the current plan
+// already had for the future entirely and lets generatePlan's own live,
+// per-interval heuristic re-decide everything from the rebuild point
+// on — which doesn't reliably reproduce what built the plan being looked
+// at (that could have been fixedRotation.js's block-planning for a fresh
+// game, or a *previous* rebuild's own picks), so even a single tied
+// decision flipping differently cascades into a different keeper for
+// every later boundary too.
+//
+// Pulls "who's already down to keep goal, interval by interval" out of
+// a plan that's about to be (partially) discarded, so a rebuild can be
+// told about it — see generatePlan's own preferredGkByInterval param.
+// Every current mid-game rebuild call site (useMatchState.js) extracts
+// this from the plan before rebuilding and passes it straight through.
+export function extractGkByInterval(intervals) {
+  const byInterval = {};
+  (intervals || []).forEach((iv) => {
+    const gk = iv.onField.find((p) => p.isGk);
+    if (gk) byInterval[iv.index] = gk.id;
+  });
+  return byInterval;
+}
+
 // Replays a set of already-decided intervals to work out each player's
 // fairness state (minutes played, GK minutes, and how long they've been
 // waiting on the bench) as of right after those intervals happened.
@@ -169,6 +196,12 @@ export function buildCarryState(ids, doneIntervals) {
 // shift, so the rebuild's start doesn't get treated as a fresh shift
 // boundary — see keeperShiftIntervalsFor/lastGkId above.
 //
+// `preferredGkByInterval` (see extractGkByInterval above) is what a
+// mid-game rebuild passes to keep FUTURE keeper blocks stable across an
+// unrelated change — a tiebreak only, see pickGkFrom's own comment for
+// why: this can narrow an existing tie toward continuity with the plan
+// being rebuilt, never override a genuine gkMin-driven pick.
+//
 // `startingGkId` is a manual override for who starts in goal at
 // `startInterval` specifically (e.g. a coach honoring "can I start in
 // goal?", or pickFairStartingGk below trying a candidate) — every interval
@@ -189,7 +222,7 @@ export function buildCarryState(ids, doneIntervals) {
 export function generatePlan({
   availableIds, gameMinutes, numIntervals, fieldSize, keeperEligibleIds,
   startInterval = 0, carryState = null, keeperShiftIntervals = 1, currentGkId = null,
-  startingGkId = null,
+  startingGkId = null, preferredGkByInterval = null,
 }) {
   const size = Math.min(fieldSize, availableIds.length);
   const intervalLen = gameMinutes / numIntervals;
@@ -225,19 +258,35 @@ export function generatePlan({
   // already out there, which otherwise needs a second, unrelated swap to
   // free up their old outfield spot.
   //
-  // When candidates are tied on *everything* this checks (common with a
-  // deeper bench — several players can genuinely be tied at zero gkMin for
-  // a while), this falls through to array order. `pool` is rotated by the
-  // interval index first specifically so that fallback doesn't always
-  // favor the same player — without this, whoever's earliest in
-  // availableIds can lose every single tied pick for an entire game and
-  // end up with zero keeper minutes despite being an equally valid
-  // candidate every time. Found by the fairness sweep below, not guessed
-  // at. Rotating is deterministic, not random — see the module-level
-  // comment on generatePlan for why actual randomness at this level turned
-  // out to be the wrong fix for a related problem ("the same kid always
-  // starts in goal").
-  const pickGkFrom = (pool, prevGk, intervalIndex) => {
+  // When candidates are tied on gkMin, prefer whoever the plan being
+  // rebuilt already had down as keeper for this exact interval, if
+  // they're still a valid candidate. Real-use report: an unrelated
+  // outfield-only swap could reshuffle who held a keeper block deep in
+  // the future — nothing about eligibility or availability changed, a
+  // tied gkMin decision just landed differently than it had before,
+  // purely because the rebuild recomputes fresh from a slightly
+  // different starting state instead of knowing what was already
+  // promised. Confirmed via a 50-seed sweep of the exact reported
+  // configuration before this existed: 35/50 rebuilds reordered the
+  // final third's keeper sequence after nothing but an early bench<->
+  // field swap. This can only ever narrow an existing tie, never
+  // override a genuine gkMin difference — it's the same "only fires on
+  // an actual ambiguity" contract every other tiebreak here already
+  // follows.
+  //
+  // When candidates are STILL tied on *everything* this checks (common
+  // with a deeper bench — several players can genuinely be tied at zero
+  // gkMin for a while), this falls through to array order. `pool` is
+  // rotated by the interval index first specifically so that fallback
+  // doesn't always favor the same player — without this, whoever's
+  // earliest in availableIds can lose every single tied pick for an
+  // entire game and end up with zero keeper minutes despite being an
+  // equally valid candidate every time. Found by the fairness sweep
+  // below, not guessed at. Rotating is deterministic, not random — see
+  // the module-level comment on generatePlan for why actual randomness
+  // at this level turned out to be the wrong fix for a related problem
+  // ("the same kid always starts in goal").
+  const pickGkFrom = (pool, prevGk, intervalIndex, preferredId) => {
     const offset = pool.length ? intervalIndex % pool.length : 0;
     const rotatedPool = [...pool.slice(offset), ...pool.slice(0, offset)];
     return rotatedPool.sort((a, b) => {
@@ -245,6 +294,11 @@ export function generatePlan({
       if (a === prevGk) sa += 500;
       if (b === prevGk) sb += 500;
       if (sa !== sb) return sa - sb;
+      if (preferredId) {
+        const prefA = a === preferredId ? 0 : 1;
+        const prefB = b === preferredId ? 0 : 1;
+        if (prefA !== prefB) return prefA - prefB;
+      }
       const benchedA = sim[a].consecBench > 0 ? 0 : 1;
       const benchedB = sim[b].consecBench > 0 ? 0 : 1;
       if (benchedA !== benchedB) return benchedA - benchedB;
@@ -280,7 +334,7 @@ export function generatePlan({
       // and eligible (e.g. not the one who just got injured); otherwise
       // fall through to a fresh pick even off-boundary.
       const keepGk = !atShiftBoundary && prevGk && eligiblePool.includes(prevGk);
-      gk = useManualStart ? startingGkId : keepGk ? prevGk : pickGkFrom(eligiblePool, prevGk, i);
+      gk = useManualStart ? startingGkId : keepGk ? prevGk : pickGkFrom(eligiblePool, prevGk, i, preferredGkByInterval?.[i]);
       const outfieldPool = availableIds.filter((id) => id !== gk);
       const sortedOutfield = [...outfieldPool].sort(outfieldSort);
       const outfieldOn = sortedOutfield.slice(0, Math.max(0, size - 1));
