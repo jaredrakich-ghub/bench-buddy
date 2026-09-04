@@ -232,7 +232,10 @@ function EmailLinkPrompt({ title, body, children }) {
   return (
     <div
       style={{
-        minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+        // 100dvh, not 100vh — same real-device fix as LoadingScreen.jsx's
+        // own wrap (its comment has the full story): off-centre on the
+        // Home Screen (standalone) launch specifically, not in a browser tab.
+        minHeight: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
         gap: 14, padding: 28, background: tokens.color.creamPaper, fontFamily: tokens.font.body,
       }}
       data-testid="email-link-prompt"

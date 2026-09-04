@@ -34,8 +34,15 @@ const spinKeyframes = `
 `;
 
 const styles = {
+  // 100dvh, not 100vh — real-device feedback: centred fine in Safari/
+  // Chrome (a browser tab), but off-centre once launched from the Home
+  // Screen (manifest.json's display:"standalone"). 100vh reports the
+  // *largest possible* viewport regardless of how much of it is actually
+  // visible on screen at that moment — SquadSettingsForm.jsx hit the same
+  // thing (its own comment has the fuller story) and 100dvh was the fix
+  // there too: it tracks the real, currently-visible viewport instead.
   wrap: {
-    minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+    minHeight: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
     gap: 16, background: colors.chalk, fontFamily: "system-ui, -apple-system, sans-serif",
   },
   // 152/132 (spinner/logo) instead of the old 64/44 — sized so the logo
