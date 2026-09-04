@@ -528,24 +528,51 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
     if ((!aOnField && !aOnBench) || (!bOnField && !bOnBench)) return; // one of them isn't actually here this interval
     if (aOnBench && bOnBench) return; // both on the bench — nothing to swap
 
-    let newOnField, newBench;
     if (aOnField && bOnField) {
-      if (aOnField.isGk && !keeperEligibleIds.includes(playerBId)) return;
-      if (bOnField.isGk && !keeperEligibleIds.includes(playerAId)) return;
-      newOnField = cur.onField.map((p) => {
-        if (p.id === playerAId) return { id: playerAId, isGk: bOnField.isGk };
-        if (p.id === playerBId) return { id: playerBId, isGk: aOnField.isGk };
-        return p;
+      // Real-use request: a coach wants to trade two on-field players'
+      // WHOLE remaining rotations, not just who holds which role for this
+      // one interval — "if one player is subbing next, the other should
+      // take over that arrow" once they're swapped. A pure relabel does
+      // exactly that: from targetIndex through the end of the game,
+      // wherever A appears (outfield, keeper, or bench), B takes their
+      // place instead, and vice versa. No rebuild needed at all — a plan
+      // that was already fair stays exactly as fair with two of its
+      // labels traded throughout, and every bench->keeper transition
+      // strictly AFTER targetIndex is preserved automatically (relabeling
+      // both ends of a transition the same way can't break it). The one
+      // transition this can legitimately disturb is targetIndex-1 ->
+      // targetIndex itself, if either player holds keeper right at
+      // targetIndex — same deliberate coach-override exemption the old
+      // isGk-only swap already had for that one interval.
+      let blocked = false;
+      for (let i = targetIndex; i < plan.length; i++) {
+        const gk = plan[i].onField.find((p) => p.isGk);
+        if (!gk) continue;
+        if (gk.id === playerAId && !keeperEligibleIds.includes(playerBId)) { blocked = true; break; }
+        if (gk.id === playerBId && !keeperEligibleIds.includes(playerAId)) { blocked = true; break; }
+      }
+      if (blocked) return;
+
+      const relabel = (id) => (id === playerAId ? playerBId : id === playerBId ? playerAId : id);
+      const swapped = plan.map((iv, i) => {
+        if (i < targetIndex) return iv;
+        return { ...iv, onField: iv.onField.map((p) => ({ ...p, id: relabel(p.id) })), bench: iv.bench.map(relabel) };
       });
-      newBench = cur.bench;
-    } else {
-      const outgoing = aOnField || bOnField;
-      const fieldId = aOnField ? playerAId : playerBId;
-      const benchId = aOnField ? playerBId : playerAId;
-      if (outgoing.isGk && !keeperEligibleIds.includes(benchId)) return;
-      newOnField = cur.onField.map((p) => (p.id === fieldId ? { id: benchId, isGk: outgoing.isGk } : p));
-      newBench = cur.bench.filter((id) => id !== benchId).concat(fieldId);
+      setPlan(swapped);
+      setSwapPickId(null);
+      return;
     }
+
+    // Bench <-> field: a genuine attendance change (someone's joining or
+    // leaving the pitch from here), so the rest of the game still needs
+    // rebalancing around it — unlike the field<->field case above, this
+    // one keeps the existing rebuild.
+    const outgoing = aOnField || bOnField;
+    const fieldId = aOnField ? playerAId : playerBId;
+    const benchId = aOnField ? playerBId : playerAId;
+    if (outgoing.isGk && !keeperEligibleIds.includes(benchId)) return;
+    const newOnField = cur.onField.map((p) => (p.id === fieldId ? { id: benchId, isGk: outgoing.isGk } : p));
+    const newBench = cur.bench.filter((id) => id !== benchId).concat(fieldId);
 
     const priorIntervals = plan.slice(0, targetIndex);
     const frozenCurrent = { ...cur, onField: newOnField, bench: newBench };

@@ -494,20 +494,38 @@ describe("useMatchState — performSwap between two on-field players (the former
     expect(result.current.plan).toBe(planBefore);
   });
 
-  it("swaps roles between two on-field players — no bench change at all — and rebuilds the remainder", () => {
+  // Real-use request: a coach wants to trade two on-field players' WHOLE
+  // remaining rotations — "if one player is subbing next, the other
+  // should take over that arrow" once they're swapped — not just who
+  // holds which role for one interval. Shipped as a pure relabel: from
+  // the target interval onward, every plan entry (onField or bench) for
+  // A becomes B and vice versa, no rebuild involved.
+  it("swaps two on-field players' ENTIRE remaining rotation — every future interval, not just the current one's roles", () => {
     const { result } = setupPlan();
     const cur = result.current.plan[0];
     const currentKeeper = cur.onField.find((p) => p.isGk).id;
     const target = cur.onField.find((p) => !p.isGk && p.id !== currentKeeper && p.id !== "p6"); // p6 isn't keeper-eligible
-    const benchBefore = [...cur.bench];
+    const planBefore = result.current.plan;
 
     act(() => result.current.performSwap(target.id, currentKeeper));
 
-    const newCur = result.current.plan[0];
-    expect(newCur.onField.find((p) => p.id === target.id).isGk).toBe(true);
-    expect(newCur.onField.find((p) => p.id === currentKeeper).isGk).toBe(false);
-    expect(newCur.bench).toEqual(benchBefore); // bench completely untouched
-    expect(result.current.plan.every((iv) => iv.onField.length === 5)).toBe(true); // still a valid, full plan
+    const plan = result.current.plan;
+    expect(plan.length).toBe(planBefore.length);
+    // Interval 0 (the swap itself): roles trade, bench is untouched — same
+    // visible effect the old isGk-only swap had.
+    expect(plan[0].onField.find((p) => p.id === target.id).isGk).toBe(true);
+    expect(plan[0].onField.find((p) => p.id === currentKeeper).isGk).toBe(false);
+    expect(plan[0].bench).toEqual(cur.bench);
+    // Every LATER interval: wherever the original plan had `target`,
+    // the plan now has `currentKeeper` in that exact same slot/role, and
+    // vice versa — the whole point of the feature, not just interval 0.
+    for (let i = 1; i < planBefore.length; i++) {
+      const relabel = (id) => (id === target.id ? currentKeeper : id === currentKeeper ? target.id : id);
+      const expectedOnField = planBefore[i].onField.map((p) => ({ ...p, id: relabel(p.id) }));
+      const expectedBench = planBefore[i].bench.map(relabel);
+      expect(plan[i].onField).toEqual(expectedOnField);
+      expect(plan[i].bench).toEqual(expectedBench);
+    }
   });
 
   it("works the same regardless of argument order (swapping A,B is the same as B,A)", () => {
@@ -523,7 +541,26 @@ describe("useMatchState — performSwap between two on-field players (the former
     expect(newCur.onField.find((p) => p.id === currentKeeper).isGk).toBe(false);
   });
 
-  it("the manual swap never breaks bench->keeper for anything that follows it", () => {
+  it("blocks the whole swap if either player would end up holding a keeper slot they're not eligible for, at ANY future interval", () => {
+    const { result } = setupPlan();
+    // p6 isn't keeper-eligible — if p6's swap partner ever holds keeper
+    // duty at any interval from the swap point on, the relabel would hand
+    // p6 that slot. Sweep every keeper-eligible on-field partner at
+    // interval 0 and confirm none of them can be swapped with p6 if they
+    // hold keeper duty anywhere later in the game.
+    const planBefore = result.current.plan;
+    const cur = planBefore[0];
+    const p6OnField = cur.onField.find((p) => p.id === "p6" && !p.isGk);
+    if (!p6OnField) return; // p6 shuffled off the field this run — nothing to test
+    const everHoldsKeeperLater = (id) => planBefore.some((iv) => iv.onField.some((p) => p.id === id && p.isGk));
+    const partner = cur.onField.find((p) => p.id !== "p6" && everHoldsKeeperLater(p.id));
+    if (!partner) return; // no such partner this run
+
+    act(() => result.current.performSwap("p6", partner.id));
+    expect(result.current.plan).toBe(planBefore); // untouched
+  });
+
+  it("the swap never breaks bench->keeper for anything that follows it — trivially, since it's a pure relabel of an already-valid plan", () => {
     const { result } = setupPlan();
     act(() => result.current.setActiveInterval(2));
     const cur = result.current.plan[2];
@@ -534,14 +571,12 @@ describe("useMatchState — performSwap between two on-field players (the former
 
     const plan = result.current.plan;
     for (let i = 0; i < plan.length - 1; i++) {
-      // The swap interval itself (2) is a deliberate coach override, by
-      // design exempt from bench->keeper — that's the whole point of
-      // swapping two on-field players' roles directly, asserted
-      // explicitly by "swaps roles between two on-field players — no
-      // bench change at all" above. This test is about what the swap
-      // can't break AFTER it (the rebuilt remainder's own guarantee, via
-      // repairBenchToKeeper — see performSwap's own comment), not the
-      // swap transition itself.
+      // The transition INTO the swap's own interval (1 -> 2) is a
+      // deliberate coach override, by design exempt from bench->keeper —
+      // same exemption the old isGk-only swap already had. Every
+      // transition strictly after it holds automatically now: relabeling
+      // both ends of an already-valid transition the same way can't
+      // break it (no rebuild/repair pass is even involved any more).
       if (i === 1) continue;
       const gkNow = plan[i].onField.find((p) => p.isGk)?.id;
       const gkNext = plan[i + 1].onField.find((p) => p.isGk)?.id;
