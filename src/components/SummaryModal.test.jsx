@@ -87,10 +87,15 @@ describe("SummaryModal", () => {
     expect(screen.getByText("BENCH")).toBeInTheDocument();
   });
 
-  it("shows the full-game pitch-time spread in the note card", () => {
+  // Real-use feedback: this note used to sit here, computed as a pure
+  // outfield-minutes spread — removed because RotationProgressOverlay's
+  // own "Pitch time is within N min" line uses a different metric
+  // (goal+outfield combined via computeFairnessSpread) but identical
+  // wording, so the two could legitimately disagree for the same
+  // rotation and read as a bug. See SummaryModal.jsx's own comment.
+  it("no longer shows a pitch-time-spread note — removed for conflicting with RotationProgressOverlay's differently-computed one", () => {
     render(<SummaryModal {...baseProps()} />);
-    // p1/p2 both end on 6 outfield minutes, p3 on 0 — spread is 6:00.
-    expect(screen.getByText("Pitch time is within 6:00 across the full game.")).toBeInTheDocument();
+    expect(screen.queryByText(/Pitch time is within/)).not.toBeInTheDocument();
   });
 
   it("gives every player the same plain green disc — no gold keeper-eligible variant, per explicit feedback", () => {

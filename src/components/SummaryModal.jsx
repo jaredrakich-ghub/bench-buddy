@@ -27,8 +27,17 @@ function fmtMin(minutes) {
 export default function SummaryModal({ plan, availableIds, nameOf, numberOf, onClose }) {
   const summary = computeMinutesSummary(plan, availableIds);
 
-  const outfieldValues = summary.map((s) => s.outfieldMin);
-  const spreadMin = summary.length ? Math.max(...outfieldValues) - Math.min(...outfieldValues) : 0;
+  // Real-use feedback: this screen used to open with its own "Pitch time
+  // is within N min across the full game" note — a pure outfield-minutes
+  // spread computed here. Removed: the post-build success card
+  // (RotationProgressOverlay.jsx) and the mid-match fairness toast both
+  // show a same-worded "Pitch time is within N min" line too, but from
+  // computeFairnessSpread (goal+outfield combined) — a genuinely
+  // different number that can legitimately disagree with this screen's
+  // own outfield-only one for the same rotation. Two notes with identical
+  // wording but different meanings read as a bug even when neither is
+  // wrong, so this one's gone rather than relabelled — the PITCH column
+  // right below already shows the real per-player numbers directly.
 
   // Simple descending-by-pitch-time order, same convention A6-Season uses
   // for its own averages — no "live keeper first" special case now that
@@ -53,8 +62,6 @@ export default function SummaryModal({ plan, availableIds, nameOf, numberOf, onC
         </button>
         <div style={styles.mdSubHeaderTitle}>Today's Minutes</div>
       </div>
-
-      <div style={styles.mdMinutesNote}>Pitch time is within {fmtMin(spreadMin)} across the full game.</div>
 
       <div style={styles.mdMinutesColHeads}>
         <span style={styles.mdMinutesColHeadPitch}>PITCH</span>
