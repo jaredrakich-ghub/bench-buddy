@@ -1977,16 +1977,18 @@ export const styles = {
   },
   // padding-left 51px aligns past the 32px disc + gap in the rows below.
   mdMinutesColHeads: { display: "flex", padding: "0 12px 2px 51px", gap: 9, marginBottom: 4 },
+  // Centre-aligned (real-use feedback) — the headers sit directly above
+  // mdMinutesValuePitch/Goal/Bench below, which match.
   mdMinutesColHeadPitch: {
-    flex: 1, textAlign: "right", fontFamily: tokens.font.body, fontWeight: 800, fontSize: 11.5,
+    flex: 1, textAlign: "center", fontFamily: tokens.font.body, fontWeight: 800, fontSize: 11.5,
     letterSpacing: "0.03em", color: tokens.color.pitchGreen,
   },
   mdMinutesColHeadGoal: {
-    width: 52, flexShrink: 0, textAlign: "right", fontFamily: tokens.font.body, fontWeight: 800, fontSize: 11.5,
+    width: 52, flexShrink: 0, textAlign: "center", fontFamily: tokens.font.body, fontWeight: 800, fontSize: 11.5,
     letterSpacing: "0.03em", color: tokens.color.goldText,
   },
   mdMinutesColHeadBench: {
-    width: 52, flexShrink: 0, textAlign: "right", fontFamily: tokens.font.body, fontWeight: 800, fontSize: 11.5,
+    width: 52, flexShrink: 0, textAlign: "center", fontFamily: tokens.font.body, fontWeight: 800, fontSize: 11.5,
     letterSpacing: "0.03em", color: tokens.color.benchText,
   },
   mdMinutesList: { display: "flex", flexDirection: "column", gap: 6 },
@@ -2000,15 +2002,19 @@ export const styles = {
     background: tokens.color.pitchGreen, color: tokens.color.creamPaper,
   },
   mdMinutesName: { flex: 1, minWidth: 0, fontFamily: tokens.font.body, fontWeight: 800, fontSize: 15, color: tokens.color.deepGreen },
+  // Centre-aligned (real-use feedback) — matches mdMinutesColHeadPitch/
+  // Goal/Bench above. Shared by SummaryModal's per-row/totals values and
+  // RotationProgressOverlay's own current/candidate minutes tables (same
+  // row shape, deliberately reused rather than restyled separately).
   mdMinutesValuePitch: {
-    flex: 1, textAlign: "right", fontFamily: tokens.font.display, fontWeight: 800, fontSize: 17, color: tokens.color.pitchGreen,
+    flex: 1, textAlign: "center", fontFamily: tokens.font.display, fontWeight: 800, fontSize: 17, color: tokens.color.pitchGreen,
   },
   mdMinutesValueGoal: {
-    width: 52, flexShrink: 0, textAlign: "right", fontFamily: tokens.font.display, fontWeight: 800, fontSize: 17,
+    width: 52, flexShrink: 0, textAlign: "center", fontFamily: tokens.font.display, fontWeight: 800, fontSize: 17,
     color: tokens.color.goldText,
   },
   mdMinutesValueBench: {
-    width: 52, flexShrink: 0, textAlign: "right", fontFamily: tokens.font.display, fontWeight: 800, fontSize: 17,
+    width: 52, flexShrink: 0, textAlign: "center", fontFamily: tokens.font.display, fontWeight: 800, fontSize: 17,
     color: tokens.color.benchText,
   },
   // Zero reads as this em dash instead of "0" — keeps the columns quiet
