@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { intervalAtElapsed, computeFairnessSpread, computeAveragePitchMinutes, fairnessRelevantIds } from "../lib/rotation.js";
+import { intervalAtElapsed, computeFairnessSpread, computeAveragePitchMinutes, fairnessRelevantIds, computeMinutesSummary } from "../lib/rotation.js";
 import { computeLiveElapsedSec } from "../lib/clock.js";
 import { generateId } from "../lib/id.js";
 import { getSquadNumber } from "../lib/squadNumber.js";
@@ -219,6 +219,12 @@ export default function SubRotationPlanner({ user }) {
       // length — the last interval's own endMin, not gameSettings, so it
       // always matches what was actually built.
       gameMinutes: plan[plan.length - 1].endMin,
+      // The just-built plan's own per-player Pitch/Goal/Bench minutes —
+      // RotationProgressOverlay's needs-attention menu shows these (and the
+      // outfield/bench spreads derived from them) so a coach can actually
+      // see which column needs the fix before choosing, rather than
+      // picking Improve pitch/Improve bench blind.
+      rows: computeMinutesSummary(plan, availableIds),
     });
   }, [plan, availableIds, keeperEligibleIds]);
 
@@ -732,6 +738,7 @@ export default function SubRotationPlanner({ user }) {
           onUseImprovedPlan={useImprovedPlan}
           nameOf={nameOf}
           numberOf={numberOf}
+          currentRows={rotationOverlayStats.rows}
         />
       )}
     </div>

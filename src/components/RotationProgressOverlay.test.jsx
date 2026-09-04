@@ -342,4 +342,59 @@ describe("RotationProgressOverlay — needs-attention Solve flow", () => {
     expect(screen.getByText("Atu")).toBeInTheDocument();
     expect(screen.getByText("Eli")).toBeInTheDocument();
   });
+
+  // Real-use feedback: a coach was choosing between "Improve pitch" and
+  // "Improve bench" with nothing telling them which one actually needs
+  // it. currentRows (computeMinutesSummary of the just-built plan) drives
+  // both the plain spread numbers and an on-demand full table.
+  const CURRENT_ROWS = [
+    { id: "p1", outfieldMin: 20, gkMin: 15, benchMin: 10 },
+    { id: "p2", outfieldMin: 30, gkMin: 0, benchMin: 15 },
+  ]; // outfield spread 10, bench spread 5
+
+  it("shows the current plan's own outfield/bench spread numbers in the menu, separate from the combined 'Pitch time' line above", () => {
+    render(
+      <RotationProgressOverlay
+        averageMinutes={22} maxDifference={30} intervalLen={5} gameMinutes={45}
+        onContinue={() => {}} onImprove={() => fakeCandidate()} onUseImprovedPlan={() => {}}
+        currentRows={CURRENT_ROWS}
+      />
+    );
+    act(() => vi.advanceTimersByTime(1800));
+    expect(screen.getByText(/Outfield time varies by/)).toHaveTextContent("Outfield time varies by 10 min across the squad.");
+    expect(screen.getByText(/Bench time varies by/)).toHaveTextContent("Bench time varies by 5 min across the squad.");
+  });
+
+  it("shows neither the spread numbers nor the minutes toggle when currentRows isn't provided", () => {
+    render(
+      <RotationProgressOverlay
+        averageMinutes={22} maxDifference={30} intervalLen={5} gameMinutes={45}
+        onContinue={() => {}} onImprove={() => fakeCandidate()} onUseImprovedPlan={() => {}}
+      />
+    );
+    act(() => vi.advanceTimersByTime(1800));
+    expect(screen.queryByText(/varies by/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "See current minutes" })).not.toBeInTheDocument();
+  });
+
+  it("'See current minutes' reveals the current plan's own per-player table; 'Hide current minutes' collapses it again", () => {
+    render(
+      <RotationProgressOverlay
+        averageMinutes={22} maxDifference={30} intervalLen={5} gameMinutes={45}
+        onContinue={() => {}} onImprove={() => fakeCandidate()} onUseImprovedPlan={() => {}}
+        currentRows={CURRENT_ROWS} nameOf={(id) => ({ p1: "Atu", p2: "Eli" })[id]}
+      />
+    );
+    act(() => vi.advanceTimersByTime(1800));
+    expect(screen.queryByText("Atu")).not.toBeInTheDocument(); // collapsed by default
+
+    act(() => screen.getByRole("button", { name: "See current minutes" }).click());
+    expect(screen.getByText("Atu")).toBeInTheDocument();
+    expect(screen.getByText("Eli")).toBeInTheDocument();
+    // The actual minutes, not just names — same table shape as the preview.
+    expect(screen.getByText("20")).toBeInTheDocument(); // p1's outfield minutes
+
+    act(() => screen.getByRole("button", { name: "Hide current minutes" }).click());
+    expect(screen.queryByText("Atu")).not.toBeInTheDocument();
+  });
 });

@@ -89,15 +89,59 @@ function usePrefersReducedMotion() {
 // its own focus/keyboard trap. Two states in one card, never unmounted
 // between them (title/border swap in place): "building" (three steps
 // revealing in sequence) then "success" (the fairness result + confetti).
-// onImprove/onUseImprovedPlan/nameOf/numberOf are all optional — omitting
-// any of them (every existing caller, before this feature) falls straight
-// back to the original single "View my rotation" button for every tier,
-// needs-attention included. Real callers wire onImprove to
-// useMatchState's previewImprovedFairness (builds a candidate, doesn't
-// touch match state) and onUseImprovedPlan to useImprovedPlan (commits
-// one) — see SubRotationPlanner.jsx's call site.
+// Shared by the needs-attention menu's own "see current minutes" disclosure
+// and the Improve preview below it — same row shape SummaryModal.jsx's
+// Today's Minutes already renders, condensed, so either place reads as the
+// same table a coach already knows rather than a new visual language.
+function MinutesTable({ rows, nameOf, numberOf }) {
+  return (
+    <div>
+      <div style={styles.mdMinutesColHeads}>
+        <span style={styles.mdMinutesColHeadPitch}>PITCH</span>
+        <span style={styles.mdMinutesColHeadGoal}>GOAL</span>
+        <span style={styles.mdMinutesColHeadBench}>BENCH</span>
+      </div>
+      <div style={{ ...styles.mdMinutesList, maxHeight: 190, overflowY: "auto" }}>
+        {rows.map((r) => (
+          <div key={r.id} style={styles.mdMinutesRow}>
+            <span style={styles.mdMinutesDisc}>{numberOf ? numberOf(r.id) : ""}</span>
+            <span style={styles.mdMinutesName}>{nameOf ? nameOf(r.id) : r.id}</span>
+            <span style={{ ...styles.mdMinutesValuePitch, ...(Math.round(r.outfieldMin) === 0 ? styles.mdMinutesZero : {}) }}>
+              {Math.round(r.outfieldMin) === 0 ? "—" : Math.round(r.outfieldMin)}
+            </span>
+            <span style={{ ...styles.mdMinutesValueGoal, ...(Math.round(r.gkMin) === 0 ? styles.mdMinutesZero : {}) }}>
+              {Math.round(r.gkMin) === 0 ? "—" : Math.round(r.gkMin)}
+            </span>
+            <span style={{ ...styles.mdMinutesValueBench, ...(Math.round(r.benchMin) === 0 ? styles.mdMinutesZero : {}) }}>
+              {Math.round(r.benchMin) === 0 ? "—" : Math.round(r.benchMin)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Range (max - min), rounded — the same "spread" arithmetic
+// computeFairnessSpread/calculateFairness already use elsewhere, done
+// locally here since this operates on already-summarized rows rather than
+// a raw plan.
+function spreadOf(rows, key) {
+  if (!rows || rows.length === 0) return null;
+  const vals = rows.map((r) => r[key]);
+  return Math.round(Math.max(...vals) - Math.min(...vals));
+}
+
+// onImprove/onUseImprovedPlan/nameOf/numberOf/currentRows are all
+// optional — omitting them (every existing caller, before this feature)
+// falls straight back to the original single "View my rotation" button
+// for every tier, needs-attention included. Real callers wire onImprove
+// to useMatchState's previewImprovedFairness (builds a candidate, doesn't
+// touch match state), onUseImprovedPlan to useImprovedPlan (commits one),
+// and currentRows to computeMinutesSummary(plan, availableIds) for the
+// plan actually being shown — see SubRotationPlanner.jsx's call site.
 export default function RotationProgressOverlay({
-  averageMinutes, maxDifference, intervalLen, gameMinutes, onContinue, onImprove, onUseImprovedPlan, nameOf, numberOf,
+  averageMinutes, maxDifference, intervalLen, gameMinutes, onContinue, onImprove, onUseImprovedPlan, nameOf, numberOf, currentRows,
 }) {
   const [phase, setPhase] = useState("building"); // "building" | "success"
   const [activeStep, setActiveStep] = useState(0); // 0,1,2 — which step is the current "in progress" one
@@ -116,6 +160,12 @@ export default function RotationProgressOverlay({
   // built for, so "Try again" can re-ask for the same one).
   const [solveView, setSolveView] = useState("menu"); // "menu" | "preview"
   const [improvedCandidate, setImprovedCandidate] = useState(null); // { intervals, stats, rows, metric } | null
+  // Real-use feedback: the menu offered "Improve pitch" vs "Improve bench"
+  // with nothing to inform which one actually needs it — a coach was
+  // choosing blind. showCurrentMinutes reveals the CURRENT plan's own
+  // per-player table (currentRows) in place, collapsed by default so the
+  // menu stays compact for a coach who doesn't want the detail.
+  const [showCurrentMinutes, setShowCurrentMinutes] = useState(false);
 
   const handleImprove = useCallback(
     (metric) => {
@@ -198,7 +248,7 @@ export default function RotationProgressOverlay({
     };
     raf = requestAnimationFrame(measure);
     return () => cancelAnimationFrame(raf);
-  }, [solveView, improvedCandidate]);
+  }, [solveView, improvedCandidate, showCurrentMinutes]);
 
   useEffect(() => {
     if (heights.checklist && heights.result) setHeightTransitionReady(true);
@@ -308,6 +358,13 @@ export default function RotationProgressOverlay({
   const displayFairness = showingCandidate
     ? getFairnessState(displayStats.maxDifference, displayStats.intervalLen, displayStats.gameMinutes)
     : fairness;
+  // The two numbers the menu's own "Improve pitch" vs "Improve bench"
+  // choice actually depends on — the top card's own "Pitch time is within
+  // N min" line is the COMBINED goal+outfield metric (computeFairnessSpread),
+  // a different, coarser number than either of these, so it can't answer
+  // "which one is actually worse right now" on its own.
+  const currentOutfieldSpread = spreadOf(currentRows, "outfieldMin");
+  const currentBenchSpread = spreadOf(currentRows, "benchMin");
 
   return (
     <>
@@ -509,6 +566,44 @@ export default function RotationProgressOverlay({
               // active fixes plus the honest opt-out (fix it by hand during
               // the match, exactly like every tier already lets a coach do).
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {/* Real-use feedback: a coach was choosing between "Improve
+                    pitch" and "Improve bench" with nothing telling them
+                    which one actually needs it. These two numbers are what
+                    the choice is actually about — deliberately separate
+                    from the combined "Pitch time is within N min" line
+                    above, which can't answer that question on its own. */}
+                {(currentOutfieldSpread !== null || currentBenchSpread !== null) && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "0 4px 2px" }}>
+                    {currentOutfieldSpread !== null && (
+                      <p style={{ margin: 0, fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13.5, color: tokens.color.groupLabel, lineHeight: 1.4 }}>
+                        Outfield time varies by <span style={{ color: tokens.color.pitchGreen, fontWeight: 800 }}>{currentOutfieldSpread} min</span> across the squad.
+                      </p>
+                    )}
+                    {currentBenchSpread !== null && (
+                      <p style={{ margin: 0, fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13.5, color: tokens.color.groupLabel, lineHeight: 1.4 }}>
+                        Bench time varies by <span style={{ color: tokens.color.benchText, fontWeight: 800 }}>{currentBenchSpread} min</span> across the squad.
+                      </p>
+                    )}
+                  </div>
+                )}
+                {currentRows && currentRows.length > 0 && (
+                  <button
+                    onClick={() => setShowCurrentMinutes((v) => !v)}
+                    tabIndex={phase === "success" ? undefined : -1}
+                    style={{
+                      alignSelf: "center", border: "none", background: "transparent", padding: "0 4px 4px",
+                      fontFamily: tokens.font.body, fontWeight: 800, fontSize: 13, color: tokens.color.pitchGreen,
+                      textDecoration: "underline", cursor: "pointer",
+                    }}
+                  >
+                    {showCurrentMinutes ? "Hide current minutes" : "See current minutes"}
+                  </button>
+                )}
+                {showCurrentMinutes && currentRows && currentRows.length > 0 && (
+                  <div style={{ marginBottom: 2 }}>
+                    <MinutesTable rows={currentRows} nameOf={nameOf} numberOf={numberOf} />
+                  </div>
+                )}
                 <button
                   ref={continueBtnRef}
                   onClick={() => handleImprove("pitch")}
@@ -538,34 +633,8 @@ export default function RotationProgressOverlay({
             ) : (
               // Preview — showing what "Improve pitch/bench fairness" just
               // found, per player, before anything is actually committed.
-              // Same row shape SummaryModal.jsx's Today's Minutes already
-              // renders, condensed, so this reads as the same table a coach
-              // already knows rather than a new visual language.
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                <div>
-                  <div style={styles.mdMinutesColHeads}>
-                    <span style={styles.mdMinutesColHeadPitch}>PITCH</span>
-                    <span style={styles.mdMinutesColHeadGoal}>GOAL</span>
-                    <span style={styles.mdMinutesColHeadBench}>BENCH</span>
-                  </div>
-                  <div style={{ ...styles.mdMinutesList, maxHeight: 190, overflowY: "auto" }}>
-                    {improvedCandidate.rows.map((r) => (
-                      <div key={r.id} style={styles.mdMinutesRow}>
-                        <span style={styles.mdMinutesDisc}>{numberOf ? numberOf(r.id) : ""}</span>
-                        <span style={styles.mdMinutesName}>{nameOf ? nameOf(r.id) : r.id}</span>
-                        <span style={{ ...styles.mdMinutesValuePitch, ...(Math.round(r.outfieldMin) === 0 ? styles.mdMinutesZero : {}) }}>
-                          {Math.round(r.outfieldMin) === 0 ? "—" : Math.round(r.outfieldMin)}
-                        </span>
-                        <span style={{ ...styles.mdMinutesValueGoal, ...(Math.round(r.gkMin) === 0 ? styles.mdMinutesZero : {}) }}>
-                          {Math.round(r.gkMin) === 0 ? "—" : Math.round(r.gkMin)}
-                        </span>
-                        <span style={{ ...styles.mdMinutesValueBench, ...(Math.round(r.benchMin) === 0 ? styles.mdMinutesZero : {}) }}>
-                          {Math.round(r.benchMin) === 0 ? "—" : Math.round(r.benchMin)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <MinutesTable rows={improvedCandidate.rows} nameOf={nameOf} numberOf={numberOf} />
                 <button
                   ref={continueBtnRef}
                   onClick={handleUseImproved}
