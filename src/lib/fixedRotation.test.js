@@ -370,6 +370,38 @@ describe("generateFixedPlanBiasedFor", () => {
     expect(biasedWorst).toBeLessThanOrEqual(1);
   });
 
+  // Real-use report: a 7-player/4-eligible-keeper/45-min/10-min-shift game
+  // (keeperShiftIntervals 2 at 5-minute sub-intervals — 9 intervals total,
+  // so 4 blocks of 2 plus a 1-interval remainder, unevenly distributable
+  // across 4 eligible players) produced "wildly out of whack" keeper
+  // minutes — up to a 20-vs-0 split observed. Root cause: the selection
+  // key used to be [target metric range, other metric range] only, with
+  // no consideration of keeperRange at all — every individual candidate
+  // already runs repairKeeperBalance, but that pass hits a genuine "no
+  // safe move" limit for some shuffles, and "Improve bench fairness"
+  // could and did land on exactly one of those (a bench-perfect,
+  // keeper-terrible candidate) roughly 1 in 6 times in a 500-run sweep.
+  // Fixed by putting keeperRange FIRST in the selection key.
+  it("never selects a keeper-uneven candidate on the reported 4-eligible-keeper configuration, for either metric", () => {
+    const args = {
+      availableIds: ["p1", "p2", "p3", "p4", "p5", "p6", "p7"],
+      gameMinutes: 45, numIntervals: 9, fieldSize: 5,
+      keeperEligibleIds: ["p1", "p2", "p3", "p4"], keeperShiftIntervals: 2,
+    };
+    for (const metric of ["pitch", "bench"]) {
+      let worstKeeperRange = 0;
+      for (let i = 0; i < 60; i++) {
+        const best = generateFixedPlanBiasedFor(metric, args);
+        worstKeeperRange = Math.max(worstKeeperRange, best.keeperRange);
+      }
+      // "Ideal" per calculateFairness's own rating (<=1 interval = 5 min
+      // apart) — matches the 15/10/10/10 shape a coach would expect for
+      // this exact 9-interval/4-eligible-keeper split, not just "better
+      // than before."
+      expect(worstKeeperRange).toBeLessThanOrEqual(1);
+    }
+  });
+
   it("never regresses past a single ungoverned call, across a spread of squad/field-size shapes", () => {
     const configs = [
       { availableIds: ["p1", "p2", "p3", "p4", "p5", "p6"], gameMinutes: 40, numIntervals: 8, fieldSize: 4, keeperEligibleIds: ["p1", "p2"], keeperShiftIntervals: 2 },

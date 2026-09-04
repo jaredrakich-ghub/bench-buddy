@@ -1113,13 +1113,28 @@ function buildBenchFairSchedule({
 // confirmed against two real games with the same roster shape landing at
 // different points on that curve. So: build `attempts` independent
 // candidates, score each with calculateFairness's own outfieldRange/
-// benchRange (interval counts, not minutes — fine here, every candidate
-// shares the same interval length so counts and minutes agree up to that
-// same constant factor), and keep whichever is tightest on the requested
-// metric. Ties are broken by the OTHER metric's range, so neither option
-// gratuitously widens the metric it isn't targeting any further than the
-// tied candidates already do. Stops the moment a candidate hits range 0
-// on the target metric — nothing beats perfect.
+// benchRange/keeperRange (interval counts, not minutes — fine here, every
+// candidate shares the same interval length so counts and minutes agree
+// up to that same constant factor), and keep the best under the priority
+// below.
+//
+// Selection priority: keeperRange FIRST, then the requested metric's own
+// range, then the other metric's range as a final tie-break. Real-use
+// report + a sweep that confirmed it: with only "bench range, then
+// outfield range" as the key (an earlier version of this function),
+// "Improve bench fairness" picked a keeper-badly-uneven candidate ~1 in 6
+// times on a real 7-player/4-eligible-keeper/45-min/10-min-shift
+// configuration (up to a 15+ minute keeper-time gap) — every individual
+// candidate already runs repairKeeperBalance, but that pass hits a
+// genuine "no safe move" limit for some shuffles (see its own comment),
+// and nothing was steering the SEARCH away from those candidates once
+// they happened to also score well on bench. Both buildFairSchedule and
+// buildBenchFairSchedule already treat keeper fairness as the baseline
+// repair pass that runs BEFORE their respective outfield/bench pass —
+// this makes the search's own selection honor that same priority instead
+// of accidentally overriding it by only looking at the metric a coach
+// asked to improve. Stops the moment a candidate is simultaneously
+// keeper-ideal AND perfect on the target metric — nothing beats that.
 //
 // Why two pipelines rather than one search over one pipeline: an earlier
 // version searched generateFixedPlan alone for both metrics — worked well
@@ -1149,11 +1164,12 @@ export function generateFixedPlanBiasedFor(metric, planArgs, attempts = 30) {
     const fairness = calculateFairness(intervals, availableIds, keeperEligibleIds);
     const primary = metric === "bench" ? fairness.benchRange : fairness.outfieldRange;
     const secondary = metric === "bench" ? fairness.outfieldRange : fairness.benchRange;
-    if (!best || primary < bestKey[0] || (primary === bestKey[0] && secondary < bestKey[1])) {
-      best = { intervals, outfieldRange: fairness.outfieldRange, benchRange: fairness.benchRange };
-      bestKey = [primary, secondary];
+    const key = [fairness.keeperRange, primary, secondary];
+    if (!best || key[0] < bestKey[0] || (key[0] === bestKey[0] && (key[1] < bestKey[1] || (key[1] === bestKey[1] && key[2] < bestKey[2])))) {
+      best = { intervals, outfieldRange: fairness.outfieldRange, benchRange: fairness.benchRange, keeperRange: fairness.keeperRange };
+      bestKey = key;
     }
-    if (primary === 0) break;
+    if (bestKey[0] === 0 && bestKey[1] === 0) break; // keeper-perfect and target-metric-perfect — nothing beats it
   }
   return best;
 }
