@@ -64,6 +64,8 @@ export default function SummaryModal({ plan, availableIds, nameOf, numberOf, onC
       </div>
 
       <div style={styles.mdMinutesColHeads}>
+        <span style={styles.mdMinutesColHeadSpacerDisc} aria-hidden="true" />
+        <span style={styles.mdMinutesColHeadSpacerName} aria-hidden="true" />
         <span style={styles.mdMinutesColHeadPitch}>PITCH</span>
         <span style={styles.mdMinutesColHeadGoal}>GOAL</span>
         <span style={styles.mdMinutesColHeadBench}>BENCH</span>

@@ -1976,7 +1976,22 @@ export const styles = {
     lineHeight: 1.4, marginBottom: 12,
   },
   // padding-left 51px aligns past the 32px disc + gap in the rows below.
-  mdMinutesColHeads: { display: "flex", padding: "0 12px 2px 51px", gap: 9, marginBottom: 4 },
+  // Real bug (real-use feedback): this used to fake the "disc + name"
+  // space below with a flat padding-left:51px guess — close for the
+  // fixed-width disc (32px) + its gap, but NAME itself (mdMinutesName) is
+  // flex:1, a PROPORTIONAL share of the row's width, not a fixed one, so
+  // a flat padding could never actually match it. That left the PITCH
+  // header centred inside a box that started too far left and was too
+  // wide (it silently included NAME's own real estate, which has no
+  // header counterpart), pulling the centred text left of where the
+  // PITCH values actually sit. Fixed properly: padding-left now matches
+  // the row's own left inset (9px, mdMinutesRow's own padding) and two
+  // invisible spacers (mdMinutesColHeadSpacerDisc/Name below) mirror the
+  // row's real disc+name layout piece for piece, so PITCH's own flex:1
+  // box starts and ends exactly where mdMinutesValuePitch's does.
+  mdMinutesColHeads: { display: "flex", padding: "0 12px 2px 9px", gap: 9, marginBottom: 4 },
+  mdMinutesColHeadSpacerDisc: { width: 32, flexShrink: 0 },
+  mdMinutesColHeadSpacerName: { flex: 1, minWidth: 0 },
   // Centre-aligned (real-use feedback) — the headers sit directly above
   // mdMinutesValuePitch/Goal/Bench below, which match.
   mdMinutesColHeadPitch: {
