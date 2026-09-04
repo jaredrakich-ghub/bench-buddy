@@ -1475,6 +1475,25 @@ export default function MatchView({
     }
   };
 
+  // Real-use feedback: a coach sometimes forgets to tap Start again right
+  // after a sub, and by the time they notice, the displayed clock has
+  // drifted behind (or, tapping Start a little early, ahead of) real
+  // elapsed time — a full Restart throws away the sub log and rewinds to
+  // 0:00, nothing like what's actually wanted here. Shifts both the live
+  // display and the run-segment anchor to the same new value, same
+  // reasoning as toggleTimer's own pause branch above: correct whether
+  // the clock is currently running (the next tick's own
+  // computeLiveElapsedSec re-derives elapsedSec from the shifted
+  // baseElapsedSec anyway) or paused (nothing else would, so both need
+  // setting directly for the display to actually move). Computed from the
+  // current `elapsedSec` prop directly, not a functional update — matches
+  // what's on screen the instant the coach taps, not a stale closure.
+  const nudgeClock = (deltaSec) => {
+    const next = Math.max(0, Math.min(totalGameSec, elapsedSec + deltaSec));
+    setElapsedSec(next);
+    setBaseElapsedSec(next);
+  };
+
   // Pitch tokens: today's occupants (from viewedIv.onField, as ever) plus
   // any activeSwap participant not among them — a player who's fading
   // out of a slot they just left, or whose arrival hasn't landed in the
@@ -2191,6 +2210,40 @@ export default function MatchView({
             <div style={styles.mdCautionSheetBody}>
               The clock and sub log go back to 0:00 — the {fmtClock(elapsedSec)} played so far won't be kept. Today's
               rotation stays exactly as it is; this doesn't build a new one.
+            </div>
+            {/* Not a reset at all — a much smaller, separate fix for clock
+                drift (forgot to tap Start again, or tapped it a beat early).
+                Deliberately understated relative to Reset/Cancel above (no
+                bold color, no shadow) so it doesn't read as a second
+                competing decision on the same sheet — this is the one
+                existing entry point into any timer-adjustment action, not a
+                natural fit for the Restart copy above it, but a real one. */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "0 2px" }}>
+              <span style={{ fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13, color: tokens.color.mutedText }}>
+                Clock drifted? Nudge it
+              </span>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={() => nudgeClock(-60)}
+                  style={{
+                    border: "none", background: tokens.color.creamDeep, color: tokens.color.actionBar,
+                    fontFamily: tokens.font.body, fontWeight: 800, fontSize: 13, borderRadius: 999,
+                    padding: "7px 13px", cursor: "pointer",
+                  }}
+                >
+                  −1 min
+                </button>
+                <button
+                  onClick={() => nudgeClock(60)}
+                  style={{
+                    border: "none", background: tokens.color.creamDeep, color: tokens.color.actionBar,
+                    fontFamily: tokens.font.body, fontWeight: 800, fontSize: 13, borderRadius: 999,
+                    padding: "7px 13px", cursor: "pointer",
+                  }}
+                >
+                  +1 min
+                </button>
+              </div>
             </div>
             <div style={styles.mdCautionSheetBtnRow}>
               <button

@@ -545,6 +545,50 @@ describe("MatchView — hidden reset gesture (tap the timer)", () => {
     expect(onReset).not.toHaveBeenCalled();
     expect(screen.queryByTestId("reset-confirm-sheet")).not.toBeInTheDocument();
   });
+
+  // Real-use feedback: a coach forgetting to tap Start again (or tapping it
+  // a beat early) needs a way to catch the clock up that isn't a full
+  // Restart (which throws away the sub log and rewinds to 0:00) -- a small,
+  // separate "nudge" control on the same sheet, since it's the one existing
+  // entry point into any timer adjustment.
+  describe("clock-drift nudge, on the same sheet", () => {
+    it("+1 min / -1 min shift both elapsedSec and baseElapsedSec by 60s, without closing the sheet", () => {
+      const setElapsedSec = vi.fn();
+      const setBaseElapsedSec = vi.fn();
+      render(<MatchView {...baseProps({ timerRunning: false, elapsedSec: 100, baseElapsedSec: 100, setElapsedSec, setBaseElapsedSec })} />);
+      fireEvent.click(screen.getByText(fmtClock(100)));
+
+      fireEvent.click(screen.getByText("+1 min"));
+      expect(setElapsedSec).toHaveBeenCalledWith(160);
+      expect(setBaseElapsedSec).toHaveBeenCalledWith(160);
+      expect(screen.getByTestId("reset-confirm-sheet")).toBeInTheDocument(); // still open
+
+      fireEvent.click(screen.getByText("−1 min"));
+      expect(setElapsedSec).toHaveBeenCalledWith(40);
+      expect(setBaseElapsedSec).toHaveBeenCalledWith(40);
+      expect(screen.getByTestId("reset-confirm-sheet")).toBeInTheDocument();
+    });
+
+    it("never goes below 0 or past full time", () => {
+      const setElapsedSec = vi.fn();
+      render(<MatchView {...baseProps({ timerRunning: false, elapsedSec: 20, setElapsedSec })} />);
+      fireEvent.click(screen.getByText(fmtClock(20)));
+      fireEvent.click(screen.getByText("−1 min"));
+      expect(setElapsedSec).toHaveBeenCalledWith(0); // not -40
+
+      cleanup();
+      const setElapsedSec2 = vi.fn();
+      // defaultPlan totals 12 min (720s); 700s + 60s would overshoot it.
+      // activeInterval must match the live interval (1, since defaultPlan's
+      // interval 1 spans 360-720s) or this trips interactionLocked, same
+      // guard the "does nothing while a past interval is browsed" test above
+      // exercises deliberately -- not what this test is about.
+      render(<MatchView {...baseProps({ timerRunning: false, elapsedSec: 700, activeInterval: 1, setElapsedSec: setElapsedSec2 })} />);
+      fireEvent.click(screen.getByText(fmtClock(700)));
+      fireEvent.click(screen.getByText("+1 min"));
+      expect(setElapsedSec2).toHaveBeenCalledWith(720); // not 760
+    });
+  });
 });
 
 describe("MatchView — final-60 sheets (block 11: prepare + execute)", () => {
