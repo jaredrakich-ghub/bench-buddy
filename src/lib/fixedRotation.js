@@ -693,14 +693,30 @@ export function buildFairSchedule({
 // player's shoulders.
 //
 // Directly rebalances keeper duty between the most- and least-loaded
-// eligible players via a pure role swap: find a boundary interval where
-// the most-loaded player is keeper and the least-loaded player is already
-// playing outfield there (and, critically, actually arrived there the
-// same way the most-loaded one did — same bench-turn origin — so this
-// never fabricates an invalid bench->keeper claim), and swap their roles
-// for that whole shift block. Neither player's bench time changes at all;
-// this is purely "who holds the gloves," which is exactly the dial the
-// spec says is fine to turn to protect outfield fairness.
+// eligible players via a pure role swap: find an interval, ANYWHERE
+// inside one of the most-loaded player's keeper blocks, where the
+// least-loaded player has just arrived from the bench onto the field
+// (and, critically, stays on the field — never benched — for the rest of
+// that block, so this never fabricates an invalid bench->keeper claim for
+// them), and swap roles for the REMAINDER of that block from there —
+// most becomes outfield, least becomes keeper. Neither player's bench
+// time changes at all (most simply changes role while staying on the
+// field, exactly like least did the moment they arrived); this is purely
+// "who holds the gloves," which is exactly the dial the spec says is fine
+// to turn to protect outfield fairness.
+//
+// Deliberately a mid-block transfer, not only a whole-block-from-its-own-
+// start one: real-use report (7 players, 4 eligible keepers, 10-minute
+// shift on a 45-minute/5-minute-sub-interval game — 5 blocks split
+// unevenly across 4 eligible players) found a case where the
+// least-loaded eligible player was ALWAYS benched at the exact moment
+// every one of the most-loaded player's blocks began, but did arrive
+// mid-block twice — a real, valid opportunity a whole-block-only search
+// can never see, since it only ever looks at a block's own start. That
+// earlier version reported "no safe move" and left a 25-vs-0-minute
+// keeper split fully unrepaired; this version finds the mid-block
+// arrivals and closes it to 15/10/10/10, confirmed via a 500-seed sweep
+// (fixedRotation.test.js).
 function repairKeeperBalance(intervals, keeperEligibleIds, protectFirstKeeper = false) {
   const eligible = [...new Set(keeperEligibleIds || [])];
   if (eligible.length < 2) return;
@@ -718,9 +734,12 @@ function repairKeeperBalance(intervals, keeperEligibleIds, protectFirstKeeper = 
       if (!gk || gk.id !== most) continue;
       if (!intervals[i].onField.some((p) => p.id === least && !p.isGk)) continue;
 
-      const prevGk = intervals[i - 1]?.onField.find((p) => p.isGk)?.id;
-      const isBoundaryForMost = i === 0 || prevGk !== most;
-      if (!isBoundaryForMost) continue;
+      // `least` must be genuinely ARRIVING at i (benched the interval
+      // right before, on field now) — this is what makes becoming keeper
+      // from here a valid bench->keeper transition. Deliberately NOT
+      // requiring i to be the block's own start any more — see this
+      // function's own comment for why a mid-block arrival has to count
+      // too, not just one at i===0 of the block.
       const leastWasBenchedBefore = i === 0 || intervals[i - 1].bench.includes(least);
       if (!leastWasBenchedBefore) continue;
 

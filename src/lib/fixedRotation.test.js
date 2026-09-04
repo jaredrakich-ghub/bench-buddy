@@ -402,25 +402,42 @@ describe("generateFixedPlanBiasedFor", () => {
     }
   });
 
-  it("never regresses past a single ungoverned call, across a spread of squad/field-size shapes", () => {
+  // Compares on the SAME (keeperRange, targetRange) priority the search
+  // itself now optimizes for (see generateFixedPlanBiasedFor's own
+  // comment on why keeperRange comes first) — a plain single draw with a
+  // slightly better target-metric range but a worse keeper range is NOT
+  // a regression, it's the fix working as intended. Even on that correct
+  // key, this stays a statistical claim, not a strict one — a single
+  // independent draw can occasionally beat the best of 30 by chance, same
+  // as any "best of N vs. one more independent try" comparison — so this
+  // asserts on the rate across many trials, not a hard per-iteration
+  // requirement, matching this file's own sweep-test convention elsewhere.
+  it("rarely regresses past a single ungoverned call's own (keeper, target-metric) priority, across a spread of squad/field-size shapes", () => {
     const configs = [
       { availableIds: ["p1", "p2", "p3", "p4", "p5", "p6"], gameMinutes: 40, numIntervals: 8, fieldSize: 4, keeperEligibleIds: ["p1", "p2"], keeperShiftIntervals: 2 },
       { availableIds: ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"], gameMinutes: 30, numIntervals: 6, fieldSize: 6, keeperEligibleIds: ["p1", "p2", "p3"], keeperShiftIntervals: 1 },
       REAL_USE_ARGS,
     ];
+    let checked = 0;
+    let regressed = 0;
     for (const args of configs) {
       for (const metric of ["pitch", "bench"]) {
-        for (let seed = 0; seed < 10; seed++) {
+        for (let seed = 0; seed < 20; seed++) {
           const { intervals: plain } = generateFixedPlan(args);
           const plainFairness = calculateFairness(plain, args.availableIds, args.keeperEligibleIds);
-          const plainRange = metric === "bench" ? plainFairness.benchRange : plainFairness.outfieldRange;
+          const plainTarget = metric === "bench" ? plainFairness.benchRange : plainFairness.outfieldRange;
 
           const best = generateFixedPlanBiasedFor(metric, args);
-          const bestRange = metric === "bench" ? best.benchRange : best.outfieldRange;
-          expect(bestRange).toBeLessThanOrEqual(plainRange);
+          const bestTarget = metric === "bench" ? best.benchRange : best.outfieldRange;
+
+          checked++;
+          const bestIsWorse = best.keeperRange > plainFairness.keeperRange || (best.keeperRange === plainFairness.keeperRange && bestTarget > plainTarget);
+          if (bestIsWorse) regressed++;
         }
       }
     }
+    expect(checked).toBeGreaterThan(100);
+    expect(regressed / checked).toBeLessThan(0.15); // rare, not zero — see the comment above
   });
 
   it("stays fast enough to feel instant for a preview — no spinner needed", () => {

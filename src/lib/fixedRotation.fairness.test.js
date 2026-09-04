@@ -326,6 +326,56 @@ describe("buildFairSchedule / generateFixedPlan — outfield fairness sweep", ()
     expect(worstRange).toBeLessThanOrEqual(6); // old engine's worst was 7; a first (reverted) fix attempt hit 9
   });
 
+  // Real-use report: 7 players, 4 eligible keepers, 10-minute keeper shift
+  // on a 45-min/5-min-sub game (keeperShiftIntervals 2 — 9 intervals means
+  // 5 blocks, unevenly distributable across 4 eligible players) produced
+  // "wildly out of whack" keeper minutes — a real traced case hit a
+  // 25-vs-0-minute split. Root cause: repairKeeperBalance's own tryMove
+  // only ever looked for the least-loaded player arriving at the exact
+  // START of the most-loaded player's block — in the traced case, that
+  // player was benched at EVERY one of the most-loaded player's block
+  // starts, even though they legitimately arrived mid-block twice (a real,
+  // valid handoff opportunity a whole-block-only search can never see).
+  // Fixed by letting tryMove search for a genuine arrival ANYWHERE inside
+  // a block and transfer only the remainder from there (see its own
+  // comment) — the traced case now lands exactly on the 15/10/10/10 shape
+  // a coach would expect. A 500-seed sweep: bad cases (keeper range >=3
+  // intervals, a 15+ minute gap) dropped from 187/500 to 77/500 — real,
+  // more-than-halved improvement, not a full fix. The remainder is a
+  // deeper limit: repairKeeperBalance only ever considers the single
+  // strict-max-vs-strict-min pair (correct — a move between two non-
+  // extreme values can't change the range at all), and some fixed bench
+  // schedules genuinely offer no valid arrival for that exact pair in
+  // either of the max player's blocks, even searched mid-block. Closing
+  // that fully would mean re-deriving keeper assignment from the fixed
+  // bench schedule as a constraint problem rather than iterative pairwise
+  // swaps — a bigger change, not attempted here.
+  it("keeper-turn spread for a 4-eligible-keeper/10-minute-shift configuration improves substantially, though a smaller remaining gap is a known limit", () => {
+    const availableIds = ["p1", "p2", "p3", "p4", "p5", "p6", "p7"];
+    const keeperEligibleIds = ["p1", "p2", "p3", "p4"];
+    let bad = 0;
+    let worstRange = 0;
+    let nullGkFound = false;
+    for (let seed = 1; seed <= 500; seed++) {
+      let s = seed;
+      const random = () => {
+        s = (s * 1103515245 + 12345) & 0x7fffffff;
+        return s / 0x7fffffff;
+      };
+      const { intervals } = generateFixedPlan({
+        availableIds, gameMinutes: 45, numIntervals: 9, fieldSize: 5, keeperEligibleIds,
+        keeperShiftIntervals: 2, random,
+      });
+      intervals.forEach((iv) => { if (!iv.onField.some((p) => p.isGk)) nullGkFound = true; });
+      const fairness = calculateFairness(intervals, availableIds, keeperEligibleIds);
+      if (fairness.keeperRange >= 3) bad++;
+      worstRange = Math.max(worstRange, fairness.keeperRange);
+    }
+    expect(nullGkFound).toBe(false);
+    expect(bad).toBeLessThan(100); // was 187/500 before the mid-block-arrival fix
+    expect(worstRange).toBeLessThanOrEqual(5); // sanity ceiling — catches true breakage, not the known remaining gap above
+  });
+
   it("keeps bench range within 1 of the theoretical best, and never sacrifices outfield fairness to improve it", () => {
     const squadSizes = [6, 7, 8, 9, 10];
     const fieldSizes = [4, 5];
