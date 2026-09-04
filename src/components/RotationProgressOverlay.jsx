@@ -365,6 +365,14 @@ export default function RotationProgressOverlay({
   // "which one is actually worse right now" on its own.
   const currentOutfieldSpread = spreadOf(currentRows, "outfieldMin");
   const currentBenchSpread = spreadOf(currentRows, "benchMin");
+  // Real-use feedback: promote whichever fix actually addresses the
+  // bigger problem, via colour, rather than always favouring "Improve
+  // pitch fairness" regardless of which column is actually worse — green
+  // should point a coach toward the right decision, not an arbitrary
+  // default. Ties (or no currentRows to compare) fall back to pitch,
+  // matching this menu's own existing button order.
+  const pitchNeedsMoreWork =
+    currentOutfieldSpread === null || currentBenchSpread === null || currentOutfieldSpread >= currentBenchSpread;
 
   return (
     <>
@@ -524,13 +532,6 @@ export default function RotationProgressOverlay({
               <span style={{ fontFamily: tokens.font.display, fontWeight: 800, fontSize: 17, color: tokens.color.deepGreen }}>{displayFairness.label}</span>
             </div>
 
-            {/* "pitch time", not "minutes" — pitch, goal, and bench are
-                counted separately everywhere else in the app, so a bare
-                "N min each" here would be ambiguous about which. */}
-            <p style={{ margin: 0, fontFamily: tokens.font.body, fontWeight: 700, fontSize: 14.5, color: tokens.color.groupLabel, lineHeight: 1.45, textWrap: "pretty", textAlign: "center" }}>
-              Pitch time is within {displayStats.maxDifference} min for every child.
-            </p>
-
             <div style={{ background: tokens.color.creamDeep, borderRadius: 20, padding: "12px 16px", display: "flex", alignItems: "center" }}>
               <span style={{ fontFamily: tokens.font.body, fontWeight: 800, fontSize: 12, color: tokens.color.mutedText, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                 Average pitch time
@@ -605,17 +606,18 @@ export default function RotationProgressOverlay({
                   </div>
                 )}
                 <button
-                  ref={continueBtnRef}
+                  ref={pitchNeedsMoreWork ? continueBtnRef : undefined}
                   onClick={() => handleImprove("pitch")}
                   tabIndex={phase === "success" ? undefined : -1}
-                  style={{ ...styles.mdCautionSheetBtnPrimary, width: "100%", flex: "none" }}
+                  style={{ ...(pitchNeedsMoreWork ? styles.mdCautionSheetBtnPrimary : styles.mdCautionSheetBtnSecondary), width: "100%", flex: "none" }}
                 >
                   Improve pitch fairness
                 </button>
                 <button
+                  ref={pitchNeedsMoreWork ? undefined : continueBtnRef}
                   onClick={() => handleImprove("bench")}
                   tabIndex={phase === "success" ? undefined : -1}
-                  style={{ ...styles.mdCautionSheetBtnSecondary, width: "100%", flex: "none" }}
+                  style={{ ...(pitchNeedsMoreWork ? styles.mdCautionSheetBtnSecondary : styles.mdCautionSheetBtnPrimary), width: "100%", flex: "none" }}
                 >
                   Improve bench fairness
                 </button>

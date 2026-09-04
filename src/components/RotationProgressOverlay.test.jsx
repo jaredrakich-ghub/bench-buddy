@@ -116,13 +116,16 @@ describe("RotationProgressOverlay", () => {
     expect(screen.getByRole("button", { name: "View my rotation" })).not.toHaveAttribute("tabindex", "-1");
   });
 
-  it("shows the fairness mark, the supporting pitch-time line, and the average row", () => {
+  it("shows the fairness mark and the average row — no separate pitch-time-spread line", () => {
     render(<RotationProgressOverlay averageMinutes={22} maxDifference={2} intervalLen={5} onContinue={() => {}} />);
     act(() => vi.advanceTimersByTime(1800));
     expect(screen.getByRole("img", { name: "Fair" })).toBeInTheDocument(); // spread 2 -> Fair
-    expect(screen.getByText("Pitch time is within 2 min for every child.")).toBeInTheDocument();
     expect(screen.getByText("Average pitch time")).toBeInTheDocument();
     expect(screen.getByText("≈ 22 min")).toBeInTheDocument();
+    // Real-use feedback: removed — SummaryModal's own near-identical line
+    // used a different metric under the same wording (see its own
+    // comment); "Average pitch time" alone is the signal now.
+    expect(screen.queryByText(/Pitch time is within/)).not.toBeInTheDocument();
   });
 
   it("moves focus to View my rotation once success appears, and it calls onContinue", () => {
@@ -238,7 +241,6 @@ describe("RotationProgressOverlay — needs-attention Solve flow", () => {
     // The candidate's own stats now drive the top card — Fair (spread 1 vs
     // interval 5), not the original Needs attention.
     expect(screen.getByRole("img", { name: "Fair" })).toBeInTheDocument();
-    expect(screen.getByText("Pitch time is within 1 min for every child.")).toBeInTheDocument();
     // Per-player preview rows.
     expect(screen.getByRole("button", { name: "Use this rotation" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
@@ -396,5 +398,57 @@ describe("RotationProgressOverlay — needs-attention Solve flow", () => {
 
     act(() => screen.getByRole("button", { name: "Hide current minutes" }).click());
     expect(screen.queryByText("Atu")).not.toBeInTheDocument();
+  });
+
+  // Real-use feedback: green should point a coach toward whichever fix
+  // actually addresses the bigger problem, not always default to pitch
+  // regardless of which column is worse.
+  const PITCH_GREEN = "rgb(46, 125, 83)"; // tokens.color.pitchGreen
+  const CREAM_DEEP = "rgb(241, 233, 210)"; // tokens.color.creamDeep
+
+  it("promotes Improve bench fairness to green (and pitch to grey) when bench spread is worse", () => {
+    render(
+      <RotationProgressOverlay
+        averageMinutes={22} maxDifference={30} intervalLen={5} gameMinutes={45}
+        onContinue={() => {}} onImprove={() => fakeCandidate()} onUseImprovedPlan={() => {}}
+        currentRows={[
+          { id: "p1", outfieldMin: 20, gkMin: 15, benchMin: 5 },
+          { id: "p2", outfieldMin: 25, gkMin: 0, benchMin: 20 },
+        ]} // outfield spread 5, bench spread 15 — bench is worse
+      />
+    );
+    act(() => vi.advanceTimersByTime(1800));
+    expect(screen.getByRole("button", { name: "Improve bench fairness" })).toHaveStyle({ background: PITCH_GREEN });
+    expect(screen.getByRole("button", { name: "Improve pitch fairness" })).toHaveStyle({ background: CREAM_DEEP });
+  });
+
+  it("promotes Improve pitch fairness to green when outfield spread is worse (or tied), including when no currentRows are given", () => {
+    render(
+      <RotationProgressOverlay
+        averageMinutes={22} maxDifference={30} intervalLen={5} gameMinutes={45}
+        onContinue={() => {}} onImprove={() => fakeCandidate()} onUseImprovedPlan={() => {}}
+        currentRows={[
+          { id: "p1", outfieldMin: 20, gkMin: 15, benchMin: 10 },
+          { id: "p2", outfieldMin: 30, gkMin: 0, benchMin: 15 },
+        ]} // outfield spread 10, bench spread 5 — outfield is worse
+      />
+    );
+    act(() => vi.advanceTimersByTime(1800));
+    expect(screen.getByRole("button", { name: "Improve pitch fairness" })).toHaveStyle({ background: PITCH_GREEN });
+    expect(screen.getByRole("button", { name: "Improve bench fairness" })).toHaveStyle({ background: CREAM_DEEP });
+
+    cleanup();
+    stubMatchMedia(false);
+    window.scrollTo = vi.fn();
+    // No currentRows at all — falls back to pitch, same as before this
+    // feature existed.
+    render(
+      <RotationProgressOverlay
+        averageMinutes={22} maxDifference={30} intervalLen={5} gameMinutes={45}
+        onContinue={() => {}} onImprove={() => fakeCandidate()} onUseImprovedPlan={() => {}}
+      />
+    );
+    act(() => vi.advanceTimersByTime(1800));
+    expect(screen.getByRole("button", { name: "Improve pitch fairness" })).toHaveStyle({ background: PITCH_GREEN });
   });
 });
