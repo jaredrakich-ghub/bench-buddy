@@ -440,18 +440,62 @@ describe("generateFixedPlanBiasedFor", () => {
     expect(regressed / checked).toBeLessThan(0.15); // rare, not zero — see the comment above
   });
 
-  it("stays fast enough to feel instant for a preview — no spinner needed", () => {
+  it("stays fast enough to feel instant for a preview — no spinner needed, at the real default attempts", () => {
     const bigArgs = {
       availableIds: Array.from({ length: 16 }, (_, i) => `p${i + 1}`),
       gameMinutes: 60, numIntervals: 10, fieldSize: 9,
       keeperEligibleIds: ["p1", "p2", "p3", "p4"], keeperShiftIntervals: 2,
     };
     const start = performance.now();
-    generateFixedPlanBiasedFor("pitch", bigArgs, 30);
+    generateFixedPlanBiasedFor("pitch", bigArgs); // no override — exercises the real 100-attempt default
     const elapsedMs = performance.now() - start;
     // Generous margin for a slow CI machine — this is a sanity check
     // against something pathological, not a tight perf budget.
     expect(elapsedMs).toBeLessThan(500);
+  });
+
+  // Real-use report: "works well when the two numbers are far apart,
+  // harder to balance when close" (10-vs-15 instead of 5-vs-15) on this
+  // exact configuration. Traced to the search settling for "acceptable"
+  // (2 intervals) on its OWN target metric instead of the genuinely
+  // achievable "ideal" (1) — not a structural floor (that's bench's
+  // consistent 3 intervals here, a real, separate, unavoidable limit —
+  // see the next test) but a sampling-luck gap at the old attempts=30
+  // default. Raising the default to 100 (see the function's own comment)
+  // fixes it — asserts the RATE, not every single call, since even 100
+  // attempts is still probabilistic, just reliably so.
+  it("reliably finds its own genuinely-achievable ideal, not just 'acceptable', at the real default attempts", () => {
+    const args = {
+      availableIds: ["p1", "p2", "p3", "p4", "p5", "p6", "p7"],
+      gameMinutes: 45, numIntervals: 9, fieldSize: 5,
+      keeperEligibleIds: ["p1", "p2", "p3"], keeperShiftIntervals: 2,
+    };
+    let idealHits = 0;
+    const n = 60;
+    for (let i = 0; i < n; i++) {
+      const best = generateFixedPlanBiasedFor("pitch", args); // real default, no override
+      if (best.outfieldRange <= 1) idealHits++;
+    }
+    expect(idealHits / n).toBeGreaterThan(0.85); // was ~62% at the old attempts=30 default
+  });
+
+  // The genuine structural floor, for contrast with the test above — no
+  // attempts count fixes this one, and none should try to: once keeper
+  // duty is fair, outfield and bench trade off by roughly the average
+  // keeper minutes each eligible player carries (45 min / 3 eligible
+  // players here = 15 min = 3 intervals), and that's what a coach
+  // legitimately sees as the "other" number no matter how the search
+  // improves.
+  it("bench range stays at its real structural floor when optimizing pitch on this configuration — not a search gap", () => {
+    const args = {
+      availableIds: ["p1", "p2", "p3", "p4", "p5", "p6", "p7"],
+      gameMinutes: 45, numIntervals: 9, fieldSize: 5,
+      keeperEligibleIds: ["p1", "p2", "p3"], keeperShiftIntervals: 2,
+    };
+    for (let i = 0; i < 20; i++) {
+      const best = generateFixedPlanBiasedFor("pitch", args);
+      expect(best.benchRange).toBe(3);
+    }
   });
 
   it("returns a fully-formed candidate even with attempts=1 (no crash on the smallest possible search)", () => {

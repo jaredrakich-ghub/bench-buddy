@@ -1169,7 +1169,26 @@ function buildBenchFairSchedule({
 // metric: "pitch" (minimize outfieldMin/outfieldRange spread — the Today's
 // Minutes PITCH column) or "bench" (minimize the BENCH column). planArgs
 // is exactly generateFixedPlan's own argument object, reused as-is.
-export function generateFixedPlanBiasedFor(metric, planArgs, attempts = 30) {
+//
+// attempts default (100, not 30): real-use report on a 7-player/3-
+// eligible-keeper/10-min-shift game — "works well when the two numbers
+// are far apart, harder to balance when they're close" (e.g. 10-vs-15
+// instead of 5-vs-15 on the metric NOT being optimized). Traced to two
+// separate things: (1) a genuine, unavoidable structural floor on the
+// OTHER metric — once keeper duty is fair, outfield and bench trade off
+// against each other by roughly the average keeper minutes each eligible
+// player carries, and no search finds a smaller gap there than that
+// floor allows; real, not a bug. But (2) even the metric actually being
+// searched wasn't always landing on ITS OWN best achievable value at
+// attempts=30 — a direct trace on that exact configuration found
+// keeperRange hit its own ideal (0) on every single attempt, yet the
+// TARGET metric still landed on "acceptable" (2 intervals) instead of
+// the genuinely achievable "ideal" (1) about 38% of the time, purely
+// because 30 random shuffles wasn't always enough of a sample to find
+// it — not because it didn't exist. 100 attempts found it 93-94% of the
+// time in the same sweep, still comfortably fast (single-digit
+// milliseconds even on a 16-player roster) — see the timing test.
+export function generateFixedPlanBiasedFor(metric, planArgs, attempts = 100) {
   const { availableIds, keeperEligibleIds } = planArgs;
   const buildCandidate =
     metric === "bench"
