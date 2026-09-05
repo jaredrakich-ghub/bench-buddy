@@ -1,0 +1,39 @@
+name: Deploy marketing site to Firebase Hosting
+
+on:
+  push:
+    branches: [main]
+    # Only run when something that actually affects the deployed site
+    # changes — the marketing site has no build step, so there's nothing
+    # to gain by re-deploying on every unrelated app commit.
+    paths:
+      - "marketing/**"
+      - "firebase.json"
+      - ".firebaserc"
+      - ".github/workflows/deploy-marketing.yml"
+  # Lets you manually trigger a redeploy from the Actions tab without a
+  # new qualifying commit.
+  workflow_dispatch:
+
+# Only one deploy at a time; a new push cancels an in-flight one rather
+# than queuing, since only the latest main ever needs to be live.
+concurrency:
+  group: firebase-hosting-marketing
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: "${{ secrets.GITHUB_TOKEN }}"
+          # Service account key generated in the Firebase console (Project
+          # settings → Service accounts → Generate new private key) for the
+          # real bench-buddy-ada85 project, added as a repo secret with
+          # this exact name — see the .firebaserc "production" alias this
+          # mirrors. Never the demo/emulator project.
+          firebaseServiceAccount: "${{ secrets.FIREBASE_SERVICE_ACCOUNT_BENCH_BUDDY_ADA85 }}"
+          projectId: bench-buddy-ada85
+          channelId: live

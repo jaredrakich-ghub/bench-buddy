@@ -1,5 +1,6 @@
 {
   "projects": {
-    "default": "demo-bench-buddy-test"
+    "default": "demo-bench-buddy-test",
+    "production": "bench-buddy-ada85"
   }
 }

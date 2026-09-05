@@ -2,6 +2,15 @@
   "firestore": {
     "rules": "firestore.rules"
   },
+  "hosting": {
+    "public": "marketing",
+    "ignore": [
+      "design_handoff_bench_buddy_website/**",
+      "**/.*"
+    ],
+    "cleanUrls": true,
+    "trailingSlash": false
+  },
   "emulators": {
     "auth": {
       "port": 9099
