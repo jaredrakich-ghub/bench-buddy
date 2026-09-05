@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=Nunito:wght@400;500;600;700&family=Baloo+2:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin:0; background:#F4F1E9; font-family:'Nunito',system-ui,sans-serif; color:#233A2E; }
+  a { color:#2E7D53; text-decoration:none; }
+  a:hover { color:#14251D; }
+  ::selection { background:#F5B93B; color:#14251D; }
+  .bb-rail::-webkit-scrollbar { height:0; }
+  .bb-rail { scrollbar-width:none; }
+</style>
+</helmet>
+
+<div style="width:100%; overflow-x:hidden; background:#F4F1E9">
+
+  <header style="position:absolute; top:0; left:0; right:0; z-index:20; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:clamp(18px,2.4vw,30px) clamp(18px,4vw,64px)">
+    <div style="display:flex; align-items:center; gap:11px">
+      <img src="assets/bench-buddy-mark.svg" alt="Bench Buddy" style="width:56px; height:56px; display:block">
+      <div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:21px; color:#FFFFFF; line-height:1; letter-spacing:-.2px; text-shadow:0 1px 8px rgba(10,20,15,.45)">Bench Buddy</div>
+    </div>
+    <a href="#get" style="display:flex; align-items:center; height:44px; padding:0 22px; border-radius:999px; background:#F5B93B; color:#14251D; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:15px; letter-spacing:-.1px" style-hover="background:#FFD063">Download the App</a>
+  </header>
+
+  <section data-screen-label="W1-Hero" style="position:relative; min-height:100svh; display:flex; align-items:flex-end; background:#14251D; overflow:hidden">
+    <div style="position:absolute; inset:0">
+      <div style="position:absolute; right:clamp(18px,4vw,64px); top:clamp(80px,11vh,112px); left:auto; z-index:3; text-align:right; font-family:'Schibsted Grotesk',sans-serif; font-weight:600; font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:rgba(244,241,233,.42); pointer-events:none">Scene 10 — Celebrating the action</div>
+      <video aria-hidden="true" data-slot src="https://raw.githubusercontent.com/jaredrakich-ghub/bench-buddy/main/docs/Marketing%20Videos/Scene%2010%20-%20Coach%20Dave%20-%20Celebrating%20the%20action.mp4" autoplay muted loop playsinline preload="auto" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block"></video>
+      <div style="position:absolute; inset:0; background:rgba(12,26,19,.5)"></div>
+      <div style="position:absolute; left:0; right:0; bottom:0; height:66%; background:linear-gradient(to top, rgba(12,26,19,.52), rgba(12,26,19,0))"></div>
+    </div>
+    <div style="position:relative; z-index:2; width:100%; max-width:1320px; margin:0 auto; padding:0 clamp(18px,4vw,64px) clamp(52px,7vh,96px); display:flex; flex-direction:column; gap:clamp(22px,3vw,34px)">
+      <div data-reveal style="display:flex; flex-direction:column; gap:clamp(16px,2vw,22px); max-width:1080px">
+        <div style="font-family:'Schibsted Grotesk',sans-serif; font-weight:600; font-size:13px; letter-spacing:.16em; text-transform:uppercase; color:#F5B93B">For coaches, parents and clubs</div>
+        <h1 style="margin:0; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:clamp(36px,5.6vw,76px); line-height:1.04; letter-spacing:-.03em; color:#FFFFFF; text-wrap:balance">Fair rotations.<br>Less thinking.<br>More time enjoying the game.</h1>
+        <p style="margin:0; max-width:600px; font-size:clamp(16px,1.5vw,20px); line-height:1.5; font-weight:500; color:rgba(244,241,233,.88); text-wrap:pretty">Bench Buddy takes care of substitutions, playing time and goalkeeper rotations—so every child gets a fair game.</p>
+      </div>
+      <div data-reveal style="display:flex; flex-wrap:wrap; align-items:center; gap:14px">
+        <a href="#get" style="display:flex; align-items:center; height:60px; padding:0 32px; border-radius:999px; background:#F5B93B; color:#14251D; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:clamp(16px,1.4vw,18px); letter-spacing:-.1px" style-hover="background:#FFD063">Download the App</a>
+        <a href="#story" style="display:flex; align-items:center; gap:12px; height:60px; padding:0 28px 0 22px; border-radius:999px; border:1.5px solid rgba(244,241,233,.42); color:#FFFFFF; font-family:'Schibsted Grotesk',sans-serif; font-weight:600; font-size:clamp(16px,1.4vw,18px)" style-hover="border-color:#FFFFFF; background:rgba(244,241,233,.1)">
+          <svg width="15" height="17" viewBox="0 0 15 17" fill="none" aria-hidden="true" style="display:block; flex:0 0 auto"><path d="M1.5 1.6 L13.4 8.5 L1.5 15.4 Z" fill="#FFFFFF"></path></svg>
+          Watch the story
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section id="story" data-screen-label="W2-Act-one" style="background:#14251D; padding:clamp(72px,10vh,132px) clamp(18px,4vw,64px) clamp(64px,9vh,112px)">
+    <div style="max-width:1320px; margin:0 auto; display:flex; flex-direction:column; gap:clamp(36px,4.5vw,56px)">
+      <div data-reveal style="display:flex; flex-direction:column; gap:16px; max-width:800px">
+        <div style="font-family:'Schibsted Grotesk',sans-serif; font-weight:600; font-size:13px; letter-spacing:.16em; text-transform:uppercase; color:rgba(244,241,233,.62)">Act one</div>
+        <h2 style="margin:0; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:clamp(30px,4.4vw,60px); line-height:1.06; letter-spacing:-.03em; color:#FFFFFF; text-wrap:balance">The Saturday morning every coach knows.</h2>
+        <p style="margin:0; font-size:clamp(16px,1.5vw,20px); line-height:1.5; font-weight:500; color:rgba(244,241,233,.68); max-width:590px; text-wrap:pretty">A paper team sheet and the impossible task of remembering who’s had a turn.</p>
+      </div>
+      <div data-reveal style="display:flex; flex-wrap:wrap; align-items:center; gap:clamp(20px,3vw,52px)">
+        <div style="flex:1 1 400px; position:relative; width:100%; aspect-ratio:4/3; border-radius:clamp(18px,2vw,26px); overflow:hidden; background:#0E1B14"><video aria-hidden="true" data-slot src="https://raw.githubusercontent.com/jaredrakich-ghub/bench-buddy/main/docs/Marketing%20Videos/Coach%20Dave%20-%20Happy%20with%20Static%20paper%20plan%20lower%20quality.mp4" autoplay muted loop playsinline preload="none" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block"></video></div>
+        <div style="flex:1 1 288px; display:flex; flex-direction:column; gap:12px">
+          <div style="font-family:'Schibsted Grotesk',sans-serif; font-weight:600; font-size:12px; letter-spacing:.14em; color:rgba(244,241,233,.6)">01</div>
+          <h3 style="margin:0; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:clamp(23px,2.6vw,36px); line-height:1.1; letter-spacing:-.03em; color:#FFFFFF; text-wrap:balance">The plan</h3>
+          <p style="margin:0; font-size:clamp(16px,1.4vw,19px); line-height:1.5; font-weight:500; color:rgba(244,241,233,.66); text-wrap:pretty">An AI-generated plan, ready to implement.</p>
+        </div>
+      </div>
+      <div data-reveal style="display:flex; flex-wrap:wrap; align-items:center; gap:clamp(20px,3vw,52px)">
+        <div style="flex:1 1 400px; position:relative; width:100%; aspect-ratio:4/3; border-radius:clamp(18px,2vw,26px); overflow:hidden; background:#0E1B14"><video aria-hidden="true" data-slot src="https://raw.githubusercontent.com/jaredrakich-ghub/bench-buddy/main/docs/Marketing%20Videos/Scene%202%20-%20Coach%20Dave%20-%20Child%20asking%20when%20they're%20going%20on.mp4" autoplay muted loop playsinline preload="none" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block"></video></div>
+        <div style="flex:1 1 288px; display:flex; flex-direction:column; gap:12px">
+          <div style="font-family:'Schibsted Grotesk',sans-serif; font-weight:600; font-size:12px; letter-spacing:.14em; color:rgba(244,241,233,.6)">02</div>
+          <h3 style="margin:0; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:clamp(23px,2.6vw,36px); line-height:1.1; letter-spacing:-.03em; color:#FFFFFF; text-wrap:balance">“When am I going on?”</h3>
+          <p style="margin:0; font-size:clamp(16px,1.4vw,19px); line-height:1.5; font-weight:500; color:rgba(244,241,233,.66); text-wrap:pretty">I can handle this. My plan tells you exactly when you go on.</p>
+        </div>
+      </div>
+      <div data-reveal style="display:flex; flex-wrap:wrap; align-items:center; gap:clamp(20px,3vw,52px)">
+        <div style="flex:1 1 400px; position:relative; width:100%; aspect-ratio:4/3; border-radius:clamp(18px,2vw,26px); overflow:hidden; background:#0E1B14"><video aria-hidden="true" data-slot src="https://raw.githubusercontent.com/jaredrakich-ghub/bench-buddy/main/docs/Marketing%20Videos/Scene%203%20-%20Coach%20Dave%20-%20Child%20asking%20why%20he's%20been%20subbed.%20He%20just%20came%20on.mp4" autoplay muted loop playsinline preload="none" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block"></video></div>
+        <div style="flex:1 1 288px; display:flex; flex-direction:column; gap:12px">
+          <div style="font-family:'Schibsted Grotesk',sans-serif; font-weight:600; font-size:12px; letter-spacing:.14em; color:rgba(244,241,233,.6)">03</div>
+          <h3 style="margin:0; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:clamp(23px,2.6vw,36px); line-height:1.1; letter-spacing:-.03em; color:#FFFFFF; text-wrap:balance">First confusion</h3>
+          <p style="margin:0; font-size:clamp(16px,1.4vw,19px); line-height:1.5; font-weight:500; color:rgba(244,241,233,.66); text-wrap:pretty">“Why am I coming off? I just came on.” First loss of trust.</p>
+        </div>
+      </div>
+      <div data-reveal style="display:flex; flex-wrap:wrap; align-items:center; gap:clamp(20px,3vw,52px)">
+        <div style="flex:1 1 400px; position:relative; width:100%; aspect-ratio:4/3; border-radius:clamp(18px,2vw,26px); overflow:hidden; background:#0E1B14"><video aria-hidden="true" data-slot src="https://raw.githubusercontent.com/jaredrakich-ghub/bench-buddy/main/docs/Marketing%20Videos/Scene%205%20-%20Coach%20Dave%20-%20Unexpected%20Event%20-%20Injury%20to%20player.mp4" autoplay muted loop playsinline preload="none" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block"></video></div>
+        <div style="flex:1 1 288px; display:flex; flex-direction:column; gap:12px">
+          <div style="font-family:'Schibsted Grotesk',sans-serif; font-weight:600; font-size:12px; letter-spacing:.14em; color:rgba(244,241,233,.6)">04</div>
+          <h3 style="margin:0; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:clamp(23px,2.6vw,36px); line-height:1.1; letter-spacing:-.03em; color:#FFFFFF; text-wrap:balance">The knock</h3>
+          <p style="margin:0; font-size:clamp(16px,1.4vw,19px); line-height:1.5; font-weight:500; color:rgba(244,241,233,.66); text-wrap:pretty">A kid gets a knock and needs a quick break — they’ll likely be back soon. The plan has to adapt, and there’s shuffling required.</p>
+        </div>
+      </div>
+      <div data-reveal style="display:flex; flex-wrap:wrap; align-items:center; gap:clamp(20px,3vw,52px)">
+        <div style="flex:1 1 400px; position:relative; width:100%; aspect-ratio:4/3; border-radius:clamp(18px,2vw,26px); overflow:hidden; background:#0E1B14"><video aria-hidden="true" data-slot src="https://raw.githubusercontent.com/jaredrakich-ghub/bench-buddy/main/docs/Marketing%20Videos/Scene%204%20-%20Coach%20Dave%20-%20Kid%20asking%20if%20they%20have%20been%20in%20goal%20-%20Dave%20looks%20uncertain.mp4" autoplay muted loop playsinline preload="none" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block"></video></div>
+        <div style="flex:1 1 288px; display:flex; flex-direction:column; gap:12px">
+          <div style="font-family:'Schibsted Grotesk',sans-serif; font-weight:600; font-size:12px; letter-spacing:.14em; color:rgba(244,241,233,.6)">05</div>
+          <h3 style="margin:0; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:clamp(23px,2.6vw,36px); line-height:1.1; letter-spacing:-.03em; color:#FFFFFF; text-wrap:balance">Rotation fairness</h3>
+          <p style="margin:0; font-size:clamp(16px,1.4vw,19px); line-height:1.5; font-weight:500; color:rgba(244,241,233,.66); text-wrap:pretty">Has everyone had a go in goal?</p>
+        </div>
+      </div>
+      <div data-reveal style="display:flex; flex-wrap:wrap; align-items:center; gap:clamp(20px,3vw,52px)">
+        <div style="flex:1 1 400px; position:relative; width:100%; aspect-ratio:4/3; border-radius:clamp(18px,2vw,26px); overflow:hidden; background:#0E1B14"><video aria-hidden="true" data-slot src="https://raw.githubusercontent.com/jaredrakich-ghub/bench-buddy/main/docs/Marketing%20Videos/Scene%207%20-%20Coach%20Dave%20-%20Asking%20the%20whole%20sideline%20of%20parents%20for%20help.mp4" autoplay muted loop playsinline preload="none" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block"></video></div>
+        <div style="flex:1 1 288px; display:flex; flex-direction:column; gap:12px">
+          <div style="font-family:'Schibsted Grotesk',sans-serif; font-weight:600; font-size:12px; letter-spacing:.14em; color:rgba(244,241,233,.6)">06</div>
+          <h3 style="margin:0; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:clamp(23px,2.6vw,36px); line-height:1.1; letter-spacing:-.03em; color:#FFFFFF; text-wrap:balance">The blur</h3>
+          <p style="margin:0; font-size:clamp(16px,1.4vw,19px); line-height:1.5; font-weight:500; color:rgba(244,241,233,.66); text-wrap:pretty">Asking the sideline for help.</p>
+        </div>
+      </div>
+      <div data-reveal style="display:flex; flex-wrap:wrap; align-items:center; gap:clamp(20px,3vw,52px)">
+        <div style="flex:1 1 400px; position:relative; width:100%; aspect-ratio:4/3; border-radius:clamp(18px,2vw,26px); overflow:hidden; background:#0E1B14"><video aria-hidden="true" data-slot src="https://raw.githubusercontent.com/jaredrakich-ghub/bench-buddy/main/docs/Marketing%20Videos/Scene%208%20-%20Coach%20Dave%20-%20Turning%20point%20-%20Looking%20for%20alternative%20to%20paper.mp4" autoplay muted loop playsinline preload="none" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block"></video></div>
+        <div style="flex:1 1 288px; display:flex; flex-direction:column; gap:12px">
+          <div style="font-family:'Schibsted Grotesk',sans-serif; font-weight:600; font-size:12px; letter-spacing:.14em; color:rgba(244,241,233,.6)">07</div>
+          <h3 style="margin:0; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:clamp(23px,2.6vw,36px); line-height:1.1; letter-spacing:-.03em; color:#FFFFFF; text-wrap:balance">Give-up moment</h3>
+          <p style="margin:0; font-size:clamp(16px,1.4vw,19px); line-height:1.5; font-weight:500; color:rgba(244,241,233,.66); text-wrap:pretty">Too many changes. Kids and parents are confused.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section data-screen-label="W2b-The-turn" style="position:relative; min-height:clamp(460px,64svh,760px); display:flex; align-items:flex-end; background:#0E1B14; overflow:hidden">
+    <div style="position:absolute; inset:0"><video aria-hidden="true" data-slot src="https://raw.githubusercontent.com/jaredrakich-ghub/bench-buddy/main/docs/Marketing%20Videos/Parent%20Emma%20-%20Coach%20Dave%20asks%20if%20Emma%20can%20cover%20subs.mp4" autoplay muted loop playsinline preload="none" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block"></video>
+      <div style="position:absolute; inset:0; background:rgba(12,26,19,.46)"></div>
+      <div style="position:absolute; left:0; right:0; bottom:0; height:72%; background:linear-gradient(to top, rgba(12,26,19,.78), rgba(12,26,19,0))"></div>
+    </div>
+    <div style="position:relative; z-index:2; width:100%; max-width:1320px; margin:0 auto; padding:clamp(40px,7vh,88px) clamp(18px,4vw,64px)">
+      <div data-reveal style="display:flex; flex-direction:column; gap:16px; max-width:760px">
+        <div style="font-family:'Schibsted Grotesk',sans-serif; font-weight:600; font-size:13px; letter-spacing:.16em; text-transform:uppercase; color:#F5B93B">The turn</div>
+        <h2 style="margin:0; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:clamp(28px,4vw,54px); line-height:1.08; letter-spacing:-.03em; color:#FFFFFF; text-wrap:balance">Ten minutes before kick-off, Dave is asked to referee.</h2>
+        <p style="margin:0; font-size:clamp(16px,1.5vw,20px); line-height:1.5; font-weight:500; color:rgba(244,241,233,.82); max-width:560px; text-wrap:pretty">He hands the subs to Emma, one of the parents. She has never run a rotation before.</p>
+      </div>
+    </div>
+  </section>
+
+  <section data-screen-label="W2c-Act-two" style="background:#14251D; padding:clamp(72px,10vh,132px) clamp(18px,4vw,64px) clamp(72px,10vh,124px)">
+    <div style="max-width:1320px; margin:0 auto; display:flex; flex-direction:column; gap:clamp(48px,6vw,84px)">
+      <div data-reveal style="display:flex; flex-direction:column; gap:16px; max-width:800px">
+        <div style="font-family:'Schibsted Grotesk',sans-serif; font-weight:600; font-size:13px; letter-spacing:.16em; text-transform:uppercase; color:#F5B93B">Act two</div>
+        <h2 style="margin:0; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:clamp(30px,4.4vw,60px); line-height:1.06; letter-spacing:-.03em; color:#FFFFFF; text-wrap:balance">The same Saturday. Just easier.</h2>
+        <p style="margin:0; font-size:clamp(16px,1.5vw,20px); line-height:1.5; font-weight:500; color:rgba(244,241,233,.68); max-width:600px; text-wrap:pretty">Emma opens Bench Buddy. Everything Dave had to keep in his head is already worked out.</p>
+      </div>
+      <div data-reveal style="display:flex; flex-wrap:wrap; align-items:center; gap:clamp(20px,3vw,52px)">
+        <div style="flex:1 1 400px; position:relative; width:100%; aspect-ratio:4/3; border-radius:clamp(18px,2vw,26px); overflow:hidden; background:#0E1B14; border-top:2px solid #F5B93B"><video aria-hidden="true" data-slot src="https://raw.githubusercontent.com/jaredrakich-ghub/bench-buddy/main/docs/Marketing%20Videos/Parent%20Emma%20-%20Lily%20asks%20when%20she%20is%20going%20on.mp4" autoplay muted loop playsinline preload="none" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block"></video></div>
+        <div style="flex:1 1 288px; display:flex; flex-direction:column; gap:12px">
+          <div style="font-family:'Schibsted Grotesk',sans-serif; font-weight:600; font-size:12px; letter-spacing:.14em; color:#F5B93B">01</div>
+          <h3 style="margin:0; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:clamp(23px,2.6vw,36px); line-height:1.1; letter-spacing:-.03em; color:#FFFFFF; text-wrap:balance">She never has to guess.</h3>
+          <p style="margin:0; font-size:clamp(16px,1.4vw,19px); line-height:1.5; font-weight:500; color:rgba(244,241,233,.66); text-wrap:pretty">Lily asks when she is going on. Emma reads the answer straight off the screen.</p>
+        </div>
+      </div>
+      <div data-reveal style="display:flex; flex-wrap:wrap; align-items:center; gap:clamp(20px,3vw,52px)">
+        <div style="flex:1 1 400px; position:relative; width:100%; aspect-ratio:4/3; border-radius:clamp(18px,2vw,26px); overflow:hidden; background:#0E1B14; border-top:2px solid #F5B93B"><video aria-hidden="true" data-slot src="https://raw.githubusercontent.com/jaredrakich-ghub/bench-buddy/main/docs/Marketing%20Videos/Parent%20Emma%20-%20Asks%20about%20his%20position.mp4" autoplay muted loop playsinline preload="none" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block"></video></div>
+        <div style="flex:1 1 288px; display:flex; flex-direction:column; gap:12px">
+          <div style="font-family:'Schibsted Grotesk',sans-serif; font-weight:600; font-size:12px; letter-spacing:.14em; color:#F5B93B">02</div>
+          <h3 style="margin:0; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:clamp(23px,2.6vw,36px); line-height:1.1; letter-spacing:-.03em; color:#FFFFFF; text-wrap:balance">Every position, already decided.</h3>
+          <p style="margin:0; font-size:clamp(16px,1.4vw,19px); line-height:1.5; font-weight:500; color:rgba(244,241,233,.66); text-wrap:pretty">Who comes on, and where they play. Nobody has to hold it in their head.</p>
+        </div>
+      </div>
+      <div data-reveal style="display:flex; flex-wrap:wrap; align-items:center; gap:clamp(20px,3vw,52px)">
+        <div style="flex:1 1 400px; position:relative; width:100%; aspect-ratio:4/3; border-radius:clamp(18px,2vw,26px); overflow:hidden; background:#0E1B14; border-top:2px solid #F5B93B"><video aria-hidden="true" data-slot src="https://raw.githubusercontent.com/jaredrakich-ghub/bench-buddy/main/docs/Marketing%20Videos/Parent%20Emma%20-%20Leo%20arrives%20late.mp4" autoplay muted loop playsinline preload="none" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block"></video></div>
+        <div style="flex:1 1 288px; display:flex; flex-direction:column; gap:12px">
+          <div style="font-family:'Schibsted Grotesk',sans-serif; font-weight:600; font-size:12px; letter-spacing:.14em; color:#F5B93B">03</div>
+          <h3 style="margin:0; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:clamp(23px,2.6vw,36px); line-height:1.1; letter-spacing:-.03em; color:#FFFFFF; text-wrap:balance">Late arrivals are fine.</h3>
+          <p style="margin:0; font-size:clamp(16px,1.4vw,19px); line-height:1.5; font-weight:500; color:rgba(244,241,233,.66); text-wrap:pretty">Leo turns up after kick-off. The rotation re-plans itself around him.</p>
+        </div>
+      </div>
+      <div data-reveal style="display:flex; flex-wrap:wrap; align-items:center; gap:clamp(20px,3vw,52px)">
+        <div style="flex:1 1 400px; position:relative; width:100%; aspect-ratio:4/3; border-radius:clamp(18px,2vw,26px); overflow:hidden; background:#0E1B14; border-top:2px solid #F5B93B"><video aria-hidden="true" data-slot src="https://raw.githubusercontent.com/jaredrakich-ghub/bench-buddy/main/docs/Marketing%20Videos/Parent%20Emma%20-%20Jack%20going%20back%20on.mp4" autoplay muted loop playsinline preload="none" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block"></video></div>
+        <div style="flex:1 1 288px; display:flex; flex-direction:column; gap:12px">
+          <div style="font-family:'Schibsted Grotesk',sans-serif; font-weight:600; font-size:12px; letter-spacing:.14em; color:#F5B93B">04</div>
+          <h3 style="margin:0; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:clamp(23px,2.6vw,36px); line-height:1.1; letter-spacing:-.03em; color:#FFFFFF; text-wrap:balance">Managing the knock.</h3>
+          <p style="margin:0; font-size:clamp(16px,1.4vw,19px); line-height:1.5; font-weight:500; color:rgba(244,241,233,.66); text-wrap:pretty">Jack needed a few minutes off. The app tracks his break and puts him back on when he is ready.</p>
+        </div>
+      </div>
+      <div data-reveal style="display:flex; flex-wrap:wrap; align-items:center; gap:clamp(20px,3vw,52px)">
+        <div style="flex:1 1 400px; position:relative; width:100%; aspect-ratio:4/3; border-radius:clamp(18px,2vw,26px); overflow:hidden; background:#0E1B14; border-top:2px solid #F5B93B"><video aria-hidden="true" data-slot src="https://raw.githubusercontent.com/jaredrakich-ghub/bench-buddy/main/docs/Marketing%20Videos/Parent%20Emma%20-%20Coach%20Dave%20thanks%20Emma%20for%20running%20the%20subs.mp4" autoplay muted loop playsinline preload="none" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block"></video></div>
+        <div style="flex:1 1 288px; display:flex; flex-direction:column; gap:12px">
+          <div style="font-family:'Schibsted Grotesk',sans-serif; font-weight:600; font-size:12px; letter-spacing:.14em; color:#F5B93B">05</div>
+          <h3 style="margin:0; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:clamp(23px,2.6vw,36px); line-height:1.1; letter-spacing:-.03em; color:#FFFFFF; text-wrap:balance">Life saver.</h3>
+          <p style="margin:0; font-size:clamp(16px,1.4vw,19px); line-height:1.5; font-weight:500; color:rgba(244,241,233,.66); text-wrap:pretty">A bit to deal with out there. Kids were happy. Thanks for the help.</p>
+        </div>
+      </div>
+      <div data-reveal style="position:relative; width:100%; aspect-ratio:16/9; min-height:300px; border-radius:clamp(18px,2vw,26px); overflow:hidden; background:#0E1B14; display:flex; align-items:flex-end">
+        <video aria-hidden="true" data-slot src="https://raw.githubusercontent.com/jaredrakich-ghub/bench-buddy/main/docs/Marketing%20Videos/Parent%20Emma%20-%20Mother%20and%20Daughter%20after%20game%20-%20Lily%20asks%20if%20she%20enjoyed%20doing%20the%20subs.mp4" autoplay muted loop playsinline preload="none" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block"></video>
+        <div style="position:absolute; left:0; right:0; bottom:0; height:74%; background:linear-gradient(to top, rgba(12,26,19,.82), rgba(12,26,19,0))"></div>
+        <div style="position:relative; z-index:2; padding:clamp(24px,3.4vw,52px); display:flex; flex-direction:column; gap:12px; max-width:720px">
+          <p style="margin:0; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:clamp(22px,3vw,42px); line-height:1.1; letter-spacing:-.03em; color:#FFFFFF; text-wrap:balance">“Did you enjoy the game, Mum?”</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section data-screen-label="W3-Benefits" style="background:#F4F1E9; padding:clamp(78px,11vh,150px) clamp(18px,4vw,64px)">
+    <div style="max-width:1320px; margin:0 auto; display:flex; flex-direction:column; gap:clamp(36px,5vw,60px)">
+      <div data-reveal style="display:flex; flex-direction:column; gap:14px; max-width:700px">
+        <div style="font-family:'Schibsted Grotesk',sans-serif; font-weight:600; font-size:13px; letter-spacing:.16em; text-transform:uppercase; color:#1F5637">Why Coaches and Parents love it</div>
+        <h2 style="margin:0; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:clamp(30px,4.4vw,60px); line-height:1.06; letter-spacing:-.03em; color:#14251D; text-wrap:balance">Five fewer things to hold in your head.</h2>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(268px, 1fr)); gap:clamp(16px,1.8vw,24px)">
+        <div data-reveal style="display:flex; flex-direction:column; gap:clamp(24px,3vw,34px); padding:clamp(26px,3vw,38px); border-radius:28px; background:#FFFFFF">
+          <svg width="72" height="52" viewBox="0 0 72 52" fill="none" aria-hidden="true" style="display:block"><rect x="1" y="14" width="21" height="24" rx="5" fill="#2E7D53"></rect><rect x="25.5" y="14" width="21" height="24" rx="5" fill="#2E7D53"></rect><rect x="50" y="14" width="21" height="24" rx="5" fill="#2E7D53"></rect></svg>
+          <div style="display:flex; flex-direction:column; gap:11px">
+            <h3 style="margin:0; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:clamp(21px,2vw,27px); line-height:1.16; letter-spacing:-.02em; color:#14251D">Fair from the first whistle</h3>
+            <p style="margin:0; font-size:clamp(15px,1.3vw,17px); line-height:1.55; font-weight:500; color:#4C6157; text-wrap:pretty">Playing time is shared evenly before the match starts, so every kid gets the minutes they need to develop.</p>
+          </div>
+        </div>
+        <div data-reveal style="display:flex; flex-direction:column; gap:clamp(24px,3vw,34px); padding:clamp(26px,3vw,38px); border-radius:28px; background:#FFFFFF">
+          <svg width="72" height="52" viewBox="0 0 72 52" fill="none" aria-hidden="true" style="display:block"><path d="M4 18 H50 M42 10 L50 18 L42 26" stroke="#2E7D53" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"></path><path d="M68 34 H22 M30 26 L22 34 L30 42" stroke="#F5B93B" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+          <div style="display:flex; flex-direction:column; gap:11px">
+            <h3 style="margin:0; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:clamp(21px,2vw,27px); line-height:1.16; letter-spacing:-.02em; color:#14251D">Handles the unexpected</h3>
+            <p style="margin:0; font-size:clamp(15px,1.3vw,17px); line-height:1.55; font-weight:500; color:#4C6157; text-wrap:pretty">Injuries, late arrivals, a change of shape at half time. The rotation re-plans itself and stays fair.</p>
+          </div>
+        </div>
+        <div data-reveal style="display:flex; flex-direction:column; gap:clamp(24px,3vw,34px); padding:clamp(26px,3vw,38px); border-radius:28px; background:#FFFFFF">
+          <svg width="72" height="52" viewBox="0 0 72 52" fill="none" aria-hidden="true" style="display:block"><circle cx="26" cy="26" r="21" stroke="#2E7D53" stroke-width="4.5"></circle><path d="M47 26 H70 M62 18 L70 26 L62 34" stroke="#F5B93B" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+          <div style="display:flex; flex-direction:column; gap:11px">
+            <h3 style="margin:0; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:clamp(21px,2vw,27px); line-height:1.16; letter-spacing:-.02em; color:#14251D">Goalkeeper rotations made easy</h3>
+            <p style="margin:0; font-size:clamp(15px,1.3vw,17px); line-height:1.55; font-weight:500; color:#4C6157; text-wrap:pretty">Set who goes in goal and when. Everyone gets a turn between the posts without you tracking it.</p>
+          </div>
+        </div>
+        <div data-reveal style="display:flex; flex-direction:column; gap:clamp(24px,3vw,34px); padding:clamp(26px,3vw,38px); border-radius:28px; background:#FFFFFF">
+          <svg width="72" height="52" viewBox="0 0 72 52" fill="none" aria-hidden="true" style="display:block"><path d="M36 8 C27 8 20 15 20 24 V33 L14 41 H58 L52 33 V24 C52 15 45 8 36 8 Z" stroke="#2E7D53" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="56" cy="12" r="7" fill="#F5B93B"></circle></svg>
+          <div style="display:flex; flex-direction:column; gap:11px">
+            <h3 style="margin:0; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:clamp(21px,2vw,27px); line-height:1.16; letter-spacing:-.02em; color:#14251D">Never caught out by a sub</h3>
+            <p style="margin:0; font-size:clamp(15px,1.3vw,17px); line-height:1.55; font-weight:500; color:#4C6157; text-wrap:pretty">An early nudge before each change, so the next player is warmed up and ready on the touchline.</p>
+          </div>
+        </div>
+        <div data-reveal style="display:flex; flex-direction:column; gap:clamp(24px,3vw,34px); padding:clamp(26px,3vw,38px); border-radius:28px; background:#FFFFFF">
+          <svg width="72" height="52" viewBox="0 0 72 52" fill="none" aria-hidden="true" style="display:block"><path d="M6 44 V30 M22 44 V22 M38 44 V26 M54 44 V12" stroke="#2E7D53" stroke-width="4.5" stroke-linecap="round"></path><path d="M6 44 H66" stroke="#2E7D53" stroke-width="4.5" stroke-linecap="round"></path><circle cx="54" cy="12" r="7" fill="#F5B93B"></circle></svg>
+          <div style="display:flex; flex-direction:column; gap:11px">
+            <h3 style="margin:0; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:clamp(21px,2vw,27px); line-height:1.16; letter-spacing:-.02em; color:#14251D">A record of the whole season</h3>
+            <p style="margin:0; font-size:clamp(15px,1.3vw,17px); line-height:1.55; font-weight:500; color:#4C6157; text-wrap:pretty">Minutes, positions and goalkeeping turns add up week to week, so you can show any parent where their child stands.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section data-screen-label="W4-How-it-works" style="background:#EAE5D8; padding:clamp(78px,11vh,150px) clamp(18px,4vw,64px)">
+    <div style="max-width:1320px; margin:0 auto; display:flex; flex-direction:column; gap:clamp(44px,6vw,76px)">
+      <div data-reveal style="display:flex; flex-direction:column; gap:14px; max-width:700px">
+        <div style="font-family:'Schibsted Grotesk',sans-serif; font-weight:600; font-size:13px; letter-spacing:.16em; text-transform:uppercase; color:#1F5637">How it works</div>
+        <h2 style="margin:0; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:clamp(30px,4.4vw,60px); line-height:1.06; letter-spacing:-.03em; color:#14251D; text-wrap:balance">Set up once. Then enjoy the game.</h2>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:clamp(28px,3.6vw,52px)">
+        <div data-reveal style="display:flex; flex-direction:column; gap:clamp(22px,2.6vw,30px)">
+          <div style="display:flex; justify-content:center">
+            <div style="position:relative; width:100%; max-width:290px; aspect-ratio:1170/2532; border-radius:clamp(26px,3vw,38px); background:#14251D; padding:7px; box-sizing:border-box; box-shadow:0 22px 44px -22px rgba(20,37,29,.45)">
+              <div style="position:relative; width:100%; height:100%; border-radius:clamp(20px,2.4vw,31px); overflow:hidden; background:#F4F1E9">
+                <sc-if value="{{ realScreens }}" hint-placeholder-val="{{ true }}"><img src="docs/design_handoff_bench_buddy_match_day/screens/10-setup.png" alt="Adding players in Bench Buddy" style="width:100%; height:100%; object-fit:cover; display:block"></sc-if>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex; gap:16px; align-items:flex-start">
+            <div style="flex:0 0 auto; width:34px; height:34px; border-radius:50%; background:#14251D; color:#F4F1E9; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:15px; display:flex; align-items:center; justify-content:center">1</div>
+            <div style="display:flex; flex-direction:column; gap:8px">
+              <h3 style="margin:0; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:clamp(20px,1.9vw,25px); line-height:1.18; letter-spacing:-.02em; color:#14251D">Add your players</h3>
+              <p style="margin:0; font-size:clamp(15px,1.3vw,17px); line-height:1.55; font-weight:500; color:#4C6157; text-wrap:pretty">Names, shirt numbers, and who is available today.</p>
+            </div>
+          </div>
+        </div>
+        <div data-reveal style="display:flex; flex-direction:column; gap:clamp(22px,2.6vw,30px)">
+          <div style="display:flex; justify-content:center">
+            <div style="position:relative; width:100%; max-width:290px; aspect-ratio:1170/2532; border-radius:clamp(26px,3vw,38px); background:#14251D; padding:7px; box-sizing:border-box; box-shadow:0 22px 44px -22px rgba(20,37,29,.45)">
+              <div style="position:relative; width:100%; height:100%; border-radius:clamp(20px,2.4vw,31px); overflow:hidden; background:#F4F1E9">
+                <sc-if value="{{ realScreens }}" hint-placeholder-val="{{ true }}"><img src="promo/promo-rotation-ready.png" alt="The rotation Bench Buddy has built" style="width:100%; height:100%; object-fit:cover; display:block"></sc-if>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex; gap:16px; align-items:flex-start">
+            <div style="flex:0 0 auto; width:34px; height:34px; border-radius:50%; background:#14251D; color:#F4F1E9; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:15px; display:flex; align-items:center; justify-content:center">2</div>
+            <div style="display:flex; flex-direction:column; gap:8px">
+              <h3 style="margin:0; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:clamp(20px,1.9vw,25px); line-height:1.18; letter-spacing:-.02em; color:#14251D">Bench Buddy builds the fairest rotation</h3>
+              <p style="margin:0; font-size:clamp(15px,1.3vw,17px); line-height:1.55; font-weight:500; color:#4C6157; text-wrap:pretty">Even minutes across the squad, goalkeeper included.</p>
+            </div>
+          </div>
+        </div>
+        <div data-reveal style="display:flex; flex-direction:column; gap:clamp(22px,2.6vw,30px)">
+          <div style="display:flex; justify-content:center">
+            <div style="position:relative; width:100%; max-width:290px; aspect-ratio:1170/2532; border-radius:clamp(26px,3vw,38px); background:#14251D; padding:7px; box-sizing:border-box; box-shadow:0 22px 44px -22px rgba(20,37,29,.45)">
+              <div style="position:relative; width:100%; height:100%; border-radius:clamp(20px,2.4vw,31px); overflow:hidden; background:#F4F1E9">
+                <sc-if value="{{ realScreens }}" hint-placeholder-val="{{ true }}"><img src="docs/design_handoff_bench_buddy_match_day/screens/03-match.png" alt="Following the match in Bench Buddy" style="width:100%; height:100%; object-fit:cover; display:block"></sc-if>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex; gap:16px; align-items:flex-start">
+            <div style="flex:0 0 auto; width:34px; height:34px; border-radius:50%; background:#14251D; color:#F4F1E9; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:15px; display:flex; align-items:center; justify-content:center">3</div>
+            <div style="display:flex; flex-direction:column; gap:8px">
+              <h3 style="margin:0; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:clamp(20px,1.9vw,25px); line-height:1.18; letter-spacing:-.02em; color:#14251D">Follow the match with confidence</h3>
+              <p style="margin:0; font-size:clamp(15px,1.3vw,17px); line-height:1.55; font-weight:500; color:#4C6157; text-wrap:pretty">Tap through the subs as they come. Nothing left to remember.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section data-screen-label="W5-Saturday-mornings" style="background:#F4F1E9; padding:clamp(78px,11vh,150px) clamp(18px,4vw,64px)">
+    <div style="max-width:1320px; margin:0 auto; display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:clamp(32px,4vw,64px); align-items:center">
+      <div data-reveal style="position:relative; width:100%; aspect-ratio:4/5; border-radius:clamp(24px,3vw,34px); overflow:hidden; background:#14251D">
+        <div style="position:absolute; left:0; right:0; top:50%; transform:translateY(-50%); padding:28px; text-align:center; font-family:'Schibsted Grotesk',sans-serif; font-weight:600; font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:rgba(244,241,233,.32)">Scene 11 — A successful sub</div>
+        <video aria-hidden="true" data-slot src="https://raw.githubusercontent.com/jaredrakich-ghub/bench-buddy/main/docs/Marketing%20Videos/Scene%2011%20-%20Coach%20Dave%20-%20Successful%20Sub.mp4" autoplay muted loop playsinline preload="metadata" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block"></video>
+      </div>
+      <div data-reveal style="display:flex; flex-direction:column; gap:clamp(18px,2.2vw,26px); max-width:560px">
+        <div style="font-family:'Schibsted Grotesk',sans-serif; font-weight:600; font-size:13px; letter-spacing:.16em; text-transform:uppercase; color:#1F5637">Built for real Saturday mornings</div>
+        <h2 style="margin:0; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:clamp(28px,3.8vw,52px); line-height:1.07; letter-spacing:-.03em; color:#14251D; text-wrap:balance">Made by a coach on the sideline, not in an office.</h2>
+        <p style="margin:0; font-size:clamp(16px,1.4vw,19px); line-height:1.6; font-weight:500; color:#4C6157; text-wrap:pretty">Bench Buddy was created by a volunteer coach who wanted to spend less time tracking rotations and more time coaching kids. It was built between matches, on muddy pitches, for teams with one coach, no assistant and eleven parents watching.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="get" data-screen-label="W6-Final-CTA" style="background:#14251D; padding:clamp(88px,14vh,180px) clamp(18px,4vw,64px)">
+    <div style="max-width:1000px; margin:0 auto; display:flex; flex-direction:column; align-items:center; gap:clamp(28px,4vw,44px); text-align:center">
+      <h2 data-reveal style="margin:0; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:clamp(40px,8vw,104px); line-height:1; letter-spacing:-.035em; color:#FFFFFF; text-wrap:balance">Enjoy the game again.</h2>
+      <a data-reveal href="#get" style="display:flex; align-items:center; height:64px; padding:0 40px; border-radius:999px; background:#F5B93B; color:#14251D; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:clamp(17px,1.5vw,19px); letter-spacing:-.1px" style-hover="background:#FFD063">Get Bench Buddy</a>
+      <div data-reveal style="display:flex; flex-wrap:wrap; justify-content:center; gap:12px">
+        <div style="display:flex; align-items:center; gap:12px; height:56px; padding:0 24px; border-radius:14px; border:1.5px solid rgba(244,241,233,.3)">
+          <div style="width:22px; height:22px; border-radius:6px; background:rgba(244,241,233,.22)"></div>
+          <div style="text-align:left; line-height:1.15">
+            <div style="font-size:10px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:rgba(244,241,233,.6)">Download on the</div>
+            <div style="font-family:'Schibsted Grotesk',sans-serif; font-weight:600; font-size:16px; color:#FFFFFF">App Store</div>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:12px; height:56px; padding:0 24px; border-radius:14px; border:1.5px solid rgba(244,241,233,.3)">
+          <div style="width:22px; height:22px; border-radius:6px; background:rgba(244,241,233,.22)"></div>
+          <div style="text-align:left; line-height:1.15">
+            <div style="font-size:10px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:rgba(244,241,233,.6)">Get it on</div>
+            <div style="font-family:'Schibsted Grotesk',sans-serif; font-weight:600; font-size:16px; color:#FFFFFF">Google Play</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer style="background:#14251D; padding:0 clamp(18px,4vw,64px) clamp(36px,5vh,56px)">
+    <div style="max-width:1320px; margin:0 auto; padding-top:clamp(28px,4vh,40px); border-top:1px solid rgba(244,241,233,.14); display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:18px">
+      <div style="display:flex; align-items:center; gap:10px">
+        <img src="assets/bench-buddy-mark.svg" alt="" style="width:42px; height:42px; display:block">
+        <div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:17px; color:rgba(244,241,233,.9); line-height:1">Bench Buddy</div>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:clamp(16px,2vw,28px); font-size:14px; font-weight:600">
+        <a href="#story" style="padding:13px 0; color:rgba(244,241,233,.66)" style-hover="color:#FFFFFF">The story</a>
+        <a href="#get" style="padding:13px 0; color:rgba(244,241,233,.66)" style-hover="color:#FFFFFF">Download</a>
+        <a href="#get" style="padding:13px 0; color:rgba(244,241,233,.66)" style-hover="color:#FFFFFF">Privacy</a>
+        <a href="#get" style="padding:13px 0; color:rgba(244,241,233,.66)" style-hover="color:#FFFFFF">Contact</a>
+      </div>
+      <div style="font-size:13px; font-weight:600; color:rgba(244,241,233,.66)">Free to use. No spam.</div>
+    </div>
+  </footer>
+
+  <sc-if value="{{ showNotes }}" hint-placeholder-val="{{ true }}">
+  <section data-screen-label="W7-Interaction-notes" style="background:#DED8C8; padding:clamp(56px,8vh,96px) clamp(18px,4vw,64px)">
+    <div style="max-width:1000px; margin:0 auto; display:flex; flex-direction:column; gap:clamp(26px,3vw,38px)">
+      <div style="display:flex; flex-direction:column; gap:10px">
+        <div style="font-family:'Schibsted Grotesk',sans-serif; font-weight:600; font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:#485A4E">Not part of the page — implementation notes</div>
+        <h2 style="margin:0; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:clamp(24px,3vw,36px); line-height:1.1; letter-spacing:-.02em; color:#14251D">Interaction &amp; build notes</h2>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:clamp(18px,2vw,28px)">
+        <div style="display:flex; flex-direction:column; gap:9px">
+          <div style="font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:15px; color:#14251D">Video</div>
+          <p style="margin:0; font-size:14.5px; line-height:1.6; font-weight:500; color:#485A4E; text-wrap:pretty">The sixteen clips currently stream straight from the repo (<b>raw.githubusercontent.com/…/docs/Marketing Videos/</b>). That is a staging arrangement only — it depends on the repo staying public and serves 720p with no range support, so production must host them on a CDN with a poster JPG per clip for first paint.<br><br><b>Autoplay constraint, do not skip:</b> <b>muted</b> and <b>loop</b> must be set as DOM <i>properties</i> in script (<b>v.muted = true; v.loop = true</b>), not as markup attributes. Rendered through React the bare attributes arrive as false, autoplay is refused with <b>NotAllowedError</b>, and every slot sits on a frozen first frame. A failed video also paints opaque over its own placeholder, so hide it on <b>error</b> and reveal it on <b>loadeddata</b>.</p>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:9px">
+          <div style="font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:15px; color:#14251D">Story, three acts</div>
+          <p style="margin:0; font-size:14.5px; line-height:1.6; font-weight:500; color:#485A4E; text-wrap:pretty">Three acts, not a comparison. Two earlier versions put Dave and Emma next to each other — first as a horizontal snap rail, then as paired columns — and both asked the reader to hold two Saturdays at once before they were sold on either. The rebuild tells the familiar one first (<b>Act one</b>, seven beats), turns on a single full-bleed moment (<b>The turn</b> — Dave is asked to referee), then answers it beat for beat (<b>Act two</b>, five rows plus a full-width closing frame).<br><br>Both acts use the same row: a <b>4/3</b> frame at <b>flex: 1 1 400px</b> beside a <b>1 1 288px</b> text column, wrapping to stacked around 720px — no breakpoints, the content decides. An earlier Act one used small square thumbnails to move faster, but the change of form read as a different kind of content rather than the first half of one story. Only the accent separates the acts: Act two’s frames carry a yellow top edge and yellow numerals, Act one’s are plain cream.<br><br>All fourteen story frames now point at real clips (Act one 7, the turn 1, Act two 6). Four clips in the repo are unused: Dave’s <b>Scene 1</b> (superseded by the lower-quality cut in Act one 01) and <b>Scene 6</b>, plus <b>Parent Emma — Sideline Parent asking whos next</b> and <b>Coaches talking after the game</b>.<br><br>Playback is gated on visibility: one IntersectionObserver (<b>rootMargin: 25% 0px</b>) plays a clip as it approaches and pauses once it leaves. Story clips are <b>preload="none"</b> — with fourteen videos across the three acts, metadata preload alone would cost fourteen requests on load. Keep the observer when moving to a CDN.</p>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:9px">
+          <div style="font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:15px; color:#14251D">Motion</div>
+          <p style="margin:0; font-size:14.5px; line-height:1.6; font-weight:500; color:#485A4E; text-wrap:pretty">One effect only: sections fade up 18px over 700 ms, cubic-bezier(.22,.7,.25,1), once per element. An IntersectionObserver fires at <b>threshold 0.01</b> with <b>rootMargin: 0 0 -8% 0</b>, resolving its root to the real scrolling ancestor rather than assuming the viewport. A 1200 ms failsafe then reveals anything still hidden — that is what keeps the page legible if the observer never fires (host-owned scroll container, print, odd embed), and it is why revealed elements are flagged so a re-render cannot hide them again. No parallax, no counters, no scroll-jacking. Fully suppressed under <b>prefers-reduced-motion: reduce</b>.</p>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:9px">
+          <div style="font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:15px; color:#14251D">Responsive</div>
+          <p style="margin:0; font-size:14.5px; line-height:1.6; font-weight:500; color:#485A4E; text-wrap:pretty">Fluid rather than breakpoint-driven: type uses <b>clamp()</b>, grids use <b>auto-fit / minmax</b>, so 3-up collapses to 2-up then 1-up on its own. Hero is <b>100svh</b> so mobile browser chrome does not crop the CTA. Verified 360–1920 px.</p>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:9px">
+          <div style="font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:15px; color:#14251D">Accessibility</div>
+          <p style="margin:0; font-size:14.5px; line-height:1.6; font-weight:500; color:#485A4E; text-wrap:pretty">Every text colour is measured against its resolved background, not assumed: body #4C6157 on #F4F1E9 is 6.1:1, eyebrow #1F5637 on the darker cream #EAE5D8 is 6.0:1, footer links and the footer note at 66% cream on #14251D are 7.0:1, #14251D on #F5B93B is 9.1:1, notes body #485A4E on #DED8C8 is 5.2:1. The app green #2E7D53 is <i>not</i> used for small text anywhere — it only reaches 4.0:1 on #EAE5D8 — so it is confined to graphic marks. Hero text sits on a 50% scrim so contrast holds over any frame. Every tap target clears 44 px. All sixteen videos are decorative and <b>aria-hidden</b>, as are the benefit marks; phone screenshots carry real alt text.</p>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:9px">
+          <div style="font-family:'Schibsted Grotesk',sans-serif; font-weight:700; font-size:15px; color:#14251D">Type &amp; colour</div>
+          <p style="margin:0; font-size:14.5px; line-height:1.6; font-weight:500; color:#485A4E; text-wrap:pretty">Schibsted Grotesk 700 for headings (tight −3% tracking), Nunito 500 for body, Baloo 2 800 for the wordmark only — the one thread back to the app. Two backgrounds all the way down: bone #F4F1E9 and deep green #14251D, with #EAE5D8 as the single step between. Yellow #F5B93B is reserved for actions and never used as a surface.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showNotes&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Delivery&quot;},&quot;motion&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Subtle&quot;,&quot;None&quot;],&quot;default&quot;:&quot;Subtle&quot;,&quot;tsType&quot;:&quot;'Subtle' | 'None'&quot;,&quot;section&quot;:&quot;Delivery&quot;},&quot;phoneScreens&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;App screenshots&quot;,&quot;Empty frames&quot;],&quot;default&quot;:&quot;App screenshots&quot;,&quot;tsType&quot;:&quot;'App screenshots' | 'Empty frames'&quot;,&quot;section&quot;:&quot;Delivery&quot;}}">
+class Component extends DCLogic {
+  componentDidMount() { this.applyReveal(); this.wireVideoSlots(); }
+  componentDidUpdate() { this.applyReveal(); this.wireVideoSlots(); }
+
+  // A missing video still paints opaque over its label and shows browser
+  // broken-media chrome. Hide the element until it actually has footage.
+  wireVideoSlots() {
+    const vids = Array.from(document.querySelectorAll('video[data-slot]'));
+    if (!vids.length) return;
+
+    if (this._playIo) this._playIo.disconnect();
+    // Only play what is on screen; eight 720p clips must not download up front.
+    this._playIo = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        const v = e.target;
+        if (e.isIntersecting) { v.play().catch(() => {}); }
+        else if (!v.paused) { v.pause(); }
+      });
+    }, { root: this.scrollRoot(), rootMargin: '25% 0px 25% 0px', threshold: 0.01 });
+
+    vids.forEach(v => {
+      const label = v.previousElementSibling;
+      const fail = () => { v.style.visibility = 'hidden'; if (label) label.style.display = ''; };
+      const ok = () => { v.style.visibility = 'visible'; if (label) label.style.display = 'none'; };
+      // React does not honour bare `muted`/`loop` attributes — set them as properties
+      // or autoplay is blocked and short clips stop after one pass.
+      v.muted = true;
+      v.loop = true;
+      v.playsInline = true;
+      v.defaultMuted = true;
+      if (!v.dataset.slotWired) {
+        v.dataset.slotWired = '1';
+        v.addEventListener('error', fail);
+        v.addEventListener('loadeddata', ok);
+      }
+      if (v.error) fail();
+      else if (v.readyState >= 2) ok();
+      else setTimeout(() => { if (v.error || v.readyState === 0) fail(); }, 4000);
+      this._playIo.observe(v);
+    });
+  }
+
+  scrollRoot() {
+    let n = document.querySelector('[data-reveal]');
+    while (n && n !== document.body) {
+      const s = getComputedStyle(n);
+      if (/(auto|scroll)/.test(s.overflowY) && n.scrollHeight > n.clientHeight + 8) return n;
+      n = n.parentElement;
+    }
+    return null;
+  }
+
+  reveal(n) {
+    n.dataset.revealed = '1';
+    n.style.opacity = '1';
+    n.style.transform = 'none';
+  }
+
+  applyReveal() {
+    const nodes = Array.from(document.querySelectorAll('[data-reveal]'));
+    const wantsMotion = (this.props.motion ?? 'Subtle') === 'Subtle'
+      && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (this._io) { this._io.disconnect(); this._io = null; }
+    if (this._failsafe) { clearTimeout(this._failsafe); this._failsafe = null; }
+
+    if (!wantsMotion) {
+      nodes.forEach(n => { n.style.opacity = ''; n.style.transform = ''; n.style.transition = ''; delete n.dataset.revealed; });
+      return;
+    }
+
+    const pending = nodes.filter(n => n.dataset.revealed !== '1');
+    if (!pending.length) return;
+
+    this._io = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (!e.isIntersecting) return;
+        this.reveal(e.target);
+        if (this._io) this._io.unobserve(e.target);
+      });
+    }, { root: this.scrollRoot(), rootMargin: '0px 0px -8% 0px', threshold: 0.01 });
+
+    pending.forEach(n => {
+      n.style.transition = 'opacity .7s cubic-bezier(.22,.7,.25,1), transform .7s cubic-bezier(.22,.7,.25,1)';
+      n.style.opacity = '0';
+      n.style.transform = 'translateY(18px)';
+      this._io.observe(n);
+    });
+
+    // If the observer never fires (host-owned scroll container, print, odd embed),
+    // show everything rather than leave the page blank.
+    this._failsafe = setTimeout(() => {
+      nodes.forEach(n => { if (n.dataset.revealed !== '1') this.reveal(n); });
+    }, 1200);
+  }
+
+  componentWillUnmount() {
+    if (this._io) this._io.disconnect();
+    if (this._playIo) this._playIo.disconnect();
+    if (this._failsafe) clearTimeout(this._failsafe);
+  }
+
+  renderVals() {
+    return {
+      showNotes: this.props.showNotes ?? true,
+      realScreens: (this.props.phoneScreens ?? 'App screenshots') === 'App screenshots'
+    };
+  }
+}
+</script>
+</body>
+</html>
