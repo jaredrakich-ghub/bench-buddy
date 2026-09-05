@@ -5,6 +5,92 @@
    README, "About the design files"). Deliberately no media queries — every
    collapse point comes from clamp()/auto-fit, per spec section 9. */
 
+/* Self-hosted per the handoff's own "before launch" checklist ("Self-host
+   the three font families") — latin subset only (this page's copy is
+   English-only; the other Google-served subsets — cyrillic, vietnamese,
+   latin-ext, etc. — are dead weight for it), downloaded straight from
+   fonts.gstatic.com's own woff2 files, byte-identical to what the Google
+   Fonts stylesheet would have served. font-display: swap on every face so
+   text still paints in a fallback font immediately rather than staying
+   invisible until each weight finishes loading. */
+@font-face {
+  font-family: 'Schibsted Grotesk';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/fonts/schibsted-grotesk-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: 'Schibsted Grotesk';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("assets/fonts/schibsted-grotesk-500.woff2") format("woff2");
+}
+@font-face {
+  font-family: 'Schibsted Grotesk';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("assets/fonts/schibsted-grotesk-600.woff2") format("woff2");
+}
+@font-face {
+  font-family: 'Schibsted Grotesk';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("assets/fonts/schibsted-grotesk-700.woff2") format("woff2");
+}
+@font-face {
+  font-family: 'Schibsted Grotesk';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("assets/fonts/schibsted-grotesk-800.woff2") format("woff2");
+}
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/fonts/nunito-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("assets/fonts/nunito-500.woff2") format("woff2");
+}
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("assets/fonts/nunito-600.woff2") format("woff2");
+}
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("assets/fonts/nunito-700.woff2") format("woff2");
+}
+@font-face {
+  font-family: 'Baloo 2';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("assets/fonts/baloo-2-700.woff2") format("woff2");
+}
+@font-face {
+  font-family: 'Baloo 2';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("assets/fonts/baloo-2-800.woff2") format("woff2");
+}
+
 :root {
   /* Section 3 — colour. Two backgrounds carry the whole page (bone, deep
      green), cream is the one step between them, yellow is actions-only. */

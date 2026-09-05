@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://benchbuddysports.com/sitemap.xml

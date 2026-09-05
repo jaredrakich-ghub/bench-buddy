@@ -6,29 +6,41 @@
 // Video sources — the ONE place every clip's path lives. Swapping to a
 // CDN later (per the handoff's own "before launch" checklist) means
 // editing this object only; nothing in index.html or the rest of this
-// file names a file path directly. Currently pointing at the real clips
-// already in the repo (docs/Marketing Videos/) — a staging arrangement
-// exactly like the reference build's own raw.githubusercontent.com URLs,
-// just local. Encoded with encodeURI() at use so the spaces/apostrophes
-// in these filenames are never a problem regardless of host.
+// file names a file path directly. Currently pointing at the real clips,
+// moved into marketing/assets/videos/ (not docs/Marketing Videos/, where
+// they started out) — Firebase Hosting only serves what's inside its own
+// `public` directory (marketing/, per firebase.json), so a path reaching
+// outside it (../docs/...) 404s the instant this deploys for real, even
+// though it resolved fine testing against a server rooted one level up at
+// the whole repo. This is still a staging arrangement, exactly like the
+// reference build's own raw.githubusercontent.com URLs, just local and
+// actually reachable from where this site is hosted. Encoded with
+// encodeURI() at use so the spaces/apostrophes in these filenames are
+// never a problem regardless of host.
 // ---------------------------------------------------------------------
+// poster: a real first-ish frame extracted from each clip (ffmpeg, ~1s in —
+// past any opening fade-from-black), served instantly while the clip itself
+// is still fetching/decoding. Matters most for `hero`, which preloads
+// eagerly and paints above the fold; for every lazy (preload="none") story
+// clip it's what shows instead of a blank video box until it scrolls into
+// view and IntersectionObserver starts it playing.
 const VIDEO_SOURCES = {
-  hero: "../docs/Marketing Videos/Scene 10 - Coach Dave - Celebrating the action.mp4",
-  act1_01: "../docs/Marketing Videos/Coach Dave - Happy with Static paper plan lower quality.mp4",
-  act1_02: "../docs/Marketing Videos/Scene 2 - Coach Dave - Child asking when they're going on.mp4",
-  act1_03: "../docs/Marketing Videos/Scene 3 - Coach Dave - Child asking why he's been subbed. He just came on.mp4",
-  act1_04: "../docs/Marketing Videos/Scene 5 - Coach Dave - Unexpected Event - Injury to player.mp4",
-  act1_05: "../docs/Marketing Videos/Scene 4 - Coach Dave - Kid asking if they have been in goal - Dave looks uncertain.mp4",
-  act1_06: "../docs/Marketing Videos/Scene 7 - Coach Dave - Asking the whole sideline of parents for help.mp4",
-  act1_07: "../docs/Marketing Videos/Scene 8 - Coach Dave - Turning point - Looking for alternative to paper.mp4",
-  turn: "../docs/Marketing Videos/Parent Emma - Coach Dave asks if Emma can cover subs.mp4",
-  act2_01: "../docs/Marketing Videos/Parent Emma - Lily asks when she is going on.mp4",
-  act2_02: "../docs/Marketing Videos/Parent Emma - Asks about his position.mp4",
-  act2_03: "../docs/Marketing Videos/Parent Emma - Leo arrives late.mp4",
-  act2_04: "../docs/Marketing Videos/Parent Emma - Jack going back on.mp4",
-  act2_05: "../docs/Marketing Videos/Parent Emma - Coach Dave thanks Emma for running the subs.mp4",
-  act2_close: "../docs/Marketing Videos/Parent Emma - Mother and Daughter after game - Lily asks if she enjoyed doing the subs.mp4",
-  saturday: "../docs/Marketing Videos/Scene 11 - Coach Dave - Successful Sub.mp4",
+  hero: { src: "assets/videos/Scene 10 - Coach Dave - Celebrating the action.mp4", poster: "assets/posters/hero.jpg" },
+  act1_01: { src: "assets/videos/Coach Dave - Happy with Static paper plan lower quality.mp4", poster: "assets/posters/act1_01.jpg" },
+  act1_02: { src: "assets/videos/Scene 2 - Coach Dave - Child asking when they're going on.mp4", poster: "assets/posters/act1_02.jpg" },
+  act1_03: { src: "assets/videos/Scene 3 - Coach Dave - Child asking why he's been subbed. He just came on.mp4", poster: "assets/posters/act1_03.jpg" },
+  act1_04: { src: "assets/videos/Scene 5 - Coach Dave - Unexpected Event - Injury to player.mp4", poster: "assets/posters/act1_04.jpg" },
+  act1_05: { src: "assets/videos/Scene 4 - Coach Dave - Kid asking if they have been in goal - Dave looks uncertain.mp4", poster: "assets/posters/act1_05.jpg" },
+  act1_06: { src: "assets/videos/Scene 7 - Coach Dave - Asking the whole sideline of parents for help.mp4", poster: "assets/posters/act1_06.jpg" },
+  act1_07: { src: "assets/videos/Scene 8 - Coach Dave - Turning point - Looking for alternative to paper.mp4", poster: "assets/posters/act1_07.jpg" },
+  turn: { src: "assets/videos/Parent Emma - Coach Dave asks if Emma can cover subs.mp4", poster: "assets/posters/turn.jpg" },
+  act2_01: { src: "assets/videos/Parent Emma - Lily asks when she is going on.mp4", poster: "assets/posters/act2_01.jpg" },
+  act2_02: { src: "assets/videos/Parent Emma - Asks about his position.mp4", poster: "assets/posters/act2_02.jpg" },
+  act2_03: { src: "assets/videos/Parent Emma - Leo arrives late.mp4", poster: "assets/posters/act2_03.jpg" },
+  act2_04: { src: "assets/videos/Parent Emma - Jack going back on.mp4", poster: "assets/posters/act2_04.jpg" },
+  act2_05: { src: "assets/videos/Parent Emma - Coach Dave thanks Emma for running the subs.mp4", poster: "assets/posters/act2_05.jpg" },
+  act2_close: { src: "assets/videos/Parent Emma - Mother and Daughter after game - Lily asks if she enjoyed doing the subs.mp4", poster: "assets/posters/act2_close.jpg" },
+  saturday: { src: "assets/videos/Scene 11 - Coach Dave - Successful Sub.mp4", poster: "assets/posters/saturday.jpg" },
 };
 
 // ---------------------------------------------------------------------
@@ -54,8 +66,15 @@ function wireVideos() {
 
   vids.forEach((v) => {
     const key = v.dataset.video;
-    const src = VIDEO_SOURCES[key];
-    if (src) v.src = encodeURI(src);
+    const entry = VIDEO_SOURCES[key];
+    if (entry) {
+      v.src = encodeURI(entry.src);
+      // Plain markup `poster="…"` would work too, but this keeps every
+      // path for a given clip (video AND its poster) in the one place
+      // VIDEO_SOURCES already exists for — nothing in index.html names a
+      // poster file directly, same rule as the video src itself.
+      if (entry.poster) v.poster = encodeURI(entry.poster);
+    }
 
     // Do not skip: bare `muted`/`loop` markup attributes are not enough on
     // every browser — set as DOM properties, or autoplay can be refused.
