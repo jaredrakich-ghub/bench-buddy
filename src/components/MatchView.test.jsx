@@ -1315,6 +1315,40 @@ describe("MatchView — post-action confirmation toast", () => {
     render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 400 })} />);
     expect(screen.queryByText(/^✓/)).not.toBeInTheDocument();
   });
+
+  // Real-use bug: a coach tried to trade two on-field players and it
+  // silently did nothing — performSwap declines a field<->field trade that
+  // would hand a future keeper slot to someone not keeper-eligible (see
+  // rotation.js's findFieldSwapKeeperBlock), but nothing used to say so.
+  // Dan (p4) becomes keeper at interval 1 in this plan; keeperEligibleIds
+  // below leaves him out of it deliberately (a mistake a coach could easily
+  // not have noticed), so swapping him with Bob (p2, who holds that same
+  // slot) must be refused, visibly, not silently.
+  it("explains, instead of silently doing nothing, when a field<->field swap would hand a future keeper slot to an ineligible player", async () => {
+    const user = userEvent.setup();
+    const blockedPlan = [
+      makeInterval(0, 0, 6, ["p1", "p2", "p3", "p4", "p5"], "p1", ["p6", "p7"]),
+      makeInterval(1, 6, 12, ["p1", "p2", "p3", "p4", "p5"], "p2", ["p6", "p7"]), // p2 becomes keeper
+    ];
+    const onSwap = vi.fn();
+    render(
+      <MatchView
+        {...baseProps({
+          activeInterval: 0,
+          elapsedSec: 0,
+          plan: blockedPlan,
+          keeperEligibleIds: ["p1", "p2", "p3", "p5", "p6", "p7"], // p4 (Dan) left out
+          swapPickId: "p2",
+          onSwap,
+        })}
+      />
+    );
+    await user.click(tokenButtonFor("Dan")); // p4, on field, not keeper-eligible
+
+    expect(screen.getByText(/Can't swap/)).toBeInTheDocument();
+    expect(screen.queryByText(/^✓/)).not.toBeInTheDocument();
+    expect(onSwap).not.toHaveBeenCalled();
+  });
 });
 
 describe("MatchView — break markers (purely visual, no effect on the plan itself)", () => {

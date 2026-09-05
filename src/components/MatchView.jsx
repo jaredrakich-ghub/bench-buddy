@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Play, Pause, BarChart2, History, ArrowDown, ArrowUp, ArrowLeftRight, Save } from "lucide-react";
 import {
   intervalAtElapsed, computeNextChangeBadges, computeBreakBoundaries, pairChanges, computeFairnessSpread, fairnessRelevantIds,
-  intervalNeedsSubConfirm, buildFinal60Steps,
+  intervalNeedsSubConfirm, buildFinal60Steps, findFieldSwapKeeperBlock,
 } from "../lib/rotation.js";
 import { getFairnessState } from "../lib/fairness.js";
 import { computeLiveElapsedSec, fmtClock } from "../lib/clock.js";
@@ -1091,11 +1091,17 @@ export default function MatchView({
   // immediately either way; this is just narrating what the coach did, not
   // a correctness signal.
   const [confirmMessage, setConfirmMessage] = useState(null);
+  // Set alongside confirmMessage when the message being shown is actually
+  // an explanation for a swap that DIDN'T happen (see trySwapComplete) —
+  // same bubble, styled red instead of green, and shown a beat longer since
+  // it's new information the coach needs to read, not just a nice-to-know
+  // narration of something they already saw happen on the board.
+  const [confirmIsBlocked, setConfirmIsBlocked] = useState(false);
   useEffect(() => {
     if (!confirmMessage) return undefined;
-    const timer = setTimeout(() => setConfirmMessage(null), 2500);
+    const timer = setTimeout(() => setConfirmMessage(null), confirmIsBlocked ? 4000 : 2500);
     return () => clearTimeout(timer);
-  }, [confirmMessage]);
+  }, [confirmMessage, confirmIsBlocked]);
 
   // Nothing on the board should be tappable while any guard holds: a past
   // interval can't be edited (see isPastInterval's own comment above),
@@ -1255,9 +1261,31 @@ export default function MatchView({
       setSwapPickId(null);
       return true;
     }
-    setConfirmMessage(`${nameOf(swapPickId)} swapped with ${nameOf(id)}`);
     const source = swapPickId;
     setSwapPickId(null);
+
+    // Two on-field players trading places also trades their ENTIRE
+    // remaining rotation (see performSwap's own comment) — which
+    // performSwap silently declines if it would ever hand a keeper slot to
+    // someone not eligible for it, at this interval or any later one. That
+    // decline used to be invisible: the confirm message and swap animation
+    // both fired unconditionally, so a blocked swap looked identical to a
+    // successful one, or (worse) looked like tapping just did nothing. Run
+    // the exact same check here, first, so a blocked swap gets a real
+    // explanation instead of an animation that's about to be undone.
+    if (locationOf(viewedIv, source) === "pitch" && locationOf(viewedIv, id) === "pitch") {
+      const block = findFieldSwapKeeperBlock(plan, source, id, activeInterval, keeperEligibleIds);
+      if (block) {
+        setConfirmIsBlocked(true);
+        setConfirmMessage(
+          `Can't swap — ${nameOf(block.blockedPlayerId)} isn't set up to play keeper, and would need to from interval ${block.keeperIntervalIndex + 1}.`
+        );
+        return true;
+      }
+    }
+
+    setConfirmIsBlocked(false);
+    setConfirmMessage(`${nameOf(source)} swapped with ${nameOf(id)}`);
     beginSwap([{ outId: source, inId: id }], () => onSwap(source, id));
     return true;
   };
@@ -1896,7 +1924,11 @@ export default function MatchView({
       {!interactionLocked && (confirmMessage || swapPickId) && (
         <div style={styles.actionSheet}>
           {confirmMessage ? (
-            <div style={styles.actionSheetConfirm}>✓ {confirmMessage}</div>
+            confirmIsBlocked ? (
+              <div style={styles.actionSheetBlocked}>{confirmMessage}</div>
+            ) : (
+              <div style={styles.actionSheetConfirm}>✓ {confirmMessage}</div>
+            )
           ) : (
             <div style={styles.actionSheetSwapRow}>
               Tap another player to swap with <strong>{nameOf(swapPickId)}</strong>
@@ -1962,6 +1994,7 @@ export default function MatchView({
               <button
                 style={styles.mdPlayerPopoverRow}
                 onClick={() => {
+                  setConfirmIsBlocked(false);
                   setConfirmMessage(`${nameOf(menuPlayerId)} is now keeper`);
                   const target = menuPlayerId;
                   const gkId = viewedGk.id;

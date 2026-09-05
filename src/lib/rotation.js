@@ -131,6 +131,31 @@ export function lastGkId(intervals) {
   return intervals[intervals.length - 1].onField.find((p) => p.isGk)?.id ?? null;
 }
 
+// Whether trading two on-field players' WHOLE remaining rotation (see
+// useMatchState's performSwap) would ever hand a keeper slot to someone not
+// in keeperEligibleIds — checked from targetIndex through the end of the
+// game, since a pure relabel carries a player's keeper blocks with them
+// wherever they're relabelled to, not just at targetIndex itself. Pulled out
+// of performSwap so the UI (MatchView) can run the exact same check *before*
+// starting the swap animation and tell the coach why, instead of animating a
+// swap that performSwap then silently declines — a real coach hit this
+// (tried to swap two outfield players, one of whom was down to keep goal
+// three intervals later, and got no feedback at all — looked like the tap
+// just did nothing).
+export function findFieldSwapKeeperBlock(plan, playerAId, playerBId, targetIndex, keeperEligibleIds) {
+  for (let i = targetIndex; i < plan.length; i++) {
+    const gk = plan[i].onField.find((p) => p.isGk);
+    if (!gk) continue;
+    if (gk.id === playerAId && !keeperEligibleIds.includes(playerBId)) {
+      return { blockedPlayerId: playerBId, keeperIntervalIndex: i };
+    }
+    if (gk.id === playerBId && !keeperEligibleIds.includes(playerAId)) {
+      return { blockedPlayerId: playerAId, keeperIntervalIndex: i };
+    }
+  }
+  return null;
+}
+
 // Real-use report: a coach's unrelated, purely-outfield swap could
 // reshuffle who's keeper deep into the future — not just the interval
 // being touched, whole *later* keeper blocks swapping which player held

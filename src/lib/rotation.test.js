@@ -24,6 +24,7 @@ import {
   assessKeeperShift,
   fairnessRelevantIds,
   extractGkByInterval,
+  findFieldSwapKeeperBlock,
 } from "./rotation.js";
 import { generateFixedPlan } from "./fixedRotation.js";
 
@@ -258,6 +259,38 @@ describe("lastGkId", () => {
   it("returns null for an empty or missing interval list", () => {
     expect(lastGkId([])).toBe(null);
     expect(lastGkId(null)).toBe(null);
+  });
+});
+
+describe("findFieldSwapKeeperBlock", () => {
+  const plan = [
+    { onField: [{ id: "a", isGk: true }, { id: "b", isGk: false }, { id: "c", isGk: false }] },
+    { onField: [{ id: "b", isGk: true }, { id: "a", isGk: false }, { id: "c", isGk: false }] },
+    { onField: [{ id: "c", isGk: true }, { id: "a", isGk: false }, { id: "b", isGk: false }] },
+  ];
+  const eligible = ["a", "b", "c"]; // d (below) is not
+
+  it("returns null when neither player ever holds a keeper slot the other isn't eligible for", () => {
+    expect(findFieldSwapKeeperBlock(plan, "a", "b", 0, eligible)).toBe(null);
+  });
+
+  it("blocks a swap that would hand an upcoming keeper slot to an ineligible player", () => {
+    // b becomes keeper at interval 1 — swapping a<->d now would relabel
+    // that keeper slot to d, who isn't eligible.
+    const withD = [
+      { onField: [{ id: "a", isGk: true }, { id: "d", isGk: false }] },
+      { onField: [{ id: "a", isGk: true }, { id: "d", isGk: false }] }, // a keeps goal — d never becomes keeper
+    ];
+    expect(findFieldSwapKeeperBlock(withD, "a", "d", 0, ["a", "b", "c"])).toEqual({
+      blockedPlayerId: "d",
+      keeperIntervalIndex: 0,
+    });
+  });
+
+  it("only looks from targetIndex onward — an earlier keeper interval doesn't block a later swap", () => {
+    // b was keeper at interval 1 (before targetIndex 2) — irrelevant once
+    // the swap only reaches from interval 2 on.
+    expect(findFieldSwapKeeperBlock(plan, "a", "b", 2, eligible)).toBe(null);
   });
 });
 

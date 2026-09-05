@@ -1087,6 +1087,11 @@ export const styles = {
   // MatchView) rather than needing its own Cancel/dismiss action — it's
   // confirming something that already happened, not asking for a decision.
   actionSheetConfirm: { fontSize: 13, fontWeight: 700, color: colors.field, textAlign: "center", padding: "4px 0" },
+  // Same slot/weight as actionSheetConfirm, danger-red instead of
+  // field-green — a swap the coach tried to make that performSwap would
+  // silently decline (see findFieldSwapKeeperBlock, rotation.js), explained
+  // instead of just doing nothing.
+  actionSheetBlocked: { fontSize: 13, fontWeight: 700, color: colors.danger, textAlign: "center", padding: "4px 0" },
 
   // ---- Match-day redesign (Direction A) — header + action bar. See the
   // `tokens` export above and the pitch/shirt/bench styles further up.

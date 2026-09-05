@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import {
   intervalAtElapsed, computeIntervals, buildCarryState, generatePlan, keeperShiftIntervalsFor, lastGkId,
   resolveBringBack, computeMinutesSummary, repairBenchToKeeper, extractGkByInterval,
-  computeAveragePitchMinutes, computeFairnessSpread, fairnessRelevantIds,
+  computeAveragePitchMinutes, computeFairnessSpread, fairnessRelevantIds, findFieldSwapKeeperBlock,
 } from "../lib/rotation.js";
 import { generateFixedPlan, generateFixedPlanBiasedFor } from "../lib/fixedRotation.js";
 import { validateGameSettings } from "../lib/validation.js";
@@ -544,14 +544,7 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
       // targetIndex itself, if either player holds keeper right at
       // targetIndex — same deliberate coach-override exemption the old
       // isGk-only swap already had for that one interval.
-      let blocked = false;
-      for (let i = targetIndex; i < plan.length; i++) {
-        const gk = plan[i].onField.find((p) => p.isGk);
-        if (!gk) continue;
-        if (gk.id === playerAId && !keeperEligibleIds.includes(playerBId)) { blocked = true; break; }
-        if (gk.id === playerBId && !keeperEligibleIds.includes(playerAId)) { blocked = true; break; }
-      }
-      if (blocked) return;
+      if (findFieldSwapKeeperBlock(plan, playerAId, playerBId, targetIndex, keeperEligibleIds)) return;
 
       const relabel = (id) => (id === playerAId ? playerBId : id === playerBId ? playerAId : id);
       const swapped = plan.map((iv, i) => {
