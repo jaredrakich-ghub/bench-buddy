@@ -26,20 +26,19 @@
   <meta name="twitter:description" content="Bench Buddy takes care of substitutions, playing time and goalkeeper rotations for junior football teams, so every child gets a fair game.">
   <meta name="twitter:image" content="https://benchbuddysports.com/assets/og-image.jpg">
 
-  <!-- SoftwareApplication structured data — no aggregateRating/review
-       fields: this site has no real rating data to report, and a
-       fabricated one would be exactly the kind of fake-review content
-       Google's own structured-data guidelines penalise. Store links point
-       at #get (no real store listing yet) until the real App
-       Store/Google Play URLs exist — update alongside the badges in the
-       final CTA section. -->
+  <!-- WebApplication structured data — Bench Buddy is a web app (no native
+       iOS/Android build, no store listing), so this uses WebApplication
+       rather than SoftwareApplication and carries no operatingSystem
+       field, unlike a native-app listing. No aggregateRating/review
+       fields either: no real rating data exists, and fabricating one
+       would be exactly the kind of fake-review content Google's own
+       structured-data guidelines penalise. -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
+    "@type": "WebApplication",
     "name": "Bench Buddy",
     "applicationCategory": "SportsApplication",
-    "operatingSystem": "iOS, Android",
     "description": "Bench Buddy takes care of substitutions, playing time and goalkeeper rotations for junior football teams, so every child gets a fair game.",
     "url": "https://benchbuddysports.com/",
     "image": "https://benchbuddysports.com/assets/og-image.jpg",
@@ -60,7 +59,20 @@
     <img src="assets/bench-buddy-mark.svg" alt="Bench Buddy" width="56" height="56">
     <span class="bb-wordmark">Bench Buddy</span>
   </div>
-  <a href="#get" class="bb-btn bb-btn--yellow bb-btn--header">Download the App</a>
+  <div class="bb-menu">
+    <!-- The hero right below already carries the one "open the app" action
+         above the fold — this button is for everything else (today: the
+         story anchor; more real pages land here as they ship, e.g. Privacy
+         once one exists), not a second way to reach the app. -->
+    <button type="button" class="bb-menu__btn" id="bb-menu-btn" aria-expanded="false" aria-controls="bb-menu-panel" aria-label="Open menu">
+      <span class="bb-menu__bar"></span>
+      <span class="bb-menu__bar"></span>
+      <span class="bb-menu__bar"></span>
+    </button>
+    <nav class="bb-menu__panel" id="bb-menu-panel" aria-label="Site" hidden>
+      <a href="#story">The story</a>
+    </nav>
+  </div>
 </header>
 
 <main>
@@ -79,7 +91,7 @@
         <p class="bb-hero__subhead">Bench Buddy takes care of substitutions, playing time and goalkeeper rotations—so every child gets a fair game.</p>
       </div>
       <div class="bb-hero__actions" data-reveal>
-        <a href="#get" class="bb-btn bb-btn--yellow bb-btn--hero">Download the App</a>
+        <a href="https://app.benchbuddysports.com" class="bb-btn bb-btn--yellow bb-btn--hero">Open Bench Buddy</a>
         <a href="#story" class="bb-btn bb-btn--outline bb-btn--hero">
           <svg width="15" height="17" viewBox="0 0 15 17" fill="none" aria-hidden="true"><path d="M1.5 1.6 L13.4 8.5 L1.5 15.4 Z" fill="#FFFFFF"/></svg>
           Watch the story
@@ -339,23 +351,7 @@
   <section id="get" class="bb-cta">
     <div class="bb-cta__inner">
       <h2 class="bb-h2 bb-cta__headline" data-reveal>Enjoy the game again.</h2>
-      <a href="#get" class="bb-btn bb-btn--yellow bb-btn--cta" data-reveal>Get Bench Buddy</a>
-      <div class="bb-badges" data-reveal>
-        <div class="bb-badge">
-          <div class="bb-badge__glyph"></div>
-          <div class="bb-badge__text">
-            <span class="bb-badge__eyebrow">Download on the</span>
-            <span class="bb-badge__store">App Store</span>
-          </div>
-        </div>
-        <div class="bb-badge">
-          <div class="bb-badge__glyph"></div>
-          <div class="bb-badge__text">
-            <span class="bb-badge__eyebrow">Get it on</span>
-            <span class="bb-badge__store">Google Play</span>
-          </div>
-        </div>
-      </div>
+      <a href="https://app.benchbuddysports.com" class="bb-btn bb-btn--yellow bb-btn--cta" data-reveal>Open Bench Buddy</a>
     </div>
   </section>
 
@@ -369,11 +365,8 @@
     </div>
     <nav class="bb-footer__links">
       <a href="#story">The story</a>
-      <a href="#get">Download</a>
-      <a href="#get">Privacy</a>
-      <a href="#get">Contact</a>
+      <a href="https://app.benchbuddysports.com">Open the app</a>
     </nav>
-    <div class="bb-footer__note">Free to use. No spam.</div>
   </div>
 </footer>
 
