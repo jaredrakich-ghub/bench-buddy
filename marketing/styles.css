@@ -479,7 +479,7 @@ h1, h2, h3, p { margin: 0; }
   position: relative;
   width: 100%;
   max-width: 290px;
-  aspect-ratio: 870 / 1554;
+  aspect-ratio: 1170 / 2391; /* status-bar-only crop (top 141px), no bottom chrome to remove — full-height PWA capture */
   border-radius: var(--radius-phone);
   background: var(--deep-green);
   padding: 7px;
