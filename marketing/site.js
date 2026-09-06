@@ -53,7 +53,7 @@ function wireVideos() {
 
   // Only play what's on screen — the whole point of this observer is
   // that sixteen 720p clips must not all download/play at once.
-  const playIo = new IntersectionObserver(
+  const makePlayObserver = (root) => new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
         const v = entry.target;
@@ -61,8 +61,17 @@ function wireVideos() {
         else if (!v.paused) v.pause();
       });
     },
-    { rootMargin: "25% 0px 25% 0px", threshold: 0.01 }
+    // Carousel clips (root set) use a tighter threshold scoped to the
+    // track's own visible width, not the page viewport — otherwise every
+    // slide in a horizontally-clipped-but-vertically-on-screen carousel
+    // would register as "visible" at once and all seven/five clips would
+    // play simultaneously side by side.
+    root
+      ? { root, threshold: 0.6 }
+      : { rootMargin: "25% 0px 25% 0px", threshold: 0.01 }
   );
+  const pageObserver = makePlayObserver(null);
+  const trackObservers = new Map(); // carousel track element -> its own observer
 
   vids.forEach((v) => {
     const key = v.dataset.video;
@@ -93,7 +102,79 @@ function wireVideos() {
     v.addEventListener("loadeddata", ok);
     setTimeout(() => { if (v.error || v.readyState === 0) fail(); }, 4000);
 
-    playIo.observe(v);
+    const track = v.closest(".bb-carousel__track");
+    if (track) {
+      if (!trackObservers.has(track)) trackObservers.set(track, makePlayObserver(track));
+      trackObservers.get(track).observe(v);
+    } else {
+      pageObserver.observe(v);
+    }
+  });
+}
+
+// ---------------------------------------------------------------------
+// Carousel navigation (Act one/two's moments) — native horizontal
+// scroll-snap does the actual swiping/scrolling for free; this just adds
+// the optional arrow/dot controls on top and keeps them in sync with
+// wherever a visitor's own swipe has left the track scrolled to.
+// ---------------------------------------------------------------------
+function wireCarousels() {
+  document.querySelectorAll(".bb-carousel").forEach((carousel) => {
+    const track = carousel.querySelector(".bb-carousel__track");
+    const slides = track ? Array.from(track.children) : [];
+    const prevBtn = carousel.querySelector(".bb-carousel__arrow--prev");
+    const nextBtn = carousel.querySelector(".bb-carousel__arrow--next");
+    const dotsWrap = carousel.querySelector(".bb-carousel__dots");
+    if (!track || slides.length === 0) return;
+
+    // One dot per slide, built from the actual slide count rather than
+    // hand-authored in markup — the two can never drift out of sync.
+    const dots = slides.map((_, i) => {
+      const dot = document.createElement("button");
+      dot.type = "button";
+      dot.className = "bb-carousel__dot";
+      dot.setAttribute("aria-label", `Go to slide ${i + 1} of ${slides.length}`);
+      dot.addEventListener("click", () => scrollToSlide(i));
+      dotsWrap.appendChild(dot);
+      return dot;
+    });
+
+    slides.forEach((s, i) => {
+      s.setAttribute("role", "group");
+      s.setAttribute("aria-roledescription", "slide");
+      s.setAttribute("aria-label", `Slide ${i + 1} of ${slides.length}`);
+    });
+
+    let current = 0;
+    const setCurrent = (i) => {
+      current = i;
+      dots.forEach((d, idx) => d.setAttribute("aria-current", String(idx === i)));
+      if (prevBtn) prevBtn.disabled = i === 0;
+      if (nextBtn) nextBtn.disabled = i === slides.length - 1;
+    };
+
+    function scrollToSlide(i) {
+      slides[i].scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
+    }
+
+    prevBtn?.addEventListener("click", () => scrollToSlide(Math.max(0, current - 1)));
+    nextBtn?.addEventListener("click", () => scrollToSlide(Math.min(slides.length - 1, current + 1)));
+
+    // Keeps the dots/arrows accurate when a visitor swipes or drags the
+    // track directly, not just when they use the buttons above.
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && entry.intersectionRatio > 0.6) {
+            setCurrent(slides.indexOf(entry.target));
+          }
+        });
+      },
+      { root: track, threshold: [0.6] }
+    );
+    slides.forEach((s) => io.observe(s));
+
+    setCurrent(0);
   });
 }
 
@@ -152,6 +233,7 @@ function wireReveal() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  wireCarousels();
   wireVideos();
   wireReveal();
 });

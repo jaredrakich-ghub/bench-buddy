@@ -325,16 +325,63 @@ h1, h2, h3, p { margin: 0; }
 .bb-act--two .bb-act__inner { gap: clamp(48px, 6vw, 84px); }
 .bb-act__head { display: flex; flex-direction: column; gap: 16px; max-width: 800px; }
 
-.bb-beat {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: clamp(20px, 3vw, 52px);
-}
-.bb-beat__media { flex: 1 1 400px; }
-.bb-beat__text { flex: 1 1 288px; display: flex; flex-direction: column; gap: 12px; }
+.bb-beat__text { display: flex; flex-direction: column; gap: 12px; }
 .bb-beat__num { font-family: 'Schibsted Grotesk', sans-serif; font-weight: 600; font-size: 12px; letter-spacing: .14em; color: rgba(var(--cream-rgb), .6); }
 .bb-beat__num--yellow { color: var(--yellow); }
+
+/* ---------- Carousel (Act one/two's moments — real-use feedback: 12
+   autoplaying videos stacked one after another was too much scrolling and
+   too much motion at once. One act = one swipeable row, one clip playing
+   at a time.) ---------- */
+
+.bb-carousel { display: flex; flex-direction: column; gap: clamp(20px, 2.6vw, 32px); }
+.bb-carousel__track {
+  display: flex;
+  gap: clamp(16px, 2.4vw, 28px);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.bb-carousel__track::-webkit-scrollbar { display: none; }
+.bb-carousel__slide {
+  flex: 0 0 min(520px, 78vw);
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.bb-carousel__controls { display: flex; align-items: center; justify-content: center; gap: clamp(16px, 2.4vw, 28px); }
+.bb-carousel__arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(var(--cream-rgb), .42);
+  background: transparent;
+  cursor: pointer;
+}
+.bb-carousel__arrow:hover { border-color: #FFFFFF; background: rgba(var(--cream-rgb), .1); }
+.bb-carousel__arrow:disabled { opacity: .35; cursor: default; }
+.bb-carousel__arrow:disabled:hover { border-color: rgba(var(--cream-rgb), .42); background: transparent; }
+.bb-carousel__arrow--next svg { transform: scaleX(-1); }
+.bb-carousel__dots { display: flex; align-items: center; gap: 9px; }
+.bb-carousel__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  border: none;
+  padding: 0;
+  background: rgba(var(--cream-rgb), .3);
+  cursor: pointer;
+  transition: background .2s ease, width .2s ease;
+}
+.bb-carousel__dot[aria-current="true"] { background: #FFFFFF; width: 22px; }
+.bb-carousel--accent .bb-carousel__dot[aria-current="true"] { background: var(--yellow); }
 
 .bb-frame-43 {
   position: relative;
