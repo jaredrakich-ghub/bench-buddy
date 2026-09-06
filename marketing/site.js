@@ -57,7 +57,17 @@ function wireVideos() {
     (entries) => {
       entries.forEach((entry) => {
         const v = entry.target;
-        if (entry.isIntersecting) v.play().catch(() => {});
+        // NOT entry.isIntersecting: that's true the instant ANY sliver is
+        // visible (even 1%), regardless of the threshold option below —
+        // threshold only controls how often the callback fires, not what
+        // isIntersecting means. For a carousel's "peek" slide (the next
+        // one sitting ~15% visible at the track's edge) that meant it
+        // still started playing, which is exactly the distracting
+        // "two videos going at once" a real coach hit. Checking the
+        // actual ratio against the intended cutoff is what makes a peek
+        // NOT count as focused.
+        const visible = root ? entry.intersectionRatio >= 0.6 : entry.isIntersecting;
+        if (visible) v.play().catch(() => {});
         else if (!v.paused) v.pause();
       });
     },
@@ -65,9 +75,11 @@ function wireVideos() {
     // track's own visible width, not the page viewport — otherwise every
     // slide in a horizontally-clipped-but-vertically-on-screen carousel
     // would register as "visible" at once and all seven/five clips would
-    // play simultaneously side by side.
+    // play simultaneously side by side. Both 0 and 0.6 listed so the
+    // callback reliably fires at both "just appeared" and "now focused"
+    // (and the reverse) rather than only once near the far end.
     root
-      ? { root, threshold: 0.6 }
+      ? { root, threshold: [0, 0.6] }
       : { rootMargin: "25% 0px 25% 0px", threshold: 0.01 }
   );
   const pageObserver = makePlayObserver(null);
