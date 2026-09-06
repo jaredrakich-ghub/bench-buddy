@@ -576,3 +576,32 @@ h1, h2, h3, p { margin: 0; }
 @media (prefers-reduced-motion: reduce) {
   [data-reveal] { opacity: 1 !important; transform: none !important; transition: none !important; }
 }
+
+/* ---------- Content pages (Privacy, Terms, Contact, 404) ----------
+   These have no hero video behind them, so .bb-header needs a real
+   background instead of floating transparently — everything else about
+   it (brand, wordmark, layout) stays exactly as on the homepage. Prose
+   reuses the homepage's own type classes (.bb-h2--ink for the page
+   title, .bb-h3--card for section headings, .bb-body for paragraphs)
+   rather than inventing a second type scale for two legal pages and a
+   FAQ. */
+.bb-header--solid { position: static; background: var(--deep-green); }
+.bb-header__brand[href] { text-decoration: none; }
+
+.bb-page { background: var(--bone); padding: clamp(48px, 7vh, 88px) var(--page-pad-x) var(--section-pad-y); }
+.bb-page__inner { display: flex; flex-direction: column; gap: 12px; max-width: 720px; }
+.bb-page__updated { color: var(--body-on-light); font-size: 14px; margin-top: 4px; }
+.bb-page__prose { display: flex; flex-direction: column; gap: 28px; margin-top: 24px; }
+.bb-page__prose ul { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; }
+.bb-page__prose li { font-size: clamp(15px, 1.3vw, 17px); line-height: 1.55; font-weight: 500; color: var(--body-on-light); }
+.bb-page__section { display: flex; flex-direction: column; gap: 10px; }
+
+/* Contact page's FAQ list — same white-card surface as .bb-card/.bb-proof
+   so the whole site's "content sits in a white card on bone" pattern
+   stays consistent, not a one-off. */
+.bb-faq { display: flex; flex-direction: column; gap: 14px; margin-top: 8px; }
+.bb-faq__item { padding: clamp(20px, 2.6vw, 28px); border-radius: var(--radius-card); background: #FFFFFF; display: flex; flex-direction: column; gap: 8px; }
+
+/* 404 */
+.bb-notfound { background: var(--deep-green); min-height: 72svh; display: flex; align-items: center; padding: var(--section-pad-y) var(--page-pad-x); }
+.bb-notfound__inner { display: flex; flex-direction: column; gap: 18px; max-width: 620px; }
