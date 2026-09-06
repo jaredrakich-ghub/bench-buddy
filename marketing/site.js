@@ -151,40 +151,7 @@ function wireReveal() {
   }, 1200);
 }
 
-// ---------------------------------------------------------------------
-// Header menu (hamburger) — the header floats transparently over the hero
-// video, so the open panel needs its own solid background rather than
-// relying on anything behind it (see .bb-menu__panel).
-// ---------------------------------------------------------------------
-function wireMenu() {
-  const btn = document.getElementById("bb-menu-btn");
-  const panel = document.getElementById("bb-menu-panel");
-  if (!btn || !panel) return;
-
-  const setOpen = (open) => {
-    panel.hidden = !open;
-    btn.setAttribute("aria-expanded", String(open));
-    btn.setAttribute("aria-label", open ? "Close menu" : "Open menu");
-  };
-
-  btn.addEventListener("click", () => setOpen(panel.hidden));
-
-  // Outside click and Escape both close it; clicking a link inside closes
-  // it too (an anchor jump shouldn't leave the panel sitting open on top
-  // of wherever the page just scrolled to).
-  document.addEventListener("click", (e) => {
-    if (panel.hidden) return;
-    if (e.target === btn || btn.contains(e.target) || panel.contains(e.target)) return;
-    setOpen(false);
-  });
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && !panel.hidden) setOpen(false);
-  });
-  panel.querySelectorAll("a").forEach((a) => a.addEventListener("click", () => setOpen(false)));
-}
-
 document.addEventListener("DOMContentLoaded", () => {
   wireVideos();
   wireReveal();
-  wireMenu();
 });

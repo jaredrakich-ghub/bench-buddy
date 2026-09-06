@@ -264,52 +264,6 @@ h1, h2, h3, p { margin: 0; }
 .bb-header__brand { display: flex; align-items: center; gap: 11px; }
 .bb-header__brand img { display: block; }
 
-.bb-menu { position: relative; }
-.bb-menu__btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  width: 44px;
-  height: 44px;
-  border: 1.5px solid rgba(var(--cream-rgb), .42);
-  border-radius: 999px;
-  background: rgba(var(--scrim-rgb), .22);
-  cursor: pointer;
-}
-.bb-menu__btn:hover { border-color: #FFFFFF; background: rgba(var(--cream-rgb), .1); }
-.bb-menu__bar { width: 17px; height: 1.5px; background: #FFFFFF; border-radius: 1px; }
-/* Two bars collapsed into an X — no separate icon asset, no swapped markup. */
-.bb-menu__btn[aria-expanded="true"] .bb-menu__bar:nth-child(1) { transform: translateY(6.5px) rotate(45deg); }
-.bb-menu__btn[aria-expanded="true"] .bb-menu__bar:nth-child(2) { opacity: 0; }
-.bb-menu__btn[aria-expanded="true"] .bb-menu__bar:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); }
-.bb-menu__bar { transition: transform .2s ease, opacity .15s ease; }
-
-.bb-menu__panel {
-  position: absolute;
-  top: calc(100% + 10px);
-  right: 0;
-  z-index: 21;
-  display: flex;
-  flex-direction: column;
-  min-width: 200px;
-  padding: 10px;
-  border-radius: 18px;
-  background: var(--deep-green);
-  border: 1px solid rgba(var(--cream-rgb), .14);
-  box-shadow: 0 18px 40px rgba(var(--card-shadow-rgb), .35);
-}
-.bb-menu__panel a {
-  padding: 12px 14px;
-  border-radius: 11px;
-  font-family: 'Schibsted Grotesk', sans-serif;
-  font-weight: 600;
-  font-size: 15px;
-  color: rgba(var(--cream-rgb), .9);
-}
-.bb-menu__panel a:hover { background: rgba(var(--cream-rgb), .08); color: #FFFFFF; }
-
 /* ---------- Video wells + scrims ---------- */
 
 .bb-hero__media, .bb-turn__media {

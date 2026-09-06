@@ -59,20 +59,12 @@
     <img src="assets/bench-buddy-mark.svg" alt="Bench Buddy" width="56" height="56">
     <span class="bb-wordmark">Bench Buddy</span>
   </div>
-  <div class="bb-menu">
-    <!-- The hero right below already carries the one "open the app" action
-         above the fold — this button is for everything else (today: the
-         story anchor; more real pages land here as they ship, e.g. Privacy
-         once one exists), not a second way to reach the app. -->
-    <button type="button" class="bb-menu__btn" id="bb-menu-btn" aria-expanded="false" aria-controls="bb-menu-panel" aria-label="Open menu">
-      <span class="bb-menu__bar"></span>
-      <span class="bb-menu__bar"></span>
-      <span class="bb-menu__bar"></span>
-    </button>
-    <nav class="bb-menu__panel" id="bb-menu-panel" aria-label="Site" hidden>
-      <a href="#story">The story</a>
-    </nav>
-  </div>
+  <!-- No header nav for now: the only candidate item (The story) already
+       has its own entry point via the hero's "Watch the story" button, so
+       a menu holding just that one link was pure redundancy dressed up as
+       navigation. Bring the hamburger back (see git history around this
+       comment) once there's a second real page — Privacy, Contact — that
+       actually needs a home. -->
 </header>
 
 <main>
