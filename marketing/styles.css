@@ -461,7 +461,7 @@ h1, h2, h3, p { margin: 0; }
   position: relative;
   width: 100%;
   max-width: 290px;
-  aspect-ratio: 1170 / 2532;
+  aspect-ratio: 870 / 1554;
   border-radius: var(--radius-phone);
   background: var(--deep-green);
   padding: 7px;
