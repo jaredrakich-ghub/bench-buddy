@@ -442,6 +442,24 @@ h1, h2, h3, p { margin: 0; }
 .bb-card svg { display: block; }
 .bb-card__text { display: flex; flex-direction: column; gap: 11px; }
 
+/* The Todays Minutes proof band under the benefit cards. Same white
+   card surface as .bb-card so it reads as part of that set, but a
+   two-up layout so the screenshot is big enough for the table to
+   actually be legible — a minutes list is only persuasive if you can
+   read the numbers. auto-fit collapses it to stacked on narrow
+   screens, no media query, same as everything else here. */
+.bb-proof {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(272px, 1fr));
+  gap: clamp(26px, 4vw, 64px);
+  align-items: center;
+  justify-items: center;
+  padding: clamp(26px, 3.2vw, 46px);
+  border-radius: var(--radius-card);
+  background: #FFFFFF;
+}
+.bb-proof__copy { display: flex; flex-direction: column; gap: 13px; max-width: 480px; }
+
 /* ---------- 6 · How it works ---------- */
 
 .bb-how { background: var(--cream); padding: var(--section-pad-y) var(--page-pad-x); }
