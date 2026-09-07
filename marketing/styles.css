@@ -459,6 +459,11 @@ h1, h2, h3, p { margin: 0; }
   background: #FFFFFF;
 }
 .bb-proof__copy { display: flex; flex-direction: column; gap: 13px; max-width: 480px; }
+/* Visual order only (DOM stays phone-then-copy — screen readers don't
+   care about CSS order) — alternates the two proof bands so a second one
+   in a row doesn't just read as the first one repeated. */
+.bb-proof--reverse .bb-proof__phone { order: 2; }
+.bb-proof--reverse .bb-proof__copy { order: 1; }
 
 /* ---------- 6 · How it works ---------- */
 
