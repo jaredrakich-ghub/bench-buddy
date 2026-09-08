@@ -133,11 +133,33 @@ export function canControlClock(actor, handover, now = Date.now()) {
 // wrong for a bearer secret someone could otherwise guess. If a secure
 // random source genuinely isn't available, failing loudly beats minting a
 // guessable "secret".
+//
+// Step 3: shortened from a 36-char UUID (crypto.randomUUID()) to a 22-char
+// alphanumeric string — this now lives in a URL the mockup shows short
+// (benchbuddysports.com/m/tigers-9f2k). Still built from crypto.
+// getRandomValues, still one unguessable value per call.
+//
+// Excludes 0/O and 1/I/l — confirmed the hard way (Step 5's own real-
+// browser testing): a token containing capital I and lowercase l is
+// genuinely indistinguishable in this app's own fonts, and got mistyped
+// straight off a screenshot while testing the claim flow. The real
+// share/copy/WhatsApp flow never involves anyone typing this by hand, but
+// excluding the ambiguous characters costs nothing and closes the class of
+// mistake outright. 57 symbols over 22 chars is still ~128 bits of
+// entropy, essentially unchanged from the full 62-symbol alphabet's ~131.
+const TOKEN_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+const TOKEN_LENGTH = 22;
+
 export function generateClaimToken() {
-  if (typeof crypto === "undefined" || typeof crypto.randomUUID !== "function") {
+  if (typeof crypto === "undefined" || typeof crypto.getRandomValues !== "function") {
     throw new Error("A secure random source is required to generate a claim token.");
   }
-  return crypto.randomUUID();
+  const bytes = crypto.getRandomValues(new Uint8Array(TOKEN_LENGTH));
+  let token = "";
+  for (let i = 0; i < TOKEN_LENGTH; i++) {
+    token += TOKEN_ALPHABET[bytes[i] % TOKEN_ALPHABET.length];
+  }
+  return token;
 }
 
 // Stage A's gate — true while a share link is still open for a NEW claim to
@@ -156,4 +178,48 @@ export function canStartClaim(handover, now = Date.now()) {
 // same write in that case).
 export function canConfirmClaim(handover, now = Date.now()) {
   return canStartClaim(handover, now) && handover.pendingClaim != null;
+}
+
+// Step 4 — what MatchClaimPage (2b) should show for a given handover, the
+// token from the URL it was opened with, and the viewer's own (anonymous)
+// uid. Built entirely on canStartClaim/canConfirmClaim above rather than
+// re-deriving revoked/expired/claimed checks — this is the one place that
+// combines them into a single UI decision.
+//
+//   "not-found"        — no handover at all, or the token doesn't match
+//                         anything current (e.g. a stale link after the
+//                         coach regenerated).
+//   "dead"              — the handover itself is revoked or past its hard
+//                         cap, and nobody ever claimed it.
+//   "already-yours"     — this viewer already holds an active claim (e.g.
+//                         they reopened their own link on the same device).
+//   "taken-back"        — this viewer's claim exists but was revoked —
+//                         distinct from "already-claimed" so the copy can
+//                         say what actually happened rather than implying
+//                         someone else has it.
+//   "already-claimed"   — someone else holds the claim.
+//   "needs-email"        — the real share token, requireEmailClaim is on —
+//                         show the email form (Stage A).
+//   "ready-to-claim"     — the real share token, requireEmailClaim is off —
+//                         claim directly, no email step.
+//   "ready-to-confirm"   — the emailed deviceToken — complete Stage B.
+export function classifyClaimLink(handover, token, viewerUid, now = Date.now()) {
+  if (!handover) return "not-found";
+
+  if (handover.claim) {
+    if (handover.claim.claimedByUid === viewerUid) {
+      return handover.claim.revokedAt ? "taken-back" : "already-yours";
+    }
+    return "already-claimed";
+  }
+
+  if (!canStartClaim(handover, now)) return "dead";
+
+  if (token === handover.claimToken) {
+    return handover.requireEmailClaim ? "needs-email" : "ready-to-claim";
+  }
+  if (canConfirmClaim(handover, now) && token === handover.pendingClaim.deviceToken) {
+    return "ready-to-confirm";
+  }
+  return "not-found";
 }

@@ -67,7 +67,16 @@ service cloud.firestore {
     }
 
     match /teams/{teamId} {
-      allow read, delete: if request.auth != null && request.auth.uid in resource.data.memberIds;
+      // Step 5 — a parent's MatchView needs the roster (player names/shirt
+      // numbers) and team name, same as the coach's own screen, but a
+      // parent is never a member. Read only (not delete): mirrors the
+      // exact isMember(teamId) || isActiveHolder(teamId) pattern matchState
+      // already uses. isActiveHolder(teamId) itself already only reads
+      // teams/{teamId} to check membership nowhere — it keys off the
+      // sibling matchHandover doc instead, so this doesn't create a
+      // circular read.
+      allow read: if request.auth != null && (request.auth.uid in resource.data.memberIds || isActiveHolder(teamId));
+      allow delete: if request.auth != null && request.auth.uid in resource.data.memberIds;
       allow create: if request.auth != null
         && request.auth.uid in request.resource.data.memberIds
         && isValidTeam(request.resource.data);
@@ -78,7 +87,28 @@ service cloud.firestore {
       // Match Link — a handover session lets one holder (usually a parent)
       // act on a team's current match without being a team member at all.
       match /matchHandover/{handoverId} {
-        allow read: if request.auth != null && (isMember(teamId) || isActiveHolder(teamId));
+        // Step 4 — MatchClaimPage (2b) has to read this doc BEFORE any
+        // claim exists, to know whether to show the email form or attempt
+        // a direct claim, and whether the link is already dead — none of
+        // which a brand-new parent (not a member, not yet a holder) could
+        // see under the original isMember/isActiveHolder-only read gate.
+        // Stage A/B writes stay blind by design (no read needed to write —
+        // see the update rules below), but a read genuinely has no
+        // equivalent trick: there's no "prove you know the token" a get()
+        // request can carry.
+        //
+        // Opened to any authenticated caller instead (this app auto-signs
+        // everyone in anonymously on first visit — see AuthGate.jsx — so in
+        // practice this means anyone at all). The practical gate becomes
+        // teamId itself: a 20-char unguessable Firestore auto-id, not
+        // discoverable without already having a real share link. Writes are
+        // UNCHANGED — still exactly as tightly scoped as Steps 1-2 built.
+        //
+        // Accepted trade-off, not an oversight: a past holder's email stays
+        // readable to anyone who ever had that link and still knows teamId,
+        // even after revocation — revoking a holder clears neither
+        // claim.email nor claim itself, only sets claim.revokedAt.
+        allow read: if request.auth != null;
 
         // The coach: full create/update, unchanged from Step 1.
         allow create, update: if request.auth != null && isMember(teamId) && isValidHandover(request.resource.data);

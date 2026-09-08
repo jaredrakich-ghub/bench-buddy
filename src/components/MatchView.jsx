@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Play, Pause, BarChart2, History, ArrowDown, ArrowUp, ArrowLeftRight, Save } from "lucide-react";
+import { Play, Pause, BarChart2, History, ArrowDown, ArrowUp, ArrowLeftRight, Save, Link2 } from "lucide-react";
 import {
   intervalAtElapsed, computeNextChangeBadges, computeBreakBoundaries, pairChanges, computeFairnessSpread, fairnessRelevantIds,
   intervalNeedsSubConfirm, buildFinal60Steps, findFieldSwapKeeperBlock,
@@ -703,8 +703,22 @@ export default function MatchView({
   onShowSeason,
   onShowSettings,
   onShowSquadChange,
+  onShowMatchLink,
   onShowTeamSwitcher,
   isAnonymous,
+  // Match Link, Step 5 — the SAME screen a coach sees, per README rule 2:
+  // "different controls live", not a second UI. parentMode hides the cog
+  // button (a parent's session has nothing that menu leads to — no squad
+  // editing, no season data, no team settings) and swaps the match-complete
+  // banner's "Start new game" for plain text (rebuilding a rotation is
+  // squarely the coach's job). roleLine, when parentMode is on, replaces
+  // the header's static "TEAM" label with the handover's own sub-line copy
+  // ("You're on subs today") — this is the one place README > 2c/2d calls
+  // out as needing to "always be present": whatever's true right now about
+  // who's holding the game. Both default to the coach's exact original
+  // behavior, so every existing call site (and test) is untouched.
+  parentMode = false,
+  roleLine = null,
 }) {
   const totalGameSec = plan[plan.length - 1].endMin * 60;
   const isMatchComplete = elapsedSec >= totalGameSec;
@@ -1614,22 +1628,35 @@ export default function MatchView({
         <div style={styles.mdHeaderTopRow}>
           <div style={styles.mdCrestOuter}>{crestSrc && <img src={crestSrc} alt="" style={styles.mdCrestImg} />}</div>
           <div style={styles.mdTeamNameStack}>
-            <div style={styles.mdTeamNameLabel}>Team</div>
+            {/* README > 2c/2d: "the handover state must be conveyed in
+                text... this is the sub-line's job" — same slot the coach's
+                plain "Team" label sits in, so this adds no height and needs
+                no new styles; parentMode is the only thing that ever
+                supplies roleLine. */}
+            <div style={styles.mdTeamNameLabel}>{parentMode && roleLine ? roleLine : "Team"}</div>
             <div style={styles.mdTeamName}>{teamName}</div>
           </div>
-          <button
-            style={{ ...styles.mdCogBtn, ...(cogOrigin ? { ...styles.mdOriginLit, ...styles.mdCogBtnLit } : {}) }}
-            onClick={(e) => {
-              // Read the rect synchronously, before handing off to the
-              // updater callback — by the time that runs, the synthetic
-              // event's currentTarget has already been cleared.
-              const top = e.currentTarget.getBoundingClientRect().bottom + 8;
-              setCogOrigin((current) => (current ? null : { top }));
-            }}
-            title="Menu"
-          >
-            <GearIcon size={28} />
-          </button>
+          {/* A parent's session has nothing this menu leads to — no squad
+              editing, no season data, no team settings (README's own
+              permissions list) — so the control itself is absent, not
+              disabled-looking, same standard Match Link already holds
+              itself to elsewhere (MatchLinkScreen's clock-button build
+              note). */}
+          {!parentMode && (
+            <button
+              style={{ ...styles.mdCogBtn, ...(cogOrigin ? { ...styles.mdOriginLit, ...styles.mdCogBtnLit } : {}) }}
+              onClick={(e) => {
+                // Read the rect synchronously, before handing off to the
+                // updater callback — by the time that runs, the synthetic
+                // event's currentTarget has already been cleared.
+                const top = e.currentTarget.getBoundingClientRect().bottom + 8;
+                setCogOrigin((current) => (current ? null : { top }));
+              }}
+              title="Menu"
+            >
+              <GearIcon size={28} />
+            </button>
+          )}
         </div>
         {/* position:relative — this row's only change — anchors the
             fairness toast mark below to sit flush against this row's own
@@ -1694,9 +1721,13 @@ export default function MatchView({
         <div style={{ position: "relative" }}>
           <div style={styles.matchCompleteBanner}>
             <span>🏁 Match complete</span>
-            <button style={styles.confirmBtn} onClick={onShowSettings}>
-              Start new game
-            </button>
+            {/* Starting a new game rebuilds the rotation from Game
+                settings — squarely the coach's job, not the parent's. */}
+            {!parentMode && (
+              <button style={styles.confirmBtn} onClick={onShowSettings}>
+                Start new game
+              </button>
+            )}
           </div>
           {confettiPieces.length > 0 && (
             <div aria-hidden="true" style={{ position: "absolute", inset: 0, overflow: "visible", pointerEvents: "none", zIndex: 5 }}>
@@ -2155,6 +2186,17 @@ export default function MatchView({
         </div>
       )}
 
+      {/* README > 2c/2d: "Minutes link... centred under the bar. Opens the
+          existing minutes view read-only." The coach reaches the same
+          screen through the cog menu (hidden entirely in parentMode, see
+          the header above) — this is the parent's only route to it, so it
+          only ever renders here, never alongside the cog. */}
+      {parentMode && !sheetOpen && !showSheet1 && !showSheet2 && (
+        <button style={styles.mdParentMinutesLink} onClick={onShowSummary}>
+          Today's Minutes
+        </button>
+      )}
+
       {/* Block 11: the final-60 takeover from here down replaces the old
           single full-screen sheet with two. Both sit inside
           mdFinal60Overlay — see its own comment for why that's a
@@ -2374,6 +2416,19 @@ export default function MatchView({
                   screen itself already said "Who's here?". */}
               <span style={styles.mdCogMenuLabel}>Who's here</span>
               {availableCount != null && <span style={styles.mdCogMenuValue}>{availableCount} in</span>}
+              <span style={styles.mdCogMenuChevron}>›</span>
+            </button>
+            <button
+              style={styles.mdCogMenuRow}
+              onClick={() => {
+                setCogOrigin(null);
+                onShowMatchLink();
+              }}
+            >
+              <span style={{ ...styles.mdCogMenuIconTile, ...styles.mdTintYellow }}>
+                <Link2 size={16} color={tokens.color.goldText} />
+              </span>
+              <span style={styles.mdCogMenuLabel}>Match Link</span>
               <span style={styles.mdCogMenuChevron}>›</span>
             </button>
             <button

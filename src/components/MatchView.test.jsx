@@ -109,6 +109,7 @@ function baseProps(overrides = {}) {
     onShowSeason: vi.fn(),
     onShowSettings: vi.fn(),
     onShowSquadChange: vi.fn(),
+    onShowMatchLink: vi.fn(),
     onShowTeamSwitcher: vi.fn(),
     ...overrides,
   };
@@ -288,7 +289,7 @@ describe("MatchView — cog menu (anchored popover, trimmed / #10a)", () => {
     expect(screen.queryByText("Game settings")).not.toBeInTheDocument();
   });
 
-  it("shows only the 5 rows this trim keeps — nothing that moved to Team & account", async () => {
+  it("shows the 5 rows this trim keeps plus Match Link — nothing that moved to Team & account", async () => {
     const user = userEvent.setup();
     render(<MatchView {...baseProps()} />);
     await user.click(screen.getByTitle("Menu"));
@@ -296,6 +297,9 @@ describe("MatchView — cog menu (anchored popover, trimmed / #10a)", () => {
     expect(popover.getByText("Today's Minutes")).toBeInTheDocument();
     expect(popover.getByText("Season Minutes")).toBeInTheDocument();
     expect(popover.getByText("Who's here")).toBeInTheDocument();
+    // Match Link (Step 3) — added after this trim, so named here rather
+    // than folded silently into the trim's original 5.
+    expect(popover.getByText("Match Link")).toBeInTheDocument();
     expect(popover.getByText("Game settings")).toBeInTheDocument();
     expect(popover.getByText("Team & account")).toBeInTheDocument();
     expect(popover.queryByText("Manage squad")).not.toBeInTheDocument();
@@ -325,9 +329,14 @@ describe("MatchView — cog menu (anchored popover, trimmed / #10a)", () => {
     const onShowSeason = vi.fn();
     const onShowSettings = vi.fn();
     const onShowSquadChange = vi.fn();
+    const onShowMatchLink = vi.fn();
     const onShowTeamSwitcher = vi.fn();
     const user = userEvent.setup();
-    render(<MatchView {...baseProps({ onShowSummary, onShowSeason, onShowSettings, onShowSquadChange, onShowTeamSwitcher })} />);
+    render(
+      <MatchView
+        {...baseProps({ onShowSummary, onShowSeason, onShowSettings, onShowSquadChange, onShowMatchLink, onShowTeamSwitcher })}
+      />
+    );
 
     await user.click(screen.getByTitle("Menu"));
     await user.click(screen.getByText("Today's Minutes"));
@@ -341,6 +350,10 @@ describe("MatchView — cog menu (anchored popover, trimmed / #10a)", () => {
     await user.click(screen.getByTitle("Menu"));
     await user.click(screen.getByText("Who's here"));
     expect(onShowSquadChange).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByTitle("Menu"));
+    await user.click(screen.getByText("Match Link"));
+    expect(onShowMatchLink).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByTitle("Menu"));
     await user.click(screen.getByText("Game settings"));

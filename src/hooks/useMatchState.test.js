@@ -11,11 +11,21 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, cleanup } from "@testing-library/react";
 import { useMatchState } from "./useMatchState.js";
 
+// Step 7 — subscribeMatchState is mocked as a plain vi.fn() (not wired to
+// actually invoke its callback) rather than something that simulates real
+// snapshots: every test below drives state through the hook's own setters/
+// actions directly, same as before, and only the dedicated "live sync"
+// describe block below reaches into the mock's own captured callback to
+// exercise applyRemoteMatchState specifically. Must still return an
+// unsubscribe function — the hook's own effect calls whatever this returns
+// as its cleanup.
 vi.mock("../lib/firestoreTeams.js", () => ({
   saveMatchState: vi.fn().mockResolvedValue(undefined),
+  updateMatchState: vi.fn().mockResolvedValue(undefined),
+  subscribeMatchState: vi.fn(() => vi.fn()),
   describeSaveError: (err) => (err?.code === "unavailable" ? "You're offline — changes will sync once you're back online." : "Couldn't save."),
 }));
-import { saveMatchState } from "../lib/firestoreTeams.js";
+import { saveMatchState, updateMatchState, subscribeMatchState } from "../lib/firestoreTeams.js";
 
 vi.mock("../lib/gameHistory.js", () => ({
   archiveGame: vi.fn().mockResolvedValue(undefined),
@@ -214,7 +224,12 @@ describe("useMatchState — archiving to season history", () => {
 
   it("surfaces a friendly error if archiving fails, without blocking the clock from freezing", async () => {
     const { result } = setupWithPlan();
-    saveMatchState.mockRejectedValue({ code: "unavailable" }); // same reasoning as before: keeps the ordinary persist's success from racing the archive failure
+    // Step 7: the clock fields this test sets below persist through the
+    // clock-group's own updateMatchState now, not saveMatchState (only
+    // commitFreshPlan's initial create still uses that) — mocking this one
+    // to reject too keeps that persist's SUCCESS from racing in and
+    // clearing the archive failure's saveError right back to null.
+    updateMatchState.mockRejectedValue({ code: "unavailable" });
     archiveGame.mockRejectedValueOnce({ code: "unavailable" });
 
     act(() => {
@@ -701,6 +716,146 @@ describe("useMatchState — persisting to Firestore", () => {
       await Promise.resolve(); // rejection needs an extra microtask turn to settle
     });
     expect(result.current.saveError).toMatch(/offline/);
+  });
+});
+
+// Step 7 — two people, one game: a coach's device and an active Match Link
+// holder's device can now genuinely both be live on the same match, so a
+// whole-document saveMatchState on every change would let either silently
+// clobber the other's unrelated changes. These tests confirm persistence
+// after the initial create is scoped to exactly the fields each kind of
+// change actually owns, and that a remote update from the OTHER device
+// gets applied locally.
+describe("useMatchState — scoped persistence after the initial save (Step 7)", () => {
+  it("a clock-only change persists only the clock fields, via updateMatchState — not saveMatchState, not plan/settings", () => {
+    const { result } = setupWithPlan();
+    saveMatchState.mockClear(); // clear the initial create's own call
+    updateMatchState.mockClear(); // clear the redundant post-create scoped writes (see commitFreshPlan's own comment)
+    // A real recent Date.now(), not an arbitrary small number — the tick
+    // effect (unrelated to this test) derives live elapsed time from
+    // Date.now() - runStartedAt, and a tiny epoch value there reads as
+    // "started decades ago", auto-freezing the clock at full time before
+    // this assertion ever runs.
+    act(() => {
+      result.current.setRunStartedAt(Date.now());
+      result.current.setTimerRunning(true);
+    });
+    expect(saveMatchState).not.toHaveBeenCalled();
+    expect(updateMatchState).toHaveBeenCalledWith("t1", {
+      baseElapsedSec: result.current.baseElapsedSec,
+      runStartedAt: result.current.runStartedAt,
+      timerRunning: true,
+    });
+  });
+
+  it("a match-content change (a sub) persists only plan/activeInterval/availableIds/injuries/subLog — not the clock, not settings", () => {
+    const { result } = setupWithPlan();
+    updateMatchState.mockClear();
+    const fieldId = result.current.plan[0].onField[0].id;
+    const benchId = result.current.plan[0].bench[0];
+    act(() => result.current.performSwap(benchId, fieldId));
+
+    const call = updateMatchState.mock.calls.find((c) => "plan" in c[1]);
+    expect(call).toBeTruthy();
+    expect(call[0]).toBe("t1");
+    expect(Object.keys(call[1]).sort()).toEqual(
+      ["activeInterval", "availableIds", "injuredAt", "injuredThisGame", "plan", "subLog"].sort()
+    );
+  });
+
+  it("a settings-only change persists only gameSettings", () => {
+    const { result } = setupWithPlan();
+    updateMatchState.mockClear();
+    act(() => result.current.setGameSettings({ fieldSize: 5, gameMinutes: 12, subIntervalMinutes: 6, breakSegments: 2 }));
+
+    expect(updateMatchState).toHaveBeenCalledWith("t1", {
+      gameSettings: { fieldSize: 5, gameMinutes: 12, subIntervalMinutes: 6, breakSegments: 2 },
+    });
+  });
+
+  it("subscribes to matchState the moment a team is active, and applies an incoming remote snapshot to local state", () => {
+    const { result } = setupWithPlan();
+    expect(subscribeMatchState).toHaveBeenCalledWith("t1", expect.any(Function));
+    const applyRemote = subscribeMatchState.mock.calls[0][1];
+
+    // A PAUSED clock (runStartedAt: null) deliberately — this test is about
+    // applyRemoteMatchState setting exactly the fields it's given, not
+    // about exercising the tick/auto-follow effects (covered elsewhere);
+    // a running clock here would also engage those, coupling this test to
+    // unrelated behavior.
+    const remotePlan = result.current.plan.map((iv) => ({ ...iv }));
+    act(() => {
+      applyRemote({
+        availableIds: result.current.availableIds,
+        gameSettings: result.current.gameSettings,
+        plan: remotePlan,
+        activeInterval: 1,
+        injuredThisGame: ["p2"],
+        injuredAt: { p2: 30 },
+        subLog: {},
+        baseElapsedSec: 45,
+        runStartedAt: null,
+        timerRunning: false,
+      });
+    });
+
+    // The exact remote values landed locally — this is what makes the
+    // OTHER device's changes actually show up without a reload.
+    expect(result.current.plan).toBe(remotePlan);
+    expect(result.current.activeInterval).toBe(1);
+    expect(result.current.injuredThisGame).toEqual(["p2"]);
+    expect(result.current.injuredAt).toEqual({ p2: 30 });
+    expect(result.current.baseElapsedSec).toBe(45);
+    expect(result.current.runStartedAt).toBeNull();
+    expect(result.current.timerRunning).toBe(false);
+  });
+
+  // Caught the hard way via real cross-device testing: snap.data() never
+  // returns the same plan object twice, even with identical content, and
+  // plan is a shared dependency of all three persist effects — without the
+  // suppression this guards, applying a remote update would immediately
+  // write it straight back to Firestore, which re-triggers this same
+  // listener, which applies again, which writes again: a real,
+  // self-sustaining ping-pong between two states, observed thrashing many
+  // times a second on an actual device.
+  it("applying a remote snapshot does not write it straight back — no write/listen ping-pong", () => {
+    const { result } = setupWithPlan();
+    updateMatchState.mockClear();
+    const applyRemote = subscribeMatchState.mock.calls[0][1];
+    const remotePlan = result.current.plan.map((iv) => ({ ...iv })); // a fresh reference, same content — exactly what a real snapshot gives
+
+    act(() => {
+      applyRemote({
+        availableIds: result.current.availableIds,
+        gameSettings: result.current.gameSettings,
+        plan: remotePlan,
+        activeInterval: result.current.activeInterval,
+        injuredThisGame: result.current.injuredThisGame,
+        injuredAt: result.current.injuredAt,
+        subLog: result.current.subLog,
+        baseElapsedSec: result.current.baseElapsedSec,
+        runStartedAt: null,
+        timerRunning: false,
+      });
+    });
+
+    expect(updateMatchState).not.toHaveBeenCalled();
+
+    // The suppression only covers the ONE commit the remote apply itself
+    // caused — a genuinely new LOCAL change right after must still persist
+    // normally, proving this isn't a blanket "stop persisting" regression.
+    act(() => result.current.setGameSettings({ ...result.current.gameSettings, breakSegments: 3 }));
+    expect(updateMatchState).toHaveBeenCalledWith("t1", { gameSettings: { ...result.current.gameSettings, breakSegments: 3 } });
+  });
+
+  it("a null remote snapshot (no matchState document) is a no-op, not a crash or a wipe", () => {
+    const { result } = setupWithPlan();
+    const planBefore = result.current.plan;
+    const applyRemote = subscribeMatchState.mock.calls[0][1];
+
+    act(() => applyRemote(null));
+
+    expect(result.current.plan).toBe(planBefore);
   });
 });
 

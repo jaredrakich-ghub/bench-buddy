@@ -1,17 +1,21 @@
 // Firestore-backed replacement for the old localStorage team/match-state
-// persistence. Deliberately mirrors the shape of the old window.storage
-// calls it replaces (fetch once, write on change) rather than using a live
-// onSnapshot subscription — real-time sync across devices/collaborators is
-// a natural upgrade for later (right when actual team-sharing gets built),
-// but isn't needed yet and would add real complexity (reconciling optimistic
-// local edits against live echoes) for no current benefit with a single user.
+// persistence. team CRUD stays fetch-once/write-on-change (the old window.
+// storage shape) — teams themselves are edited by one coach at a time.
+//
+// matchState is different as of Match Link Step 7: subscribeMatchState
+// below is a real live onSnapshot, because two people (a coach and an
+// active Match Link holder) can now genuinely be on the same match at
+// once. See useMatchState.js's own comment on why that also meant
+// switching its writes from one whole-document saveMatchState per change
+// to scoped updateMatchState calls — a stale full-document overwrite from
+// one device would otherwise silently erase the other's changes.
 //
 // Data model: a `teams` collection where each document has
 // { name, roster, settings, ownerId, memberIds: [uid, ...] } — membership by
 // uid, not a single owner field, so inviting a collaborator later is adding
 // a uid to that array, not a schema change. Each team's in-progress match
 // lives in a `matchState/current` subdocument underneath it.
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, where } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "./firebaseClient.js";
 import { deleteAllGames } from "./gameHistory.js";
 
@@ -37,6 +41,18 @@ export async function fetchTeams(uid) {
   const q = query(collection(db, TEAMS_COLLECTION), where("memberIds", "array-contains", uid));
   const snap = await getDocs(q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+// Step 5 — a direct fetch by id, not a membership query. ParentMatchSession
+// needs this: fetchTeams(uid) above finds teams a caller is a *member* of,
+// which a parent never is — they only ever have the one teamId their claim
+// link named. Returns null rather than throwing if the team doesn't exist
+// or firestore.rules denies it (e.g. the handover was revoked between the
+// claim page loading and this call), same "missing means null" shape as
+// fetchMatchState below.
+export async function fetchTeamById(teamId) {
+  const snap = await getDoc(doc(db, TEAMS_COLLECTION, teamId));
+  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 }
 
 export async function createTeamDoc(uid, team) {
@@ -76,6 +92,43 @@ export async function fetchMatchState(teamId) {
   return snap.exists() ? snap.data() : null;
 }
 
+// The ONE full-document write matchState ever gets — a brand new match
+// starting (commitFreshPlan, useMatchState.js), where a full replace is
+// exactly right: every field genuinely IS starting fresh. Every ordinary
+// in-match change after that uses updateMatchState below instead.
 export async function saveMatchState(teamId, state) {
   await setDoc(doc(db, TEAMS_COLLECTION, teamId, "matchState", MATCH_STATE_DOC), state);
+}
+
+// Step 7 — a scoped partial write: only `fields`' own keys are touched,
+// everything else in the document is left exactly as it was. This is what
+// actually makes two people on one match safe — see useMatchState.js's own
+// comment for the full reasoning (a whole-document saveMatchState from a
+// second device would otherwise silently clobber whatever the first
+// device had just changed, even in fields this write never meant to touch).
+export async function updateMatchState(teamId, fields) {
+  await updateDoc(doc(db, TEAMS_COLLECTION, teamId, "matchState", MATCH_STATE_DOC), fields);
+}
+
+// Step 7 — live updates for matchState, used by BOTH the coach's own
+// useMatchState instance and the parent's (ParentMatchSession renders the
+// exact same hook) — this is what lets either side's changes actually
+// appear on the other's screen without a reload.
+//
+// Deliberately does NOT filter on snapshot.metadata.hasPendingWrites, even
+// though a first instinct is "skip the echo of this client's own write."
+// Tried that; it's actively wrong for this app. hasPendingWrites reflects
+// this client's WHOLE pending-write queue for the document, not just the
+// one write that just happened — a phone with patchy field signal (exactly
+// this app's real operating condition, see firebaseClient.js's own comment
+// on persistentLocalCache) can leave it stuck true for a while, which
+// would silently stop every future snapshot from ever reaching cb() until
+// the backlog clears. The actual echo-loop risk this was meant to guard
+// against is handled at the source instead — see useMatchState.js's
+// suppressPersistRef — so re-applying an occasional echo of this client's
+// own write here is a harmless no-op, not a loop.
+export function subscribeMatchState(teamId, cb) {
+  return onSnapshot(doc(db, TEAMS_COLLECTION, teamId, "matchState", MATCH_STATE_DOC), (snap) => {
+    cb(snap.exists() ? snap.data() : null);
+  });
 }

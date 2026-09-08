@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { intervalAtElapsed, computeFairnessSpread, computeAveragePitchMinutes, fairnessRelevantIds, computeMinutesSummary } from "../lib/rotation.js";
-import { computeLiveElapsedSec } from "../lib/clock.js";
 import { generateId } from "../lib/id.js";
 import { getSquadNumber } from "../lib/squadNumber.js";
 import { normalizeTeam, migrateLegacyTeam, createTeam, findTeam, addTeam, removeTeam } from "../lib/teams.js";
-import { fetchTeams, createTeamDoc, deleteTeamDoc, fetchMatchState, describeSaveError } from "../lib/firestoreTeams.js";
+import { fetchTeams, createTeamDoc, deleteTeamDoc, describeSaveError } from "../lib/firestoreTeams.js";
 import { signOutUser, deleteAccount } from "../lib/auth.js";
 import { useTeamRegistry } from "../hooks/useTeamRegistry.js";
-import { useMatchState } from "../hooks/useMatchState.js";
+import { useMatchState, fetchResumeData } from "../hooks/useMatchState.js";
 import { fontStyle, styles } from "./styles.js";
 import SummaryModal from "./SummaryModal.jsx";
 import SeasonSummaryModal from "./SeasonSummaryModal.jsx";
@@ -16,6 +15,7 @@ import MatchView from "./MatchView.jsx";
 import TeamAccountScreen from "./TeamAccountScreen.jsx";
 import ManageSquadScreen from "./ManageSquadScreen.jsx";
 import SquadChangeScreen from "./SquadChangeScreen.jsx";
+import MatchLinkScreen from "./MatchLinkScreen.jsx";
 import LoadingScreen from "./LoadingScreen.jsx";
 import RotationProgressOverlay from "./RotationProgressOverlay.jsx";
 import headerMascot from "../assets/header-mascot.svg";
@@ -37,11 +37,11 @@ export default function SubRotationPlanner({ user }) {
   const { teams, setTeams, activeTeamId, setActiveTeamId, teamData, loading, setLoading, saveTeamData, renameTeamById } = teamRegistry;
   const match = useMatchState({ activeTeamId, teamData, saveTeamData });
   const {
-    availableIds, setAvailableIds, gameSettings, setGameSettings, plan, setPlan,
-    activeInterval, setActiveInterval, lastLiveIntervalRef,
-    injuredThisGame, setInjuredThisGame, injuredAt, setInjuredAt, elapsedSec, setElapsedSec,
+    availableIds, setAvailableIds, gameSettings, setGameSettings, plan,
+    activeInterval, setActiveInterval,
+    injuredThisGame, injuredAt, elapsedSec, setElapsedSec,
     baseElapsedSec, setBaseElapsedSec, runStartedAt, setRunStartedAt,
-    timerRunning, setTimerRunning, subLog, setSubLog, swapPickId, setSwapPickId,
+    timerRunning, setTimerRunning, subLog, swapPickId, setSwapPickId,
     startingGkId, setStartingGkId,
     keeperEligibleIds,
     startPlanning, handleInjury, bringBack, performSwap, addArrival, removeAvailability, resetClock,
@@ -54,6 +54,7 @@ export default function SubRotationPlanner({ user }) {
   const [showSeasonModal, setShowSeasonModal] = useState(false);
   const [showTeamSwitcher, setShowTeamSwitcher] = useState(false);
   const [showSquadChange, setShowSquadChange] = useState(false);
+  const [showMatchLink, setShowMatchLink] = useState(false);
   // Team & account's own "Manage squad" row — a dedicated screen now
   // (ManageSquadScreen.jsx), not a pre-expanded section inside Game
   // settings. Real-use feedback: Game settings/new-team setup no longer
@@ -79,58 +80,25 @@ export default function SubRotationPlanner({ user }) {
   // match-state-persist effect in useMatchState could fire in between and
   // write the *previous* team's game into the *new* team's storage slot.
   const activateTeam = useCallback(async (team) => {
-    let resume = null;
-    try {
-      const saved = await fetchMatchState(team.id);
-      if (saved?.plan?.length) {
-        const capSec = saved.plan[saved.plan.length - 1].endMin * 60;
-        const live = computeLiveElapsedSec(saved.baseElapsedSec, saved.timerRunning ? saved.runStartedAt : null, capSec);
-        resume = { saved, live, stillRunning: saved.timerRunning && live < capSec };
-      }
-    } catch {
-      // no in-progress match for this team — normal
-    }
+    // fetchResumeData is pure (no state touched) — safe to await here,
+    // BEFORE any setState call. See its own and applyMatchState's comments
+    // (useMatchState.js) for exactly why that ordering has to hold: every
+    // setState below (activeTeamId, the other screens' open/closed flags,
+    // and applyMatchState's own match-field setters) has to land in the
+    // same synchronous batch, or the persist effect in useMatchState can
+    // fire in between and write one team's game into the other's slot.
+    const resume = await fetchResumeData(team.id);
 
     setActiveTeamId(team.id);
     setShowSettingsModal(false);
     setShowSummaryModal(false);
     setShowSeasonModal(false);
     setShowSquadChange(false);
+    setShowMatchLink(false);
     setSwapPickId(null);
     setStartingGkId(null);
-
-    if (resume) {
-      const { saved, live, stillRunning } = resume;
-      setAvailableIds(saved.availableIds || team.roster.map((p) => p.id));
-      setGameSettings(saved.gameSettings || team.settings);
-      setPlan(saved.plan);
-      setInjuredThisGame(saved.injuredThisGame || []);
-      setInjuredAt(saved.injuredAt || {});
-      setSubLog(saved.subLog || {});
-      setBaseElapsedSec(live);
-      setElapsedSec(live);
-      setRunStartedAt(stillRunning ? saved.runStartedAt : null);
-      setTimerRunning(stillRunning);
-      lastLiveIntervalRef.current = intervalAtElapsed(saved.plan, live);
-      setActiveInterval(lastLiveIntervalRef.current);
-    } else {
-      setAvailableIds(team.roster.map((p) => p.id)); // default: everyone on the squad is assumed available
-      setGameSettings(team.settings);
-      setPlan(null);
-      lastLiveIntervalRef.current = 0;
-      setActiveInterval(0);
-      setInjuredThisGame([]);
-      setInjuredAt({});
-      setElapsedSec(0);
-      setBaseElapsedSec(0);
-      setRunStartedAt(null);
-      setTimerRunning(false);
-      setSubLog({});
-    }
-  }, [
-    setActiveTeamId, setSwapPickId, setStartingGkId, setAvailableIds, setGameSettings, setPlan, setInjuredThisGame, setInjuredAt,
-    setSubLog, setBaseElapsedSec, setElapsedSec, setRunStartedAt, setTimerRunning, setActiveInterval, lastLiveIntervalRef,
-  ]);
+    match.applyMatchState(team, resume);
+  }, [setActiveTeamId, setSwapPickId, setStartingGkId, match]);
 
   // Load this account's teams from Firestore. On a brand-new account (no
   // teams yet), migrate whatever's in this browser's local storage instead
@@ -560,6 +528,7 @@ export default function SubRotationPlanner({ user }) {
             onShowSeason={() => setShowSeasonModal(true)}
             onShowSettings={() => setShowSettingsModal(true)}
             onShowSquadChange={() => setShowSquadChange(true)}
+            onShowMatchLink={() => setShowMatchLink(true)}
             onShowTeamSwitcher={() => setShowTeamSwitcher(true)}
           />
         )}
@@ -713,6 +682,16 @@ export default function SubRotationPlanner({ user }) {
               onAddRosterPlayer={addRosterPlayer}
               onClose={() => setShowSquadChange(false)}
             />
+          </div>
+        </div>
+      )}
+
+      {showMatchLink && (
+        // README > Match Link, 2a (coach) — same full-screen takeover
+        // pattern as every other non-match screen.
+        <div style={styles.mdFullScreenTakeoverOuter}>
+          <div style={styles.mdFullScreenTakeoverInner}>
+            <MatchLinkScreen teamId={activeTeamId} coachUid={user.uid} onClose={() => setShowMatchLink(false)} />
           </div>
         </div>
       )}

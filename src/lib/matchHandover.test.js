@@ -8,6 +8,7 @@ import {
   generateClaimToken,
   canStartClaim,
   canConfirmClaim,
+  classifyClaimLink,
 } from "./matchHandover.js";
 
 const NOW = 1_000_000_000_000; // an arbitrary fixed instant, so "now" never has to be Date.now() in a test
@@ -197,5 +198,62 @@ describe("canConfirmClaim — Stage B's gate", () => {
   it("is false once revoked or expired", () => {
     expect(canConfirmClaim(activeHandover({ claim: null, pendingClaim: pending, revokedAt: NOW - 1 }), NOW)).toBe(false);
     expect(canConfirmClaim(activeHandover({ claim: null, pendingClaim: pending, expiresAt: NOW - 1 }), NOW)).toBe(false);
+  });
+});
+
+describe("classifyClaimLink — Step 4's MatchClaimPage UI decision", () => {
+  const unclaimed = (overrides = {}) => activeHandover({ claim: null, ...overrides });
+  const pendingClaim = { email: "parent@example.com", deviceToken: "dev-tok", requestedAt: NOW - 100, viaToken: "tok" };
+
+  it("is 'not-found' with no handover at all", () => {
+    expect(classifyClaimLink(null, "tok", "parent-uid", NOW)).toBe("not-found");
+  });
+
+  it("is 'dead' once the handover itself is revoked or expired, with nobody having claimed it", () => {
+    expect(classifyClaimLink(unclaimed({ revokedAt: NOW - 1 }), "tok", "parent-uid", NOW)).toBe("dead");
+    expect(classifyClaimLink(unclaimed({ expiresAt: NOW - 1 }), "tok", "parent-uid", NOW)).toBe("dead");
+  });
+
+  it("is 'already-yours' when this viewer already holds the active claim", () => {
+    expect(classifyClaimLink(activeHandover(), "tok", "parent-uid", NOW)).toBe("already-yours");
+  });
+
+  it("is 'taken-back' when this viewer's own claim was revoked — distinct from someone else holding it", () => {
+    const h = activeHandover();
+    h.claim.revokedAt = NOW - 1;
+    expect(classifyClaimLink(h, "tok", "parent-uid", NOW)).toBe("taken-back");
+  });
+
+  it("is 'already-claimed' when a different viewer holds the claim", () => {
+    expect(classifyClaimLink(activeHandover(), "tok", "someone-else-uid", NOW)).toBe("already-claimed");
+  });
+
+  it("is 'needs-email' for the real share token when requireEmailClaim is on", () => {
+    expect(classifyClaimLink(unclaimed({ requireEmailClaim: true, claimToken: "tok" }), "tok", "parent-uid", NOW)).toBe(
+      "needs-email"
+    );
+  });
+
+  it("is 'ready-to-claim' for the real share token when requireEmailClaim is off", () => {
+    expect(classifyClaimLink(unclaimed({ requireEmailClaim: false, claimToken: "tok" }), "tok", "parent-uid", NOW)).toBe(
+      "ready-to-claim"
+    );
+  });
+
+  it("is 'ready-to-confirm' for the emailed deviceToken", () => {
+    const h = unclaimed({ requireEmailClaim: true, claimToken: "tok", pendingClaim });
+    expect(classifyClaimLink(h, "dev-tok", "parent-uid", NOW)).toBe("ready-to-confirm");
+  });
+
+  it("is 'not-found' for a stale token that matches neither claimToken nor a pending deviceToken", () => {
+    expect(classifyClaimLink(unclaimed({ claimToken: "tok" }), "old-tok", "parent-uid", NOW)).toBe("not-found");
+  });
+
+  it("is 'not-found' for the old share token after a regenerate, even though the handover itself is fine", () => {
+    // The exact real-use case: coach hits Copy link again, minting a new
+    // claimToken — a browser tab still open on the old link must not read
+    // as "ready to claim".
+    const h = unclaimed({ requireEmailClaim: false, claimToken: "new-tok" });
+    expect(classifyClaimLink(h, "old-tok", "parent-uid", NOW)).toBe("not-found");
   });
 });

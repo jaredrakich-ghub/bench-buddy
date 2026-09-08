@@ -8,8 +8,26 @@ import { generateFixedPlan, generateFixedPlanBiasedFor } from "../lib/fixedRotat
 import { validateGameSettings } from "../lib/validation.js";
 import { computeLiveElapsedSec } from "../lib/clock.js";
 import { defaultSettings } from "../lib/teams.js";
-import { saveMatchState, describeSaveError } from "../lib/firestoreTeams.js";
+import { fetchMatchState, saveMatchState, updateMatchState, subscribeMatchState, describeSaveError } from "../lib/firestoreTeams.js";
 import { archiveGame } from "../lib/gameHistory.js";
+
+// Step 5 — pure async fetch, no component/hook state touched: given a
+// teamId, returns { saved, live, stillRunning } if there's an in-progress
+// match to resume, or null if there isn't one. Deliberately NOT part of
+// the useMatchState closure below (it needs none of that state) so it can
+// be awaited safely before any setState call — see applyMatchState's own
+// comment for exactly why that ordering matters.
+export async function fetchResumeData(teamId) {
+  try {
+    const saved = await fetchMatchState(teamId);
+    if (!saved?.plan?.length) return null;
+    const capSec = saved.plan[saved.plan.length - 1].endMin * 60;
+    const live = computeLiveElapsedSec(saved.baseElapsedSec, saved.timerRunning ? saved.runStartedAt : null, capSec);
+    return { saved, live, stillRunning: saved.timerRunning && live < capSec };
+  } catch {
+    return null; // no in-progress match for this team — normal
+  }
+}
 
 // Owns everything about the match currently being run for whichever team is
 // active: today's squad availability/settings, the generated rotation plan,
@@ -51,26 +69,120 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
   // One-shot, like swapPickId — consumed and cleared by startPlanning.
   const [startingGkId, setStartingGkId] = useState(null);
 
-  // Persist the in-progress match so a refresh, a backgrounded tab getting
-  // reloaded, or closing the browser doesn't lose it. This deliberately does
-  // NOT fire every second — only baseElapsedSec/runStartedAt change (on
-  // Start/Pause/Reset/full-time), not the ticking display value — so saving
-  // stays cheap and infrequent. Kept in its own subdocument per team so two
-  // teams' games can't collide/overwrite each other, and so a future
-  // collaborator on one team never sees another team's match data.
+  // Step 7 — persistence split into three scoped effects (clock / match
+  // content / settings) instead of one effect writing the whole document on
+  // any change. This is what makes two people safely on one match possible:
+  // a coach's device and a parent's device can now both be live at once
+  // (see applyRemoteMatchState/the subscription effect below), and a plain
+  // whole-document saveMatchState from either would silently overwrite
+  // whatever the OTHER had just changed, even in fields this write never
+  // meant to touch — e.g. the coach marks an injury (touches plan/
+  // injuredThisGame) at the same moment the parent's clock crosses an
+  // interval boundary (touches only activeInterval, which today lives in
+  // the SAME group as plan — deliberately: activeInterval only ever changes
+  // alongside plan-derived state, never the clock fields or settings, so
+  // splitting it out further would add a fourth group for no real gain).
+  // Scoping each write to only the fields that action actually owns closes
+  // that off, independent of anything about being online or in sync.
+  //
+  // The one exception is a BRAND NEW match — commitFreshPlan (below) does
+  // its own full-document saveMatchState, the one moment a full replace is
+  // actually correct (every field genuinely is starting fresh). Every
+  // ordinary change after that goes through these three.
+  //
+  // Same reasoning as the original single effect for why this doesn't fire
+  // every second: only baseElapsedSec/runStartedAt actually change on
+  // Start/Pause/Reset/full-time, not the ticking display value (elapsedSec
+  // isn't persisted at all — every reader re-derives it from these two).
+  // Step 7 — guards the three persist effects against re-writing a change
+  // that just arrived FROM a remote snapshot. Without this, applying a
+  // remote update sets `plan` to a brand new (if content-identical) array
+  // — snap.data() never returns the same object twice — and `plan` is a
+  // shared dependency of all three effects below, so they'd all fire and
+  // write that "new" plan straight back to Firestore, even though nothing
+  // actually changed. That write then triggers this SAME listener again
+  // (hasPendingWrites filters the first, pending echo, but not the second,
+  // server-confirmed one — by design, a confirmed write is indistinguishable
+  // from a genuinely new remote change), which applies again, which writes
+  // again — a real, self-sustaining ping-pong loop, caught the hard way via
+  // real cross-device testing (thrashing between two states many times a
+  // second). Set true at the top of applyRemoteMatchState, checked (not
+  // cleared) by each persist effect below, and cleared by the one small
+  // effect declared right after them — every effect for a given commit
+  // fires in declaration order within that same commit, so the reset
+  // always lands after the three checks it's guarding, never before.
+  const suppressPersistRef = useRef(false);
+
   useEffect(() => {
-    if (!plan || !activeTeamId) return;
-    (async () => {
-      try {
-        await saveMatchState(activeTeamId, {
-          availableIds, gameSettings, plan, activeInterval, injuredThisGame, injuredAt, subLog, baseElapsedSec, runStartedAt, timerRunning,
-        });
-        setSaveError(null);
-      } catch (err) {
-        setSaveError(describeSaveError(err));
-      }
-    })();
-  }, [activeTeamId, availableIds, gameSettings, plan, activeInterval, injuredThisGame, injuredAt, subLog, baseElapsedSec, runStartedAt, timerRunning]);
+    if (!plan || !activeTeamId || suppressPersistRef.current) return;
+    updateMatchState(activeTeamId, { baseElapsedSec, runStartedAt, timerRunning })
+      .then(() => setSaveError(null))
+      .catch((err) => setSaveError(describeSaveError(err)));
+  }, [activeTeamId, plan, baseElapsedSec, runStartedAt, timerRunning]);
+
+  useEffect(() => {
+    if (!plan || !activeTeamId || suppressPersistRef.current) return;
+    updateMatchState(activeTeamId, { plan, activeInterval, availableIds, injuredThisGame, injuredAt, subLog })
+      .then(() => setSaveError(null))
+      .catch((err) => setSaveError(describeSaveError(err)));
+  }, [activeTeamId, plan, activeInterval, availableIds, injuredThisGame, injuredAt, subLog]);
+
+  useEffect(() => {
+    if (!plan || !activeTeamId || suppressPersistRef.current) return;
+    updateMatchState(activeTeamId, { gameSettings })
+      .then(() => setSaveError(null))
+      .catch((err) => setSaveError(describeSaveError(err)));
+  }, [activeTeamId, plan, gameSettings]);
+
+  // The reset — deliberately unconditional and dependency-free, so it runs
+  // after every single commit and always leaves the flag ready (false) for
+  // whatever triggered THIS commit to have been a real local change next
+  // time. Declared after the three persist effects above specifically so
+  // it always runs after them within the commit a remote apply causes.
+  useEffect(() => {
+    suppressPersistRef.current = false;
+  });
+
+  // Step 7 — applies a remote matchState snapshot (subscribeMatchState,
+  // below) to local state. No live-elapsed recomputation needed here the
+  // way applyMatchState's own resume branch does: baseElapsedSec/
+  // runStartedAt are passed through exactly as stored, and the tick effect
+  // above already re-derives the true current elapsedSec from whatever
+  // those two hold, on every render they change — that's the whole point
+  // of computeLiveElapsedSec being re-callable at any time, not just once
+  // on load. lastLiveIntervalRef is kept in sync too, same as
+  // applyMatchState, so the auto-follow effect doesn't immediately treat a
+  // just-applied remote activeInterval as stale and try to "correct" it.
+  const applyRemoteMatchState = (remote) => {
+    if (!remote) return;
+    suppressPersistRef.current = true;
+    setAvailableIds(remote.availableIds || []);
+    setGameSettings(remote.gameSettings || defaultSettings());
+    setPlan(remote.plan);
+    setActiveInterval(remote.activeInterval);
+    lastLiveIntervalRef.current = remote.activeInterval;
+    setInjuredThisGame(remote.injuredThisGame || []);
+    setInjuredAt(remote.injuredAt || {});
+    setSubLog(remote.subLog || {});
+    setBaseElapsedSec(remote.baseElapsedSec);
+    setRunStartedAt(remote.runStartedAt);
+    setTimerRunning(remote.timerRunning);
+  };
+
+  // The subscription itself — one per active team, live for as long as this
+  // hook instance is mounted with a teamId. Both the coach's own
+  // SubRotationPlanner and a parent's ParentMatchSession render this exact
+  // hook, so this single effect is what gives BOTH sides live updates from
+  // the other, with no separate wiring needed in either component.
+  useEffect(() => {
+    if (!activeTeamId) return undefined;
+    return subscribeMatchState(activeTeamId, applyRemoteMatchState);
+    // applyRemoteMatchState closes over this render's setters, which are
+    // themselves stable across renders (React guarantees this for useState
+    // setters) — re-subscribing on every render would tear down and rebuild
+    // the listener for no reason; activeTeamId is the only thing that
+    // should actually restart it.
+  }, [activeTeamId]);
 
   // Tick the clock — recomputed from the real-time anchor every second
   // rather than counted, and auto-frozen once the match reaches full time.
@@ -192,6 +304,15 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
     const keeperShiftIntervals = keeperShiftIntervalsFor(settings.subIntervalMinutes, settings.keeperShiftMinutes);
     return {
       availableIds: validAvailableIds,
+      // Step 7 — the full settings object, not just the pieces already
+      // pulled out below, so commitFreshPlan's own initial write (the one
+      // moment a full-document saveMatchState is right — see its comment)
+      // can persist the settings that actually apply to THIS plan, not
+      // whatever's still in the gameSettings *state* variable a moment
+      // later — startPlanning calls commitFreshPlan synchronously after
+      // this returns, before React has re-rendered with any of the
+      // setState calls above applied.
+      settings,
       gameMinutes: settings.gameMinutes,
       numIntervals,
       fieldSize: settings.fieldSize,
@@ -204,7 +325,22 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
   // from the "Improve pitch/bench fairness" preview) commits through —
   // pulled out so useImprovedPlan below can apply an already-built
   // candidate without re-deriving or duplicating this reset list.
-  const commitFreshPlan = (intervals) => {
+  //
+  // Step 7 — also this hook's ONE full-document saveMatchState (every other
+  // write is a scoped updateMatchState — see the persist effects' own
+  // comment for why). A full replace is exactly right here: this genuinely
+  // IS a fresh match, every field really is starting over, and a brand new
+  // match can't yet have a second device racing it (nobody's claimed a
+  // Match Link for a match that doesn't exist yet).
+  //
+  // `overrides` covers availableIds/gameSettings for startPlanning's own
+  // call: buildFreshPlanArgs just computed fresher values for both than
+  // whatever's still in this hook's own state closure (its own setAvailableIds/
+  // saveTeamData calls haven't been through a re-render yet at this point in
+  // the same synchronous call). useImprovedPlan's call needs neither
+  // override — a fairness-preview candidate never touches either — so it
+  // omits `overrides` and this correctly falls back to current state.
+  const commitFreshPlan = (intervals, overrides = {}) => {
     setPlan(intervals);
     lastLiveIntervalRef.current = 0;
     setActiveInterval(0);
@@ -216,6 +352,23 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
     setSubLog({});
     setSwapPickId(null);
     setStartingGkId(null);
+
+    if (activeTeamId) {
+      saveMatchState(activeTeamId, {
+        availableIds: overrides.availableIds || availableIds,
+        gameSettings: overrides.gameSettings || gameSettings,
+        plan: intervals,
+        activeInterval: 0,
+        injuredThisGame: [],
+        injuredAt: {},
+        subLog: {},
+        baseElapsedSec: 0,
+        runStartedAt: null,
+        timerRunning: false,
+      })
+        .then(() => setSaveError(null))
+        .catch((err) => setSaveError(describeSaveError(err)));
+    }
   };
 
   // Returns whether a plan was actually (re)generated, so the caller —
@@ -247,7 +400,7 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
     // is well-tested, and it's better to ship the fresh-game improvement
     // now than delay it waiting on a mid-game-continuation design.
     const { intervals } = generateFixedPlan({ ...planArgs, startingGkId });
-    commitFreshPlan(intervals);
+    commitFreshPlan(intervals, { availableIds: planArgs.availableIds, gameSettings: planArgs.settings });
     return true;
   };
 
@@ -625,6 +778,53 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
     setActiveInterval(0);
   };
 
+  // Step 5 — resume-loading split into two pieces, extracted from
+  // SubRotationPlanner's activateTeam (behavior-preserving there) so
+  // ParentMatchSession can load the identical resume state the coach's own
+  // screen would, rather than a second copy of this math that could drift.
+  //
+  // Split deliberately, not one async function: activateTeam's own comment
+  // (see SubRotationPlanner.jsx) explains why the fetch has to fully finish
+  // BEFORE any setState call fires, and every setState call then has to
+  // fire together in one synchronous batch alongside setActiveTeamId — if
+  // this were a single async function, the setters below would fire in
+  // their OWN later microtask after their internal await, landing in a
+  // *different* batch than setActiveTeamId, reopening exactly the
+  // wrong-team-storage-slot race that comment describes, just via the
+  // opposite interleaving. fetchResumeData is pure (no state touched) and
+  // safe to await anywhere; applyMatchState is synchronous and must be
+  // called in the same tick as whatever else needs to land in that batch.
+  const applyMatchState = (team, resume) => {
+    if (resume) {
+      const { saved, live, stillRunning } = resume;
+      setAvailableIds(saved.availableIds || team.roster.map((p) => p.id));
+      setGameSettings(saved.gameSettings || team.settings);
+      setPlan(saved.plan);
+      setInjuredThisGame(saved.injuredThisGame || []);
+      setInjuredAt(saved.injuredAt || {});
+      setSubLog(saved.subLog || {});
+      setBaseElapsedSec(live);
+      setElapsedSec(live);
+      setRunStartedAt(stillRunning ? saved.runStartedAt : null);
+      setTimerRunning(stillRunning);
+      lastLiveIntervalRef.current = intervalAtElapsed(saved.plan, live);
+      setActiveInterval(lastLiveIntervalRef.current);
+    } else {
+      setAvailableIds(team.roster.map((p) => p.id));
+      setGameSettings(team.settings);
+      setPlan(null);
+      lastLiveIntervalRef.current = 0;
+      setActiveInterval(0);
+      setInjuredThisGame([]);
+      setInjuredAt({});
+      setElapsedSec(0);
+      setBaseElapsedSec(0);
+      setRunStartedAt(null);
+      setTimerRunning(false);
+      setSubLog({});
+    }
+  };
+
   return {
     availableIds, setAvailableIds,
     gameSettings, setGameSettings,
@@ -643,6 +843,6 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
     saveError, setSaveError,
     keeperEligibleIds,
     startPlanning, handleInjury, bringBack, performSwap, addArrival, removeAvailability, resetClock,
-    previewImprovedFairness, useImprovedPlan,
+    previewImprovedFairness, useImprovedPlan, applyMatchState,
   };
 }

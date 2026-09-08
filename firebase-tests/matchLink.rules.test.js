@@ -5,7 +5,7 @@
 import { afterAll, beforeAll, beforeEach, describe, test } from "vitest";
 import { readFileSync } from "node:fs";
 import { initializeTestEnvironment, assertSucceeds, assertFails } from "@firebase/rules-unit-testing";
-import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, deleteDoc } from "firebase/firestore";
 
 let testEnv;
 
@@ -79,11 +79,26 @@ describe("firestore.rules — matchHandover subcollection", () => {
     await assertSucceeds(getDoc(ref));
   });
 
-  test("a non-member, non-holder cannot read the handover doc", async () => {
+  // Step 4 — loosened deliberately: MatchClaimPage (2b) has to read this
+  // doc before any claim exists, to decide whether to show the email form
+  // or attempt a direct claim, which a brand-new parent (neither a member
+  // nor yet a holder) couldn't do under the original member/holder-only
+  // gate. See firestore.rules' own comment on this exact rule for the
+  // accepted trade-off. Writes remain exactly as tightly scoped as before —
+  // every test below this one still holds.
+  test("any authenticated caller can read the handover doc, not just a member or the active holder", async () => {
     await seedTeam("team1", validTeam());
     await seedHandover("team1", activeHandover());
     const stranger = testEnv.authenticatedContext("stranger-uid");
     const ref = doc(stranger.firestore(), "teams", "team1", "matchHandover", "current");
+    await assertSucceeds(getDoc(ref));
+  });
+
+  test("a signed-out caller still cannot read it", async () => {
+    await seedTeam("team1", validTeam());
+    await seedHandover("team1", activeHandover());
+    const anon = testEnv.unauthenticatedContext();
+    const ref = doc(anon.firestore(), "teams", "team1", "matchHandover", "current");
     await assertFails(getDoc(ref));
   });
 
@@ -108,6 +123,50 @@ describe("firestore.rules — matchHandover subcollection", () => {
     const stranger = testEnv.authenticatedContext("stranger-uid");
     const ref = doc(stranger.firestore(), "teams", "team1", "matchHandover", "current");
     await assertFails(setDoc(ref, activeHandover({ claim: null })));
+  });
+});
+
+// Step 5 — ParentMatchSession needs the team doc itself (roster names/shirt
+// numbers, team name), the same way matchState already opened up to an
+// active holder. Write stays member-only throughout — none of this touches
+// teams/{teamId}'s create/update/delete rules.
+describe("firestore.rules — teams/{teamId} read access for an active holder", () => {
+  test("an active holder can read the team doc even though they are not a member", async () => {
+    await seedTeam("team1", validTeam());
+    await seedHandover("team1", activeHandover());
+    const parent = testEnv.authenticatedContext("parent-uid");
+    await assertSucceeds(getDoc(doc(parent.firestore(), "teams", "team1")));
+  });
+
+  test("a non-member, non-holder still cannot read the team doc", async () => {
+    await seedTeam("team1", validTeam());
+    await seedHandover("team1", activeHandover());
+    const stranger = testEnv.authenticatedContext("stranger-uid");
+    await assertFails(getDoc(doc(stranger.firestore(), "teams", "team1")));
+  });
+
+  test("a team with no handover at all still only opens to members", async () => {
+    await seedTeam("team1", validTeam());
+    const stranger = testEnv.authenticatedContext("stranger-uid");
+    await assertFails(getDoc(doc(stranger.firestore(), "teams", "team1")));
+  });
+
+  test("an active holder still cannot write or delete the team doc", async () => {
+    await seedTeam("team1", validTeam());
+    await seedHandover("team1", activeHandover());
+    const parent = testEnv.authenticatedContext("parent-uid");
+    const ref = doc(parent.firestore(), "teams", "team1");
+    await assertFails(updateDoc(ref, { name: "Renamed" }));
+    await assertFails(deleteDoc(ref));
+  });
+
+  test("a revoked holder loses read access to the team doc too", async () => {
+    await seedTeam("team1", validTeam());
+    const revokedClaim = activeHandover();
+    revokedClaim.claim.revokedAt = Date.now() - 1000;
+    await seedHandover("team1", revokedClaim);
+    const parent = testEnv.authenticatedContext("parent-uid");
+    await assertFails(getDoc(doc(parent.firestore(), "teams", "team1")));
   });
 });
 

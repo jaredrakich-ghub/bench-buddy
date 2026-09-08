@@ -98,6 +98,11 @@ export const tokens = {
     cancelledCaption: "#7E8C83", // a cancelled step's "Cancelled · ..." caption
     undoPillBg: "#E2EEE4", // the Undo pill's background
     cancelText: "#B4462E", // "Cancel this change"/"Cancel the sub" button text
+    // Match Link 2b (MatchClaimPage) — the "Check your email" sheet's own
+    // grabber pill. Close to disabledBorder (#DCD3BB) but not the same
+    // value, and used for a genuinely different purpose (a drag handle, not
+    // a border), so kept as its own token rather than reusing that one.
+    grabber: "#DCD4C0",
   },
   // Baloo 2 800 for display type (timer, wordmark, buttons, popover
   // titles); Nunito for body copy (700 captions, 800 labels/chips/names)
@@ -2372,5 +2377,172 @@ export const styles = {
   },
   mdSaveTeamReassurance: {
     marginTop: 13, fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13.5, color: tokens.color.mutedText, textAlign: "center",
+  },
+
+  // ---- Match Link (2a coach screen) — see docs/design_handoff_bench_
+  // buddy_match_link/README.md and src/components/MatchLinkScreen.jsx.
+  // Rule 5: every color below is an existing token (headerYellow,
+  // pitchGreen, deepGreen, mutedText, groupLabel, yellow, yellowShadow,
+  // goldText, alertRed, creamPaper, creamDeep) already confirmed to match
+  // the design's own spec table exactly — nothing here re-points a shared
+  // hex, and the two genuinely new pieces (the toggle switch, the level
+  // segmented row) are built from existing card/tab styles, not new colors.
+  mdMatchLinkExplainerCard: {
+    background: "#fff", borderRadius: tokens.radius.rowLg, padding: "14px 16px",
+    boxShadow: tokens.shadow.solid(3, "rgba(28,58,46,.10)"), marginBottom: 14,
+  },
+  mdMatchLinkExplainerTitle: {
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 18, color: tokens.color.deepGreen, marginBottom: 4,
+  },
+  mdMatchLinkExplainerBody: {
+    fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13.5, color: tokens.color.mutedText, lineHeight: 1.4,
+  },
+
+  // Subs / Full game — a two-option segmented row, same visual language as
+  // the interval-tabs strip (colors.grass/colors.chalk on the active tab)
+  // rather than the design handoff's own stale interval-chip colors, per
+  // the real-device revert already governing intervalTab/intervalTabActive
+  // above. Genuinely new shape (equal-width segments, not a scrolling
+  // strip), so its own styles rather than reusing intervalTab directly.
+  mdMatchLinkLevelRow: {
+    display: "flex", gap: 6, marginBottom: 14, background: colors.cardBg, borderRadius: tokens.radius.rowMd,
+    border: `1px solid ${colors.border}`, padding: 4,
+  },
+  mdMatchLinkLevelBtn: {
+    flex: 1, padding: "10px 8px", borderRadius: tokens.radius.rowSm, border: "none", background: "transparent",
+    fontFamily: tokens.font.body, fontWeight: 800, fontSize: 13.5, color: colors.ink, cursor: "pointer", textAlign: "center",
+  },
+  mdMatchLinkLevelBtnActive: { background: colors.grass, color: colors.chalk },
+
+  mdMatchLinkCard: {
+    background: "#fff", borderRadius: tokens.radius.rowLg, padding: "14px 16px",
+    boxShadow: tokens.shadow.solid(3, "rgba(28,58,46,.10)"), marginBottom: 14,
+    display: "flex", flexDirection: "column", gap: 12,
+  },
+  mdMatchLinkCardLabel: {
+    fontFamily: tokens.font.body, fontWeight: 800, fontSize: 12, color: tokens.color.groupLabel,
+    textTransform: "uppercase", letterSpacing: "0.04em",
+  },
+  mdMatchLinkUrlWell: {
+    background: tokens.color.creamDeep, borderRadius: tokens.radius.rowSm, padding: "12px 14px",
+    fontFamily: tokens.font.body, fontWeight: 800, fontSize: 15, color: tokens.color.pitchGreen,
+    wordBreak: "break-all",
+  },
+  mdMatchLinkToggleRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 },
+  mdMatchLinkToggleLabel: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 14, color: tokens.color.deepGreen },
+  // 58x34 track+knob switch — no existing toggle in the app is this shape
+  // (mdSetupToggle is a different, smaller control), so this is genuinely
+  // new UI. Built from existing tokens only: pitchGreen for the on-state
+  // track, creamDeep for off, white knob — same solid-sticker shadow
+  // language as everything else rather than a soft CSS-transition glow.
+  mdMatchLinkToggleTrack: {
+    width: 58, height: 34, borderRadius: 17, border: "none", padding: 3, flexShrink: 0, cursor: "pointer",
+    background: tokens.color.creamDeep, display: "flex", alignItems: "center", justifyContent: "flex-start",
+    transition: "background 0.15s ease",
+  },
+  mdMatchLinkToggleTrackOn: { background: tokens.color.pitchGreen, justifyContent: "flex-end" },
+  mdMatchLinkToggleKnob: {
+    width: 28, height: 28, borderRadius: "50%", background: "#fff", boxShadow: tokens.shadow.solid(2, "rgba(28,58,46,.20)"),
+  },
+  mdMatchLinkFootnote: {
+    fontFamily: tokens.font.body, fontWeight: 700, fontSize: 12.5, color: tokens.color.mutedText, lineHeight: 1.4,
+  },
+
+  mdMatchLinkHolderRow: {
+    display: "flex", alignItems: "center", gap: 10,
+  },
+  mdMatchLinkHolderInfo: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 1 },
+  mdMatchLinkHolderEmail: {
+    fontFamily: tokens.font.body, fontWeight: 800, fontSize: 14, color: tokens.color.deepGreen,
+    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+  },
+  mdMatchLinkHolderStatus: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 12.5, color: tokens.color.goldText },
+  mdMatchLinkEmptyHolder: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13.5, color: tokens.color.mutedText },
+
+  mdMatchLinkShareBtn: {
+    width: "100%", height: 56, borderRadius: tokens.radius.buttonMd, border: "none", background: tokens.color.pitchGreen,
+    color: tokens.color.creamPaper, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 18, cursor: "pointer",
+    boxShadow: tokens.shadow.solid(4, tokens.color.greenShadow), display: "flex", alignItems: "center",
+    justifyContent: "center", gap: 8,
+  },
+  mdMatchLinkCopyBtn: {
+    width: "100%", height: 52, borderRadius: tokens.radius.buttonMd, border: "none", background: tokens.color.creamDeep,
+    color: tokens.color.deepGreen, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 16, cursor: "pointer",
+    marginTop: 8,
+  },
+  mdMatchLinkOffBtn: {
+    width: "100%", background: "transparent", border: "none", padding: "10px 0", marginTop: 4,
+    fontFamily: tokens.font.body, fontWeight: 800, fontSize: 13.5, color: tokens.color.alertRed, cursor: "pointer",
+  },
+
+  // Match Link, Step 5 — 2c/2d's own "Today's Minutes" link, centred under
+  // the action bar. The parent's only route there (no cog menu at all in
+  // parentMode) — the coach reaches the identical screen via the cog's
+  // existing row instead, so this never renders for them.
+  mdParentMinutesLink: {
+    display: "block", width: "100%", background: "transparent", border: "none", padding: "12px 0 4px",
+    fontFamily: tokens.font.body, fontWeight: 800, fontSize: 15, color: tokens.color.pitchGreen,
+    textAlign: "center", cursor: "pointer",
+  },
+
+  // ---- Match Link (2b claim page, MatchClaimPage.jsx) — README's own
+  // "browser, not app chrome" note means no header/cog here at all, just
+  // this page's own content on the paper-texture ground every other
+  // full-screen surface already uses. Rule 5: every color is an existing
+  // token (pitchGreen/greenShadow, deepGreen, groupLabel, mutedText, yellow,
+  // creamPaper/creamDeep, scrim) except `grabber`, added alongside the rest
+  // above for a value the spec calls out that nothing existing matches.
+  mdClaimPage: {
+    minHeight: "100dvh", background: tokens.color.creamPaper, backgroundImage: paperTexture,
+    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+    padding: "32px 24px", boxSizing: "border-box", gap: 18,
+  },
+  mdClaimInner: { width: "100%", maxWidth: 400, display: "flex", flexDirection: "column", alignItems: "center", gap: 18 },
+  mdClaimCrest: {
+    width: 96, height: 96, borderRadius: "50%", border: `6px solid ${tokens.color.pitchGreen}`,
+    overflow: "hidden", flexShrink: 0, background: "#fff",
+  },
+  mdClaimCrestImg: { width: "100%", height: "100%", objectFit: "cover", transform: "scale(1.5)" },
+  mdClaimTitle: {
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 32, lineHeight: 1.1, color: tokens.color.deepGreen,
+    textAlign: "center", textWrap: "balance",
+  },
+  mdClaimBody: {
+    fontFamily: tokens.font.body, fontWeight: 600, fontSize: 16, lineHeight: 1.5, color: tokens.color.groupLabel, textAlign: "center",
+  },
+  mdClaimForm: { width: "100%", display: "flex", flexDirection: "column", gap: 12 },
+  mdClaimSubmitBtn: {
+    width: "100%", height: 64, borderRadius: 26, border: "none", background: tokens.color.pitchGreen,
+    boxShadow: tokens.shadow.solid(6, tokens.color.greenShadow), color: tokens.color.creamPaper,
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 23, cursor: "pointer",
+  },
+  mdClaimFootnote: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 14, color: tokens.color.mutedText, textAlign: "center" },
+
+  // The "Check your email" sheet — a bottom sheet covering the form, same
+  // scrim as mdCautionSheet (reused directly) but its own shape: the spec's
+  // radius/padding/shadow don't match mdCautionSheet's (that one has a
+  // yellow top border and a squarer top radius, built for a different kind
+  // of confirmation), so this is a dedicated style rather than a forced fit.
+  mdClaimSentSheet: {
+    position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 52, maxWidth: 640, margin: "0 auto",
+    background: tokens.color.creamPaper, borderRadius: "34px 34px 38px 38px",
+    boxShadow: "0 -18px 44px rgba(20,32,28,.28)", padding: "24px 22px 30px",
+    display: "flex", flexDirection: "column", gap: 14, maxHeight: "calc(100vh - 24px)", overflowY: "auto",
+  },
+  mdClaimSentGrabber: { width: 56, height: 6, borderRadius: 3, background: tokens.color.grabber, alignSelf: "center", marginBottom: 4 },
+  mdClaimSentIconDisc: {
+    width: 52, height: 52, borderRadius: "50%", background: tokens.color.yellow, flexShrink: 0,
+    display: "flex", alignItems: "center", justifyContent: "center",
+  },
+  mdClaimSentHeaderRow: { display: "flex", alignItems: "center", gap: 12 },
+  mdClaimSentTitle: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 26, color: tokens.color.deepGreen },
+  mdClaimSentBody: { fontFamily: tokens.font.body, fontWeight: 600, fontSize: 15, lineHeight: 1.4, color: tokens.color.groupLabel },
+  mdClaimSentSecondaryBtn: {
+    width: "100%", height: 60, borderRadius: 24, border: "none", background: tokens.color.creamDeep,
+    color: tokens.color.deepGreen, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 18, cursor: "pointer",
+  },
+  mdClaimSentTertiary: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 14, color: tokens.color.mutedText, textAlign: "center" },
+  mdClaimSentTertiaryLink: {
+    background: "transparent", border: "none", padding: 0, font: "inherit", fontWeight: 800, color: tokens.color.pitchGreen, cursor: "pointer",
   },
 };
