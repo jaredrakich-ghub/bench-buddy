@@ -13,6 +13,10 @@
 // Shape:
 //   {
 //     createdAt, createdBy,        // coach's uid
+//     matchAt: number,             // ms epoch — the fixture's own kickoff
+//                                   // time, no relation to gameSettings
+//     opponent: string,            // free text, e.g. "Rovers" — "" if unset
+//     location: string,            // free text, e.g. "Hillcrest Park"
 //     closingAt: number,           // ms epoch — display framing only, see
 //                                   // isRequestClosed below. Never a hard gate.
 //     reopenedAt: number | null,   // set when the coach pushes closingAt
@@ -72,10 +76,21 @@ export const NOTE_CHIP_OPTIONS = [
 // partial-update path for this the way Match Link's handover toggles have
 // one — an availability request has nothing worth preserving across a
 // genuine token rotation the way a claim does.
-export function createAvailabilityRequest({ createdBy, closingAt, squad }) {
+// opponent/matchAt/location: the fixture card 1a shows ("Tigers FC v
+// Rovers" / "Sat 13 Sep · 9:30 am · Hillcrest Park") has no existing home
+// anywhere in this app — gameSettings (teams.js) only ever holds
+// fieldSize/gameMinutes/subIntervalMinutes, no opponent/date/venue concept
+// at all. Rather than growing that model for one feature, these live only
+// on the availability request itself, entered fresh each time the coach
+// composes one — matchAt a real timestamp (same native datetime-local
+// picker as closingAt), opponent/location plain text.
+export function createAvailabilityRequest({ createdBy, closingAt, matchAt, opponent, location, squad }) {
   return {
     createdAt: Date.now(),
     createdBy,
+    matchAt,
+    opponent,
+    location,
     closingAt,
     reopenedAt: null,
     revokedAt: null,
@@ -183,4 +198,44 @@ export function keeperNoteIds(squad, answers) {
 // child it's rendering a row for.
 export function hasNoteChip(answers, childId, chipKey) {
   return !!answers[childId]?.noteChips?.includes(chipKey);
+}
+
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// "Sat 13 Sep · 9:30 am" — the date/time half of 1a's own fixture card and
+// message preview. Plain Date getters (local time, matching what a native
+// datetime-local input already gave the coach), no Intl — this app has no
+// other date formatting anywhere to stay consistent with, and a fixed,
+// predictable format matters more here than locale-awareness for a single
+// coach typing their own match time.
+export function formatMatchWhen(matchAt) {
+  if (!matchAt) return "";
+  const d = new Date(matchAt);
+  const day = `${WEEKDAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  const hours24 = d.getHours();
+  const hours = hours24 % 12 || 12;
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  return `${day} · ${hours}:${minutes} ${hours24 >= 12 ? "pm" : "am"}`;
+}
+
+// "Tigers FC v Rovers" — falls back to just the team name if no opponent
+// was entered (a friendly/training session still needs a fixture line).
+export function formatFixture(teamName, opponent) {
+  return opponent ? `${teamName} v ${opponent}` : teamName;
+}
+
+// The WhatsApp message itself — README > Screens > 1a is explicit that
+// what ships must be byte-identical to what the preview shows, so this is
+// the ONE place that copy is ever generated; the compose screen's own
+// preview card renders this same string, not a separate hand-typed one.
+// `url` is appended by the caller (MatchAvailabilityScreen.jsx), which is
+// the one place that knows the app's own domain — this function stays
+// domain-agnostic on principle, same reasoning as MatchLinkScreen.jsx's
+// own URL construction living in the component, not the pure model.
+export function buildShareMessage({ teamName, opponent, matchAt, location }) {
+  const fixture = formatFixture(teamName, opponent);
+  const when = formatMatchWhen(matchAt);
+  const atLocation = location ? ` at ${location}` : "";
+  return `${fixture}, ${when}${atLocation}. Tap your child and let me know if they're in — takes ten seconds.`;
 }

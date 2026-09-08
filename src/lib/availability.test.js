@@ -11,6 +11,9 @@ import {
   describeSetupSummary,
   keeperNoteIds,
   hasNoteChip,
+  formatMatchWhen,
+  formatFixture,
+  buildShareMessage,
   NOTE_CHIP_OPTIONS,
 } from "./availability.js";
 
@@ -176,5 +179,39 @@ describe("keeperNoteIds / hasNoteChip", () => {
     expect(hasNoteChip(answers, "p1", "late")).toBe(true);
     expect(hasNoteChip(answers, "p1", "early")).toBe(false);
     expect(hasNoteChip(answers, "p2", "late")).toBe(false); // never answered at all
+  });
+});
+
+describe("formatMatchWhen / formatFixture / buildShareMessage", () => {
+  // A fixed local time, not tied to any particular timezone assumption in
+  // the test runner — Sat 13 Sep 2025, 9:30 am.
+  const MATCH_AT = new Date(2025, 8, 13, 9, 30).getTime();
+
+  it("formats the date/time as 'Sat 13 Sep · 9:30 am'", () => {
+    expect(formatMatchWhen(MATCH_AT)).toBe("Sat 13 Sep · 9:30 am");
+  });
+
+  it("pads single-digit minutes and handles the noon/midnight 12-hour edge", () => {
+    const fivePastNoon = new Date(2025, 8, 13, 12, 5).getTime();
+    expect(formatMatchWhen(fivePastNoon)).toBe("Sat 13 Sep · 12:05 pm");
+    const midnight = new Date(2025, 8, 13, 0, 0).getTime();
+    expect(formatMatchWhen(midnight)).toBe("Sat 13 Sep · 12:00 am");
+  });
+
+  it("formatFixture includes the opponent when given, falls back to just the team name otherwise", () => {
+    expect(formatFixture("Tigers FC", "Rovers")).toBe("Tigers FC v Rovers");
+    expect(formatFixture("Tigers FC", "")).toBe("Tigers FC");
+  });
+
+  it("buildShareMessage matches the design's own copy exactly, with location", () => {
+    const msg = buildShareMessage({ teamName: "Tigers FC", opponent: "Rovers", matchAt: MATCH_AT, location: "Hillcrest Park" });
+    expect(msg).toBe(
+      "Tigers FC v Rovers, Sat 13 Sep · 9:30 am at Hillcrest Park. Tap your child and let me know if they're in — takes ten seconds."
+    );
+  });
+
+  it("buildShareMessage drops the 'at <location>' clause when no location was entered", () => {
+    const msg = buildShareMessage({ teamName: "Tigers FC", opponent: "", matchAt: MATCH_AT, location: "" });
+    expect(msg).toBe("Tigers FC, Sat 13 Sep · 9:30 am. Tap your child and let me know if they're in — takes ten seconds.");
   });
 });

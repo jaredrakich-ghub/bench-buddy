@@ -37,6 +37,17 @@ service cloud.firestore {
         && data.claimToken is string;
     }
 
+    // Availability link — shape check only, same spirit as isValidHandover
+    // above. squad/answers are the only fields the public route ever needs
+    // to be actual lists/maps for; content inside answers isn't policed
+    // field-by-field here any more than claim's contents are for Match Link.
+    function isValidAvailabilityRequest(data) {
+      return data.keys().hasAll(['createdAt', 'createdBy', 'closingAt', 'revokedAt', 'token', 'squad', 'answers'])
+        && data.token is string
+        && data.squad is list
+        && data.answers is map;
+    }
+
     function isMember(teamId) {
       return request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.memberIds;
     }
@@ -169,6 +180,55 @@ service cloud.firestore {
                || (resource.data.requireEmailClaim == false
                  && request.resource.data.claim.viaToken == resource.data.claimToken)
              );
+      }
+
+      // Availability link — a public answer surface, no per-parent identity
+      // at all (unlike Match Link's single-claim-holder model: README is
+      // explicit "anyone with the link can answer for any child", multiple
+      // parents concurrently answering different — or the same — child is
+      // the accepted design, last write wins). That absence of exclusivity
+      // is what makes this whole block simpler than matchHandover's own
+      // two-stage claim dance.
+      match /availability/{requestId} {
+        // Read open to any authenticated caller, same trade-off as
+        // matchHandover's own read rule (see its comment): teamId itself —
+        // a 20-char unguessable Firestore auto-id — is the practical gate,
+        // not membership. squad here is already the denormalized, public-
+        // safe subset (id/name/number only — see availability.js's own top
+        // comment), so opening this read never risks exposing anything the
+        // README says the public route must never show.
+        allow read: if request.auth != null;
+
+        // The coach: full create/update, unrestricted beyond membership +
+        // shape — covers a brand new request, editing the closing time,
+        // revoking, and regenerating (a plain full replace either way, see
+        // availability.js's own createAvailabilityRequest comment for why
+        // there's no partial-update path worth preserving across a token
+        // rotation here).
+        allow create, update: if request.auth != null && isMember(teamId) && isValidAvailabilityRequest(request.resource.data);
+
+        // A parent's answer — the public write. Same "prove you had the
+        // real token" trick Match Link's Stage A/B established (the SAME
+        // value has to appear in both what's being submitted right now and
+        // what's already stored), collapsed to one shared field rather than
+        // a per-child one: Firestore's diff().affectedKeys() only sees
+        // TOP-LEVEL field names, so proving possession per dynamically-
+        // keyed child (answers.<childId>) isn't expressible here the way
+        // Match Link's own fixed-shape pendingClaim/claim fields were.
+        // lastAnsweredViaToken is kept purely as that proof, an audit trail
+        // of "the token behind the most recent public answer" — not
+        // per-child precise, but the actual security property (a stranger
+        // who only guessed teamId, never saw the real link, cannot write
+        // here at all) holds regardless.
+        //
+        // revokedAt is the only gate — never closingAt (README > The link:
+        // closing time never refuses an answer, only changes the page's
+        // framing).
+        allow update: if request.auth != null
+          && resource.data.revokedAt == null
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['answers', 'lastAnsweredViaToken'])
+          && request.resource.data.lastAnsweredViaToken == resource.data.token
+          && isValidAvailabilityRequest(request.resource.data);
       }
 
       match /matchState/{stateId} {

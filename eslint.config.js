@@ -81,14 +81,14 @@ export default [
     },
   },
   {
-    // design_handoff_bench_buddy_match_day/, design_handoff_bench_buddy_
-    // match_link/, and marketing's own design_handoff_bench_buddy_website/
-    // are reference/mockup artifacts sitting in the working tree
-    // (generated-looking minified names throughout, e.g. the design tool's
-    // own support.js payload) — not something this project maintains or
-    // ships, so it's not this linter's job to grade them. marketing/'s own
-    // real files (index.html, styles.css, site.js) are NOT excluded —
-    // those are this project's actual hand-written source, same as src/.
+    // design_handoff_bench_buddy_match_day/, _match_link/, _availability/,
+    // and marketing's own design_handoff_bench_buddy_website/ are reference/
+    // mockup artifacts sitting in the working tree (generated-looking
+    // minified names throughout, e.g. the design tool's own support.js
+    // payload) — not something this project maintains or ships, so it's not
+    // this linter's job to grade them. marketing/'s own real files
+    // (index.html, styles.css, site.js) are NOT excluded — those are this
+    // project's actual hand-written source, same as src/.
     // public/sw.js: a raw service worker, served as-is (Vite's convention
     // for public/) — runs in the service-worker global scope (self,
     // caches, clients), not the browser/Node globals this config's other
@@ -98,6 +98,7 @@ export default [
       "node_modules/**",
       "docs/design_handoff_bench_buddy_match_day/**",
       "docs/design_handoff_bench_buddy_match_link/**",
+      "docs/design_handoff_bench_buddy_availability/**",
       "marketing/design_handoff_bench_buddy_website/**",
       "public/**",
     ],

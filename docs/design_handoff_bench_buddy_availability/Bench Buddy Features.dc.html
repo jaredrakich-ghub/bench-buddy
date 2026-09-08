@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&amp;family=Nunito:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+  body { margin:0; background:#EDEAE2; font-family:'Nunito',system-ui,sans-serif; }
+  a { color:#2E7D53; }
+  a:hover { color:#1C3A2E; }
+  body { --paper: url(data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27170%27%20height%3D%27170%27%3E%3Ccircle%20cx%3D%2738%27%20cy%3D%2736%27%20r%3D%2719%27%20fill%3D%27%231C3A2E%27%20fill-opacity%3D%27.06%27%2F%3E%3Cpath%20d%3D%27M38.0%2029.2L44.5%2033.9L42.0%2041.5L34.0%2041.5L31.5%2033.9ZM42.0%2030.5L40.2%2024.9L44.9%2021.5L49.6%2024.9L47.8%2030.5ZM44.5%2038.1L49.2%2034.7L53.9%2038.1L52.1%2043.6L46.3%2043.6ZM38.0%2042.8L42.7%2046.3L40.9%2051.8L35.1%2051.8L33.3%2046.3ZM31.5%2038.1L29.7%2043.6L23.9%2043.6L22.1%2038.1L26.8%2034.7ZM34.0%2030.5L28.2%2030.5L26.4%2024.9L31.1%2021.5L35.8%2024.9Z%27%20fill%3D%27%23FFF6E5%27%2F%3E%3Ccircle%20cx%3D%27120%27%20cy%3D%27116%27%20r%3D%2712%27%20fill%3D%27%231C3A2E%27%20fill-opacity%3D%27.06%27%2F%3E%3Cpath%20d%3D%27M120.0%20111.7L124.1%20114.7L122.5%20119.5L117.5%20119.5L115.9%20114.7ZM122.5%20112.5L121.4%20109.0L124.4%20106.9L127.3%20109.0L126.2%20112.5ZM124.1%20117.3L127.1%20115.2L130.0%20117.3L128.9%20120.8L125.2%20120.8ZM120.0%20120.3L123.0%20122.5L121.8%20126.0L118.2%20126.0L117.0%20122.5ZM115.9%20117.3L114.8%20120.8L111.1%20120.8L110.0%20117.3L112.9%20115.2ZM117.5%20112.5L113.8%20112.5L112.7%20109.0L115.6%20106.9L118.6%20109.0Z%27%20fill%3D%27%23FFF6E5%27%2F%3E%3C%2Fsvg%3E); }
+</style>
+</helmet>
+
+<section style="padding:56px 56px 24px; display:flex; flex-direction:column; gap:20px">
+  <div style="font-family:'Baloo 2',cursive; font-size:40px; font-weight:800; color:#1C3A2E">Three new features</div>
+  <div style="max-width:820px; font-size:16px; font-weight:600; color:#3E5148; line-height:1.55">Availability links, Match Link, and the Free / Pro line. Drawn in the vocabulary of the shipped app you sent through — floating yellow header pill with a white back button, white cards on cream, the stat trio, chunky green and yellow buttons. Two options wherever there was a real decision to make.</div>
+  <div style="display:flex; gap:14px; flex-wrap:wrap; font-size:15px; font-weight:700; color:#6B7C72">
+    <div style="background:#fff; border-radius:14px; padding:10px 16px">Availability <a href="#1a">1a</a> <a href="#1b">1b</a> <a href="#1c">1c</a> <a href="#1d">1d</a></div>
+    <div style="background:#fff; border-radius:14px; padding:10px 16px">Match Link <a href="#2a">2a</a> <a href="#2b">2b</a> <a href="#2c">2c</a> <a href="#2d">2d</a></div>
+    <div style="background:#fff; border-radius:14px; padding:10px 16px">Pro locks <a href="#3a">3a</a> <a href="#3b">3b</a></div>
+    <div style="background:#fff; border-radius:14px; padding:10px 16px">Upgrade <a href="#4a">4a</a> <a href="#4b">4b</a></div>
+  </div>
+  <div style="max-width:820px; background:#FFF6E5; border-radius:20px; padding:16px 20px; font-size:15px; font-weight:600; color:#3E5148; line-height:1.55">
+    <strong style="font-family:'Baloo 2',cursive; font-size:17px; color:#1C3A2E">Free / Pro line used here.</strong> Free keeps one saved team, unlimited matches, fair rotations, live subs, goalkeeper rotation, injury handling and Today's Minutes. Pro adds Season Minutes, availability links, Match Link, reminders, and more than one team. Price shown as NZ$79 a year, localised per store.
+  </div>
+</section>
+
+<section style="padding:8px 56px 40px; display:flex; flex-direction:column; gap:26px">
+  <div style="display:flex; align-items:baseline; gap:20px; font-family:'Baloo 2',cursive; flex-wrap:wrap">
+    <div style="font-size:34px; font-weight:800; color:#1C3A2E">1 · Availability link</div>
+    <div style="font-family:'Nunito'; font-size:15px; color:#6B7C72; font-weight:600">One link into the WhatsApp group. Parent view as a squad list <a href="#1b">1b</a> or one child at a time <a href="#1c">1c</a>.</div>
+  </div>
+  <div style="display:flex; gap:36px; align-items:flex-start; flex-wrap:wrap">
+
+    <div id="1a" style="display:flex; flex-direction:column; gap:12px">
+      <div style="display:flex; align-items:center; gap:10px"><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:14px; color:#6B7C72; background:#fff; padding:4px 12px; border-radius:999px">1a</div><div style="font-size:14px; font-weight:700; color:#6B7C72">Coach · ask the group</div></div>
+      <div data-screen-label="F1a-Availability-compose" style="position:relative; width:380px; height:844px; box-sizing:border-box; border-radius:38px; overflow:hidden; background:#FFF6E5; background-image:var(--paper); box-shadow:0 24px 60px rgba(28,58,46,.22); display:flex; flex-direction:column">
+        <div style="padding:14px 22px 0; display:flex; align-items:center; justify-content:space-between; font-size:15px; font-weight:800; color:#1C3A2E"><div>6:52</div><div style="opacity:.5">▮▮▮ ⌁</div></div>
+        <div style="margin:12px 16px 0; background:#FBE3A6; border-radius:30px; padding:14px 18px; display:flex; align-items:center; gap:14px">
+          <div style="width:52px; height:52px; flex:0 0 auto; border-radius:18px; background:#fff; display:flex; align-items:center; justify-content:center; font-family:'Baloo 2',cursive; font-weight:800; font-size:26px; color:#1C3A2E">‹</div>
+          <div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:27px; color:#1C3A2E">Who's playing?</div>
+        </div>
+        <div style="padding:18px 18px 0; display:flex; flex-direction:column; gap:14px; flex:1; overflow:hidden">
+          <div style="background:#fff; border-radius:24px; padding:16px 18px; display:flex; flex-direction:column; gap:4px">
+            <div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:21px; color:#1C3A2E">Tigers FC v Rovers</div>
+            <div style="font-size:15px; font-weight:700; color:#6B7C72">Sat 13 Sep · 9:30 am · Hillcrest Park</div>
+          </div>
+          <div style="background:#fff; border-radius:24px; padding:16px 18px; display:flex; flex-direction:column; gap:12px">
+            <div style="font-size:13px; font-weight:800; color:#6B7C72; letter-spacing:.08em">WHAT THE GROUP SEES</div>
+            <div style="background:#F1E9D2; border-radius:18px; padding:14px 16px; font-size:15px; font-weight:600; color:#3E5148; line-height:1.5">Tigers FC v Rovers, Sat 13 Sep 9:30 at Hillcrest Park. Tap your child and let me know if they're in — takes ten seconds.<div style="margin-top:8px; font-weight:800; color:#2E7D53">benchbuddy.app/in/tigers-13sep</div></div>
+            <div style="font-size:14px; font-weight:700; color:#6B7C72">Closes Friday 6:00 pm. You can reopen it any time.</div>
+          </div>
+          <div style="background:#fff; border-radius:24px; padding:16px 18px; display:flex; flex-direction:column; gap:10px">
+            <div style="font-size:13px; font-weight:800; color:#6B7C72; letter-spacing:.08em">SQUAD · 9</div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap">
+              <div style="display:flex; align-items:center; gap:8px; background:#E3F0E5; border-radius:999px; padding:6px 14px 6px 6px"><div style="width:28px; height:28px; border-radius:50%; background:#2E7D53; color:#fff; font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center">1</div><div style="font-weight:800; font-size:15px; color:#1C3A2E">Jack</div></div>
+              <div style="display:flex; align-items:center; gap:8px; background:#F1E9D2; border-radius:999px; padding:6px 14px 6px 6px"><div style="width:28px; height:28px; border-radius:50%; background:#2E7D53; color:#fff; font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center">2</div><div style="font-weight:800; font-size:15px; color:#6B7C72">Mark</div></div>
+              <div style="display:flex; align-items:center; gap:8px; background:#F1E9D2; border-radius:999px; padding:6px 14px 6px 6px"><div style="width:28px; height:28px; border-radius:50%; background:#2E7D53; color:#fff; font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center">3</div><div style="font-weight:800; font-size:15px; color:#6B7C72">Sammy</div></div>
+              <div style="display:flex; align-items:center; gap:8px; background:#F1E9D2; border-radius:999px; padding:6px 14px 6px 6px"><div style="width:28px; height:28px; border-radius:50%; background:#2E7D53; color:#fff; font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center">4</div><div style="font-weight:800; font-size:15px; color:#6B7C72">Mel</div></div>
+              <div style="display:flex; align-items:center; gap:8px; background:#F1E9D2; border-radius:999px; padding:6px 14px 6px 6px"><div style="width:28px; height:28px; border-radius:50%; background:#2E7D53; color:#fff; font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center">5</div><div style="font-weight:800; font-size:15px; color:#6B7C72">Sarah</div></div>
+              <div style="display:flex; align-items:center; gap:8px; background:#F1E9D2; border-radius:999px; padding:6px 14px 6px 6px; font-weight:800; font-size:15px; color:#6B7C72">+ 4 more</div>
+            </div>
+            <div style="font-size:14px; font-weight:700; color:#6B7C72">Nobody has answered yet.</div>
+          </div>
+        </div>
+        <div style="padding:12px 18px 20px; display:flex; flex-direction:column; gap:10px">
+          <div style="height:64px; border-radius:26px; background:#2E7D53; box-shadow:0 6px 0 #1F5C3C; display:flex; align-items:center; justify-content:center; gap:10px; font-family:'Baloo 2',cursive; font-weight:800; font-size:23px; color:#fff">Share to WhatsApp</div>
+          <div style="height:56px; border-radius:22px; background:#EDE7D3; display:flex; align-items:center; justify-content:center; font-family:'Baloo 2',cursive; font-weight:800; font-size:20px; color:#1C3A2E">Copy link</div>
+        </div>
+      </div>
+      <div style="width:380px; font-size:15px; font-weight:600; color:#3E5148; line-height:1.5">The coach never types a message. The preview is the message, so what lands in the group is predictable.</div>
+    </div>
+
+    <div id="1b" style="display:flex; flex-direction:column; gap:12px">
+      <div style="display:flex; align-items:center; gap:10px"><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:14px; color:#6B7C72; background:#fff; padding:4px 12px; border-radius:999px">1b</div><div style="font-size:14px; font-weight:700; color:#6B7C72">Parent · squad list, answer inline</div></div>
+      <div data-screen-label="F1b-Availability-parent-list" style="position:relative; width:380px; height:844px; box-sizing:border-box; border-radius:38px; overflow:hidden; background:#FFF6E5; background-image:var(--paper); box-shadow:0 24px 60px rgba(28,58,46,.22); display:flex; flex-direction:column">
+        <div style="padding:14px 22px 0; display:flex; align-items:center; justify-content:space-between; font-size:15px; font-weight:800; color:#1C3A2E"><div>6:52</div><div style="opacity:.5">▮▮▮ ⌁</div></div>
+        <div style="margin:10px 16px 0; background:#EDE7D3; border-radius:16px; padding:9px 14px; display:flex; align-items:center; gap:7px; font-size:14px; font-weight:700; color:#6B7C72"><svg width="12" height="14" viewBox="0 0 24 24" fill="#6B7C72" style="display:block; flex:0 0 auto"><path d="M7 10V8a5 5 0 0 1 10 0v2h.5A2.5 2.5 0 0 1 20 12.5v6A2.5 2.5 0 0 1 17.5 21h-11A2.5 2.5 0 0 1 4 18.5v-6A2.5 2.5 0 0 1 6.5 10H7Zm2.6 0h4.8V8a2.4 2.4 0 0 0-4.8 0v2Z"></path></svg>benchbuddy.app/in/tigers-13sep</div>
+        <div style="padding:16px 18px 0; display:flex; flex-direction:column; gap:4px">
+          <div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:29px; color:#1C3A2E; line-height:1.1">Tigers FC v Rovers</div>
+          <div style="font-size:15px; font-weight:700; color:#6B7C72">Sat 13 Sep · 9:30 am · Hillcrest Park</div>
+        </div>
+        <div style="padding:16px 18px 0; display:flex; flex-direction:column; gap:10px; flex:1; overflow:hidden">
+          <div style="font-size:13px; font-weight:800; color:#6B7C72; letter-spacing:.08em">TAP YOUR CHILD</div>
+          <div style="background:#fff; border-radius:22px; padding:12px 16px; display:flex; align-items:center; gap:12px"><div style="width:34px; height:34px; border-radius:50%; background:#2E7D53; color:#fff; font-weight:800; font-size:15px; display:flex; align-items:center; justify-content:center">1</div><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:20px; color:#1C3A2E">Jack</div><div style="margin-left:auto; font-weight:800; font-size:15px; color:#2E7D53">In ✓</div></div>
+          <div style="background:#fff; border-radius:22px; padding:12px 16px; display:flex; align-items:center; gap:12px"><div style="width:34px; height:34px; border-radius:50%; background:#2E7D53; color:#fff; font-weight:800; font-size:15px; display:flex; align-items:center; justify-content:center">5</div><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:20px; color:#1C3A2E">Sarah</div><div style="margin-left:auto; font-weight:800; font-size:15px; color:#B4462F">Out</div></div>
+          <div style="background:#fff; border:3px solid #F5B93B; border-radius:24px; padding:14px 16px; display:flex; flex-direction:column; gap:12px">
+            <div style="display:flex; align-items:center; gap:12px"><div style="width:34px; height:34px; border-radius:50%; background:#2E7D53; color:#fff; font-weight:800; font-size:15px; display:flex; align-items:center; justify-content:center">7</div><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:20px; color:#1C3A2E">Bobbie</div></div>
+            <div style="display:flex; gap:10px">
+              <div style="flex:1; height:56px; border-radius:20px; background:#2E7D53; box-shadow:0 5px 0 #1F5C3C; display:flex; align-items:center; justify-content:center; font-family:'Baloo 2',cursive; font-weight:800; font-size:19px; color:#fff">Playing</div>
+              <div style="flex:1; height:56px; border-radius:20px; background:#F1E9D2; display:flex; align-items:center; justify-content:center; font-family:'Baloo 2',cursive; font-weight:800; font-size:19px; color:#1C3A2E">Can't make it</div>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap">
+              <div style="padding:9px 14px; border-radius:999px; background:#FBE3A6; font-weight:800; font-size:14px; color:#1C3A2E">Arriving late</div>
+              <div style="padding:9px 14px; border-radius:999px; background:#F1E9D2; font-weight:800; font-size:14px; color:#6B7C72">Leaving early</div>
+              <div style="padding:9px 14px; border-radius:999px; background:#F1E9D2; font-weight:800; font-size:14px; color:#6B7C72">Can keep goal</div>
+            </div>
+            <div style="background:#F8F3E3; border-radius:16px; padding:12px 14px; font-size:15px; font-weight:600; color:#3E5148; line-height:1.4">Here about 9:45 — swimming finishes at 9:15.</div>
+          </div>
+          <div style="background:#fff; border-radius:22px; padding:12px 16px; display:flex; align-items:center; gap:12px; opacity:.75"><div style="width:34px; height:34px; border-radius:50%; background:#2E7D53; color:#fff; font-weight:800; font-size:15px; display:flex; align-items:center; justify-content:center">3</div><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:20px; color:#1C3A2E">Sammy</div><div style="margin-left:auto; font-weight:700; font-size:15px; color:#6B7C72">Waiting</div></div>
+          <div style="background:#fff; border-radius:22px; padding:12px 16px; display:flex; align-items:center; gap:12px; opacity:.75"><div style="width:34px; height:34px; border-radius:50%; background:#2E7D53; color:#fff; font-weight:800; font-size:15px; display:flex; align-items:center; justify-content:center">4</div><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:20px; color:#1C3A2E">Mel</div><div style="margin-left:auto; font-weight:700; font-size:15px; color:#6B7C72">Waiting</div></div>
+        </div>
+        <div style="padding:12px 18px 20px">
+          <div style="height:64px; border-radius:26px; background:#F5B93B; box-shadow:0 6px 0 #C9902A; display:flex; align-items:center; justify-content:center; font-family:'Baloo 2',cursive; font-weight:800; font-size:23px; color:#1C3A2E">Send to coach</div>
+        </div>
+      </div>
+      <div style="width:380px; font-size:15px; font-weight:600; color:#3E5148; line-height:1.5">Everyone's answer is visible, which nudges the stragglers — the same social pressure the group chat already has. Costs privacy: every parent sees who has pulled out.</div>
+    </div>
+
+    <div id="1c" style="display:flex; flex-direction:column; gap:12px">
+      <div style="display:flex; align-items:center; gap:10px"><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:14px; color:#6B7C72; background:#fff; padding:4px 12px; border-radius:999px">1c</div><div style="font-size:14px; font-weight:700; color:#6B7C72">Parent · one child, one question</div></div>
+      <div data-screen-label="F1c-Availability-parent-focused" style="position:relative; width:380px; height:844px; box-sizing:border-box; border-radius:38px; overflow:hidden; background:#FFF6E5; background-image:var(--paper); box-shadow:0 24px 60px rgba(28,58,46,.22); display:flex; flex-direction:column">
+        <div style="padding:14px 22px 0; display:flex; align-items:center; justify-content:space-between; font-size:15px; font-weight:800; color:#1C3A2E"><div>6:52</div><div style="opacity:.5">▮▮▮ ⌁</div></div>
+        <div style="margin:10px 16px 0; background:#EDE7D3; border-radius:16px; padding:9px 14px; display:flex; align-items:center; gap:7px; font-size:14px; font-weight:700; color:#6B7C72"><svg width="12" height="14" viewBox="0 0 24 24" fill="#6B7C72" style="display:block; flex:0 0 auto"><path d="M7 10V8a5 5 0 0 1 10 0v2h.5A2.5 2.5 0 0 1 20 12.5v6A2.5 2.5 0 0 1 17.5 21h-11A2.5 2.5 0 0 1 4 18.5v-6A2.5 2.5 0 0 1 6.5 10H7Zm2.6 0h4.8V8a2.4 2.4 0 0 0-4.8 0v2Z"></path></svg>benchbuddy.app/in/tigers-13sep</div>
+        <div style="padding:12px 18px 0; display:flex; flex-direction:column; gap:12px; flex:1; min-height:0">
+          <div style="display:flex; align-items:center; gap:10px; font-size:15px; font-weight:800; color:#2E7D53">‹ Not your child? Pick again</div>
+          <div style="background:#fff; border-radius:26px; padding:14px; display:flex; flex-direction:column; gap:4px; align-items:center; text-align:center">
+            <div style="width:64px; height:64px; border-radius:50%; background:#2E7D53; color:#fff; font-family:'Baloo 2',cursive; font-weight:800; font-size:28px; display:flex; align-items:center; justify-content:center">7</div>
+            <div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:32px; color:#1C3A2E; line-height:1.1">Is Bobbie playing?</div>
+            <div style="font-size:15px; font-weight:700; color:#6B7C72">Tigers FC v Rovers · Sat 13 Sep, 9:30 am<br>Hillcrest Park</div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:12px">
+            <div style="height:68px; border-radius:24px; background:#2E7D53; box-shadow:0 6px 0 #1F5C3C; display:flex; align-items:center; justify-content:center; font-family:'Baloo 2',cursive; font-weight:800; font-size:26px; color:#fff">Yes, playing</div>
+            <div style="height:68px; border-radius:24px; background:#fff; box-shadow:0 5px 0 #DCD4C0; display:flex; align-items:center; justify-content:center; font-family:'Baloo 2',cursive; font-weight:800; font-size:26px; color:#1C3A2E">Can't make it</div>
+          </div>
+          <div style="background:#fff; border-radius:24px; padding:16px 18px; display:flex; flex-direction:column; gap:12px">
+            <div style="font-size:13px; font-weight:800; color:#6B7C72; letter-spacing:.08em">ANYTHING THE COACH SHOULD KNOW?</div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap">
+              <div style="padding:10px 15px; border-radius:999px; background:#FBE3A6; font-weight:800; font-size:15px; color:#1C3A2E">Arriving late</div>
+              <div style="padding:10px 15px; border-radius:999px; background:#F1E9D2; font-weight:800; font-size:15px; color:#6B7C72">Leaving early</div>
+              <div style="padding:10px 15px; border-radius:999px; background:#F1E9D2; font-weight:800; font-size:15px; color:#6B7C72">Can keep goal</div>
+            </div>
+            <div style="background:#F8F3E3; border-radius:16px; padding:12px 14px; font-size:15px; font-weight:600; color:#3E5148; min-height:38px; line-height:1.4">Here about 9:45 — swimming finishes at 9:15.</div>
+            <div style="font-size:14px; font-weight:700; color:#6B7C72">Optional. Only the coach sees this.</div>
+          </div>
+        </div>
+        <div style="padding:12px 18px 20px">
+          <div style="height:64px; border-radius:26px; background:#F5B93B; box-shadow:0 6px 0 #C9902A; display:flex; align-items:center; justify-content:center; font-family:'Baloo 2',cursive; font-weight:800; font-size:23px; color:#1C3A2E">Send to coach</div>
+        </div>
+      </div>
+      <div style="width:380px; font-size:15px; font-weight:600; color:#3E5148; line-height:1.5">Pick your child, answer one question, done — and no parent sees another family's answer. Costs the social nudge, and the coach has to chase the quiet ones himself.</div>
+    </div>
+
+    <div id="1d" style="display:flex; flex-direction:column; gap:12px">
+      <div style="display:flex; align-items:center; gap:10px"><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:14px; color:#6B7C72; background:#fff; padding:4px 12px; border-radius:999px">1d</div><div style="font-size:14px; font-weight:700; color:#6B7C72">Coach · answers land in setup</div></div>
+      <div data-screen-label="F1d-Setup-with-availability" style="position:relative; width:380px; height:844px; box-sizing:border-box; border-radius:38px; overflow:hidden; background:#FFF6E5; background-image:var(--paper); box-shadow:0 24px 60px rgba(28,58,46,.22); display:flex; flex-direction:column">
+        <div style="padding:14px 22px 0; display:flex; align-items:center; justify-content:space-between; font-size:15px; font-weight:800; color:#1C3A2E"><div>6:56</div><div style="opacity:.5">▮▮▮ ⌁</div></div>
+        <div style="margin:12px 16px 0; background:#FBE3A6; border-radius:30px; padding:14px 18px; display:flex; align-items:center; gap:14px">
+          <div style="width:52px; height:52px; flex:0 0 auto; border-radius:18px; background:#fff; display:flex; align-items:center; justify-content:center; font-family:'Baloo 2',cursive; font-weight:800; font-size:26px; color:#1C3A2E">‹</div>
+          <div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:27px; color:#1C3A2E">Set up new game</div>
+        </div>
+        <div style="padding:20px 18px 0; display:flex; flex-direction:column; gap:14px; flex:1; overflow:hidden">
+          <div style="display:flex; align-items:center; gap:12px">
+            <div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:27px; color:#1C3A2E">Who's here</div>
+            <div style="background:#C9E4CE; border-radius:999px; padding:5px 14px; font-weight:800; font-size:15px; color:#1C3A2E">6 in</div>
+          </div>
+          <div style="background:#E3F0E5; border-radius:20px; padding:14px 16px; font-size:15px; font-weight:700; color:#1C3A2E; line-height:1.45">Six answered your link. <span style="color:#6B7C72">Sarah is out, two haven't replied.</span></div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap">
+            <div style="display:flex; align-items:center; gap:8px; background:#fff; border-radius:999px; padding:7px 15px 7px 7px"><div style="width:32px; height:32px; border-radius:50%; background:#2E7D53; color:#fff; font-weight:800; font-size:14px; display:flex; align-items:center; justify-content:center">1</div><div style="font-weight:800; font-size:16px; color:#1C3A2E">Jack</div></div>
+            <div style="display:flex; align-items:center; gap:8px; background:#fff; border-radius:999px; padding:7px 15px 7px 7px"><div style="width:32px; height:32px; border-radius:50%; background:#2E7D53; color:#fff; font-weight:800; font-size:14px; display:flex; align-items:center; justify-content:center">2</div><div style="font-weight:800; font-size:16px; color:#1C3A2E">Mark</div></div>
+            <div style="display:flex; align-items:center; gap:8px; background:#fff; border-radius:999px; padding:7px 15px 7px 7px"><div style="width:32px; height:32px; border-radius:50%; background:#2E7D53; color:#fff; font-weight:800; font-size:14px; display:flex; align-items:center; justify-content:center">3</div><div style="font-weight:800; font-size:16px; color:#1C3A2E">Sammy</div></div>
+            <div style="display:flex; align-items:center; gap:8px; background:#fff; border-radius:999px; padding:7px 15px 7px 7px"><div style="width:32px; height:32px; border-radius:50%; background:#2E7D53; color:#fff; font-weight:800; font-size:14px; display:flex; align-items:center; justify-content:center">4</div><div style="font-weight:800; font-size:16px; color:#1C3A2E">Mel</div></div>
+            <div style="display:flex; align-items:center; gap:8px; background:#fff; border-radius:999px; padding:7px 15px 7px 7px; border:2px solid #F5B93B"><div style="width:32px; height:32px; border-radius:50%; background:#2E7D53; color:#fff; font-weight:800; font-size:14px; display:flex; align-items:center; justify-content:center">7</div><div style="font-weight:800; font-size:16px; color:#1C3A2E">Bobbie</div><div style="font-size:13px; font-weight:800; color:#96772F">late</div></div>
+            <div style="display:flex; align-items:center; gap:8px; background:#fff; border-radius:999px; padding:7px 15px 7px 7px"><div style="width:32px; height:32px; border-radius:50%; background:#2E7D53; color:#fff; font-weight:800; font-size:14px; display:flex; align-items:center; justify-content:center">6</div><div style="font-weight:800; font-size:16px; color:#1C3A2E">Ricky</div></div>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; padding-top:4px">
+            <div style="display:flex; align-items:center; gap:8px; background:#F1E9D2; border-radius:999px; padding:7px 15px 7px 7px"><div style="width:32px; height:32px; border-radius:50%; background:#BFC7BE; color:#fff; font-weight:800; font-size:14px; display:flex; align-items:center; justify-content:center">5</div><div style="font-weight:800; font-size:16px; color:#6B7C72">Sarah · out</div></div>
+            <div style="display:flex; align-items:center; gap:8px; background:#F1E9D2; border-radius:999px; padding:7px 15px 7px 7px"><div style="width:32px; height:32px; border-radius:50%; background:#BFC7BE; color:#fff; font-weight:800; font-size:14px; display:flex; align-items:center; justify-content:center">8</div><div style="font-weight:800; font-size:16px; color:#6B7C72">Ollie · waiting</div></div>
+          </div>
+          <div style="background:#fff; border-radius:22px; padding:14px 16px; display:flex; align-items:center; gap:12px">
+            <div style="width:44px; height:44px; border-radius:16px; background:#FBE3A6; display:flex; align-items:center; justify-content:center"><svg width="21" height="21" viewBox="0 0 24 24" fill="#1C3A2E"><path d="M12 2.5a1.6 1.6 0 0 1 1.6 1.6v.6a6.2 6.2 0 0 1 4.6 6v3.1l1.4 2.3a1 1 0 0 1-.85 1.5H5.25a1 1 0 0 1-.86-1.5L5.8 13.8v-3.1a6.2 6.2 0 0 1 4.6-6V4.1A1.6 1.6 0 0 1 12 2.5Z"></path><path d="M9.6 19.8h4.8a2.4 2.4 0 0 1-4.8 0Z"></path></svg></div>
+            <div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:19px; color:#1C3A2E">Nudge the two waiting</div>
+            <div style="margin-left:auto; background:#1C3A2E; color:#F5B93B; font-size:11px; font-weight:800; letter-spacing:.06em; padding:4px 9px; border-radius:999px">PRO</div>
+          </div>
+          <div style="display:flex; gap:10px; padding-top:2px">
+            <div style="flex:1; background:#fff; border-radius:24px; padding:14px 0; text-align:center"><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:32px; color:#1C3A2E">5</div><div style="font-size:13px; font-weight:800; color:#6B7C72; letter-spacing:.06em">ON PITCH</div></div>
+            <div style="flex:1; background:#fff; border-radius:24px; padding:14px 0; text-align:center"><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:32px; color:#1C3A2E">45</div><div style="font-size:13px; font-weight:800; color:#6B7C72; letter-spacing:.06em">TOTAL</div></div>
+            <div style="flex:1; background:#fff; border-radius:24px; padding:14px 0; text-align:center"><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:32px; color:#1C3A2E">5</div><div style="font-size:13px; font-weight:800; color:#6B7C72; letter-spacing:.06em">SUB EVERY</div></div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; font-size:15px; font-weight:800; color:#2E7D53">✓ These sub settings provide a fair rotation.</div>
+        </div>
+        <div style="padding:12px 18px 20px">
+          <div style="height:64px; border-radius:26px; background:#2E7D53; box-shadow:0 6px 0 #1F5C3C; display:flex; align-items:center; justify-content:center; font-family:'Baloo 2',cursive; font-weight:800; font-size:23px; color:#fff">Build new rotation</div>
+        </div>
+      </div>
+      <div style="width:380px; font-size:15px; font-weight:600; color:#3E5148; line-height:1.5">The point of the link: Saturday morning, Who's here is already filled in. The two who never replied stay in the squad as greyed chips so the coach can still tap them in when they turn up.</div>
+    </div>
+
+  </div>
+</section>
+
+<section style="padding:8px 56px 40px; display:flex; flex-direction:column; gap:26px">
+  <div style="display:flex; align-items:baseline; gap:20px; font-family:'Baloo 2',cursive; flex-wrap:wrap">
+    <div style="font-size:34px; font-weight:800; color:#1C3A2E">2 · Match Link</div>
+    <div style="font-family:'Nunito'; font-size:15px; color:#6B7C72; font-weight:600">Email, no password. Handing the subs to a parent <a href="#2c">2c</a>, or the whole game when the coach can’t be there <a href="#2d">2d</a>.</div>
+  </div>
+  <div style="display:flex; gap:36px; align-items:flex-start; flex-wrap:wrap">
+
+    <div id="2a" style="display:flex; flex-direction:column; gap:12px">
+      <div style="display:flex; align-items:center; gap:10px"><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:14px; color:#6B7C72; background:#fff; padding:4px 12px; border-radius:999px">2a</div><div style="font-size:14px; font-weight:700; color:#6B7C72">Coach · share the match</div></div>
+      <div data-screen-label="F2a-MatchLink-share" style="position:relative; width:380px; height:844px; box-sizing:border-box; border-radius:38px; overflow:hidden; background:#FFF6E5; background-image:var(--paper); box-shadow:0 24px 60px rgba(28,58,46,.22); display:flex; flex-direction:column">
+        <div style="padding:14px 22px 0; display:flex; align-items:center; justify-content:space-between; font-size:15px; font-weight:800; color:#1C3A2E"><div>9:28</div><div style="opacity:.5">▮▮▮ ⌁</div></div>
+        <div style="margin:12px 16px 0; background:#FBE3A6; border-radius:30px; padding:14px 18px; display:flex; align-items:center; gap:14px">
+          <div style="width:52px; height:52px; flex:0 0 auto; border-radius:18px; background:#fff; display:flex; align-items:center; justify-content:center; font-family:'Baloo 2',cursive; font-weight:800; font-size:26px; color:#1C3A2E">‹</div>
+          <div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:27px; color:#1C3A2E">Match Link</div>
+          <div style="margin-left:auto; background:#1C3A2E; color:#F5B93B; font-size:11px; font-weight:800; letter-spacing:.06em; padding:5px 10px; border-radius:999px">PRO</div>
+        </div>
+        <div style="padding:18px 18px 0; display:flex; flex-direction:column; gap:14px; flex:1; overflow:hidden">
+          <div style="background:#fff; border-radius:24px; padding:18px; display:flex; flex-direction:column; gap:10px">
+            <div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:22px; color:#1C3A2E">Hand the subs to someone</div>
+            <div style="font-size:15px; font-weight:600; color:#3E5148; line-height:1.5">Send this to the parent taking the subs today. They get your screen and your plan, and they make the changes while you coach. Only the person you send it to can open it.</div>
+          </div>
+          <div style="background:#fff; border-radius:24px; padding:16px 18px; display:flex; flex-direction:column; gap:12px">
+            <div style="font-size:13px; font-weight:800; color:#6B7C72; letter-spacing:.08em">LINK FOR TODAY</div>
+            <div style="background:#F1E9D2; border-radius:18px; padding:14px 16px; font-weight:800; font-size:16px; color:#2E7D53">benchbuddy.app/m/tigers-9f2k</div>
+            <div style="display:flex; align-items:center; gap:12px">
+              <div style="font-size:15px; font-weight:700; color:#3E5148; line-height:1.4">Stops working at full time</div>
+              <div style="margin-left:auto; width:58px; height:34px; border-radius:999px; background:#2E7D53; display:flex; align-items:center; justify-content:flex-end; padding:0 4px"><div style="width:26px; height:26px; border-radius:50%; background:#fff"></div></div>
+            </div>
+            <div style="display:flex; align-items:center; gap:12px">
+              <div style="font-size:15px; font-weight:700; color:#3E5148; line-height:1.4">Ask for an email first</div>
+              <div style="margin-left:auto; width:58px; height:34px; border-radius:999px; background:#2E7D53; display:flex; align-items:center; justify-content:flex-end; padding:0 4px"><div style="width:26px; height:26px; border-radius:50%; background:#fff"></div></div>
+            </div>
+            <div style="font-size:14px; font-weight:700; color:#6B7C72; line-height:1.45">They enter their email and get their own link, so you know exactly who has the game. A forwarded link is useless.</div>
+          </div>
+          <div style="background:#fff; border-radius:24px; padding:16px 18px; display:flex; flex-direction:column; gap:10px">
+            <div style="font-size:13px; font-weight:800; color:#6B7C72; letter-spacing:.08em">WHO HAS THE GAME · 1</div>
+            <div style="display:flex; flex-direction:column; gap:8px; font-size:15px; font-weight:700; color:#1C3A2E">
+              <div style="display:flex"><div>ana.k@gmail.com</div><div style="margin-left:auto; color:#6B7C72; font-weight:700">on subs today</div></div>
+            </div>
+          </div>
+        </div>
+        <div style="padding:12px 18px 20px; display:flex; flex-direction:column; gap:10px">
+          <div style="height:64px; border-radius:26px; background:#2E7D53; box-shadow:0 6px 0 #1F5C3C; display:flex; align-items:center; justify-content:center; font-family:'Baloo 2',cursive; font-weight:800; font-size:23px; color:#fff">Share to WhatsApp</div>
+          <div style="height:56px; border-radius:22px; background:#EDE7D3; display:flex; align-items:center; justify-content:center; font-family:'Baloo 2',cursive; font-weight:800; font-size:20px; color:#1C3A2E">Copy link</div>
+        </div>
+      </div>
+      <div style="width:380px; font-size:15px; font-weight:600; color:#3E5148; line-height:1.5">Two switches, both defaulting on. The email gate is the point: the link goes to one named person who agreed to do the job, not into a group chat for anyone to watch.</div>
+    </div>
+
+    <div id="2b" style="display:flex; flex-direction:column; gap:12px">
+      <div style="display:flex; align-items:center; gap:10px"><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:14px; color:#6B7C72; background:#fff; padding:4px 12px; border-radius:999px">2b</div><div style="font-size:14px; font-weight:700; color:#6B7C72">The parent who was asked · email, then inbox</div></div>
+      <div data-screen-label="F2b-MagicLink-email" style="position:relative; width:380px; height:844px; box-sizing:border-box; border-radius:38px; overflow:hidden; background:#FFF6E5; background-image:var(--paper); box-shadow:0 24px 60px rgba(28,58,46,.22); display:flex; flex-direction:column">
+        <div style="padding:14px 22px 0; display:flex; align-items:center; justify-content:space-between; font-size:15px; font-weight:800; color:#1C3A2E"><div>9:31</div><div style="opacity:.5">▮▮▮ ⌁</div></div>
+        <div style="margin:10px 16px 0; background:#EDE7D3; border-radius:16px; padding:9px 14px; display:flex; align-items:center; gap:7px; font-size:14px; font-weight:700; color:#6B7C72"><svg width="12" height="14" viewBox="0 0 24 24" fill="#6B7C72" style="display:block; flex:0 0 auto"><path d="M7 10V8a5 5 0 0 1 10 0v2h.5A2.5 2.5 0 0 1 20 12.5v6A2.5 2.5 0 0 1 17.5 21h-11A2.5 2.5 0 0 1 4 18.5v-6A2.5 2.5 0 0 1 6.5 10H7Zm2.6 0h4.8V8a2.4 2.4 0 0 0-4.8 0v2Z"></path></svg>benchbuddy.app/m/tigers-9f2k</div>
+        <div style="padding:26px 22px 0; display:flex; flex-direction:column; gap:18px; align-items:center; text-align:center">
+          <div style="width:96px; height:96px; border-radius:50%; border:6px solid #2E7D53; overflow:hidden; background:#fff"><img src="uploads/Bench%20Buddy%20Logo.jpg" alt="" style="width:100%; height:100%; object-fit:cover; transform:scale(1.5); display:block"></div>
+          <div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:32px; color:#1C3A2E; line-height:1.1">Take the subs for Tigers FC</div>
+          <div style="font-size:16px; font-weight:600; color:#3E5148; line-height:1.5">Dave has asked you to handle the subs today. Enter your email and we'll send you the link. No password and no app to install.</div>
+        </div>
+        <div style="padding:22px 18px 0; display:flex; flex-direction:column; gap:12px">
+          <div style="background:#fff; border-radius:22px; padding:18px 20px; font-size:17px; font-weight:700; color:#1C3A2E">ana.k@gmail.com</div>
+          <div style="height:64px; border-radius:26px; background:#2E7D53; box-shadow:0 6px 0 #1F5C3C; display:flex; align-items:center; justify-content:center; font-family:'Baloo 2',cursive; font-weight:800; font-size:23px; color:#fff">Email me the link</div>
+          <div style="font-size:14px; font-weight:700; color:#6B7C72; text-align:center; line-height:1.45">Used once, to send this link. Nothing else.</div>
+        </div>
+        <div style="flex:1"></div>
+        <div style="position:absolute; inset:0; background:rgba(20,32,28,.5)"></div>
+        <div style="position:absolute; left:0; right:0; bottom:0; background:#FFF6E5; border-radius:34px 34px 38px 38px; padding:24px 22px 30px; display:flex; flex-direction:column; gap:14px; box-shadow:0 -18px 44px rgba(20,32,28,.28)">
+          <div style="width:56px; height:6px; border-radius:999px; background:#DCD4C0; align-self:center"></div>
+          <div style="display:flex; align-items:center; gap:12px">
+            <div style="width:52px; height:52px; border-radius:50%; background:#F5B93B; display:flex; align-items:center; justify-content:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1C3A2E" stroke-width="2.2" stroke-linejoin="round"><rect x="2.6" y="5" width="18.8" height="14" rx="3"></rect><path d="M3.6 7.6 12 13.6l8.4-6"></path></svg></div>
+            <div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:26px; color:#1C3A2E; line-height:1.1">Check your email</div>
+          </div>
+          <div style="font-size:16px; font-weight:600; color:#3E5148; line-height:1.5">We sent a link to <strong>ana.k@gmail.com</strong>. It opens the game and stays good until full time.</div>
+          <div style="height:60px; border-radius:24px; background:#EDE7D3; display:flex; align-items:center; justify-content:center; font-family:'Baloo 2',cursive; font-weight:800; font-size:20px; color:#1C3A2E">Send it again</div>
+          <div style="font-size:14px; font-weight:700; color:#6B7C72; text-align:center">Wrong address? <span style="color:#2E7D53">Start over</span></div>
+        </div>
+      </div>
+      <div style="width:380px; font-size:15px; font-weight:600; color:#3E5148; line-height:1.5">Both states in one frame: the form, and the sheet that replaces the button after tapping. The sheet keeps the match name behind it so the parent knows the tab is still the right one.</div>
+    </div>
+
+    <div id="2c" style="display:flex; flex-direction:column; gap:12px">
+      <div style="display:flex; align-items:center; gap:10px"><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:14px; color:#6B7C72; background:#fff; padding:4px 12px; border-radius:999px">2c</div><div style="font-size:14px; font-weight:700; color:#6B7C72">Handling the subs on behalf of the coach</div></div>
+      <div data-screen-label="F2c-MatchLink-parent-subs" style="position:relative; width:380px; height:844px; box-sizing:border-box; border-radius:38px; overflow:hidden; background:#FFF6E5; background-image:var(--paper); box-shadow:0 24px 60px rgba(28,58,46,.22); display:flex; flex-direction:column">
+        <div style="padding:14px 22px 0; display:flex; align-items:center; justify-content:space-between; font-size:15px; font-weight:800; color:#1C3A2E"><div>10:14</div><div style="opacity:.5">▮▮▮ ⌁</div></div>
+        <div style="margin:12px 16px 0; background:#FBE3A6; border-radius:30px; padding:14px 18px 16px">
+          <div style="display:flex; align-items:center; gap:12px">
+            <div style="width:50px; height:50px; flex:0 0 auto; border-radius:50%; border:4px solid #2E7D53; overflow:hidden; background:#fff"><img src="uploads/Bench%20Buddy%20Logo.jpg" alt="" style="width:100%; height:100%; object-fit:cover; transform:scale(1.5); display:block"></div>
+            <div>
+              <div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:19px; color:#1C3A2E; line-height:1.05; white-space:nowrap">Tigers FC v Rovers</div>
+              <div style="font-size:12px; font-weight:800; color:#96772F">You’re on subs for Dave today</div>
+            </div>
+            <div style="margin-left:auto; flex:0 0 auto; display:flex; align-items:center; gap:6px; background:#fff; border-radius:999px; padding:6px 12px; white-space:nowrap; font-size:12px; font-weight:800; color:#2E7D53"><div style="width:9px; height:9px; border-radius:50%; background:#2E7D53"></div>LIVE</div>
+          </div>
+          <div style="margin-top:10px; display:flex; align-items:flex-end; gap:12px">
+            <div style="font-family:'Baloo 2',cursive; font-size:58px; line-height:.95; font-weight:800; color:#1C3A2E">35:32</div>
+            <div style="flex:0 0 auto; white-space:nowrap; font-size:14px; font-weight:800; color:#96772F; padding-bottom:8px">of 45 min</div>
+            
+          </div>
+        </div>
+        <div style="margin:12px 16px 0; padding:11px 14px; background:#F1E9D2; border-radius:20px; display:flex; align-items:center; gap:9px; font-size:14px; font-weight:800; color:#7A6320">You’re handling the subs today for Dave, the team coach.</div>
+        <div style="margin:12px 16px 0; display:flex; gap:8px; overflow:hidden">
+          <div style="flex:0 0 auto; padding:9px 14px; border-radius:16px; background:#fff; color:#6B7C72; font-weight:800; font-size:14px">20–25′</div><div style="flex:0 0 auto; padding:9px 14px; border-radius:16px; background:#fff; color:#6B7C72; font-weight:800; font-size:14px">25–30′</div><div style="flex:0 0 auto; padding:9px 14px; border-radius:16px; background:#fff; color:#6B7C72; font-weight:800; font-size:14px">30–35′</div><div style="flex:0 0 auto; padding:9px 14px; border-radius:16px; background:#1C3A2E; color:#FFF6E5; font-weight:800; font-size:14px">35–40′</div><div style="flex:0 0 auto; padding:9px 14px; border-radius:16px; background:#fff; color:#6B7C72; font-weight:800; font-size:14px">40–45′</div>
+        </div>
+        <div style="margin:10px 16px 0; flex:1; min-height:0; border-radius:28px; background:#2E7D53; background-image:repeating-linear-gradient(180deg, rgba(255,255,255,.05) 0 34px, rgba(0,0,0,.05) 34px 68px); position:relative; overflow:hidden; padding:18px 16px; display:flex; flex-direction:column; justify-content:space-between">
+          <svg viewBox="0 0 348 300" preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="2.4" stroke-linecap="round"><path d="M2 151 C60 147, 120 156, 174 150 C230 145, 292 155, 346 149"></path><path d="M174 97 C209 98, 232 123, 231 151 C230 180, 205 203, 174 203 C142 203, 118 180, 117 151 C116 122, 141 97, 174 97"></path></svg>
+          <div style="display:grid; grid-template-columns:1fr 1fr; position:relative; padding:0 20px">
+            <div style="display:flex; flex-direction:column; align-items:center; gap:5px"><div style="position:relative"><div style="position:relative; width:58px; height:54px; filter:drop-shadow(0 4px 0 rgba(0,0,0,.18))"><svg width="58" height="54" viewBox="0 0 62 58" fill="none" style="display:block"><path d="M21 3 L11 8 L3 17 L11 26 L15.5 22 L15.5 52 Q15.5 55.5 19 55.5 L43 55.5 Q46.5 55.5 46.5 52 L46.5 22 L51 26 L59 17 L51 8 L41 3 Q36 10 31 10 Q26 10 21 3 Z" fill="#FFF6E5" stroke="#1C3A2E" stroke-width="2.4" stroke-linejoin="round"></path></svg><div style="position:absolute; left:0; right:0; top:22px; text-align:center; font-family:'Baloo 2',cursive; font-weight:800; font-size:22px; color:#1C3A2E; line-height:1">3</div></div><div style="position:absolute; top:-2px; right:-4px; width:24px; height:24px; border-radius:50%; background:#E8664A; color:#fff; font-weight:800; font-size:14px; display:flex; align-items:center; justify-content:center">↓</div></div><div style="color:#fff; font-weight:800; font-size:15px">Sammy</div></div>
+            <div style="display:flex; flex-direction:column; align-items:center; gap:5px"><div style="position:relative"><div style="position:relative; width:58px; height:54px; filter:drop-shadow(0 4px 0 rgba(0,0,0,.18))"><svg width="58" height="54" viewBox="0 0 62 58" fill="none" style="display:block"><path d="M21 3 L11 8 L3 17 L11 26 L15.5 22 L15.5 52 Q15.5 55.5 19 55.5 L43 55.5 Q46.5 55.5 46.5 52 L46.5 22 L51 26 L59 17 L51 8 L41 3 Q36 10 31 10 Q26 10 21 3 Z" fill="#FFF6E5" stroke="#1C3A2E" stroke-width="2.4" stroke-linejoin="round"></path></svg><div style="position:absolute; left:0; right:0; top:22px; text-align:center; font-family:'Baloo 2',cursive; font-weight:800; font-size:22px; color:#1C3A2E; line-height:1">5</div></div><div style="position:absolute; top:-2px; right:-4px; width:24px; height:24px; border-radius:50%; background:#E8664A; color:#fff; font-weight:800; font-size:14px; display:flex; align-items:center; justify-content:center">↓</div></div><div style="color:#fff; font-weight:800; font-size:15px">Sarah</div></div>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; position:relative; padding:0 20px">
+            <div style="display:flex; flex-direction:column; align-items:center; gap:5px"><div style="position:relative"><div style="position:relative; width:58px; height:54px; filter:drop-shadow(0 4px 0 rgba(0,0,0,.18))"><svg width="58" height="54" viewBox="0 0 62 58" fill="none" style="display:block"><path d="M21 3 L11 8 L3 17 L11 26 L15.5 22 L15.5 52 Q15.5 55.5 19 55.5 L43 55.5 Q46.5 55.5 46.5 52 L46.5 22 L51 26 L59 17 L51 8 L41 3 Q36 10 31 10 Q26 10 21 3 Z" fill="#FFF6E5" stroke="#1C3A2E" stroke-width="2.4" stroke-linejoin="round"></path></svg><div style="position:absolute; left:0; right:0; top:22px; text-align:center; font-family:'Baloo 2',cursive; font-weight:800; font-size:22px; color:#1C3A2E; line-height:1">7</div></div></div><div style="color:#fff; font-weight:800; font-size:15px">Bobbie</div></div>
+            <div style="display:flex; flex-direction:column; align-items:center; gap:5px"><div style="position:relative"><div style="position:relative; width:58px; height:54px; filter:drop-shadow(0 4px 0 rgba(0,0,0,.18))"><svg width="58" height="54" viewBox="0 0 62 58" fill="none" style="display:block"><path d="M21 3 L11 8 L3 17 L11 26 L15.5 22 L15.5 52 Q15.5 55.5 19 55.5 L43 55.5 Q46.5 55.5 46.5 52 L46.5 22 L51 26 L59 17 L51 8 L41 3 Q36 10 31 10 Q26 10 21 3 Z" fill="#FFF6E5" stroke="#1C3A2E" stroke-width="2.4" stroke-linejoin="round"></path></svg><div style="position:absolute; left:0; right:0; top:22px; text-align:center; font-family:'Baloo 2',cursive; font-weight:800; font-size:22px; color:#1C3A2E; line-height:1">2</div></div></div><div style="color:#fff; font-weight:800; font-size:15px">Mark</div></div>
+          </div>
+          <div style="position:relative; align-self:center"><div style="display:flex; flex-direction:column; align-items:center; gap:5px"><div style="position:relative"><div style="position:relative; width:58px; height:54px; filter:drop-shadow(0 4px 0 rgba(0,0,0,.18))"><svg width="58" height="54" viewBox="0 0 62 58" fill="none" style="display:block"><path d="M21 3 L11 8 L3 17 L11 26 L15.5 22 L15.5 52 Q15.5 55.5 19 55.5 L43 55.5 Q46.5 55.5 46.5 52 L46.5 22 L51 26 L59 17 L51 8 L41 3 Q36 10 31 10 Q26 10 21 3 Z" fill="#F5B93B" stroke="#1C3A2E" stroke-width="2.4" stroke-linejoin="round"></path></svg><div style="position:absolute; left:0; right:0; top:22px; text-align:center; font-family:'Baloo 2',cursive; font-weight:800; font-size:22px; color:#1C3A2E; line-height:1">4</div><div style="position:absolute; top:-2px; left:-6px; width:24px; height:24px; border-radius:50%; background:#fff; border:2px solid #2E7D53; color:#2E7D53; font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center">↑</div></div></div><div style="color:#fff; font-weight:800; font-size:15px">Mel</div></div></div>
+        </div>
+        <div style="margin:10px 16px 0; padding:11px 14px; border-radius:22px; background:#F1E9D2; display:flex; align-items:center; gap:12px">
+          <div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:15px; color:#6B7C72">BENCH</div>
+          <div style="display:flex; gap:8px; margin-left:auto">
+            <div style="display:flex; align-items:center; gap:7px; background:#fff; border-radius:999px; padding:5px 12px 5px 5px"><div style="width:28px; height:28px; border-radius:50%; background:#F5B93B; color:#1C3A2E; font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center">1</div><div style="display:flex; align-items:center; gap:6px; font-weight:800; font-size:15px; color:#1C3A2E">Jack<svg width="14" height="14" viewBox="0 0 24 24" fill="#2E7D53" style="flex:0 0 auto"><rect x="3.6" y="7" width="3.4" height="8.6" rx="1.7"></rect><rect x="8.4" y="3.6" width="3.4" height="12" rx="1.7"></rect><rect x="13.2" y="5.4" width="3.4" height="10.2" rx="1.7"></rect><path d="M3.6 13.2h13.5a2.6 2.6 0 0 1 2.6 2.6v.5a5.9 5.9 0 0 1-5.9 5.9h-4.3a5.9 5.9 0 0 1-5.9-5.9Z"></path></svg></div></div>
+            <div style="display:flex; align-items:center; gap:7px; background:#fff; border-radius:999px; padding:5px 12px 5px 5px"><div style="width:28px; height:28px; border-radius:50%; background:#2E7D53; color:#fff; font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center">6</div><div style="font-weight:800; font-size:15px; color:#1C3A2E">Ricky ↑</div></div>
+          </div>
+        </div>
+        
+        <div style="margin:12px 16px 20px; display:flex; flex-direction:column; gap:10px">
+          <div style="background:#123F3D; border-radius:28px; padding:14px 16px; display:flex; align-items:center; gap:12px">
+            <div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:25px; color:#F5B93B; line-height:1.05">Next sub 4:28</div>
+            <div style="margin-left:auto; flex:0 0 auto; height:62px; padding:0 26px; border-radius:24px; background:#FFF6E5; box-shadow:0 5px 0 #B9C9BA; display:flex; align-items:center; justify-content:center; gap:10px; font-family:'Baloo 2',cursive; font-weight:800; font-size:22px; color:#1C3A2E"><svg width="17" height="17" viewBox="0 0 24 24" fill="#1C3A2E" style="flex:0 0 auto"><rect x="6" y="4" width="4.4" height="16" rx="1.6"></rect><rect x="13.6" y="4" width="4.4" height="16" rx="1.6"></rect></svg>Pause</div>
+          </div>
+          <div style="text-align:center; font-size:15px; font-weight:800; color:#2E7D53">Today's Minutes</div>
+        </div>
+      </div>
+      <div style="width:380px; font-size:15px; font-weight:600; color:#3E5148; line-height:1.5">Not a parent watching the team — a parent given the job. Dave has asked them to handle the subs today, so they get the coach’s screen and the coach’s two controls: the interval strip is the plan, and Pause holds the clock. Nobody receives this screen without being asked.</div>
+    </div>
+
+    <div id="2d" style="display:flex; flex-direction:column; gap:12px">
+      <div style="display:flex; align-items:center; gap:10px"><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:14px; color:#6B7C72; background:#fff; padding:4px 12px; border-radius:999px">2d</div><div style="font-size:14px; font-weight:700; color:#6B7C72">Coach away · parent has the whole game</div></div>
+      <div data-screen-label="F2d-MatchLink-parent-full" style="position:relative; width:380px; height:844px; box-sizing:border-box; border-radius:38px; overflow:hidden; background:#FFF6E5; background-image:var(--paper); box-shadow:0 24px 60px rgba(28,58,46,.22); display:flex; flex-direction:column">
+        <div style="padding:14px 22px 0; display:flex; align-items:center; justify-content:space-between; font-size:15px; font-weight:800; color:#1C3A2E"><div>10:14</div><div style="opacity:.5">▮▮▮ ⌁</div></div>
+        <div style="margin:12px 16px 0; background:#FBE3A6; border-radius:30px; padding:14px 18px 16px">
+          <div style="display:flex; align-items:center; gap:12px">
+            <div style="width:50px; height:50px; flex:0 0 auto; border-radius:50%; border:4px solid #2E7D53; overflow:hidden; background:#fff"><img src="uploads/Bench%20Buddy%20Logo.jpg" alt="" style="width:100%; height:100%; object-fit:cover; transform:scale(1.5); display:block"></div>
+            <div>
+              <div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:19px; color:#1C3A2E; line-height:1.05; white-space:nowrap">Tigers FC v Rovers</div>
+              <div style="font-size:12px; font-weight:800; color:#96772F">Dave is off sick · you have the game</div>
+            </div>
+            <div style="margin-left:auto; flex:0 0 auto; display:flex; align-items:center; gap:6px; background:#fff; border-radius:999px; padding:6px 12px; white-space:nowrap; font-size:12px; font-weight:800; color:#2E7D53"><div style="width:9px; height:9px; border-radius:50%; background:#2E7D53"></div>LIVE</div>
+          </div>
+          <div style="margin-top:10px; display:flex; align-items:flex-end; gap:12px">
+            <div style="font-family:'Baloo 2',cursive; font-size:58px; line-height:.95; font-weight:800; color:#7F7C50">35:32</div>
+            <div style="flex:0 0 auto; white-space:nowrap; font-size:14px; font-weight:800; color:#96772F; padding-bottom:8px">of 45 min</div>
+            
+          </div>
+        </div>
+        <div style="margin:12px 16px 0; display:flex; gap:8px; overflow:hidden">
+          <div style="flex:0 0 auto; padding:9px 14px; border-radius:16px; background:#fff; color:#6B7C72; font-weight:800; font-size:14px">20–25′</div><div style="flex:0 0 auto; padding:9px 14px; border-radius:16px; background:#fff; color:#6B7C72; font-weight:800; font-size:14px">25–30′</div><div style="flex:0 0 auto; padding:9px 14px; border-radius:16px; background:#fff; color:#6B7C72; font-weight:800; font-size:14px">30–35′</div><div style="flex:0 0 auto; padding:9px 14px; border-radius:16px; background:#1C3A2E; color:#FFF6E5; font-weight:800; font-size:14px">35–40′</div><div style="flex:0 0 auto; padding:9px 14px; border-radius:16px; background:#fff; color:#6B7C72; font-weight:800; font-size:14px">40–45′</div>
+        </div>
+        <div style="margin:10px 16px 0; flex:1; min-height:0; border-radius:28px; background:#2E7D53; background-image:repeating-linear-gradient(180deg, rgba(255,255,255,.05) 0 34px, rgba(0,0,0,.05) 34px 68px); position:relative; overflow:hidden; padding:18px 16px; display:flex; flex-direction:column; justify-content:space-between">
+          <svg viewBox="0 0 348 300" preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="2.4" stroke-linecap="round"><path d="M2 151 C60 147, 120 156, 174 150 C230 145, 292 155, 346 149"></path><path d="M174 97 C209 98, 232 123, 231 151 C230 180, 205 203, 174 203 C142 203, 118 180, 117 151 C116 122, 141 97, 174 97"></path></svg>
+          <div style="display:grid; grid-template-columns:1fr 1fr; position:relative; padding:0 20px">
+            <div style="display:flex; flex-direction:column; align-items:center; gap:5px"><div style="position:relative"><div style="position:relative; width:58px; height:54px; filter:drop-shadow(0 4px 0 rgba(0,0,0,.18))"><svg width="58" height="54" viewBox="0 0 62 58" fill="none" style="display:block"><path d="M21 3 L11 8 L3 17 L11 26 L15.5 22 L15.5 52 Q15.5 55.5 19 55.5 L43 55.5 Q46.5 55.5 46.5 52 L46.5 22 L51 26 L59 17 L51 8 L41 3 Q36 10 31 10 Q26 10 21 3 Z" fill="#FFF6E5" stroke="#1C3A2E" stroke-width="2.4" stroke-linejoin="round"></path></svg><div style="position:absolute; left:0; right:0; top:22px; text-align:center; font-family:'Baloo 2',cursive; font-weight:800; font-size:22px; color:#1C3A2E; line-height:1">3</div></div><div style="position:absolute; top:-2px; right:-4px; width:24px; height:24px; border-radius:50%; background:#E8664A; color:#fff; font-weight:800; font-size:14px; display:flex; align-items:center; justify-content:center">↓</div></div><div style="color:#fff; font-weight:800; font-size:15px">Sammy</div></div>
+            <div style="display:flex; flex-direction:column; align-items:center; gap:5px"><div style="position:relative"><div style="position:relative; width:58px; height:54px; filter:drop-shadow(0 4px 0 rgba(0,0,0,.18))"><svg width="58" height="54" viewBox="0 0 62 58" fill="none" style="display:block"><path d="M21 3 L11 8 L3 17 L11 26 L15.5 22 L15.5 52 Q15.5 55.5 19 55.5 L43 55.5 Q46.5 55.5 46.5 52 L46.5 22 L51 26 L59 17 L51 8 L41 3 Q36 10 31 10 Q26 10 21 3 Z" fill="#FFF6E5" stroke="#1C3A2E" stroke-width="2.4" stroke-linejoin="round"></path></svg><div style="position:absolute; left:0; right:0; top:22px; text-align:center; font-family:'Baloo 2',cursive; font-weight:800; font-size:22px; color:#1C3A2E; line-height:1">5</div></div><div style="position:absolute; top:-2px; right:-4px; width:24px; height:24px; border-radius:50%; background:#E8664A; color:#fff; font-weight:800; font-size:14px; display:flex; align-items:center; justify-content:center">↓</div></div><div style="color:#fff; font-weight:800; font-size:15px">Sarah</div></div>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; position:relative; padding:0 20px">
+            <div style="display:flex; flex-direction:column; align-items:center; gap:5px"><div style="position:relative"><div style="position:relative; width:58px; height:54px; filter:drop-shadow(0 4px 0 rgba(0,0,0,.18))"><svg width="58" height="54" viewBox="0 0 62 58" fill="none" style="display:block"><path d="M21 3 L11 8 L3 17 L11 26 L15.5 22 L15.5 52 Q15.5 55.5 19 55.5 L43 55.5 Q46.5 55.5 46.5 52 L46.5 22 L51 26 L59 17 L51 8 L41 3 Q36 10 31 10 Q26 10 21 3 Z" fill="#FFF6E5" stroke="#1C3A2E" stroke-width="2.4" stroke-linejoin="round"></path></svg><div style="position:absolute; left:0; right:0; top:22px; text-align:center; font-family:'Baloo 2',cursive; font-weight:800; font-size:22px; color:#1C3A2E; line-height:1">7</div></div></div><div style="color:#fff; font-weight:800; font-size:15px">Bobbie</div></div>
+            <div style="display:flex; flex-direction:column; align-items:center; gap:5px"><div style="position:relative"><div style="position:relative; width:58px; height:54px; filter:drop-shadow(0 4px 0 rgba(0,0,0,.18))"><svg width="58" height="54" viewBox="0 0 62 58" fill="none" style="display:block"><path d="M21 3 L11 8 L3 17 L11 26 L15.5 22 L15.5 52 Q15.5 55.5 19 55.5 L43 55.5 Q46.5 55.5 46.5 52 L46.5 22 L51 26 L59 17 L51 8 L41 3 Q36 10 31 10 Q26 10 21 3 Z" fill="#FFF6E5" stroke="#1C3A2E" stroke-width="2.4" stroke-linejoin="round"></path></svg><div style="position:absolute; left:0; right:0; top:22px; text-align:center; font-family:'Baloo 2',cursive; font-weight:800; font-size:22px; color:#1C3A2E; line-height:1">2</div></div></div><div style="color:#fff; font-weight:800; font-size:15px">Mark</div></div>
+          </div>
+          <div style="position:relative; align-self:center"><div style="display:flex; flex-direction:column; align-items:center; gap:5px"><div style="position:relative"><div style="position:relative; width:58px; height:54px; filter:drop-shadow(0 4px 0 rgba(0,0,0,.18))"><svg width="58" height="54" viewBox="0 0 62 58" fill="none" style="display:block"><path d="M21 3 L11 8 L3 17 L11 26 L15.5 22 L15.5 52 Q15.5 55.5 19 55.5 L43 55.5 Q46.5 55.5 46.5 52 L46.5 22 L51 26 L59 17 L51 8 L41 3 Q36 10 31 10 Q26 10 21 3 Z" fill="#F5B93B" stroke="#1C3A2E" stroke-width="2.4" stroke-linejoin="round"></path></svg><div style="position:absolute; left:0; right:0; top:22px; text-align:center; font-family:'Baloo 2',cursive; font-weight:800; font-size:22px; color:#1C3A2E; line-height:1">4</div><div style="position:absolute; top:-2px; left:-6px; width:24px; height:24px; border-radius:50%; background:#fff; border:2px solid #2E7D53; color:#2E7D53; font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center">↑</div></div></div><div style="color:#fff; font-weight:800; font-size:15px">Mel</div></div></div>
+        </div>
+        <div style="margin:10px 16px 0; padding:11px 14px; border-radius:22px; background:#F1E9D2; display:flex; align-items:center; gap:12px">
+          <div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:15px; color:#6B7C72">BENCH</div>
+          <div style="display:flex; gap:8px; margin-left:auto">
+            <div style="display:flex; align-items:center; gap:7px; background:#fff; border-radius:999px; padding:5px 12px 5px 5px"><div style="width:28px; height:28px; border-radius:50%; background:#F5B93B; color:#1C3A2E; font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center">1</div><div style="display:flex; align-items:center; gap:6px; font-weight:800; font-size:15px; color:#1C3A2E">Jack<svg width="14" height="14" viewBox="0 0 24 24" fill="#2E7D53" style="flex:0 0 auto"><rect x="3.6" y="7" width="3.4" height="8.6" rx="1.7"></rect><rect x="8.4" y="3.6" width="3.4" height="12" rx="1.7"></rect><rect x="13.2" y="5.4" width="3.4" height="10.2" rx="1.7"></rect><path d="M3.6 13.2h13.5a2.6 2.6 0 0 1 2.6 2.6v.5a5.9 5.9 0 0 1-5.9 5.9h-4.3a5.9 5.9 0 0 1-5.9-5.9Z"></path></svg></div></div>
+            <div style="display:flex; align-items:center; gap:7px; background:#fff; border-radius:999px; padding:5px 12px 5px 5px"><div style="width:28px; height:28px; border-radius:50%; background:#2E7D53; color:#fff; font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center">6</div><div style="font-weight:800; font-size:15px; color:#1C3A2E">Ricky ↑</div></div>
+          </div>
+        </div>
+        <div style="margin:12px 16px 20px; display:flex; flex-direction:column; gap:10px">
+          <div style="background:#123F3D; border-radius:28px; padding:14px 16px; display:flex; align-items:center; gap:12px">
+            <div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:21px; color:#F5B93B; line-height:1.05; white-space:nowrap">Clock stopped</div>
+            <div style="margin-left:auto; flex:0 0 auto; height:62px; padding:0 20px; border-radius:24px; background:#F5B93B; box-shadow:0 5px 0 #C9902A; display:flex; align-items:center; justify-content:center; gap:10px; font-family:'Baloo 2',cursive; font-weight:800; font-size:22px; color:#1C3A2E"><svg width="17" height="17" viewBox="0 0 24 24" fill="#1C3A2E" style="flex:0 0 auto"><path d="M7 4.6a1.3 1.3 0 0 1 2-1.1l9.4 7.4a1.4 1.4 0 0 1 0 2.2L9 20.5a1.3 1.3 0 0 1-2-1.1Z"></path></svg>Resume</div>
+          </div>
+          <div style="text-align:center; font-size:15px; font-weight:800; color:#2E7D53">Today's Minutes</div>
+        </div>
+      </div>
+      <div style="width:380px; font-size:15px; font-weight:600; color:#3E5148; line-height:1.5">The same screen with the clock handed over as well, shown stopped: the digits go quiet and the button reads Resume. This is the case where nobody else can hold the clock — Dave is at home sick — so the header states why the parent has it.</div>
+    </div>
+
+  </div>
+</section>
+
+<section style="padding:8px 56px 40px; display:flex; flex-direction:column; gap:26px">
+  <div style="display:flex; align-items:baseline; gap:20px; font-family:'Baloo 2',cursive; flex-wrap:wrap">
+    <div style="font-size:34px; font-weight:800; color:#1C3A2E">3 · How Pro shows up in the app</div>
+    <div style="font-family:'Nunito'; font-size:15px; color:#6B7C72; font-weight:600">Badge on the row <a href="#3a">3a</a>, or the locked destination <a href="#3b">3b</a>.</div>
+  </div>
+  <div style="display:flex; gap:36px; align-items:flex-start; flex-wrap:wrap">
+
+    <div id="3a" style="display:flex; flex-direction:column; gap:12px">
+      <div style="display:flex; align-items:center; gap:10px"><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:14px; color:#6B7C72; background:#fff; padding:4px 12px; border-radius:999px">3a</div><div style="font-size:14px; font-weight:700; color:#6B7C72">Badge on the row</div></div>
+      <div data-screen-label="F3a-Pro-badges-menu" style="position:relative; width:380px; height:844px; box-sizing:border-box; border-radius:38px; overflow:hidden; background:#FFF6E5; background-image:var(--paper); box-shadow:0 24px 60px rgba(28,58,46,.22); display:flex; flex-direction:column">
+        <div style="padding:14px 22px 0; display:flex; align-items:center; justify-content:space-between; font-size:15px; font-weight:800; color:#1C3A2E"><div>10:16</div><div style="opacity:.5">▮▮▮ ⌁</div></div>
+        <div style="margin:12px 16px 0; background:#FBE3A6; border-radius:30px; padding:14px 18px; display:flex; align-items:center; gap:14px">
+          <div style="width:52px; height:52px; flex:0 0 auto; border-radius:18px; background:#fff; display:flex; align-items:center; justify-content:center; font-family:'Baloo 2',cursive; font-weight:800; font-size:26px; color:#1C3A2E">‹</div>
+          <div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:27px; color:#1C3A2E">Tigers FC</div>
+        </div>
+        <div style="padding:14px 18px 0; display:flex; flex-direction:column; gap:10px; flex:1; min-height:0; overflow:hidden">
+          <div style="background:#fff; border-radius:22px; padding:12px 16px; display:flex; align-items:center; gap:14px"><div style="width:44px; height:44px; border-radius:16px; background:#E3F0E5; display:flex; align-items:center; justify-content:center"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#1C3A2E" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="13" r="8.4"></circle><path d="M12 8.6V13l3.1 2"></path><path d="M9.6 2.6h4.8"></path></svg></div><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:20px; color:#1C3A2E">Today's Minutes</div><div style="margin-left:auto; color:#BFC7BE; font-size:22px">›</div></div>
+          <div style="background:#fff; border-radius:22px; padding:12px 16px; display:flex; align-items:center; gap:14px"><div style="width:44px; height:44px; border-radius:16px; background:#FBE3A6; display:flex; align-items:center; justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="#1C3A2E"><rect x="3.6" y="7" width="3.4" height="8.6" rx="1.7"></rect><rect x="8.4" y="3.6" width="3.4" height="12" rx="1.7"></rect><rect x="13.2" y="5.4" width="3.4" height="10.2" rx="1.7"></rect><path d="M3.6 13.2h13.5a2.6 2.6 0 0 1 2.6 2.6v.5a5.9 5.9 0 0 1-5.9 5.9h-4.3a5.9 5.9 0 0 1-5.9-5.9Z"></path></svg></div><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:20px; color:#1C3A2E">Game settings</div><div style="margin-left:auto; color:#BFC7BE; font-size:22px">›</div></div>
+          <div style="font-size:13px; font-weight:800; color:#6B7C72; letter-spacing:.08em; padding-top:6px">THE SEASON</div>
+          <div style="background:#fff; border-radius:22px; padding:12px 16px; display:flex; align-items:center; gap:14px"><div style="width:44px; height:44px; border-radius:16px; background:#F1E9D2; display:flex; align-items:center; justify-content:center"><svg width="21" height="21" viewBox="0 0 24 24" fill="#1C3A2E"><rect x="2.8" y="13" width="4.4" height="8.2" rx="1.6"></rect><rect x="9.8" y="8" width="4.4" height="13.2" rx="1.6"></rect><rect x="16.8" y="3.4" width="4.4" height="17.8" rx="1.6"></rect></svg></div><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:20px; color:#1C3A2E">Season Minutes</div><div style="margin-left:auto; display:flex; align-items:center; gap:10px"><div style="background:#1C3A2E; color:#F5B93B; font-size:11px; font-weight:800; letter-spacing:.06em; padding:4px 9px; border-radius:999px">PRO</div><div style="color:#BFC7BE; font-size:22px">›</div></div></div>
+          <div style="background:#fff; border-radius:22px; padding:12px 16px; display:flex; align-items:center; gap:14px"><div style="width:44px; height:44px; border-radius:16px; background:#F1E9D2; display:flex; align-items:center; justify-content:center"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#1C3A2E" stroke-width="2.2" stroke-linejoin="round"><rect x="2.6" y="5" width="18.8" height="14" rx="3"></rect><path d="M3.6 7.6 12 13.6l8.4-6"></path></svg></div><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:20px; color:#1C3A2E">Availability links</div><div style="margin-left:auto; display:flex; align-items:center; gap:10px"><div style="background:#1C3A2E; color:#F5B93B; font-size:11px; font-weight:800; letter-spacing:.06em; padding:4px 9px; border-radius:999px">PRO</div><div style="color:#BFC7BE; font-size:22px">›</div></div></div>
+          <div style="background:#fff; border-radius:22px; padding:12px 16px; display:flex; align-items:center; gap:14px"><div style="width:44px; height:44px; border-radius:16px; background:#F1E9D2; display:flex; align-items:center; justify-content:center"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#1C3A2E" stroke-width="2.4" stroke-linecap="round"><path d="M9.4 14.6 14.6 9.4"></path><path d="M11.2 7.6 13.2 5.6a3.9 3.9 0 0 1 5.5 5.5l-2 2"></path><path d="M12.8 16.4l-2 2A3.9 3.9 0 0 1 5.3 12.9l2-2"></path></svg></div><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:20px; color:#1C3A2E">Match Link</div><div style="margin-left:auto; display:flex; align-items:center; gap:10px"><div style="background:#1C3A2E; color:#F5B93B; font-size:11px; font-weight:800; letter-spacing:.06em; padding:4px 9px; border-radius:999px">PRO</div><div style="color:#BFC7BE; font-size:22px">›</div></div></div>
+          <div style="background:#fff; border-radius:22px; padding:12px 16px; display:flex; align-items:center; gap:14px"><div style="width:44px; height:44px; border-radius:16px; background:#F1E9D2; display:flex; align-items:center; justify-content:center"><svg width="21" height="21" viewBox="0 0 24 24" fill="#1C3A2E"><path d="M12 2.5a1.6 1.6 0 0 1 1.6 1.6v.6a6.2 6.2 0 0 1 4.6 6v3.1l1.4 2.3a1 1 0 0 1-.85 1.5H5.25a1 1 0 0 1-.86-1.5L5.8 13.8v-3.1a6.2 6.2 0 0 1 4.6-6V4.1A1.6 1.6 0 0 1 12 2.5Z"></path><path d="M9.6 19.8h4.8a2.4 2.4 0 0 1-4.8 0Z"></path></svg></div><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:20px; color:#1C3A2E">Reminders</div><div style="margin-left:auto; display:flex; align-items:center; gap:10px"><div style="background:#1C3A2E; color:#F5B93B; font-size:11px; font-weight:800; letter-spacing:.06em; padding:4px 9px; border-radius:999px">PRO</div><div style="color:#BFC7BE; font-size:22px">›</div></div></div>
+          <div style="font-size:13px; font-weight:800; color:#6B7C72; letter-spacing:.08em; padding-top:6px">TEAMS · TIGERS FC IS YOUR ONE FREE TEAM</div>
+          <div style="background:#fff; border-radius:22px; padding:12px 16px; display:flex; align-items:center; gap:14px"><div style="width:44px; height:44px; border-radius:16px; background:#F1E9D2; display:flex; align-items:center; justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1C3A2E" stroke-width="3" stroke-linecap="round"><path d="M12 5.2v13.6M5.2 12h13.6"></path></svg></div><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:20px; color:#1C3A2E">Add another team</div><div style="margin-left:auto; display:flex; align-items:center; gap:10px"><div style="background:#1C3A2E; color:#F5B93B; font-size:11px; font-weight:800; letter-spacing:.06em; padding:4px 9px; border-radius:999px">PRO</div></div></div>
+        </div>
+        <div style="padding:12px 18px 20px">
+          <div style="height:64px; border-radius:26px; background:#1C3A2E; box-shadow:0 6px 0 #0E241C; display:flex; align-items:center; justify-content:center; gap:10px; font-family:'Baloo 2',cursive; font-weight:800; font-size:22px; color:#F5B93B">See what Pro adds</div>
+        </div>
+      </div>
+      <div style="width:380px; font-size:15px; font-weight:600; color:#3E5148; line-height:1.5">Honest at a glance: the coach knows before tapping. Five badges in one list is a lot of gold, though — and the free rows can start to feel like the short section.</div>
+    </div>
+
+    <div id="3b" style="display:flex; flex-direction:column; gap:12px">
+      <div style="display:flex; align-items:center; gap:10px"><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:14px; color:#6B7C72; background:#fff; padding:4px 12px; border-radius:999px">3b</div><div style="font-size:14px; font-weight:700; color:#6B7C72">Locked destination · Season Minutes</div></div>
+      <div data-screen-label="F3b-Pro-locked-season" style="position:relative; width:380px; height:844px; box-sizing:border-box; border-radius:38px; overflow:hidden; background:#FFF6E5; background-image:var(--paper); box-shadow:0 24px 60px rgba(28,58,46,.22); display:flex; flex-direction:column">
+        <div style="padding:14px 22px 0; display:flex; align-items:center; justify-content:space-between; font-size:15px; font-weight:800; color:#1C3A2E"><div>10:16</div><div style="opacity:.5">▮▮▮ ⌁</div></div>
+        <div style="margin:12px 16px 0; background:#FBE3A6; border-radius:30px; padding:14px 18px; display:flex; align-items:center; gap:14px">
+          <div style="width:52px; height:52px; flex:0 0 auto; border-radius:18px; background:#fff; display:flex; align-items:center; justify-content:center; font-family:'Baloo 2',cursive; font-weight:800; font-size:26px; color:#1C3A2E">‹</div>
+          <div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:27px; color:#1C3A2E">Season Minutes</div>
+        </div>
+        <div style="padding:16px 18px 0; display:flex; flex-direction:column; gap:12px; flex:1; overflow:hidden">
+          <div style="background:#F1E9D2; border-radius:20px; padding:14px 16px; font-size:15px; font-weight:700; color:#3E5148; line-height:1.45">Average minutes per game. Widest gap across the squad is 3 minutes.</div>
+          <div style="background:#fff; border-radius:22px; padding:13px 16px; display:flex; align-items:center; gap:12px"><div style="width:38px; height:38px; border-radius:50%; background:#2E7D53; color:#fff; font-weight:800; font-size:15px; display:flex; align-items:center; justify-content:center">6</div><div><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:19px; color:#1C3A2E">Ricky</div><div style="font-size:13px; font-weight:700; color:#6B7C72">5 games · 2:50:00</div></div><div style="margin-left:auto; font-family:'Baloo 2',cursive; font-weight:800; font-size:22px; color:#1C3A2E">34′</div></div>
+          <div style="background:#fff; border-radius:22px; padding:13px 16px; display:flex; align-items:center; gap:12px; filter:blur(1.4px)"><div style="width:38px; height:38px; border-radius:50%; background:#2E7D53; color:#fff; font-weight:800; font-size:15px; display:flex; align-items:center; justify-content:center">5</div><div><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:19px; color:#1C3A2E">Sarah</div><div style="font-size:13px; font-weight:700; color:#6B7C72">5 games · 2:45:00</div></div><div style="margin-left:auto; font-family:'Baloo 2',cursive; font-weight:800; font-size:22px; color:#1C3A2E">33′</div></div>
+          <div style="background:#fff; border-radius:22px; padding:13px 16px; display:flex; align-items:center; gap:12px; filter:blur(3px)"><div style="width:38px; height:38px; border-radius:50%; background:#2E7D53; color:#fff; font-weight:800; font-size:15px; display:flex; align-items:center; justify-content:center">1</div><div><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:19px; color:#1C3A2E">Jack</div><div style="font-size:13px; font-weight:700; color:#6B7C72">5 games · 2:40:00</div></div><div style="margin-left:auto; font-family:'Baloo 2',cursive; font-weight:800; font-size:22px; color:#1C3A2E">32′</div></div>
+          <div style="background:#fff; border-radius:22px; padding:13px 16px; display:flex; align-items:center; gap:12px; filter:blur(5px)"><div style="width:38px; height:38px; border-radius:50%; background:#2E7D53; color:#fff; font-weight:800; font-size:15px; display:flex; align-items:center; justify-content:center">3</div><div><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:19px; color:#1C3A2E">Sammy</div><div style="font-size:13px; font-weight:700; color:#6B7C72">5 games · 2:40:00</div></div><div style="margin-left:auto; font-family:'Baloo 2',cursive; font-weight:800; font-size:22px; color:#1C3A2E">32′</div></div>
+        </div>
+        <div style="position:absolute; inset:0; background:linear-gradient(180deg, rgba(255,246,229,0) 34%, rgba(255,246,229,.86) 52%, #FFF6E5 66%)"></div>
+        <div style="position:absolute; left:16px; right:16px; bottom:20px; background:#1C3A2E; border-radius:32px; padding:24px 22px; display:flex; flex-direction:column; gap:14px; box-shadow:0 18px 44px rgba(20,32,28,.32)">
+          <div style="display:flex; align-items:center; gap:12px">
+            <div style="width:50px; height:50px; border-radius:50%; background:#F5B93B; display:flex; align-items:center; justify-content:center"><svg width="23" height="23" viewBox="0 0 24 24" fill="#1C3A2E"><path d="M7 10V8a5 5 0 0 1 10 0v2h.5A2.5 2.5 0 0 1 20 12.5v6A2.5 2.5 0 0 1 17.5 21h-11A2.5 2.5 0 0 1 4 18.5v-6A2.5 2.5 0 0 1 6.5 10H7Zm2.6 0h4.8V8a2.4 2.4 0 0 0-4.8 0v2Z"></path></svg></div>
+            <div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:26px; color:#FFF6E5; line-height:1.1">Season Minutes<br>is a Pro feature</div>
+          </div>
+          <div style="font-size:16px; font-weight:600; color:#C9E4CE; line-height:1.5">Five games are already saved. Pro shows every child's average, the widest gap in the squad, and every game you've run.</div>
+          <div style="height:62px; border-radius:24px; background:#F5B93B; box-shadow:0 6px 0 #C9902A; display:flex; align-items:center; justify-content:center; font-family:'Baloo 2',cursive; font-weight:800; font-size:22px; color:#1C3A2E">Unlock for NZ$79 / year</div>
+          <div style="text-align:center; font-size:15px; font-weight:800; color:#8FB39C">Not now</div>
+        </div>
+      </div>
+      <div style="width:380px; font-size:15px; font-weight:600; color:#3E5148; line-height:1.5">The coach sees his own real data going out of focus, which is a far stronger argument than a feature list. It only works if the data genuinely exists — on a first-time account this screen must be the empty state instead.</div>
+    </div>
+
+  </div>
+</section>
+
+<section style="padding:8px 56px 96px; display:flex; flex-direction:column; gap:26px">
+  <div style="display:flex; align-items:baseline; gap:20px; font-family:'Baloo 2',cursive; flex-wrap:wrap">
+    <div style="font-size:34px; font-weight:800; color:#1C3A2E">4 · The upgrade screen</div>
+    <div style="font-family:'Nunito'; font-size:15px; color:#6B7C72; font-weight:600">What Pro adds <a href="#4a">4a</a>, or Free beside Pro <a href="#4b">4b</a>.</div>
+  </div>
+  <div style="display:flex; gap:36px; align-items:flex-start; flex-wrap:wrap">
+
+    <div id="4a" style="display:flex; flex-direction:column; gap:12px">
+      <div style="display:flex; align-items:center; gap:10px"><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:14px; color:#6B7C72; background:#fff; padding:4px 12px; border-radius:999px">4a</div><div style="font-size:14px; font-weight:700; color:#6B7C72">What Pro adds</div></div>
+      <div data-screen-label="F4a-Upgrade-list" style="position:relative; width:380px; height:844px; box-sizing:border-box; border-radius:38px; overflow:hidden; background:#1C3A2E; display:flex; flex-direction:column">
+        <div style="padding:14px 22px 0; display:flex; align-items:center; justify-content:space-between; font-size:15px; font-weight:800; color:#FFF6E5"><div>10:17</div><div style="opacity:.5">▮▮▮ ⌁</div></div>
+        <div style="padding:6px 20px 0; display:flex; justify-content:flex-end"><div style="width:44px; height:44px; border-radius:16px; background:rgba(255,246,229,.14); display:flex; align-items:center; justify-content:center; font-size:20px; color:#FFF6E5">✕</div></div>
+        <div style="padding:6px 22px 0; display:flex; flex-direction:column; gap:10px">
+          <div style="align-self:flex-start; background:#F5B93B; color:#1C3A2E; font-size:12px; font-weight:800; letter-spacing:.08em; padding:5px 12px; border-radius:999px">BENCH BUDDY PRO</div>
+          <div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:32px; color:#FFF6E5; line-height:1.08">Everything past<br>Saturday morning</div>
+        </div>
+        <div style="padding:12px 22px 0; display:flex; flex-direction:column; gap:10px; flex:1; min-height:0">
+          <div style="display:flex; gap:12px; align-items:flex-start"><div style="width:34px; height:34px; flex:0 0 auto; border-radius:12px; background:#F5B93B; display:flex; align-items:center; justify-content:center; font-weight:800; color:#1C3A2E">✓</div><div><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:18px; color:#FFF6E5">Season Minutes</div><div style="font-size:14px; font-weight:600; color:#8FB39C; line-height:1.4">Every game averaged, and the widest gap in the squad</div></div></div>
+          <div style="display:flex; gap:12px; align-items:flex-start"><div style="width:34px; height:34px; flex:0 0 auto; border-radius:12px; background:#F5B93B; display:flex; align-items:center; justify-content:center; font-weight:800; color:#1C3A2E">✓</div><div><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:18px; color:#FFF6E5">Availability links</div><div style="font-size:14px; font-weight:600; color:#8FB39C; line-height:1.4">One link in the group chat; Who's here fills itself in</div></div></div>
+          <div style="display:flex; gap:12px; align-items:flex-start"><div style="width:34px; height:34px; flex:0 0 auto; border-radius:12px; background:#F5B93B; display:flex; align-items:center; justify-content:center; font-weight:800; color:#1C3A2E">✓</div><div><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:18px; color:#FFF6E5">Match Link</div><div style="font-size:14px; font-weight:600; color:#8FB39C; line-height:1.4">Hand the subs to a parent when you can't run them</div></div></div>
+          <div style="display:flex; gap:12px; align-items:flex-start"><div style="width:34px; height:34px; flex:0 0 auto; border-radius:12px; background:#F5B93B; display:flex; align-items:center; justify-content:center; font-weight:800; color:#1C3A2E">✓</div><div><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:18px; color:#FFF6E5">Reminders</div><div style="font-size:14px; font-weight:600; color:#8FB39C; line-height:1.4">Nudge the parents who haven't replied yet</div></div></div>
+          <div style="display:flex; gap:12px; align-items:flex-start"><div style="width:34px; height:34px; flex:0 0 auto; border-radius:12px; background:#F5B93B; display:flex; align-items:center; justify-content:center; font-weight:800; color:#1C3A2E">✓</div><div><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:18px; color:#FFF6E5">As many teams as you coach</div><div style="font-size:14px; font-weight:600; color:#8FB39C; line-height:1.4">Free keeps one saved team</div></div></div>
+          <div style="margin-top:4px; background:rgba(255,246,229,.1); border-radius:22px; padding:13px 16px; font-size:15px; font-weight:600; color:#C9E4CE; line-height:1.5"><strong style="color:#FFF6E5">Free forever:</strong> one team, unlimited matches, fair rotations, live subs, goalkeeper rotation, injuries, and Today's Minutes.</div>
+        </div>
+        <div style="padding:10px 22px 20px; display:flex; flex-direction:column; gap:8px">
+          <div style="height:64px; border-radius:26px; background:#F5B93B; box-shadow:0 6px 0 #C9902A; display:flex; flex-direction:column; align-items:center; justify-content:center; font-family:'Baloo 2',cursive; color:#1C3A2E"><div style="font-weight:800; font-size:23px; line-height:1.1">Get Pro · NZ$79 / year</div><div style="font-family:'Nunito'; font-size:13px; font-weight:800; opacity:.72">works out at NZ$6.58 a month</div></div>
+          <div style="text-align:center; font-size:13px; font-weight:700; color:#8FB39C; line-height:1.45">Charged in your local currency. Cancel any time — the season you've recorded stays yours.</div>
+        </div>
+      </div>
+      <div style="width:380px; font-size:15px; font-weight:600; color:#3E5148; line-height:1.5">Dark ground makes this the one screen in the app that looks different, which is right for a screen you see rarely. The free list sits at the bottom so the pitch is never in doubt.</div>
+    </div>
+
+    <div id="4b" style="display:flex; flex-direction:column; gap:12px">
+      <div style="display:flex; align-items:center; gap:10px"><div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:14px; color:#6B7C72; background:#fff; padding:4px 12px; border-radius:999px">4b</div><div style="font-size:14px; font-weight:700; color:#6B7C72">Free beside Pro</div></div>
+      <div data-screen-label="F4b-Upgrade-compare" style="position:relative; width:380px; height:844px; box-sizing:border-box; border-radius:38px; overflow:hidden; background:#FFF6E5; background-image:var(--paper); box-shadow:0 24px 60px rgba(28,58,46,.22); display:flex; flex-direction:column">
+        <div style="padding:14px 22px 0; display:flex; align-items:center; justify-content:space-between; font-size:15px; font-weight:800; color:#1C3A2E"><div>10:17</div><div style="opacity:.5">▮▮▮ ⌁</div></div>
+        <div style="padding:6px 20px 0; display:flex; justify-content:flex-end"><div style="width:44px; height:44px; border-radius:16px; background:#EDE7D3; display:flex; align-items:center; justify-content:center; font-size:20px; color:#1C3A2E">✕</div></div>
+        <div style="padding:6px 20px 0; display:flex; flex-direction:column; gap:8px">
+          <div style="font-family:'Baloo 2',cursive; font-weight:800; font-size:30px; color:#1C3A2E; line-height:1.08">Where the line sits</div>
+          <div style="font-size:16px; font-weight:600; color:#3E5148; line-height:1.5">Every Saturday works on Free. Pro is the season around it.</div>
+        </div>
+        <div style="padding:10px 16px 0; flex:1; min-height:0; display:flex; flex-direction:column; gap:2px">
+          <div style="display:flex; align-items:flex-end; gap:10px; padding:0 4px 8px">
+            <div style="flex:1"></div>
+            <div style="width:74px; text-align:center; font-family:'Baloo 2',cursive; font-weight:800; font-size:17px; color:#6B7C72">Free</div>
+            <div style="width:74px; text-align:center; font-family:'Baloo 2',cursive; font-weight:800; font-size:17px; color:#1C3A2E; background:#F5B93B; border-radius:14px 14px 0 0; padding:6px 0">Pro</div>
+          </div>
+          <div style="background:#fff; border-radius:20px 20px 0 0; padding:8px 14px; display:flex; align-items:center; gap:10px"><div style="flex:1; font-size:15px; font-weight:700; color:#1C3A2E">Fair rotation + live subs</div><div style="width:74px; text-align:center; font-weight:800; color:#2E7D53; font-size:19px">✓</div><div style="width:74px; text-align:center; font-weight:800; color:#2E7D53; font-size:19px; background:#FDF3D8">✓</div></div>
+          <div style="background:#fff; padding:8px 14px; display:flex; align-items:center; gap:10px"><div style="flex:1; font-size:15px; font-weight:700; color:#1C3A2E">Goalkeeper rotation</div><div style="width:74px; text-align:center; font-weight:800; color:#2E7D53; font-size:19px">✓</div><div style="width:74px; text-align:center; font-weight:800; color:#2E7D53; font-size:19px; background:#FDF3D8">✓</div></div>
+          <div style="background:#fff; padding:8px 14px; display:flex; align-items:center; gap:10px"><div style="flex:1; font-size:15px; font-weight:700; color:#1C3A2E">Injuries and late arrivals</div><div style="width:74px; text-align:center; font-weight:800; color:#2E7D53; font-size:19px">✓</div><div style="width:74px; text-align:center; font-weight:800; color:#2E7D53; font-size:19px; background:#FDF3D8">✓</div></div>
+          <div style="background:#fff; padding:8px 14px; display:flex; align-items:center; gap:10px"><div style="flex:1; font-size:15px; font-weight:700; color:#1C3A2E">Today's Minutes</div><div style="width:74px; text-align:center; font-weight:800; color:#2E7D53; font-size:19px">✓</div><div style="width:74px; text-align:center; font-weight:800; color:#2E7D53; font-size:19px; background:#FDF3D8">✓</div></div>
+          <div style="background:#fff; padding:8px 14px; display:flex; align-items:center; gap:10px"><div style="flex:1; font-size:15px; font-weight:700; color:#1C3A2E">Matches per season</div><div style="width:74px; text-align:center; font-weight:800; color:#2E7D53; font-size:15px">All</div><div style="width:74px; text-align:center; font-weight:800; color:#2E7D53; font-size:15px; background:#FDF3D8">All</div></div>
+          <div style="background:#fff; padding:8px 14px; display:flex; align-items:center; gap:10px"><div style="flex:1; font-size:15px; font-weight:700; color:#1C3A2E">Season Minutes</div><div style="width:74px; text-align:center; font-weight:800; color:#BFC7BE; font-size:19px">—</div><div style="width:74px; text-align:center; font-weight:800; color:#2E7D53; font-size:19px; background:#FDF3D8">✓</div></div>
+          <div style="background:#fff; padding:8px 14px; display:flex; align-items:center; gap:10px"><div style="flex:1; font-size:15px; font-weight:700; color:#1C3A2E">Availability links</div><div style="width:74px; text-align:center; font-weight:800; color:#BFC7BE; font-size:19px">—</div><div style="width:74px; text-align:center; font-weight:800; color:#2E7D53; font-size:19px; background:#FDF3D8">✓</div></div>
+          <div style="background:#fff; padding:8px 14px; display:flex; align-items:center; gap:10px"><div style="flex:1; font-size:15px; font-weight:700; color:#1C3A2E">Match Link handover</div><div style="width:74px; text-align:center; font-weight:800; color:#BFC7BE; font-size:19px">—</div><div style="width:74px; text-align:center; font-weight:800; color:#2E7D53; font-size:19px; background:#FDF3D8">✓</div></div>
+          <div style="background:#fff; padding:8px 14px; display:flex; align-items:center; gap:10px"><div style="flex:1; font-size:15px; font-weight:700; color:#1C3A2E">Reminders</div><div style="width:74px; text-align:center; font-weight:800; color:#BFC7BE; font-size:19px">—</div><div style="width:74px; text-align:center; font-weight:800; color:#2E7D53; font-size:19px; background:#FDF3D8">✓</div></div>
+          <div style="background:#fff; border-radius:0 0 20px 20px; padding:8px 14px; display:flex; align-items:center; gap:10px"><div style="flex:1; font-size:15px; font-weight:700; color:#1C3A2E">Teams</div><div style="width:74px; text-align:center; font-weight:800; color:#6B7C72; font-size:15px">1</div><div style="width:74px; text-align:center; font-weight:800; color:#2E7D53; font-size:15px; background:#FDF3D8; border-radius:0 0 14px 14px">Any</div></div>
+        </div>
+        <div style="padding:10px 20px 18px; display:flex; flex-direction:column; gap:8px">
+          <div style="height:64px; border-radius:26px; background:#2E7D53; box-shadow:0 6px 0 #1F5C3C; display:flex; flex-direction:column; align-items:center; justify-content:center; font-family:'Baloo 2',cursive; color:#fff"><div style="font-weight:800; font-size:23px; line-height:1.1">Get Pro · NZ$79 / year</div><div style="font-family:'Nunito'; font-size:13px; font-weight:800; opacity:.8">works out at NZ$6.58 a month</div></div>
+          <div style="text-align:center; font-size:13px; font-weight:700; color:#6B7C72; line-height:1.45">Charged in your local currency. Cancel any time.</div>
+        </div>
+      </div>
+      <div style="width:380px; font-size:15px; font-weight:600; color:#3E5148; line-height:1.5">Answers the suspicious question directly — what am I losing by not paying — and the four ticks in the Free column do the reassuring. Reads more like a pricing page than an app screen.</div>
+    </div>
+
+  </div>
+</section>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1600,&quot;height&quot;:1100}}"></script>
+</body>
+</html>
