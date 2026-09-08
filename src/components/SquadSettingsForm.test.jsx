@@ -1032,3 +1032,72 @@ describe("SquadSettingsForm — validation and submit", () => {
     expect(screen.queryByTestId("rebuild-confirm-sheet")).not.toBeInTheDocument();
   });
 });
+
+// Availability link — README > 1d. Only ever rendered for the same
+// confirmAvailability moment the "Who's here" confirm block above already
+// uses; onShowAvailability being undefined (every other call site) means
+// none of this new UI renders at all, same as today.
+describe("SquadSettingsForm — Availability link fold-in (1d)", () => {
+  it("shows the plain 'Ask who's playing' prompt when no request exists yet", () => {
+    const onShowAvailability = vi.fn();
+    render(<SquadSettingsForm {...baseProps({ variant: "edit", confirmAvailability: true, onShowAvailability, availabilityRequest: null })} />);
+    expect(screen.getByText("Ask who's playing")).toBeInTheDocument();
+    expect(screen.queryByText(/answered your link/)).not.toBeInTheDocument();
+  });
+
+  it("shows the summary line instead once a request exists, and it opens 1a", async () => {
+    const user = userEvent.setup();
+    const onShowAvailability = vi.fn();
+    const availabilityRequest = {
+      squad: [{ id: "p1", name: "Alice", number: 1 }, { id: "p2", name: "Bob", number: 2 }],
+      answers: { p1: { status: "in", noteChips: [] } },
+    };
+    render(<SquadSettingsForm {...baseProps({ variant: "edit", confirmAvailability: true, onShowAvailability, availabilityRequest })} />);
+    expect(screen.queryByText("Ask who's playing")).not.toBeInTheDocument();
+    await user.click(screen.getByText(/answered your link/));
+    expect(onShowAvailability).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows a muted prompt when a request exists but nobody's answered", () => {
+    const availabilityRequest = { squad: [{ id: "p1", name: "Alice", number: 1 }], answers: {} };
+    render(<SquadSettingsForm {...baseProps({ variant: "edit", confirmAvailability: true, onShowAvailability: vi.fn(), availabilityRequest })} />);
+    expect(screen.getByText(/Nobody has answered your link yet/)).toBeInTheDocument();
+  });
+
+  it("labels an 'out' child with '· out' and a never-answered child with '· waiting', both still tappable", () => {
+    const toggleAvailable = vi.fn();
+    const availabilityRequest = {
+      squad: [{ id: "p1", name: "Alice", number: 1 }, { id: "p2", name: "Bob", number: 2 }],
+      answers: { p1: { status: "out", noteChips: [] } }, // p2 never answered at all
+    };
+    render(
+      <SquadSettingsForm
+        {...baseProps({ variant: "edit", confirmAvailability: true, availableIds: [], toggleAvailable, onShowAvailability: vi.fn(), availabilityRequest })}
+      />
+    );
+    expect(screen.getByText("· out")).toBeInTheDocument();
+    expect(screen.getByText("· waiting")).toBeInTheDocument();
+    // Still a real, tappable toggle — the label is decoration, not a lock.
+    const aliceChip = screen.getByText("Alice").closest("button");
+    fireEvent.click(aliceChip);
+    expect(toggleAvailable).toHaveBeenCalledWith("p1");
+  });
+
+  it("tags an available child's chip with their note ('late'/'early'/'keeper')", () => {
+    const availabilityRequest = {
+      squad: [{ id: "p1", name: "Alice", number: 1 }],
+      answers: { p1: { status: "in", noteChips: ["goalkeeper"] } },
+    };
+    render(
+      <SquadSettingsForm
+        {...baseProps({ variant: "edit", confirmAvailability: true, availableIds: ["p1"], onShowAvailability: vi.fn(), availabilityRequest })}
+      />
+    );
+    expect(screen.getByText("keeper")).toBeInTheDocument();
+  });
+
+  it("renders none of this when onShowAvailability isn't passed — every other call site is unaffected", () => {
+    render(<SquadSettingsForm {...baseProps({ variant: "edit", confirmAvailability: true })} />);
+    expect(screen.queryByText("Ask who's playing")).not.toBeInTheDocument();
+  });
+});

@@ -103,6 +103,17 @@ export const tokens = {
     // value, and used for a genuinely different purpose (a drag handle, not
     // a border), so kept as its own token rather than reusing that one.
     grabber: "#DCD4C0",
+    // Availability link — the four colors its own design table names that
+    // don't already exist under a different name. availOut (#B4462F) is a
+    // hair off cancelText (#B4462E) — a different design file's own
+    // near-identical pick for a different concept (an "out" answer, not a
+    // cancel action), not the same token wearing two names.
+    availGreenTint: "#E3F0E5",
+    availGreenChip: "#C9E4CE",
+    availSand: "#EDE7D3",
+    availWell: "#F8F3E3",
+    availDisabledDisc: "#BFC7BE",
+    availOut: "#B4462F",
   },
   // Baloo 2 800 for display type (timer, wordmark, buttons, popover
   // titles); Nunito for body copy (700 captions, 800 labels/chips/names)
@@ -2545,4 +2556,99 @@ export const styles = {
   mdClaimSentTertiaryLink: {
     background: "transparent", border: "none", padding: 0, font: "inherit", fontWeight: 800, color: tokens.color.pitchGreen, cursor: "pointer",
   },
+
+  // ---- Availability link (1a compose screen, AvailabilityScreen.jsx) —
+  // same mdSubHeader/mdFullScreenTakeover shell every other cog-menu screen
+  // uses. Every color here is a token (either already existing, reused
+  // directly, or one of the availability-specific ones added alongside the
+  // rest above) — nothing new-and-unnamed.
+  mdAvailCard: {
+    background: "#fff", borderRadius: tokens.radius.rowLg, padding: "14px 16px",
+    boxShadow: tokens.shadow.solid(3, "rgba(28,58,46,.10)"), marginBottom: 14,
+  },
+  mdAvailFixture: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 21, color: tokens.color.deepGreen, marginBottom: 4 },
+  mdAvailFixtureDetail: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 15, color: tokens.color.mutedText },
+  mdAvailFixtureDetailBtn: {
+    background: "transparent", border: "none", padding: 0, font: "inherit", fontWeight: 700, fontSize: 15,
+    color: tokens.color.mutedText, textDecoration: "underline", textDecorationStyle: "dotted", cursor: "pointer", textAlign: "left",
+  },
+
+  mdAvailCardLabel: {
+    fontFamily: tokens.font.body, fontWeight: 800, fontSize: 13, color: tokens.color.mutedText,
+    textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10,
+  },
+  mdAvailPreviewWell: {
+    background: tokens.color.availSand, borderRadius: tokens.radius.rowMd, padding: "14px 16px",
+    fontFamily: tokens.font.body, fontWeight: 600, fontSize: 15, color: tokens.color.groupLabel, lineHeight: 1.4,
+  },
+  mdAvailPreviewUrl: {
+    display: "block", marginTop: 8, fontFamily: tokens.font.body, fontWeight: 800, fontSize: 14, color: tokens.color.pitchGreen,
+    wordBreak: "break-all",
+  },
+  mdAvailClosesLine: { marginTop: 10, fontFamily: tokens.font.body, fontWeight: 700, fontSize: 14, color: tokens.color.mutedText },
+
+  mdAvailSquadChipRow: { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 },
+  mdAvailSquadChip: {
+    display: "flex", alignItems: "center", gap: 6, background: tokens.color.availSand, borderRadius: 999,
+    padding: "6px 14px 6px 6px",
+  },
+  mdAvailSquadChipInFocus: { background: tokens.color.availGreenTint },
+  mdAvailSquadChipDisc: {
+    width: 28, height: 28, borderRadius: "50%", background: tokens.color.pitchGreen, color: "#fff",
+    display: "flex", alignItems: "center", justifyContent: "center", fontFamily: tokens.font.body, fontWeight: 800, fontSize: 13, flexShrink: 0,
+  },
+  mdAvailSquadChipName: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 15, color: tokens.color.deepGreen },
+  mdAvailReplyState: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 14, color: tokens.color.mutedText },
+
+  mdAvailForm: { display: "flex", flexDirection: "column", gap: 10 },
+  mdAvailLabel: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 13, color: tokens.color.groupLabel, marginBottom: -2 },
+  mdAvailInput: {
+    width: "100%", height: 56, borderRadius: 18, background: "#fff", boxShadow: "0 3px 0 rgba(28,58,46,.10)",
+    border: "none", padding: "0 16px", fontFamily: tokens.font.body, fontWeight: 700, fontSize: 16,
+    color: tokens.color.deepGreen, boxSizing: "border-box",
+  },
+
+  mdAvailPrimaryBtn: {
+    width: "100%", height: 64, borderRadius: 26, border: "none", background: tokens.color.pitchGreen,
+    boxShadow: tokens.shadow.solid(6, tokens.color.greenShadow), color: "#fff",
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 23, cursor: "pointer",
+    display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+  },
+  mdAvailSecondaryBtn: {
+    width: "100%", height: 56, borderRadius: 22, border: "none", background: tokens.color.availSand,
+    color: tokens.color.deepGreen, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 20, cursor: "pointer", marginTop: 8,
+  },
+  mdAvailGhostBtn: {
+    width: "100%", background: "transparent", border: "none", padding: "10px 0", marginTop: 4,
+    fontFamily: tokens.font.body, fontWeight: 800, fontSize: 13.5, color: tokens.color.mutedText, cursor: "pointer",
+  },
+
+  // The setup screen's own (1d) entry point / summary card — small enough
+  // to live right where "Who's here" begins, per the mockup.
+  mdAvailPrompt: {
+    display: "flex", alignItems: "center", gap: 12, width: "100%", background: "#fff",
+    borderRadius: tokens.radius.rowLg, border: "none", padding: "13px 16px",
+    boxShadow: tokens.shadow.solid(3, "rgba(28,58,46,.10)"), cursor: "pointer", textAlign: "left", font: "inherit", marginBottom: 14,
+  },
+  mdAvailPromptIcon: {
+    width: 38, height: 38, borderRadius: 12, background: tokens.color.headerYellow, flexShrink: 0,
+    display: "flex", alignItems: "center", justifyContent: "center",
+  },
+  mdAvailPromptTitle: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 16, color: tokens.color.deepGreen },
+  mdAvailPromptSub: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 12.5, color: tokens.color.mutedText },
+  mdAvailSummaryLine: {
+    background: tokens.color.availGreenTint, borderRadius: tokens.radius.rowMd, padding: "13px 15px",
+    fontFamily: tokens.font.body, fontWeight: 700, fontSize: 14.5, lineHeight: 1.4, color: tokens.color.deepGreen,
+    marginBottom: 14, border: "none", width: "100%", textAlign: "left", cursor: "pointer", font: "inherit",
+  },
+  mdAvailSummaryLineMuted: { color: tokens.color.mutedText },
+
+  // Note tag on an in-chip (SquadSettingsForm's own renderSquadChips) —
+  // the gold ring + short label the 1d mockup shows on a child who noted
+  // something for this match.
+  mdAvailNoteChip: { border: `2px solid ${tokens.color.yellow}` },
+  mdAvailNoteTag: {
+    marginLeft: 4, fontFamily: tokens.font.body, fontWeight: 800, fontSize: 11, color: tokens.color.goldText,
+  },
+  mdAvailStatusSuffix: { fontWeight: 700, opacity: 0.85 },
 };

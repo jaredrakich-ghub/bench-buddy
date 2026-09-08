@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Shuffle, ChevronDown, Check } from "lucide-react";
+import { Plus, Shuffle, ChevronDown, Check, Send } from "lucide-react";
 import {
   computeIntervals, computeBreakBoundaries, keeperShiftIntervalsFor, generatePlan, computeFairnessSpread, isFairSpread,
   recommendSubIntervals, assessKeeperShift, fairnessRelevantIds,
@@ -10,6 +10,7 @@ import { useSheetDrag } from "../hooks/useSheetDrag.js";
 import { styles, tokens } from "./styles.js";
 import { RotateIcon } from "./strokeIcons.jsx";
 import SignIn from "./SignIn.jsx";
+import { describeSetupSummary, hasNoteChip, NOTE_CHIP_OPTIONS } from "../lib/availability.js";
 
 // Drawn (stroke, not solid-fill) icons for the edit layout's own four
 // accordion-section badges, plus the "rebuild rotation" confirm sheet's
@@ -220,6 +221,14 @@ export default function SquadSettingsForm({
   // disables the submit button (see renderWarningsAndSubmit) so the build
   // sequence can't be restarted underneath the overlay's own scrim.
   overlayOpen = false,
+  // Availability link — null when the feature's unused or nothing's been
+  // sent for this team yet (renders the plain "Ask the group" prompt);
+  // once a request exists, renders its own reply summary instead, and its
+  // answers (if any) decorate renderSquadChips below with note tags and
+  // out/waiting labels. "edit" + confirmAvailability only — see this
+  // block's own render site.
+  availabilityRequest = null,
+  onShowAvailability,
 }) {
   const validation = validateGameSettings(gameSettings, availableIds.length);
 
@@ -759,21 +768,42 @@ export default function SquadSettingsForm({
   }
 
   function renderSquadChips() {
+    // Availability link — README > 1d: a child who answered "out" carries
+    // that word after their name even while greyed (state conveyed in
+    // text, not color alone, same accessibility rule Match Link's own
+    // screens already follow); a never-answered child (a request exists,
+    // but this specific player has no entry at all) reads "waiting"
+    // instead. Both stay exactly as tappable as before — nothing here
+    // changes toggleAvailable's own behavior, only the label/decoration.
+    const answers = availabilityRequest?.answers;
     return (
       <>
         <div style={styles.mdSquadChipWrapRow}>
           {roster.map((p) => {
             const isAvailable = availableIds.includes(p.id);
+            const answerStatus = answers?.[p.id]?.status;
+            const statusSuffix = !isAvailable && answers ? (answerStatus === "out" ? " · out" : " · waiting") : "";
+            const noteKey = NOTE_CHIP_OPTIONS.find((c) => hasNoteChip(answers || {}, p.id, c.key))?.key;
             return (
               <button
                 key={p.id}
-                style={{ ...styles.mdBenchChip, ...(isAvailable ? {} : styles.mdSetupChipOut) }}
+                style={{
+                  ...styles.mdBenchChip,
+                  ...(isAvailable ? {} : styles.mdSetupChipOut),
+                  ...(isAvailable && noteKey ? styles.mdAvailNoteChip : {}),
+                }}
                 onClick={() => toggleAvailable(p.id)}
               >
                 <span style={{ ...styles.mdBenchChipNumber, ...(isAvailable ? {} : styles.mdSetupChipOutNumber) }}>
                   {numberOf(p.id)}
                 </span>
-                <span style={styles.mdBenchChipName}>{p.name}</span>
+                <span style={styles.mdBenchChipName}>
+                  {p.name}
+                  {statusSuffix && <span style={styles.mdAvailStatusSuffix}>{statusSuffix}</span>}
+                </span>
+                {isAvailable && noteKey && (
+                  <span style={styles.mdAvailNoteTag}>{noteKey === "goalkeeper" ? "keeper" : noteKey}</span>
+                )}
               </button>
             );
           })}
@@ -1207,6 +1237,31 @@ export default function SquadSettingsForm({
             ever. */}
         {confirmAvailability && (
           <div style={{ marginTop: 2 }}>
+            {/* Availability link — README > 1d: the summary line IS the
+                entry point back into 1a (edit the closing time, reshare,
+                regenerate) once a request exists; the plain "Ask the
+                group" prompt shows instead when there's none yet. Only
+                ever rendered for this same "Set up next game" moment —
+                asking availability for a game already mid-setup elsewhere
+                (plain "Game settings") isn't this feature's job. */}
+            {onShowAvailability &&
+              (availabilityRequest ? (
+                <button style={styles.mdAvailSummaryLine} onClick={onShowAvailability}>
+                  {describeSetupSummary(availabilityRequest.squad, availabilityRequest.answers) || (
+                    <span style={styles.mdAvailSummaryLineMuted}>Nobody has answered your link yet. Tap to view or resend.</span>
+                  )}
+                </button>
+              ) : (
+                <button style={styles.mdAvailPrompt} onClick={onShowAvailability}>
+                  <span style={styles.mdAvailPromptIcon}>
+                    <Send size={17} color={tokens.color.goldText} />
+                  </span>
+                  <span>
+                    <div style={styles.mdAvailPromptTitle}>Ask who's playing</div>
+                    <div style={styles.mdAvailPromptSub}>Send one link to the group — answers land here.</div>
+                  </span>
+                </button>
+              ))}
             <div style={styles.mdSetupHeaderInRow}>
               <div style={styles.mdSetupSectionTitle}>Who's here</div>
               <span style={styles.mdSetupInChip}>{availableIds.length} in</span>
