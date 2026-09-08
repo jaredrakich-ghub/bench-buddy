@@ -3,7 +3,7 @@ import { Share2 } from "lucide-react";
 import { styles } from "./styles.js";
 import { getSquadNumber } from "../lib/squadNumber.js";
 import {
-  buildShareMessage, describeReplyState, isRequestClosed,
+  buildShareMessage, describeReplyState, isRequestClosed, buildAvailabilityUrl,
 } from "../lib/availability.js";
 import {
   fetchAvailabilityRequest, createOrRegenerateAvailabilityRequest, updateClosingTime, subscribeAvailabilityRequest,
@@ -22,7 +22,6 @@ import LoadingScreen from "./LoadingScreen.jsx";
 // only ever holds fieldSize/gameMinutes/subIntervalMinutes) — matchAt/
 // opponent/location live only on the request itself, entered fresh each
 // time a coach composes one. See availability.js's own top comment.
-const CLAIM_URL_BASE = "app.benchbuddysports.com/?";
 
 function toDatetimeLocalValue(ms) {
   if (!ms) return "";
@@ -97,10 +96,8 @@ export default function AvailabilityScreen({ teamId, coachUid, teamName, roster,
       setEditingClosing(false);
     });
 
-  const claimUrl = request
-    ? `${CLAIM_URL_BASE}team=${encodeURIComponent(teamId)}&a=${encodeURIComponent(request.token)}`
-    : "";
-  const fullClaimUrl = `https://${claimUrl}`;
+  const fullClaimUrl = request ? buildAvailabilityUrl(teamId, request.token) : "";
+  const claimUrl = fullClaimUrl.replace(/^https:\/\//, "");
   const message = request
     ? buildShareMessage({ teamName, opponent: request.opponent, matchAt: request.matchAt, location: request.location })
     : "";

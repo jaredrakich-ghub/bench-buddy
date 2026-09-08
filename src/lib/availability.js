@@ -61,6 +61,18 @@ export function generateAvailabilityToken() {
   return generateToken();
 }
 
+// A query string on the app's own root, not a path — same reasoning as
+// Match Link's own claim URL (its own comment has the full story: GitHub
+// Pages needs no extra config for a query string on "/", where a real
+// path would need a 404.html SPA-redirect shim). &a= is this feature's
+// own param name, distinct from Match Link's &t= so a URL can never
+// ambiguously carry both. Shared here (not duplicated per component) since
+// both AvailabilityScreen.jsx (the coach's own share/copy/nudge) and this
+// module's own tests need the identical construction.
+export function buildAvailabilityUrl(teamId, token) {
+  return `https://app.benchbuddysports.com/?team=${encodeURIComponent(teamId)}&a=${encodeURIComponent(token)}`;
+}
+
 // The three preset note chips (README > Notes) — one shared source of
 // truth for both the parent's page (1b/1c) and the coach's setup screen
 // (1d), so a label or key never drifts between the two.
@@ -199,6 +211,14 @@ export function keeperNoteIds(squad, answers) {
   return squad.filter((p) => answers[p.id]?.noteChips?.includes("goalkeeper")).map((p) => p.id);
 }
 
+// Step 6's own "Nudge the two waiting" — who, by name, hasn't answered at
+// all yet. Distinct from summarizeAnswers' own waitingCount, which only
+// needs the number; the nudge action needs to actually name them in the
+// reminder it composes.
+export function waitingChildren(squad, answers) {
+  return squad.filter((p) => !answers[p.id]);
+}
+
 // The two note-driven flags Step 5 needs to surface at rotation-build time
 // (README > Notes: "should be visible... not buried") — a plain lookup by
 // child id, not a derived list, since the caller already knows which
@@ -245,4 +265,14 @@ export function buildShareMessage({ teamName, opponent, matchAt, location }) {
   const when = formatMatchWhen(matchAt);
   const atLocation = location ? ` at ${location}` : "";
   return `${fixture}, ${when}${atLocation}. Tap your child and let me know if they're in — takes ten seconds.`;
+}
+
+// Step 6 — "Nudge the two waiting". Same URL as the original share (README
+// never describes a second link for this — it's a reminder, not a new
+// request), but names exactly who hasn't answered rather than repeating
+// the full original message, so it reads as a targeted follow-up in the
+// same group chat, not a duplicate of the first ask.
+export function buildNudgeMessage(waitingNames) {
+  const names = waitingNames.length === 1 ? waitingNames[0] : `${waitingNames.slice(0, -1).join(", ")} and ${waitingNames[waitingNames.length - 1]}`;
+  return `Still waiting to hear from ${names} — could you tap the link above and let me know?`;
 }

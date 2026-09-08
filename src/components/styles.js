@@ -2642,6 +2642,14 @@ export const styles = {
     marginBottom: 14, border: "none", width: "100%", textAlign: "left", cursor: "pointer", font: "inherit",
   },
   mdAvailSummaryLineMuted: { color: tokens.color.mutedText },
+  // Step 6's own "Nudge the two waiting" row — deliberately small/quiet
+  // (a ghost button, not a card) since it's a secondary action sitting
+  // right under the summary line, not a new competing focal point.
+  mdAvailNudgeBtn: {
+    display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%",
+    background: "transparent", border: "none", padding: "2px 0 12px", marginTop: -8,
+    fontFamily: tokens.font.body, fontWeight: 800, fontSize: 13, color: tokens.color.goldText, cursor: "pointer",
+  },
 
   // Note tag on an in-chip (SquadSettingsForm's own renderSquadChips) —
   // the gold ring + short label the 1d mockup shows on a child who noted

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Shuffle, ChevronDown, Check, Send } from "lucide-react";
+import { Plus, Shuffle, ChevronDown, Check, Send, Bell } from "lucide-react";
 import {
   computeIntervals, computeBreakBoundaries, keeperShiftIntervalsFor, generatePlan, computeFairnessSpread, isFairSpread,
   recommendSubIntervals, assessKeeperShift, fairnessRelevantIds,
@@ -10,7 +10,9 @@ import { useSheetDrag } from "../hooks/useSheetDrag.js";
 import { styles, tokens } from "./styles.js";
 import { RotateIcon } from "./strokeIcons.jsx";
 import SignIn from "./SignIn.jsx";
-import { describeSetupSummary, hasNoteChip, NOTE_CHIP_OPTIONS } from "../lib/availability.js";
+import {
+  describeSetupSummary, hasNoteChip, waitingChildren, buildNudgeMessage, buildAvailabilityUrl, NOTE_CHIP_OPTIONS,
+} from "../lib/availability.js";
 
 // Drawn (stroke, not solid-fill) icons for the edit layout's own four
 // accordion-section badges, plus the "rebuild rotation" confirm sheet's
@@ -229,6 +231,11 @@ export default function SquadSettingsForm({
   // block's own render site.
   availabilityRequest = null,
   onShowAvailability,
+  // Step 6's own "Nudge the two waiting" — needs the team id to rebuild
+  // the same share URL AvailabilityScreen.jsx itself constructs (no new
+  // token minted for a nudge; README never describes a second link for
+  // this, it's a reminder about the original one).
+  teamId,
 }) {
   const validation = validateGameSettings(gameSettings, availableIds.length);
 
@@ -1262,6 +1269,29 @@ export default function SquadSettingsForm({
                   </span>
                 </button>
               ))}
+            {/* Step 6 — "the loop back": a one-tap reminder for whoever
+                hasn't answered yet, composed client-side from the same
+                buildNudgeMessage/buildAvailabilityUrl helpers the compose
+                screen itself uses (no Pro gate, no Cloud Function — real
+                push notifications when an answer lands are Pile 2, deferred
+                until there's a backend to send them from). Only shown once
+                a request exists and somebody's still outstanding; folds
+                away on its own the moment everyone's replied. */}
+            {availabilityRequest && teamId && (() => {
+              const waiting = waitingChildren(availabilityRequest.squad, availabilityRequest.answers);
+              if (waiting.length === 0) return null;
+              const nudge = () => {
+                const text = encodeURIComponent(
+                  `${buildNudgeMessage(waiting.map((p) => p.name))}\n\n${buildAvailabilityUrl(teamId, availabilityRequest.token)}`
+                );
+                window.open(`https://wa.me/?text=${text}`, "_blank", "noopener,noreferrer");
+              };
+              return (
+                <button style={styles.mdAvailNudgeBtn} onClick={nudge}>
+                  <Bell size={15} /> Nudge {waiting.length === 1 ? "the one still waiting" : `the ${waiting.length} still waiting`}
+                </button>
+              );
+            })()}
             <div style={styles.mdSetupHeaderInRow}>
               <div style={styles.mdSetupSectionTitle}>Who's here</div>
               <span style={styles.mdSetupInChip}>{availableIds.length} in</span>

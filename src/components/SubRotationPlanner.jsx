@@ -466,6 +466,10 @@ export default function SubRotationPlanner({ user }) {
     // group" prompt instead of a summary.
     availabilityRequest,
     onShowAvailability: () => setShowAvailability(true),
+    // Step 6 — the nudge action needs teamId itself to rebuild the share
+    // URL (buildAvailabilityUrl(teamId, token)); nothing else in
+    // squadSettingsProps carried it before now.
+    teamId: activeTeamId,
   };
 
   return (
