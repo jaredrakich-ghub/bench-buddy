@@ -25,6 +25,47 @@ service cloud.firestore {
         && data.activeInterval is number;
     }
 
+    // Match Link — shape check only, same spirit as isValidTeam/
+    // isValidMatchState above: reject a malformed write, don't police every
+    // detail of claim's contents (claim itself is allowed to be null — no
+    // one has claimed it yet).
+    function isValidHandover(data) {
+      return data.keys().hasAll(['level', 'createdAt', 'createdBy', 'stopsAtFullTime', 'expiresAt', 'revokedAt', 'requireEmailClaim', 'claimToken'])
+        && data.level in ['subs', 'full']
+        && data.stopsAtFullTime is bool
+        && data.requireEmailClaim is bool
+        && data.claimToken is string;
+    }
+
+    function isMember(teamId) {
+      return request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.memberIds;
+    }
+
+    // Match Link — shared by both matchHandover and matchState below, so
+    // this is the ONE place either has to change. Mirrors
+    // src/lib/matchHandover.js's isHandoverActive exactly (same four
+    // checks, same order) — if that file's logic changes, this needs the
+    // equivalent change alongside it, and vice versa.
+    //
+    // exists() guards every get() below it: a team with no handover yet —
+    // the common case — must not make every matchState access error out.
+    function handoverExists(teamId) {
+      return exists(/databases/$(database)/documents/teams/$(teamId)/matchHandover/current);
+    }
+    function handoverDoc(teamId) {
+      return get(/databases/$(database)/documents/teams/$(teamId)/matchHandover/current).data;
+    }
+    function isHandoverActive(teamId) {
+      return handoverExists(teamId)
+        && handoverDoc(teamId).revokedAt == null
+        && (handoverDoc(teamId).expiresAt == null || request.time.toMillis() < handoverDoc(teamId).expiresAt)
+        && handoverDoc(teamId).claim != null
+        && handoverDoc(teamId).claim.revokedAt == null;
+    }
+    function isActiveHolder(teamId) {
+      return isHandoverActive(teamId) && request.auth.uid == handoverDoc(teamId).claim.claimedByUid;
+    }
+
     match /teams/{teamId} {
       allow read, delete: if request.auth != null && request.auth.uid in resource.data.memberIds;
       allow create: if request.auth != null
@@ -34,12 +75,45 @@ service cloud.firestore {
         && request.auth.uid in resource.data.memberIds
         && isValidTeam(request.resource.data);
 
+      // Match Link — a handover session lets one holder (usually a parent)
+      // act on a team's current match without being a team member at all.
+      //
+      // Claiming a link (a non-member writing themselves into `claim` for
+      // the first time) is deliberately NOT allowed yet — that write path
+      // belongs to Step 2 ("claim URL and magic-link exchange"), which
+      // needs its own token-proof design. For now, only a team member (the
+      // coach) can create or update this document at all; the active
+      // holder can only read it (to see their own level/revoked state).
+      match /matchHandover/{handoverId} {
+        allow read: if request.auth != null && (isMember(teamId) || isActiveHolder(teamId));
+        allow create, update: if request.auth != null && isMember(teamId) && isValidHandover(request.resource.data);
+      }
+
       match /matchState/{stateId} {
-        allow read: if request.auth != null
-          && request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.memberIds;
+        // The three fields that make up "the clock" — see useMatchState.js's
+        // own save effect for this exact list. Everything else in
+        // matchState (subs, injuries, swaps, keeper changes) is the shared,
+        // concurrent write path checked by the base allow-write condition
+        // below; only these three are exclusive.
+        function clockFieldsChanged() {
+          return request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['baseElapsedSec', 'runStartedAt', 'timerRunning']);
+        }
+        // Unconditional on the handover's `level` — level is display-only
+        // (see matchHandover.js). Whoever holds an active claim owns the
+        // clock; the coach does not, for as long as it's active. Real-use
+        // correction: a "subs" level handover still moves clock ownership,
+        // exactly like "full" does — there is no split state where the
+        // parent has subs and the coach still has the clock.
+        function isClockOwner() {
+          return isHandoverActive(teamId) ? isActiveHolder(teamId) : isMember(teamId);
+        }
+
+        allow read: if request.auth != null && (isMember(teamId) || isActiveHolder(teamId));
         allow write: if request.auth != null
-          && request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.memberIds
-          && isValidMatchState(request.resource.data);
+          && isValidMatchState(request.resource.data)
+          && (isMember(teamId) || isActiveHolder(teamId))
+          && (!clockFieldsChanged() || isClockOwner());
       }
 
       // One document per completed, archived game (season history) — kept
@@ -49,8 +123,7 @@ service cloud.firestore {
       // position, once that's built) without needing a rules change every
       // time a new field is added to what gets snapshotted per player.
       match /games/{gameId} {
-        allow read, write: if request.auth != null
-          && request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.memberIds;
+        allow read, write: if request.auth != null && isMember(teamId);
       }
     }
 
