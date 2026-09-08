@@ -127,40 +127,11 @@ export function canControlClock(actor, handover, now = Date.now()) {
 }
 
 // A fresh, cryptographically-random token — used for both claimToken (the
-// share link) and pendingClaim.deviceToken (the emailed link). Deliberately
-// does NOT fall back to a weaker PRNG the way id.js's generateId() does for
-// a player id: that fallback is fine for a collision-resistant id, but
-// wrong for a bearer secret someone could otherwise guess. If a secure
-// random source genuinely isn't available, failing loudly beats minting a
-// guessable "secret".
-//
-// Step 3: shortened from a 36-char UUID (crypto.randomUUID()) to a 22-char
-// alphanumeric string — this now lives in a URL the mockup shows short
-// (benchbuddysports.com/m/tigers-9f2k). Still built from crypto.
-// getRandomValues, still one unguessable value per call.
-//
-// Excludes 0/O and 1/I/l — confirmed the hard way (Step 5's own real-
-// browser testing): a token containing capital I and lowercase l is
-// genuinely indistinguishable in this app's own fonts, and got mistyped
-// straight off a screenshot while testing the claim flow. The real
-// share/copy/WhatsApp flow never involves anyone typing this by hand, but
-// excluding the ambiguous characters costs nothing and closes the class of
-// mistake outright. 57 symbols over 22 chars is still ~128 bits of
-// entropy, essentially unchanged from the full 62-symbol alphabet's ~131.
-const TOKEN_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
-const TOKEN_LENGTH = 22;
-
-export function generateClaimToken() {
-  if (typeof crypto === "undefined" || typeof crypto.getRandomValues !== "function") {
-    throw new Error("A secure random source is required to generate a claim token.");
-  }
-  const bytes = crypto.getRandomValues(new Uint8Array(TOKEN_LENGTH));
-  let token = "";
-  for (let i = 0; i < TOKEN_LENGTH; i++) {
-    token += TOKEN_ALPHABET[bytes[i] % TOKEN_ALPHABET.length];
-  }
-  return token;
-}
+// share link) and pendingClaim.deviceToken (the emailed link). Generation
+// itself now lives in token.js (extracted there once the Availability-link
+// feature needed the exact same thing) — this stays exported under its own
+// name so nothing else in Match Link has to change.
+export { generateToken as generateClaimToken } from "./token.js";
 
 // Stage A's gate — true while a share link is still open for a NEW claim to
 // begin at all: not yet fully claimed, not revoked, not expired. Used
