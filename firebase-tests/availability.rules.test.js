@@ -49,6 +49,7 @@ const SQUAD = [
 const validRequest = (overrides = {}) => ({
   createdAt: Date.now() - 10_000,
   createdBy: "coach-uid",
+  teamName: "Tigers FC",
   closingAt: Date.now() + 3_600_000,
   reopenedAt: null,
   revokedAt: null,

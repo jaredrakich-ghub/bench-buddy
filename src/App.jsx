@@ -1,5 +1,6 @@
 import SubRotationPlanner from "./components/SubRotationPlanner.jsx";
 import MatchClaimPage from "./components/MatchClaimPage.jsx";
+import AvailabilityClaimPage from "./components/AvailabilityClaimPage.jsx";
 import AuthGate from "./components/AuthGate.jsx";
 
 // Match Link, Step 4 — the only "routing" this app has: a claim link
@@ -18,10 +19,21 @@ function App() {
   const params = new URLSearchParams(window.location.search);
   const claimTeamId = params.get("team");
   const claimToken = params.get("t");
+  // Availability link, Step 4 — a second, sibling query-string route on
+  // this same root: ?team=<teamId>&a=<availability token>, distinct param
+  // name from Match Link's own &t= so the two can never collide if a URL
+  // somehow carried both. Same reasoning as Match Link's own routing
+  // comment otherwise (no path, no server config needed).
+  const availabilityToken = params.get("a");
 
   if (claimTeamId && claimToken) {
     return (
       <AuthGate>{(user) => <MatchClaimPage teamId={claimTeamId} token={claimToken} user={user} />}</AuthGate>
+    );
+  }
+  if (claimTeamId && availabilityToken) {
+    return (
+      <AuthGate>{() => <AvailabilityClaimPage teamId={claimTeamId} token={availabilityToken} />}</AuthGate>
     );
   }
 

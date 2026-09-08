@@ -42,7 +42,7 @@ service cloud.firestore {
     // to be actual lists/maps for; content inside answers isn't policed
     // field-by-field here any more than claim's contents are for Match Link.
     function isValidAvailabilityRequest(data) {
-      return data.keys().hasAll(['createdAt', 'createdBy', 'closingAt', 'revokedAt', 'token', 'squad', 'answers'])
+      return data.keys().hasAll(['createdAt', 'createdBy', 'teamName', 'closingAt', 'revokedAt', 'token', 'squad', 'answers'])
         && data.token is string
         && data.squad is list
         && data.answers is map;

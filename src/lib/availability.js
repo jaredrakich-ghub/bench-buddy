@@ -13,6 +13,9 @@
 // Shape:
 //   {
 //     createdAt, createdBy,        // coach's uid
+//     teamName: string,            // denormalized, same reasoning as squad
+//                                   // below — the public claim page can't
+//                                   // read teams/{teamId} to get this.
 //     matchAt: number,             // ms epoch — the fixture's own kickoff
 //                                   // time, no relation to gameSettings
 //     opponent: string,            // free text, e.g. "Rovers" — "" if unset
@@ -84,10 +87,14 @@ export const NOTE_CHIP_OPTIONS = [
 // on the availability request itself, entered fresh each time the coach
 // composes one — matchAt a real timestamp (same native datetime-local
 // picker as closingAt), opponent/location plain text.
-export function createAvailabilityRequest({ createdBy, closingAt, matchAt, opponent, location, squad }) {
+// teamName is denormalized here too, same reasoning as squad — the public
+// claim page (1c) can't read teams/{teamId} (membership-gated) to get it,
+// so it has to already be sitting on the one document that route CAN read.
+export function createAvailabilityRequest({ createdBy, teamName, closingAt, matchAt, opponent, location, squad }) {
   return {
     createdAt: Date.now(),
     createdBy,
+    teamName,
     matchAt,
     opponent,
     location,

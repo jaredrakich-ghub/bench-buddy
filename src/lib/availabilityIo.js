@@ -24,8 +24,8 @@ export async function fetchAvailabilityRequest(teamId) {
 // A brand new request, or a full regenerate (new token, every existing
 // answer discarded) — see availability.js's own comment on why there's no
 // partial path for this specific action.
-export async function createOrRegenerateAvailabilityRequest(teamId, coachUid, { closingAt, matchAt, opponent, location, squad }) {
-  const data = createAvailabilityRequest({ createdBy: coachUid, closingAt, matchAt, opponent, location, squad });
+export async function createOrRegenerateAvailabilityRequest(teamId, coachUid, { teamName, closingAt, matchAt, opponent, location, squad }) {
+  const data = createAvailabilityRequest({ createdBy: coachUid, teamName, closingAt, matchAt, opponent, location, squad });
   await setDoc(availabilityRef(teamId), data);
   return data;
 }

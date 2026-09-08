@@ -77,7 +77,7 @@ export default function AvailabilityScreen({ teamId, coachUid, teamName, roster,
       }
       const squad = roster.map((p) => ({ id: p.id, name: p.name, number: getSquadNumber(p, roster) }));
       await createOrRegenerateAvailabilityRequest(teamId, coachUid, {
-        closingAt: closingAtMs, matchAt: matchAtMs, opponent: opponent.trim(), location: location.trim(), squad,
+        teamName, closingAt: closingAtMs, matchAt: matchAtMs, opponent: opponent.trim(), location: location.trim(), squad,
       });
     });
 
@@ -85,7 +85,7 @@ export default function AvailabilityScreen({ teamId, coachUid, teamName, roster,
     runAction(() => {
       const squad = roster.map((p) => ({ id: p.id, name: p.name, number: getSquadNumber(p, roster) }));
       return createOrRegenerateAvailabilityRequest(teamId, coachUid, {
-        closingAt: request.closingAt, matchAt: request.matchAt, opponent: request.opponent, location: request.location, squad,
+        teamName, closingAt: request.closingAt, matchAt: request.matchAt, opponent: request.opponent, location: request.location, squad,
       });
     });
 
