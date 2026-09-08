@@ -77,16 +77,68 @@ service cloud.firestore {
 
       // Match Link — a handover session lets one holder (usually a parent)
       // act on a team's current match without being a team member at all.
-      //
-      // Claiming a link (a non-member writing themselves into `claim` for
-      // the first time) is deliberately NOT allowed yet — that write path
-      // belongs to Step 2 ("claim URL and magic-link exchange"), which
-      // needs its own token-proof design. For now, only a team member (the
-      // coach) can create or update this document at all; the active
-      // holder can only read it (to see their own level/revoked state).
       match /matchHandover/{handoverId} {
         allow read: if request.auth != null && (isMember(teamId) || isActiveHolder(teamId));
+
+        // The coach: full create/update, unchanged from Step 1.
         allow create, update: if request.auth != null && isMember(teamId) && isValidHandover(request.resource.data);
+
+        // Step 2 — the two-stage claim, open to ANY authenticated caller
+        // (never a team member check; this is exactly how a parent with no
+        // account gets in at all). Neither branch needs read access first —
+        // request.resource.data.diff(resource.data) lets a rule compare
+        // what's being written against what's already stored without the
+        // caller ever having read it.
+        //
+        // The security question both branches answer is "does this caller
+        // actually have the real token, or are they guessing?" — proven by
+        // requiring the SAME value to appear in both request.resource.data
+        // (what they're submitting right now) and resource.data (what's
+        // already stored). This only works because pendingClaim/claim are
+        // whole-map replacements in these updates, not deep merges — a
+        // plain nested-object value in updateDoc() replaces the entire map,
+        // it does not merge field-by-field into it, so viaToken here can
+        // never silently inherit a stale value the caller never actually
+        // submitted.
+        //
+        // Stage A (requireEmailClaim on): submit an email, get a
+        // pendingClaim carrying a fresh, single-use deviceToken — this is
+        // the token Pile 2 (the email-sending piece, not built yet) will
+        // actually deliver. A fresh request can supersede an existing
+        // pending one (whoever has the freshest link wins), but never a
+        // completed claim.
+        allow update: if request.auth != null
+          && resource.data.claim == null
+          && resource.data.revokedAt == null
+          && (resource.data.expiresAt == null || request.time.toMillis() < resource.data.expiresAt)
+          && resource.data.requireEmailClaim == true
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pendingClaim'])
+          && request.resource.data.pendingClaim.viaToken == resource.data.claimToken
+          && request.resource.data.pendingClaim.email is string
+          && request.resource.data.pendingClaim.deviceToken is string
+          && isValidHandover(request.resource.data);
+
+        // Stage B: confirm via the emailed deviceToken (requireEmailClaim
+        // on) or directly via claimToken (requireEmailClaim off, where
+        // Stage A and B are the same write — there is no pendingClaim step
+        // at all in that case). Either way this is the one write that sets
+        // claim.claimedByUid == request.auth.uid, which is what
+        // isActiveHolder() everywhere else keys on.
+        allow update: if request.auth != null
+          && resource.data.claim == null
+          && resource.data.revokedAt == null
+          && (resource.data.expiresAt == null || request.time.toMillis() < resource.data.expiresAt)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claim', 'pendingClaim'])
+          && request.resource.data.pendingClaim == null
+          && request.resource.data.claim.claimedByUid == request.auth.uid
+          && isValidHandover(request.resource.data)
+          && (
+               (resource.data.requireEmailClaim == true
+                 && resource.data.pendingClaim != null
+                 && request.resource.data.claim.viaToken == resource.data.pendingClaim.deviceToken)
+               || (resource.data.requireEmailClaim == false
+                 && request.resource.data.claim.viaToken == resource.data.claimToken)
+             );
       }
 
       match /matchState/{stateId} {

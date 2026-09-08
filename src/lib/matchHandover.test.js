@@ -5,6 +5,9 @@ import {
   isHandoverActive,
   canWriteMatch,
   canControlClock,
+  generateClaimToken,
+  canStartClaim,
+  canConfirmClaim,
 } from "./matchHandover.js";
 
 const NOW = 1_000_000_000_000; // an arbitrary fixed instant, so "now" never has to be Date.now() in a test
@@ -139,5 +142,60 @@ describe("canControlClock — the one exclusive, single-owner control", () => {
     const revoked = activeHandover({ revokedAt: NOW - 1 });
     expect(canControlClock("coach", revoked, NOW)).toBe(true);
     expect(canControlClock("parent", revoked, NOW)).toBe(false);
+  });
+});
+
+describe("generateClaimToken", () => {
+  it("returns a real, non-empty string", () => {
+    const token = generateClaimToken();
+    expect(typeof token).toBe("string");
+    expect(token.length).toBeGreaterThan(10);
+  });
+
+  it("never returns the same value twice", () => {
+    // Not a proof of cryptographic strength, but real regression coverage
+    // against ever swapping in a weak/predictable generator later.
+    const seen = new Set(Array.from({ length: 50 }, () => generateClaimToken()));
+    expect(seen.size).toBe(50);
+  });
+});
+
+describe("canStartClaim — Stage A's gate", () => {
+  it("is true for a fresh, unclaimed handover", () => {
+    expect(canStartClaim(activeHandover({ claim: null }), NOW)).toBe(true);
+  });
+
+  it("is false once someone has already fully claimed it", () => {
+    expect(canStartClaim(activeHandover(), NOW)).toBe(false);
+  });
+
+  it("is false once revoked or expired, even if unclaimed", () => {
+    expect(canStartClaim(activeHandover({ claim: null, revokedAt: NOW - 1 }), NOW)).toBe(false);
+    expect(canStartClaim(activeHandover({ claim: null, expiresAt: NOW - 1 }), NOW)).toBe(false);
+  });
+
+  it("is false with no handover at all", () => {
+    expect(canStartClaim(null, NOW)).toBe(false);
+  });
+});
+
+describe("canConfirmClaim — Stage B's gate", () => {
+  const pending = { email: "parent@example.com", deviceToken: "dev-tok", requestedAt: NOW - 100, viaToken: "tok" };
+
+  it("is true once a pending claim exists on an otherwise-startable handover", () => {
+    expect(canConfirmClaim(activeHandover({ claim: null, pendingClaim: pending }), NOW)).toBe(true);
+  });
+
+  it("is false with no pending claim yet", () => {
+    expect(canConfirmClaim(activeHandover({ claim: null, pendingClaim: null }), NOW)).toBe(false);
+  });
+
+  it("is false once already fully claimed, even if pendingClaim lingers", () => {
+    expect(canConfirmClaim(activeHandover({ pendingClaim: pending }), NOW)).toBe(false);
+  });
+
+  it("is false once revoked or expired", () => {
+    expect(canConfirmClaim(activeHandover({ claim: null, pendingClaim: pending, revokedAt: NOW - 1 }), NOW)).toBe(false);
+    expect(canConfirmClaim(activeHandover({ claim: null, pendingClaim: pending, expiresAt: NOW - 1 }), NOW)).toBe(false);
   });
 });

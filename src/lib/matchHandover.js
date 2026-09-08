@@ -22,8 +22,30 @@
 //     revokedAt: number | null,    // coach switches Match Link off entirely
 //     requireEmailClaim: boolean,
 //     claimToken: string,          // regenerating = new token + claim: null
+//     pendingClaim: {               // Step 2 — set once, when requireEmailClaim
+//                                   // is on and someone submits an email
+//                                   // (Stage A). Cleared the moment Stage B
+//                                   // completes, or superseded by a fresh
+//                                   // request if someone else submits an
+//                                   // email before Stage B happens.
+//       email: string,
+//       deviceToken: string,       // fresh, single-use — this is the token
+//                                   // Pile 2 (the email extension) actually
+//                                   // sends; NOT claimToken itself
+//       requestedAt: number,
+//       viaToken: string,          // echoes claimToken as of the moment this
+//                                   // was requested — see firestore.rules:
+//                                   // proves the requester actually had the
+//                                   // real share link, not a guessed teamId
+//     } | null,
 //     claim: {
 //       email: string | null,      // null if requireEmailClaim was off
+//       viaToken: string,          // which token completed this claim —
+//                                   // claimToken directly (requireEmailClaim
+//                                   // off) or pendingClaim.deviceToken
+//                                   // (requireEmailClaim on). Not a new
+//                                   // secret: same value already known from
+//                                   // the URL/email, kept for audit only.
 //       claimedAt: number,
 //       claimedByUid: string,      // an anonymous-auth uid — the same
 //                                   // non-account mechanism auth.js's
@@ -36,6 +58,19 @@
 //                                   // revoking the handover as a whole
 //     } | null,
 //   }
+//
+// Step 2 note on the two tokens: claimToken (share link) only ever proves
+// someone has that link — with requireEmailClaim on, it's not itself the
+// access credential, it just unlocks Stage A (submit an email). The email
+// then carries a *second*, single-use deviceToken, minted fresh in
+// pendingClaim — opening THAT is Stage B, the one that actually binds
+// claimedByUid. With requireEmailClaim off, there's no second token:
+// claimToken IS the credential, Stage A and B collapse into one write.
+// Sending the actual email is Pile 2 (a Firebase Trigger Email extension
+// write, not built yet — see the plan discussion) — everything in this
+// file and firestore.rules works independently of whether that's wired up,
+// since claiming here only needs the deviceToken to exist, not to have been
+// emailed anywhere yet.
 
 const HARD_CAP_MS = 4 * 60 * 60 * 1000; // kickoff + 4 hours
 
@@ -89,4 +124,36 @@ export function canWriteMatch(actor, handover, now = Date.now()) {
 // as it's active.
 export function canControlClock(actor, handover, now = Date.now()) {
   return isHandoverActive(handover, now) ? actor === "parent" : actor === "coach";
+}
+
+// A fresh, cryptographically-random token — used for both claimToken (the
+// share link) and pendingClaim.deviceToken (the emailed link). Deliberately
+// does NOT fall back to a weaker PRNG the way id.js's generateId() does for
+// a player id: that fallback is fine for a collision-resistant id, but
+// wrong for a bearer secret someone could otherwise guess. If a secure
+// random source genuinely isn't available, failing loudly beats minting a
+// guessable "secret".
+export function generateClaimToken() {
+  if (typeof crypto === "undefined" || typeof crypto.randomUUID !== "function") {
+    throw new Error("A secure random source is required to generate a claim token.");
+  }
+  return crypto.randomUUID();
+}
+
+// Stage A's gate — true while a share link is still open for a NEW claim to
+// begin at all: not yet fully claimed, not revoked, not expired. Used
+// client-side (Step 4's 2b screen shouldn't show a live form for a dead
+// link) and mirrors the first half of firestore.rules' own check.
+export function canStartClaim(handover, now = Date.now()) {
+  if (!handover || handover.revokedAt) return false;
+  if (handover.expiresAt != null && now >= handover.expiresAt) return false;
+  return handover.claim == null;
+}
+
+// Stage B's gate — true while a pending (emailed) claim exists and is still
+// eligible to be confirmed. Only meaningful when requireEmailClaim is on;
+// the off case never produces a pendingClaim at all (Stage A and B are the
+// same write in that case).
+export function canConfirmClaim(handover, now = Date.now()) {
+  return canStartClaim(handover, now) && handover.pendingClaim != null;
 }

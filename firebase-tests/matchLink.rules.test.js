@@ -197,3 +197,149 @@ describe("firestore.rules — matchState access for an active holder", () => {
     await assertFails(getDoc(doc(stranger.firestore(), "teams", "team1", "matchState", "current")));
   });
 });
+
+// An unclaimed handover — the starting point for every claim-flow test
+// below, whichever stage they're exercising.
+const unclaimedHandover = (overrides = {}) => ({
+  level: "subs",
+  createdAt: Date.now() - 10_000,
+  createdBy: "coach-uid",
+  stopsAtFullTime: true,
+  expiresAt: Date.now() + 3_600_000,
+  revokedAt: null,
+  requireEmailClaim: true,
+  claimToken: "share-tok",
+  pendingClaim: null,
+  claim: null,
+  ...overrides,
+});
+
+describe("firestore.rules — Step 2: the two-stage claim (requireEmailClaim on)", () => {
+  test("Stage A: presenting the real share token creates a pendingClaim", async () => {
+    await seedTeam("team1", validTeam());
+    await seedHandover("team1", unclaimedHandover());
+    const parent = testEnv.authenticatedContext("parent-uid");
+    const ref = doc(parent.firestore(), "teams", "team1", "matchHandover", "current");
+    await assertSucceeds(updateDoc(ref, {
+      pendingClaim: { email: "parent@example.com", deviceToken: "device-tok", requestedAt: Date.now(), viaToken: "share-tok" },
+    }));
+  });
+
+  test("Stage A is rejected with a guessed or wrong token", async () => {
+    await seedTeam("team1", validTeam());
+    await seedHandover("team1", unclaimedHandover());
+    const stranger = testEnv.authenticatedContext("stranger-uid");
+    const ref = doc(stranger.firestore(), "teams", "team1", "matchHandover", "current");
+    await assertFails(updateDoc(ref, {
+      pendingClaim: { email: "stranger@example.com", deviceToken: "device-tok", requestedAt: Date.now(), viaToken: "wrong-guess" },
+    }));
+  });
+
+  test("Stage A is rejected once the handover is already fully claimed", async () => {
+    await seedTeam("team1", validTeam());
+    await seedHandover("team1", unclaimedHandover({
+      claim: { email: "parent@example.com", viaToken: "share-tok", claimedAt: Date.now(), claimedByUid: "parent-uid", deviceBoundAt: Date.now(), revokedAt: null },
+    }));
+    const stranger = testEnv.authenticatedContext("stranger-uid");
+    const ref = doc(stranger.firestore(), "teams", "team1", "matchHandover", "current");
+    await assertFails(updateDoc(ref, {
+      pendingClaim: { email: "stranger@example.com", deviceToken: "device-tok", requestedAt: Date.now(), viaToken: "share-tok" },
+    }));
+  });
+
+  test("Stage B: presenting the real deviceToken completes the claim", async () => {
+    await seedTeam("team1", validTeam());
+    await seedHandover("team1", unclaimedHandover({
+      pendingClaim: { email: "parent@example.com", deviceToken: "device-tok", requestedAt: Date.now(), viaToken: "share-tok" },
+    }));
+    const parent = testEnv.authenticatedContext("parent-uid");
+    const ref = doc(parent.firestore(), "teams", "team1", "matchHandover", "current");
+    await assertSucceeds(updateDoc(ref, {
+      pendingClaim: null,
+      claim: { email: "parent@example.com", viaToken: "device-tok", claimedAt: Date.now(), claimedByUid: "parent-uid", deviceBoundAt: Date.now(), revokedAt: null },
+    }));
+  });
+
+  test("Stage B is rejected with the share token instead of the emailed device token", async () => {
+    // The exact mistake a forwarded (rather than emailed) link would make:
+    // someone tries to skip straight to Stage B using claimToken, when
+    // requireEmailClaim is on and only the emailed deviceToken is valid here.
+    await seedTeam("team1", validTeam());
+    await seedHandover("team1", unclaimedHandover({
+      pendingClaim: { email: "parent@example.com", deviceToken: "device-tok", requestedAt: Date.now(), viaToken: "share-tok" },
+    }));
+    const stranger = testEnv.authenticatedContext("stranger-uid");
+    const ref = doc(stranger.firestore(), "teams", "team1", "matchHandover", "current");
+    await assertFails(updateDoc(ref, {
+      pendingClaim: null,
+      claim: { email: "x", viaToken: "share-tok", claimedAt: Date.now(), claimedByUid: "stranger-uid", deviceBoundAt: Date.now(), revokedAt: null },
+    }));
+  });
+
+  test("a forwarded (already-claimed) link fails Stage B a second time", async () => {
+    await seedTeam("team1", validTeam());
+    await seedHandover("team1", unclaimedHandover({
+      pendingClaim: null,
+      claim: { email: "parent@example.com", viaToken: "device-tok", claimedAt: Date.now(), claimedByUid: "parent-uid", deviceBoundAt: Date.now(), revokedAt: null },
+    }));
+    const second = testEnv.authenticatedContext("second-parent-uid");
+    const ref = doc(second.firestore(), "teams", "team1", "matchHandover", "current");
+    await assertFails(updateDoc(ref, {
+      pendingClaim: null,
+      claim: { email: "y", viaToken: "device-tok", claimedAt: Date.now(), claimedByUid: "second-parent-uid", deviceBoundAt: Date.now(), revokedAt: null },
+    }));
+  });
+
+  test("regenerating the share token invalidates a stale Stage A attempt", async () => {
+    // The coach (a normal update, per Step 1's create/update rule) rotates
+    // claimToken — a request built against the old value must fail.
+    await seedTeam("team1", validTeam());
+    await seedHandover("team1", unclaimedHandover({ claimToken: "old-tok" }));
+    const coach = testEnv.authenticatedContext("coach-uid");
+    await updateDoc(doc(coach.firestore(), "teams", "team1", "matchHandover", "current"), { claimToken: "new-tok", pendingClaim: null, claim: null });
+
+    const parent = testEnv.authenticatedContext("parent-uid");
+    const ref = doc(parent.firestore(), "teams", "team1", "matchHandover", "current");
+    await assertFails(updateDoc(ref, {
+      pendingClaim: { email: "parent@example.com", deviceToken: "device-tok", requestedAt: Date.now(), viaToken: "old-tok" },
+    }));
+  });
+});
+
+describe("firestore.rules — Step 2: direct claim (requireEmailClaim off)", () => {
+  test("claimToken alone completes the claim in one write — no pendingClaim stage", async () => {
+    await seedTeam("team1", validTeam());
+    await seedHandover("team1", unclaimedHandover({ requireEmailClaim: false }));
+    const parent = testEnv.authenticatedContext("parent-uid");
+    const ref = doc(parent.firestore(), "teams", "team1", "matchHandover", "current");
+    await assertSucceeds(updateDoc(ref, {
+      pendingClaim: null,
+      claim: { email: null, viaToken: "share-tok", claimedAt: Date.now(), claimedByUid: "parent-uid", deviceBoundAt: Date.now(), revokedAt: null },
+    }));
+  });
+
+  test("is rejected with the wrong token", async () => {
+    await seedTeam("team1", validTeam());
+    await seedHandover("team1", unclaimedHandover({ requireEmailClaim: false }));
+    const stranger = testEnv.authenticatedContext("stranger-uid");
+    const ref = doc(stranger.firestore(), "teams", "team1", "matchHandover", "current");
+    await assertFails(updateDoc(ref, {
+      pendingClaim: null,
+      claim: { email: null, viaToken: "wrong-guess", claimedAt: Date.now(), claimedByUid: "stranger-uid", deviceBoundAt: Date.now(), revokedAt: null },
+    }));
+  });
+
+  test("a Stage-B-shaped write using pendingClaim.deviceToken semantics does not apply here — there is no pendingClaim to lean on", async () => {
+    await seedTeam("team1", validTeam());
+    await seedHandover("team1", unclaimedHandover({ requireEmailClaim: false }));
+    const parent = testEnv.authenticatedContext("parent-uid");
+    const ref = doc(parent.firestore(), "teams", "team1", "matchHandover", "current");
+    // Even a technically-well-formed claim write fails if it tries to
+    // justify itself via a pendingClaim path that was never valid for this
+    // handover in the first place.
+    await assertFails(updateDoc(ref, {
+      pendingClaim: null,
+      claim: { email: "x", viaToken: "some-device-token-that-was-never-issued", claimedAt: Date.now(), claimedByUid: "parent-uid", deviceBoundAt: Date.now(), revokedAt: null },
+    }));
+  });
+});
