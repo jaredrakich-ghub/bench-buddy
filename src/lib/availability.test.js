@@ -9,8 +9,6 @@ import {
   summarizeAnswers,
   describeReplyState,
   describeSetupSummary,
-  keeperNoteIds,
-  hasNoteChip,
   waitingChildren,
   formatMatchWhen,
   formatFixture,
@@ -28,8 +26,8 @@ const SQUAD = [
 ];
 
 describe("NOTE_CHIP_OPTIONS", () => {
-  it("has exactly the three preset chips the README specifies", () => {
-    expect(NOTE_CHIP_OPTIONS.map((c) => c.key)).toEqual(["late", "early", "goalkeeper"]);
+  it("has exactly the two preset chips parents can pick — no goalkeeper note (real-use feedback: not wanted)", () => {
+    expect(NOTE_CHIP_OPTIONS.map((c) => c.key)).toEqual(["late", "early"]);
   });
 });
 
@@ -159,28 +157,6 @@ describe("describeSetupSummary", () => {
     expect(describeSetupSummary(bigSquad, answers)).toBe(
       "5 of 5 answered your link. Player 0, Player 1, Player 2 +2 more are out."
     );
-  });
-});
-
-describe("keeperNoteIds / hasNoteChip", () => {
-  it("collects only the children who noted 'Can keep goal' this match", () => {
-    const answers = {
-      p1: { status: "in", noteChips: ["goalkeeper"] },
-      p2: { status: "in", noteChips: ["late"] },
-      p3: { status: "in", noteChips: ["goalkeeper", "early"] },
-    };
-    expect(keeperNoteIds(SQUAD, answers)).toEqual(["p1", "p3"]);
-  });
-
-  it("is empty when nobody noted it, including when nobody's answered at all", () => {
-    expect(keeperNoteIds(SQUAD, {})).toEqual([]);
-  });
-
-  it("hasNoteChip looks up a single child's own note without needing the full list", () => {
-    const answers = { p1: { status: "in", noteChips: ["late"] } };
-    expect(hasNoteChip(answers, "p1", "late")).toBe(true);
-    expect(hasNoteChip(answers, "p1", "early")).toBe(false);
-    expect(hasNoteChip(answers, "p2", "late")).toBe(false); // never answered at all
   });
 });
 

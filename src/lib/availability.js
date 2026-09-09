@@ -73,13 +73,14 @@ export function buildAvailabilityUrl(teamId, token) {
   return `https://app.benchbuddysports.com/?team=${encodeURIComponent(teamId)}&a=${encodeURIComponent(token)}`;
 }
 
-// The three preset note chips (README > Notes) — one shared source of
-// truth for both the parent's page (1b/1c) and the coach's setup screen
-// (1d), so a label or key never drifts between the two.
+// The preset note chips (README > Notes) — one shared source of truth for
+// the parent's page (1b/1c), so a label or key never drifts anywhere else
+// that reads it. "Can keep goal" was here too originally, but real-use
+// feedback was clear: parents shouldn't be asked that at all. Dropped
+// rather than just hidden — see keeperNoteIds' own removal, same commit.
 export const NOTE_CHIP_OPTIONS = [
   { key: "late", label: "Arriving late" },
   { key: "early", label: "Leaving early" },
-  { key: "goalkeeper", label: "Can keep goal" },
 ];
 
 // A brand new request — always a full replace (mirrors matchHandover.js's
@@ -201,30 +202,12 @@ export function describeSetupSummary(squad, answers) {
   return parts.join(" ");
 }
 
-// Step 5's own union: a child who noted "Can keep goal" for THIS match is
-// goalkeeper-eligible for THIS rotation build, regardless of their
-// roster-level keeperEligible flag (README > Notes: "Can keep goal should
-// feed the goalkeeper rotation the app already builds") — additive only,
-// never removes an already-eligible player who didn't answer or didn't
-// note it.
-export function keeperNoteIds(squad, answers) {
-  return squad.filter((p) => answers[p.id]?.noteChips?.includes("goalkeeper")).map((p) => p.id);
-}
-
 // Step 6's own "Nudge the two waiting" — who, by name, hasn't answered at
 // all yet. Distinct from summarizeAnswers' own waitingCount, which only
 // needs the number; the nudge action needs to actually name them in the
 // reminder it composes.
 export function waitingChildren(squad, answers) {
   return squad.filter((p) => !answers[p.id]);
-}
-
-// The two note-driven flags Step 5 needs to surface at rotation-build time
-// (README > Notes: "should be visible... not buried") — a plain lookup by
-// child id, not a derived list, since the caller already knows which
-// child it's rendering a row for.
-export function hasNoteChip(answers, childId, chipKey) {
-  return !!answers[childId]?.noteChips?.includes(chipKey);
 }
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];

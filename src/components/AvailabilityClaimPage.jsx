@@ -111,7 +111,15 @@ export default function AvailabilityClaimPage({ teamId, token }) {
   }
 
   return (
-    <div style={styles.mdClaimPage}>
+    // Top-anchored, not mdClaimPage's usual centered layout: this view's
+    // own height changes as the parent interacts (picking a status, toggling
+    // a note chip, an error appearing) — vertically centering a growing
+    // block means it recentres on every change, so "Send to coach" never
+    // sits still and scrolling to it feels like chasing a moving target
+    // (real-use feedback). The short screens (pick-a-child, thanks,
+    // dead-link) keep mdClaimPage's own centering — only this one, which
+    // reliably runs long enough to scroll, opts out.
+    <div style={{ ...styles.mdClaimPage, justifyContent: "flex-start", paddingTop: 40 }}>
       <div style={styles.mdClaimInner}>
         <button style={styles.mdAvailFixtureDetailBtn} onClick={() => setSelectedChildId(null)}>
           ‹ Not your child? Pick again
