@@ -2637,9 +2637,13 @@ export const styles = {
   mdAvailPromptTitle: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 16, color: tokens.color.deepGreen },
   mdAvailPromptSub: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 12.5, color: tokens.color.mutedText },
   mdAvailSummaryLine: {
+    // No trailing `font: "inherit"` button-reset here — every font property
+    // is already set explicitly, and (per mdExecuteUndoPill's own comment
+    // above) a shorthand applied after longhand values clobbers them the
+    // moment React sets it.
     background: tokens.color.availGreenTint, borderRadius: tokens.radius.rowMd, padding: "13px 15px",
     fontFamily: tokens.font.body, fontWeight: 700, fontSize: 14.5, lineHeight: 1.4, color: tokens.color.deepGreen,
-    marginBottom: 14, border: "none", width: "100%", textAlign: "left", cursor: "pointer", font: "inherit",
+    marginBottom: 14, border: "none", width: "100%", textAlign: "left", cursor: "pointer",
   },
   mdAvailSummaryLineMuted: { color: tokens.color.mutedText },
   // Step 6's own "Nudge the two waiting" row — deliberately small/quiet
