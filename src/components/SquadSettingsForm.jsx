@@ -11,7 +11,7 @@ import { styles, tokens } from "./styles.js";
 import { RotateIcon } from "./strokeIcons.jsx";
 import SignIn from "./SignIn.jsx";
 import {
-  describeSetupSummary, hasNoteChip, waitingChildren, buildNudgeMessage, buildAvailabilityUrl, NOTE_CHIP_OPTIONS,
+  describeSetupSummary, waitingChildren, buildNudgeMessage, buildAvailabilityUrl,
 } from "../lib/availability.js";
 
 // Drawn (stroke, not solid-fill) icons for the edit layout's own four
@@ -790,15 +790,10 @@ export default function SquadSettingsForm({
             const isAvailable = availableIds.includes(p.id);
             const answerStatus = answers?.[p.id]?.status;
             const statusSuffix = !isAvailable && answers ? (answerStatus === "out" ? " · out" : " · waiting") : "";
-            const noteKey = NOTE_CHIP_OPTIONS.find((c) => hasNoteChip(answers || {}, p.id, c.key))?.key;
             return (
               <button
                 key={p.id}
-                style={{
-                  ...styles.mdBenchChip,
-                  ...(isAvailable ? {} : styles.mdSetupChipOut),
-                  ...(isAvailable && noteKey ? styles.mdAvailNoteChip : {}),
-                }}
+                style={{ ...styles.mdBenchChip, ...(isAvailable ? {} : styles.mdSetupChipOut) }}
                 onClick={() => toggleAvailable(p.id)}
               >
                 <span style={{ ...styles.mdBenchChipNumber, ...(isAvailable ? {} : styles.mdSetupChipOutNumber) }}>
@@ -808,9 +803,6 @@ export default function SquadSettingsForm({
                   {p.name}
                   {statusSuffix && <span style={styles.mdAvailStatusSuffix}>{statusSuffix}</span>}
                 </span>
-                {isAvailable && noteKey && (
-                  <span style={styles.mdAvailNoteTag}>{noteKey === "goalkeeper" ? "keeper" : noteKey}</span>
-                )}
               </button>
             );
           })}

@@ -1083,19 +1083,6 @@ describe("SquadSettingsForm — Availability link fold-in (1d)", () => {
     expect(toggleAvailable).toHaveBeenCalledWith("p1");
   });
 
-  it("tags an available child's chip with their note ('late'/'early'/'keeper')", () => {
-    const availabilityRequest = {
-      squad: [{ id: "p1", name: "Alice", number: 1 }],
-      answers: { p1: { status: "in", noteChips: ["goalkeeper"] } },
-    };
-    render(
-      <SquadSettingsForm
-        {...baseProps({ variant: "edit", confirmAvailability: true, availableIds: ["p1"], onShowAvailability: vi.fn(), availabilityRequest })}
-      />
-    );
-    expect(screen.getByText("keeper")).toBeInTheDocument();
-  });
-
   it("renders none of this when onShowAvailability isn't passed — every other call site is unaffected", () => {
     render(<SquadSettingsForm {...baseProps({ variant: "edit", confirmAvailability: true })} />);
     expect(screen.queryByText("Ask who's playing")).not.toBeInTheDocument();

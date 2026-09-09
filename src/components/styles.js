@@ -2655,12 +2655,5 @@ export const styles = {
     fontFamily: tokens.font.body, fontWeight: 800, fontSize: 13, color: tokens.color.goldText, cursor: "pointer",
   },
 
-  // Note tag on an in-chip (SquadSettingsForm's own renderSquadChips) —
-  // the gold ring + short label the 1d mockup shows on a child who noted
-  // something for this match.
-  mdAvailNoteChip: { border: `2px solid ${tokens.color.yellow}` },
-  mdAvailNoteTag: {
-    marginLeft: 4, fontFamily: tokens.font.body, fontWeight: 800, fontSize: 11, color: tokens.color.goldText,
-  },
   mdAvailStatusSuffix: { fontWeight: 700, opacity: 0.85 },
 };
