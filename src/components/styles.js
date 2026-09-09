@@ -2504,7 +2504,18 @@ export const styles = {
   // creamPaper/creamDeep, scrim) except `grabber`, added alongside the rest
   // above for a value the spec calls out that nothing existing matches.
   mdClaimPage: {
-    minHeight: "100dvh", background: tokens.color.creamPaper, backgroundImage: paperTexture,
+    // height + overflowY (not minHeight relying on the document/body to
+    // scroll) — real-use feedback: opened from a WhatsApp-shared link, this
+    // renders inside WhatsApp's own in-app browser (a WKWebView with its
+    // own chrome, confirmed from the screenshot: "◄ WhatsApp" + its own
+    // address bar), and in-app browsers like it are notorious for not
+    // reliably scrolling a page that only overflows the document/body —
+    // WebKitOverflowScrolling:"touch" plus making this div its own scroll
+    // container is the standard, reliable fix. Content taller than one
+    // screen now scrolls inside mdClaimPage itself instead of growing the
+    // whole page past 100dvh and hoping the host browser scrolls it.
+    height: "100dvh", overflowY: "auto", WebkitOverflowScrolling: "touch",
+    background: tokens.color.creamPaper, backgroundImage: paperTexture,
     display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
     padding: "32px 24px", boxSizing: "border-box", gap: 18,
   },
