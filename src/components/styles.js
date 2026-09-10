@@ -2635,12 +2635,14 @@ export const styles = {
   },
 
   // The setup screen's own (1d) entry point / summary line — one shared
-  // pill for both states (no link sent yet / a link's already out),
-  // sitting directly under the "Who's here" heading it fills in. Used to
-  // be its own icon+title card above "Who's here" (mdAvailPrompt, retired)
-  // — real-use feedback was that reading as a second, separate question
-  // rather than a shortcut to the one question already there. The pill's
-  // own background is what signals "tap me" now; no icon, no chevron.
+  // pill for both states (no link sent yet / a link's already out), sitting
+  // after the "Who's here" chip grid — the manual roster edit is the
+  // primary, step-one action; this is a secondary tool for doing the same
+  // thing via link, so it reads better following the primary action than
+  // leading it. Used to be its own icon+title card above "Who's here"
+  // entirely (mdAvailPrompt, retired), then a line directly under the
+  // heading before the chips — real-use feedback moved it twice. The
+  // pill's own background is what signals "tap me"; no icon, no chevron.
   mdAvailSummaryLine: {
     // No trailing `font: "inherit"` button-reset here — every font property
     // is already set explicitly, and (per mdExecuteUndoPill's own comment

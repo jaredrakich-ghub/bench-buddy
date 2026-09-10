@@ -1242,22 +1242,26 @@ export default function SquadSettingsForm({
               <span style={styles.mdSetupDropOutHint}>tap to drop out</span>
               {renderSelectAll()}
             </div>
-            {/* Availability link — README > 1d, redesigned per real-use
-                feedback: this used to be its own card (icon + "Ask who's
-                playing" title) sitting ABOVE "Who's here", which read as a
-                second, separate question rather than a shortcut to
-                answering the one question that was already there. Now it's
-                a plain line directly under the "Who's here" heading it's
-                actually filling in — same pill styling both states already
-                shared, no icon, no chevron (the pill's own background
-                already says "tap me"; a chevron on top of that was
-                over-signaling). The summary line IS the entry point back
-                into 1a (edit the closing time, reshare, regenerate) once a
-                request exists; the plain prompt shows instead when there's
-                none yet. Only ever rendered for this same "Set up next
-                game" moment — asking availability for a game already
-                mid-setup elsewhere (plain "Game settings") isn't this
-                feature's job. */}
+            {renderSquadChips()}
+            {/* Availability link — README > 1d, redesigned twice per
+                real-use feedback: first moved from its own card ABOVE
+                "Who's here" (read as a second, separate question) to a
+                line directly under the heading; then moved again, to here
+                — after the chip grid, not before it. Setting the roster by
+                hand (the chip grid above) is the primary, step-one action;
+                the link is a secondary tool for doing that same thing
+                without touching each chip yourself, so it reads better
+                coming after the primary action than ahead of it. Same pill
+                styling both states already shared, no icon, no chevron
+                (the pill's own background already says "tap me"). The
+                summary line IS the entry point back into 1a (edit the
+                closing time, reshare, regenerate) once a request exists;
+                the plain prompt shows instead when there's none yet. Only
+                ever rendered for this same "Set up next game" moment —
+                asking availability for a game already mid-setup elsewhere
+                (plain "Game settings") isn't this feature's job. Copy:
+                "who's here" alone reads as open-ended ("here when?") —
+                "for the game" ties it to the thing actually being set up. */}
             {onShowAvailability &&
               (availabilityRequest ? (
                 <button style={styles.mdAvailSummaryLine} onClick={onShowAvailability}>
@@ -1267,7 +1271,7 @@ export default function SquadSettingsForm({
                 </button>
               ) : (
                 <button style={styles.mdAvailSummaryLine} onClick={onShowAvailability}>
-                  Confirm who's here via link
+                  Confirm availability for the game via link
                 </button>
               ))}
             {/* Step 6 — "the loop back": a one-tap reminder for whoever
@@ -1277,7 +1281,9 @@ export default function SquadSettingsForm({
                 push notifications when an answer lands are Pile 2, deferred
                 until there's a backend to send them from). Only shown once
                 a request exists and somebody's still outstanding; folds
-                away on its own the moment everyone's replied. */}
+                away on its own the moment everyone's replied. Stays right
+                after the summary line, not the chip grid — still about the
+                link/answers, not the roster. */}
             {availabilityRequest && teamId && (() => {
               const waiting = waitingChildren(availabilityRequest.squad, availabilityRequest.answers);
               if (waiting.length === 0) return null;
@@ -1293,7 +1299,6 @@ export default function SquadSettingsForm({
                 </button>
               );
             })()}
-            {renderSquadChips()}
           </div>
         )}
 

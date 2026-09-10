@@ -1038,11 +1038,19 @@ describe("SquadSettingsForm — validation and submit", () => {
 // uses; onShowAvailability being undefined (every other call site) means
 // none of this new UI renders at all, same as today.
 describe("SquadSettingsForm — Availability link fold-in (1d)", () => {
-  it("shows the plain 'Confirm who's here via link' prompt when no request exists yet, directly under the Who's here heading", () => {
+  it("shows the plain 'Confirm availability for the game via link' prompt when no request exists yet, after the chip grid", () => {
     const onShowAvailability = vi.fn();
     render(<SquadSettingsForm {...baseProps({ variant: "edit", confirmAvailability: true, onShowAvailability, availabilityRequest: null })} />);
-    expect(screen.getByText("Confirm who's here via link")).toBeInTheDocument();
+    expect(screen.getByText("Confirm availability for the game via link")).toBeInTheDocument();
     expect(screen.queryByText(/answered your link/)).not.toBeInTheDocument();
+  });
+
+  it("positions the prompt after the chip grid — the manual roster edit is the primary action, the link a secondary one", () => {
+    render(<SquadSettingsForm {...baseProps({ variant: "edit", confirmAvailability: true, onShowAvailability: vi.fn(), availabilityRequest: null })} />);
+    const chip = screen.getByText("Alice").closest("button");
+    const prompt = screen.getByText("Confirm availability for the game via link").closest("button");
+    // DOCUMENT_POSITION_FOLLOWING (4): chip comes before prompt in document order.
+    expect(chip.compareDocumentPosition(prompt) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("shows the summary line instead once a request exists, and it opens 1a", async () => {
@@ -1053,7 +1061,7 @@ describe("SquadSettingsForm — Availability link fold-in (1d)", () => {
       answers: { p1: { status: "in", noteChips: [] } },
     };
     render(<SquadSettingsForm {...baseProps({ variant: "edit", confirmAvailability: true, onShowAvailability, availabilityRequest })} />);
-    expect(screen.queryByText("Confirm who's here via link")).not.toBeInTheDocument();
+    expect(screen.queryByText("Confirm availability for the game via link")).not.toBeInTheDocument();
     await user.click(screen.getByText(/answered your link/));
     expect(onShowAvailability).toHaveBeenCalledTimes(1);
   });
@@ -1085,6 +1093,6 @@ describe("SquadSettingsForm — Availability link fold-in (1d)", () => {
 
   it("renders none of this when onShowAvailability isn't passed — every other call site is unaffected", () => {
     render(<SquadSettingsForm {...baseProps({ variant: "edit", confirmAvailability: true })} />);
-    expect(screen.queryByText("Confirm who's here via link")).not.toBeInTheDocument();
+    expect(screen.queryByText("Confirm availability for the game via link")).not.toBeInTheDocument();
   });
 });
