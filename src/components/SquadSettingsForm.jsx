@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Shuffle, ChevronDown, Check, Send, Bell } from "lucide-react";
+import { Plus, Shuffle, ChevronDown, Check, Bell } from "lucide-react";
 import {
   computeIntervals, computeBreakBoundaries, keeperShiftIntervalsFor, generatePlan, computeFairnessSpread, isFairSpread,
   recommendSubIntervals, assessKeeperShift, fairnessRelevantIds,
@@ -1236,13 +1236,28 @@ export default function SquadSettingsForm({
             ever. */}
         {confirmAvailability && (
           <div style={{ marginTop: 2 }}>
-            {/* Availability link — README > 1d: the summary line IS the
-                entry point back into 1a (edit the closing time, reshare,
-                regenerate) once a request exists; the plain "Ask the
-                group" prompt shows instead when there's none yet. Only
-                ever rendered for this same "Set up next game" moment —
-                asking availability for a game already mid-setup elsewhere
-                (plain "Game settings") isn't this feature's job. */}
+            <div style={styles.mdSetupHeaderInRow}>
+              <div style={styles.mdSetupSectionTitle}>Who's here</div>
+              <span style={styles.mdSetupInChip}>{availableIds.length} in</span>
+              <span style={styles.mdSetupDropOutHint}>tap to drop out</span>
+              {renderSelectAll()}
+            </div>
+            {/* Availability link — README > 1d, redesigned per real-use
+                feedback: this used to be its own card (icon + "Ask who's
+                playing" title) sitting ABOVE "Who's here", which read as a
+                second, separate question rather than a shortcut to
+                answering the one question that was already there. Now it's
+                a plain line directly under the "Who's here" heading it's
+                actually filling in — same pill styling both states already
+                shared, no icon, no chevron (the pill's own background
+                already says "tap me"; a chevron on top of that was
+                over-signaling). The summary line IS the entry point back
+                into 1a (edit the closing time, reshare, regenerate) once a
+                request exists; the plain prompt shows instead when there's
+                none yet. Only ever rendered for this same "Set up next
+                game" moment — asking availability for a game already
+                mid-setup elsewhere (plain "Game settings") isn't this
+                feature's job. */}
             {onShowAvailability &&
               (availabilityRequest ? (
                 <button style={styles.mdAvailSummaryLine} onClick={onShowAvailability}>
@@ -1251,14 +1266,8 @@ export default function SquadSettingsForm({
                   )}
                 </button>
               ) : (
-                <button style={styles.mdAvailPrompt} onClick={onShowAvailability}>
-                  <span style={styles.mdAvailPromptIcon}>
-                    <Send size={17} color={tokens.color.goldText} />
-                  </span>
-                  <span>
-                    <div style={styles.mdAvailPromptTitle}>Ask who's playing</div>
-                    <div style={styles.mdAvailPromptSub}>Send one link to the group — answers land here.</div>
-                  </span>
+                <button style={styles.mdAvailSummaryLine} onClick={onShowAvailability}>
+                  Confirm who's here via link
                 </button>
               ))}
             {/* Step 6 — "the loop back": a one-tap reminder for whoever
@@ -1284,12 +1293,6 @@ export default function SquadSettingsForm({
                 </button>
               );
             })()}
-            <div style={styles.mdSetupHeaderInRow}>
-              <div style={styles.mdSetupSectionTitle}>Who's here</div>
-              <span style={styles.mdSetupInChip}>{availableIds.length} in</span>
-              <span style={styles.mdSetupDropOutHint}>tap to drop out</span>
-              {renderSelectAll()}
-            </div>
             {renderSquadChips()}
           </div>
         )}

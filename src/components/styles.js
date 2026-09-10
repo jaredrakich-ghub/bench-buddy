@@ -2634,19 +2634,13 @@ export const styles = {
     fontFamily: tokens.font.body, fontWeight: 800, fontSize: 13.5, color: tokens.color.mutedText, cursor: "pointer",
   },
 
-  // The setup screen's own (1d) entry point / summary card — small enough
-  // to live right where "Who's here" begins, per the mockup.
-  mdAvailPrompt: {
-    display: "flex", alignItems: "center", gap: 12, width: "100%", background: "#fff",
-    borderRadius: tokens.radius.rowLg, border: "none", padding: "13px 16px",
-    boxShadow: tokens.shadow.solid(3, "rgba(28,58,46,.10)"), cursor: "pointer", textAlign: "left", font: "inherit", marginBottom: 14,
-  },
-  mdAvailPromptIcon: {
-    width: 38, height: 38, borderRadius: 12, background: tokens.color.headerYellow, flexShrink: 0,
-    display: "flex", alignItems: "center", justifyContent: "center",
-  },
-  mdAvailPromptTitle: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 16, color: tokens.color.deepGreen },
-  mdAvailPromptSub: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 12.5, color: tokens.color.mutedText },
+  // The setup screen's own (1d) entry point / summary line — one shared
+  // pill for both states (no link sent yet / a link's already out),
+  // sitting directly under the "Who's here" heading it fills in. Used to
+  // be its own icon+title card above "Who's here" (mdAvailPrompt, retired)
+  // — real-use feedback was that reading as a second, separate question
+  // rather than a shortcut to the one question already there. The pill's
+  // own background is what signals "tap me" now; no icon, no chevron.
   mdAvailSummaryLine: {
     // No trailing `font: "inherit"` button-reset here — every font property
     // is already set explicitly, and (per mdExecuteUndoPill's own comment

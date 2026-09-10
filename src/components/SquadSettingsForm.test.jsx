@@ -1038,10 +1038,10 @@ describe("SquadSettingsForm — validation and submit", () => {
 // uses; onShowAvailability being undefined (every other call site) means
 // none of this new UI renders at all, same as today.
 describe("SquadSettingsForm — Availability link fold-in (1d)", () => {
-  it("shows the plain 'Ask who's playing' prompt when no request exists yet", () => {
+  it("shows the plain 'Confirm who's here via link' prompt when no request exists yet, directly under the Who's here heading", () => {
     const onShowAvailability = vi.fn();
     render(<SquadSettingsForm {...baseProps({ variant: "edit", confirmAvailability: true, onShowAvailability, availabilityRequest: null })} />);
-    expect(screen.getByText("Ask who's playing")).toBeInTheDocument();
+    expect(screen.getByText("Confirm who's here via link")).toBeInTheDocument();
     expect(screen.queryByText(/answered your link/)).not.toBeInTheDocument();
   });
 
@@ -1053,7 +1053,7 @@ describe("SquadSettingsForm — Availability link fold-in (1d)", () => {
       answers: { p1: { status: "in", noteChips: [] } },
     };
     render(<SquadSettingsForm {...baseProps({ variant: "edit", confirmAvailability: true, onShowAvailability, availabilityRequest })} />);
-    expect(screen.queryByText("Ask who's playing")).not.toBeInTheDocument();
+    expect(screen.queryByText("Confirm who's here via link")).not.toBeInTheDocument();
     await user.click(screen.getByText(/answered your link/));
     expect(onShowAvailability).toHaveBeenCalledTimes(1);
   });
@@ -1085,6 +1085,6 @@ describe("SquadSettingsForm — Availability link fold-in (1d)", () => {
 
   it("renders none of this when onShowAvailability isn't passed — every other call site is unaffected", () => {
     render(<SquadSettingsForm {...baseProps({ variant: "edit", confirmAvailability: true })} />);
-    expect(screen.queryByText("Ask who's playing")).not.toBeInTheDocument();
+    expect(screen.queryByText("Confirm who's here via link")).not.toBeInTheDocument();
   });
 });
