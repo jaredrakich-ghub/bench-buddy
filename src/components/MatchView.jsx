@@ -702,6 +702,14 @@ export default function MatchView({
   onShowSummary,
   onShowSeason,
   onShowSettings,
+  // Real-use feedback: a coach who opens "Set up next game" and backs out
+  // without actually building a new rotation (nothing lost — availableIds/
+  // gameSettings changes there save live, same as everywhere else — see
+  // SubRotationPlanner's own hasOpenedSetupThisGame comment) came back to a
+  // button that still said "Start new game", reading as "begin again from
+  // scratch" even though most of the setup work was already saved. Optional
+  // and defaults falsy so every other/older caller keeps today's copy.
+  setupInProgress = false,
   onShowSquadChange,
   onShowMatchLink,
   onShowTeamSwitcher,
@@ -1725,7 +1733,7 @@ export default function MatchView({
                 settings — squarely the coach's job, not the parent's. */}
             {!parentMode && (
               <button style={styles.confirmBtn} onClick={onShowSettings}>
-                Start new game
+                {setupInProgress ? "Continue Set Up" : "Start new game"}
               </button>
             )}
           </div>

@@ -3,6 +3,7 @@ import {
   generateAvailabilityToken,
   createAvailabilityRequest,
   isRequestClosed,
+  isRequestStale,
   reopenAvailabilityRequest,
   canAnswer,
   buildAnswer,
@@ -70,6 +71,26 @@ describe("isRequestClosed — display framing only, never a gate", () => {
 
   it("is false for no request at all", () => {
     expect(isRequestClosed(null, NOW)).toBe(false);
+  });
+});
+
+describe("isRequestStale — a request whose own match has already happened", () => {
+  it("is false before matchAt", () => {
+    expect(isRequestStale({ matchAt: NOW + 1 }, NOW)).toBe(false);
+  });
+
+  it("is true at and after matchAt", () => {
+    expect(isRequestStale({ matchAt: NOW }, NOW)).toBe(true);
+    expect(isRequestStale({ matchAt: NOW - 1 }, NOW)).toBe(true);
+  });
+
+  it("ignores closingAt/revokedAt entirely — staleness is about the match, not the RSVP window", () => {
+    expect(isRequestStale({ matchAt: NOW + 1000, closingAt: NOW - 1000, revokedAt: NOW - 1 }, NOW)).toBe(false);
+  });
+
+  it("is false for no request at all, or one with no matchAt", () => {
+    expect(isRequestStale(null, NOW)).toBe(false);
+    expect(isRequestStale({}, NOW)).toBe(false);
   });
 });
 

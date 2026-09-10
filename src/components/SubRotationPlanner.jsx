@@ -19,6 +19,7 @@ import MatchLinkScreen from "./MatchLinkScreen.jsx";
 import AvailabilityScreen from "./AvailabilityScreen.jsx";
 import LoadingScreen from "./LoadingScreen.jsx";
 import { fetchAvailabilityRequest } from "../lib/availabilityIo.js";
+import { isRequestStale } from "../lib/availability.js";
 import RotationProgressOverlay from "./RotationProgressOverlay.jsx";
 import headerMascot from "../assets/header-mascot.svg";
 
@@ -65,6 +66,16 @@ export default function SubRotationPlanner({ user }) {
   // closes, so the "Set up next game" summary reflects anything the coach
   // just created/edited/regenerated in there.
   const [availabilityRequest, setAvailabilityRequest] = useState(null);
+  // Real-use feedback — "Continue Set Up": a coach who opens "Set up next
+  // game" and backs out without building a new rotation hasn't lost
+  // anything (availableIds/gameSettings there save live, not gated behind
+  // Build new rotation), but the match-complete banner's button still read
+  // "Start new game" as if nothing had happened. This is purely a local
+  // session flag for that one word of copy — not persisted, nothing else
+  // reads it — set the moment onShowSettings actually opens the screen,
+  // cleared the moment a fresh rotation is actually built (isMatchComplete
+  // goes false) or the coach switches teams entirely.
+  const [hasOpenedSetupThisGame, setHasOpenedSetupThisGame] = useState(false);
   // Team & account's own "Manage squad" row — a dedicated screen now
   // (ManageSquadScreen.jsx), not a pre-expanded section inside Game
   // settings. Real-use feedback: Game settings/new-team setup no longer
@@ -79,6 +90,10 @@ export default function SubRotationPlanner({ user }) {
   const saveError = teamRegistry.saveError || match.saveError;
 
   useEffect(() => {
+    // A team switch means a different game's "Set up next game" (or none at
+    // all) — the flag shouldn't carry over from whichever team was active
+    // before.
+    setHasOpenedSetupThisGame(false);
     if (!activeTeamId) {
       setAvailabilityRequest(null);
       return;
@@ -89,6 +104,22 @@ export default function SubRotationPlanner({ user }) {
       cancelled = true;
     };
   }, [activeTeamId]);
+
+  // Computed here (early, alongside the other hooks it feeds) rather than
+  // down by its other consumers purely so the Continue Set Up effect right
+  // below — a real hook — can depend on it without landing after the
+  // `loading || !teamData` early return further down and breaking the
+  // Rules of Hooks.
+  const isMatchComplete = Boolean(plan) && elapsedSec >= plan[plan.length - 1].endMin * 60;
+
+  // Continue Set Up — see hasOpenedSetupThisGame's own comment. Cleared the
+  // moment isMatchComplete goes false, which covers the real "done" case (a
+  // fresh rotation just got built via Build new rotation — commitFreshPlan
+  // resets elapsedSec to 0) without needing this effect to know anything
+  // about that reset itself.
+  useEffect(() => {
+    if (!isMatchComplete) setHasOpenedSetupThisGame(false);
+  }, [isMatchComplete]);
 
   // Makes `team` the active one and loads whatever match state belongs to
   // it (resuming an in-progress game, Phase 3 style, or starting fresh if
@@ -408,7 +439,17 @@ export default function SubRotationPlanner({ user }) {
   // SquadSettingsForm lets a coach actually assign one.
   const numberOf = (id) => getSquadNumber(teamData.roster.find((p) => p.id === id) || { id }, teamData.roster);
 
-  const isMatchComplete = Boolean(plan) && elapsedSec >= plan[plan.length - 1].endMin * 60;
+  // Real-use feedback: a coach finishing a game and tapping "Start new
+  // game" kept seeing the PREVIOUS game's availability answers presented as
+  // live for the one they were setting up — same summary pill, same
+  // pre-filled "Who's here" — because nothing ever marked a request "done"
+  // once its own match had been played. isRequestStale (matchAt already
+  // passed) is the fix: a stale request is treated as if none existed at
+  // all for every UI purpose below, without touching the document itself —
+  // AvailabilityScreen.jsx fetches its own copy independently and still
+  // shows the real (stale) request there, since that's exactly where a
+  // coach regenerates it.
+  const currentAvailabilityRequest = availabilityRequest && !isRequestStale(availabilityRequest) ? availabilityRequest : null;
 
   // SaveTeamSheet's own "team photo" — the coach's current on-field/bench
   // split, same interval MatchView itself is showing live (intervalAtElapsed,
@@ -458,13 +499,14 @@ export default function SubRotationPlanner({ user }) {
     // every browser's Tab key out of a hidden-but-still-focusable
     // control), so the build sequence can't be restarted underneath it.
     overlayOpen: Boolean(rotationOverlayStats),
-    // Availability link — the "Who's here" entry point/summary card
+    // Availability link — the "Who's here" entry point/summary line
     // (rendered only for confirmAvailability's own "Set up next game"
-    // moment, same gate the chip-row confirm block already uses). null
-    // availabilityRequest is the common case (feature unused, or no
-    // request sent for this team yet) and renders the plain "Ask the
-    // group" prompt instead of a summary.
-    availabilityRequest,
+    // moment, same gate the chip-row confirm block already uses).
+    // currentAvailabilityRequest, not the raw fetched one — a stale
+    // request (its own match already happened) renders exactly like null
+    // here: the plain "Confirm who's here via link" prompt, not last
+    // game's answers presented as live for this one.
+    availabilityRequest: currentAvailabilityRequest,
     onShowAvailability: () => setShowAvailability(true),
     // Step 6 — the nudge action needs teamId itself to rebuild the share
     // URL (buildAvailabilityUrl(teamId, token)); nothing else in
@@ -560,24 +602,26 @@ export default function SubRotationPlanner({ user }) {
             onReset={resetClock}
             onShowSummary={() => setShowSummaryModal(true)}
             onShowSeason={() => setShowSeasonModal(true)}
+            setupInProgress={hasOpenedSetupThisGame}
             onShowSettings={() => {
               // Availability link, Step 5's own fold-in: opening "Set up
               // next game" specifically (not a plain mid-match Game
               // settings visit — isMatchComplete is exactly the condition
               // squadSettingsProps' own confirmAvailability already keys
               // on) pre-selects whoever answered "in", when there's an
-              // active request with real answers to draw from. Falls
-              // through to the existing carried-over-list behavior
-              // (untouched) whenever there's no request, or nobody's
-              // answered yet — same "confirm, don't re-decide from
-              // scratch" contract this screen already had before this
-              // feature existed.
-              if (isMatchComplete && availabilityRequest?.answers) {
+              // active, non-stale request with real answers to draw from.
+              // Falls through to the existing carried-over-list behavior
+              // (untouched) whenever there's no request, it's stale (see
+              // currentAvailabilityRequest), or nobody's answered yet —
+              // same "confirm, don't re-decide from scratch" contract this
+              // screen already had before this feature existed.
+              if (isMatchComplete && currentAvailabilityRequest?.answers) {
                 const inIds = teamData.roster
-                  .filter((p) => availabilityRequest.answers[p.id]?.status === "in")
+                  .filter((p) => currentAvailabilityRequest.answers[p.id]?.status === "in")
                   .map((p) => p.id);
                 if (inIds.length > 0) setAvailableIds(inIds);
               }
+              setHasOpenedSetupThisGame(true);
               setShowSettingsModal(true);
             }}
             onShowSquadChange={() => setShowSquadChange(true)}

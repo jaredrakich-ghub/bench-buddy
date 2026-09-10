@@ -127,6 +127,24 @@ export function isRequestClosed(request, now = Date.now()) {
   return !!request && request.closingAt != null && now >= request.closingAt;
 }
 
+// Real-use feedback: nothing ever marked a request "done" once its own
+// match had been played, so a coach setting up the NEXT game kept seeing
+// last game's answers presented as if they were live for this one — same
+// summary pill, same pre-filled "Who's here". matchAt (the kickoff time
+// entered when the request was composed) is the one signal already sitting
+// on the document that distinguishes "for the game I'm setting up" from
+// "for a game that's already happened" — a request whose own match has
+// passed is stale regardless of revokedAt/closingAt (a coach could easily
+// leave the closing time itself in the past and still be inside a live
+// match at the time). Callers treat a stale request the same as no request
+// at all — this doesn't delete or revoke anything server-side, it's a
+// display-time check only, so a coach who reopens the SAME upcoming game's
+// setup still sees their real answers; a stale request just isn't wired to
+// any UI while it looks like this.
+export function isRequestStale(request, now = Date.now()) {
+  return !!request && request.matchAt != null && now >= request.matchAt;
+}
+
 // A genuine "reopen" is pushing closingAt to a later time after it had
 // already passed — worth recording (reopenedAt) since the coach explicitly
 // acted, unlike editing a not-yet-passed closing time, which is just normal

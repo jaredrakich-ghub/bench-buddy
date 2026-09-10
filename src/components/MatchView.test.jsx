@@ -1406,6 +1406,12 @@ describe("MatchView — match complete", () => {
     expect(onShowSettings).toHaveBeenCalledTimes(1);
   });
 
+  it("labels the button 'Continue Set Up' instead, once setupInProgress is true — real-use feedback: nothing's actually lost by backing out of setup, the button just used to imply otherwise", () => {
+    render(<MatchView {...baseProps({ activeInterval: 1, elapsedSec: 12 * 60, setupInProgress: true })} />);
+    expect(screen.getByText("Continue Set Up")).toBeInTheDocument();
+    expect(screen.queryByText("Start new game")).not.toBeInTheDocument();
+  });
+
   it("shows the action bar's countdown instead, before the match ends", () => {
     render(<MatchView {...baseProps({ activeInterval: 0, elapsedSec: 0 })} />);
     expect(screen.getByText(/Next sub/)).toBeInTheDocument();
