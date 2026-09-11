@@ -305,11 +305,15 @@ export function formatFixture(teamName, opponent) {
 // SEES" preview needs white-space: pre-line (see mdAvailPreviewWell) to
 // actually render it; WhatsApp and every other destination for this exact
 // string render a real newline natively, no such change needed there.
+// Instruction line itself later changed again, screen 4 feedback: "Tap
+// your child's name to confirm they're playing" -> "Select a player to
+// confirm their availability." — matches the parent-facing picker
+// screen's own "Select a player" title (AvailabilityClaimPage.jsx).
 export function buildShareMessage({ teamName, opponent, matchAt, location }) {
   const fixture = formatFixture(teamName, opponent);
   const when = formatMatchWhen(matchAt);
   const atLocation = location ? ` at ${location}` : "";
-  return `${fixture}, ${when}${atLocation}.\n\nTap your child's name to confirm they're playing.`;
+  return `${fixture}, ${when}${atLocation}.\n\nSelect a player to confirm their availability.`;
 }
 
 // Step 6 — "Nudge the two waiting". Same URL as the original share (README

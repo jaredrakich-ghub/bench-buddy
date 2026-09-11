@@ -257,12 +257,12 @@ describe("formatMatchWhen / formatFixture / buildShareMessage", () => {
   it("buildShareMessage matches the design's own copy exactly, with location — a blank line, not just a period, separates the fixture from the instruction", () => {
     const msg = buildShareMessage({ teamName: "Tigers FC", opponent: "Rovers", matchAt: MATCH_AT, location: "Hillcrest Park" });
     expect(msg).toBe(
-      "Tigers FC v Rovers, Sat 13 Sep · 9:30 am at Hillcrest Park.\n\nTap your child's name to confirm they're playing."
+      "Tigers FC v Rovers, Sat 13 Sep · 9:30 am at Hillcrest Park.\n\nSelect a player to confirm their availability."
     );
   });
 
   it("buildShareMessage drops the 'at <location>' clause when no location was entered", () => {
     const msg = buildShareMessage({ teamName: "Tigers FC", opponent: "", matchAt: MATCH_AT, location: "" });
-    expect(msg).toBe("Tigers FC, Sat 13 Sep · 9:30 am.\n\nTap your child's name to confirm they're playing.");
+    expect(msg).toBe("Tigers FC, Sat 13 Sep · 9:30 am.\n\nSelect a player to confirm their availability.");
   });
 });
