@@ -2648,9 +2648,15 @@ export const styles = {
     // is already set explicitly, and (per mdExecuteUndoPill's own comment
     // above) a shorthand applied after longhand values clobbers them the
     // moment React sets it.
+    //
+    // marginTop matches marginBottom deliberately — real-use feedback: the
+    // chip grid above (mdSquadChipWrapRow) carries no bottom margin of its
+    // own, so without this the pill sat flush against the chip row (0px
+    // above) while still keeping its own 14px below, hugging the names
+    // instead of reading as evenly spaced from what's on both sides of it.
     background: tokens.color.availGreenTint, borderRadius: tokens.radius.rowMd, padding: "13px 15px",
     fontFamily: tokens.font.body, fontWeight: 700, fontSize: 14.5, lineHeight: 1.4, color: tokens.color.deepGreen,
-    marginBottom: 14, border: "none", width: "100%", textAlign: "left", cursor: "pointer",
+    marginTop: 14, marginBottom: 14, border: "none", width: "100%", textAlign: "left", cursor: "pointer",
   },
   mdAvailSummaryLineMuted: { color: tokens.color.mutedText },
   // Step 6's own "Nudge the two waiting" row — deliberately small/quiet

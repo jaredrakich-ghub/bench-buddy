@@ -1259,9 +1259,13 @@ export default function SquadSettingsForm({
                 the plain prompt shows instead when there's none yet. Only
                 ever rendered for this same "Set up next game" moment —
                 asking availability for a game already mid-setup elsewhere
-                (plain "Game settings") isn't this feature's job. Copy:
-                "who's here" alone reads as open-ended ("here when?") —
-                "for the game" ties it to the thing actually being set up. */}
+                (plain "Game settings") isn't this feature's job. Copy went
+                through three rounds: "Ask who's playing" → "Confirm who's
+                here via link" (too open-ended — "here when?") → "Confirm
+                availability for the game via link" (clearer, but passive —
+                didn't say what tapping it actually *does*) → this,
+                action-first and accurate to the real next step (tapping it
+                opens the compose screen, which mints/sends the link). */}
             {onShowAvailability &&
               (availabilityRequest ? (
                 <button style={styles.mdAvailSummaryLine} onClick={onShowAvailability}>
@@ -1271,7 +1275,7 @@ export default function SquadSettingsForm({
                 </button>
               ) : (
                 <button style={styles.mdAvailSummaryLine} onClick={onShowAvailability}>
-                  Confirm availability for the game via link
+                  Generate link to track availability
                 </button>
               ))}
             {/* Step 6 — "the loop back": a one-tap reminder for whoever
