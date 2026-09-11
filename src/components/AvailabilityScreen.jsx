@@ -4,6 +4,7 @@ import { styles, tokens } from "./styles.js";
 import { getSquadNumber } from "../lib/squadNumber.js";
 import {
   buildShareMessage, describeReplyState, isRequestClosed, canAnswer, buildAvailabilityUrl,
+  formatDateStringFull, formatTimeStringAmPm, defaultClosingAt,
 } from "../lib/availability.js";
 import {
   fetchAvailabilityRequest, createOrRegenerateAvailabilityRequest, updateClosingTime, revokeAvailabilityRequest,
@@ -36,6 +37,23 @@ function fromDatetimeLocalValue(value) {
   return Number.isNaN(ms) ? null : ms;
 }
 
+// Real-use feedback split the create form's own match time into two native
+// inputs — <input type="date"> and <input type="time"> — instead of one
+// combined datetime-local (kept above for the post-creation "Closes… Tap to
+// change" edit, untouched). Explicit Y/M/D/H/M construction here, not
+// `new Date(\`${dateStr}T${timeStr}\`)` — the latter's ISO-string parsing is
+// UTC by spec for a bare date part, which can land on the wrong local day
+// depending on the viewer's timezone offset; this stays local end to end,
+// same "plain getters" convention as availability.js's own formatters.
+function fromDateAndTime(dateStr, timeStr) {
+  if (!dateStr || !timeStr) return null;
+  const [y, mo, d] = dateStr.split("-").map(Number);
+  const [h, mi] = timeStr.split(":").map(Number);
+  if (!y || !mo || !d || Number.isNaN(h) || Number.isNaN(mi)) return null;
+  const ms = new Date(y, mo - 1, d, h, mi).getTime();
+  return Number.isNaN(ms) ? null : ms;
+}
+
 export default function AvailabilityScreen({ teamId, coachUid, teamName, roster, onClose }) {
   const [request, setRequest] = useState(undefined); // undefined = loading
   const [error, setError] = useState("");
@@ -44,9 +62,9 @@ export default function AvailabilityScreen({ teamId, coachUid, teamName, roster,
   const [confirmingCancel, setConfirmingCancel] = useState(false);
 
   const [opponent, setOpponent] = useState("");
-  const [matchAt, setMatchAt] = useState("");
+  const [matchDate, setMatchDate] = useState("");
+  const [matchTime, setMatchTime] = useState("");
   const [location, setLocation] = useState("");
-  const [closingAt, setClosingAt] = useState("");
   const [closingEdit, setClosingEdit] = useState("");
 
   useEffect(() => {
@@ -70,15 +88,18 @@ export default function AvailabilityScreen({ teamId, coachUid, teamName, roster,
 
   const createRequest = () =>
     runAction(async () => {
-      const matchAtMs = fromDatetimeLocalValue(matchAt);
-      const closingAtMs = fromDatetimeLocalValue(closingAt);
-      if (!matchAtMs || !closingAtMs) {
-        setError("Set the match time and a closing time first.");
+      const matchAtMs = fromDateAndTime(matchDate, matchTime);
+      if (!matchAtMs) {
+        setError("Set the match date and kick-off time first.");
         return;
       }
+      // No closing-time field here any more — real-use feedback: that's not
+      // a decision most coaches need to make every time. defaultClosingAt
+      // (1 day after kickoff) is still just the starting point, editable
+      // afterward from the manage screen's own "Closes… Tap to change".
       const squad = roster.map((p) => ({ id: p.id, name: p.name, number: getSquadNumber(p, roster) }));
       await createOrRegenerateAvailabilityRequest(teamId, coachUid, {
-        teamName, closingAt: closingAtMs, matchAt: matchAtMs, opponent: opponent.trim(), location: location.trim(), squad,
+        teamName, closingAt: defaultClosingAt(matchAtMs), matchAt: matchAtMs, opponent: opponent.trim(), location: location.trim(), squad,
       });
     });
 
@@ -165,24 +186,26 @@ export default function AvailabilityScreen({ teamId, coachUid, teamName, roster,
             when you set up the game.
           </div>
           <div style={styles.mdAvailForm}>
+            <span style={styles.mdAvailLabel}>MATCH DATE</span>
+            <input
+              type="date"
+              style={styles.mdAvailInput}
+              value={matchDate}
+              onChange={(e) => setMatchDate(e.target.value)}
+            />
+            {matchDate && <span style={styles.mdAvailInputCaption}>{formatDateStringFull(matchDate)}</span>}
+            <span style={styles.mdAvailLabel}>KICK OFF TIME</span>
+            <input
+              type="time"
+              style={styles.mdAvailInput}
+              value={matchTime}
+              onChange={(e) => setMatchTime(e.target.value)}
+            />
+            {matchTime && <span style={styles.mdAvailInputCaption}>{formatTimeStringAmPm(matchTime)}</span>}
             <span style={styles.mdAvailLabel}>OPPONENT (OPTIONAL)</span>
             <input style={styles.mdAvailInput} placeholder="Rovers" value={opponent} onChange={(e) => setOpponent(e.target.value)} />
-            <span style={styles.mdAvailLabel}>MATCH TIME</span>
-            <input
-              type="datetime-local"
-              style={styles.mdAvailInput}
-              value={matchAt}
-              onChange={(e) => setMatchAt(e.target.value)}
-            />
             <span style={styles.mdAvailLabel}>LOCATION (OPTIONAL)</span>
             <input style={styles.mdAvailInput} placeholder="Hillcrest Park" value={location} onChange={(e) => setLocation(e.target.value)} />
-            <span style={styles.mdAvailLabel}>CLOSES</span>
-            <input
-              type="datetime-local"
-              style={styles.mdAvailInput}
-              value={closingAt}
-              onChange={(e) => setClosingAt(e.target.value)}
-            />
           </div>
           <button style={{ ...styles.mdAvailPrimaryBtn, marginTop: 16 }} onClick={createRequest}>
             Create the link
