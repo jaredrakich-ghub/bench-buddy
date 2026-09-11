@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useId, useMemo } from "react"
 import { getFairnessState } from "../lib/fairness.js";
 import FairnessMark from "./FairnessMark.jsx";
 import { tokens, styles } from "./styles.js";
+import { usePrefersReducedMotion } from "../hooks/usePrefersReducedMotion.js";
 
 const STEPS = [
   { icon: "⚽", label: "Checking playing time" },
@@ -64,24 +65,6 @@ const MEASURE_RETRY_LIMIT = 40;
 const RESULT_HEIGHT_BUFFER = 6;
 
 const CONFETTI_COLORS = ["#F5B93B", "#2E7D53", "#FBE3A6", "#CBE8D6", "#123F3D"]; // no red — red is injury, everywhere else in this app
-
-// Not shared elsewhere yet, so kept local rather than promoted to its own
-// lib file — the only other place motion preference could matter (the
-// step/card transitions) reads this same hook, so there's one source of
-// truth for "is this device asking for less motion" inside this file.
-function usePrefersReducedMotion() {
-  const [reduced, setReduced] = useState(
-    () => typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  );
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const onChange = (e) => setReduced(e.matches);
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
-  return reduced;
-}
 
 // New self-contained overlay shown the instant "Build my rotation" is
 // pressed — owns its own timers (cleaned up on unmount, so navigating
