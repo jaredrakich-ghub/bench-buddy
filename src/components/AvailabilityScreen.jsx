@@ -25,16 +25,17 @@ import LoadingScreen from "./LoadingScreen.jsx";
 // opponent/location live only on the request itself, entered fresh each
 // time a coach composes one. See availability.js's own top comment.
 
-function toDatetimeLocalValue(ms) {
+function toDateInputValue(ms) {
   if (!ms) return "";
   const d = new Date(ms);
   const pad = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
-function fromDatetimeLocalValue(value) {
-  if (!value) return null;
-  const ms = new Date(value).getTime();
-  return Number.isNaN(ms) ? null : ms;
+function toTimeInputValue(ms) {
+  if (!ms) return "";
+  const d = new Date(ms);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 // Real-use feedback split the create form's own match time into two native
@@ -65,7 +66,8 @@ export default function AvailabilityScreen({ teamId, coachUid, teamName, roster,
   const [matchDate, setMatchDate] = useState("");
   const [matchTime, setMatchTime] = useState("");
   const [location, setLocation] = useState("");
-  const [closingEdit, setClosingEdit] = useState("");
+  const [closingEditDate, setClosingEditDate] = useState("");
+  const [closingEditTime, setClosingEditTime] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -113,7 +115,7 @@ export default function AvailabilityScreen({ teamId, coachUid, teamName, roster,
 
   const saveClosingEdit = () =>
     runAction(async () => {
-      const newClosingAtMs = fromDatetimeLocalValue(closingEdit);
+      const newClosingAtMs = fromDateAndTime(closingEditDate, closingEditTime);
       if (!newClosingAtMs) return;
       await updateClosingTime(teamId, request, newClosingAtMs);
       setEditingClosing(false);
@@ -249,13 +251,30 @@ export default function AvailabilityScreen({ teamId, coachUid, teamName, roster,
             </div>
             {editingClosing ? (
               <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
-                <input
-                  type="datetime-local"
-                  style={styles.mdAvailInput}
-                  value={closingEdit}
-                  onChange={(e) => setClosingEdit(e.target.value)}
-                  autoFocus
-                />
+                <div style={styles.mdAvailDateFieldWrap}>
+                  <div style={{ ...styles.mdAvailDateFieldDisplay, color: closingEditDate ? tokens.color.deepGreen : tokens.color.mutedText }}>
+                    {closingEditDate ? formatDateStringFull(closingEditDate) : "Select the date"}
+                    <Calendar size={18} color={tokens.color.mutedText} />
+                  </div>
+                  <input
+                    type="date"
+                    style={styles.mdAvailDateFieldNative}
+                    value={closingEditDate}
+                    onChange={(e) => setClosingEditDate(e.target.value)}
+                  />
+                </div>
+                <div style={styles.mdAvailDateFieldWrap}>
+                  <div style={{ ...styles.mdAvailDateFieldDisplay, color: closingEditTime ? tokens.color.deepGreen : tokens.color.mutedText }}>
+                    {closingEditTime ? formatTimeStringAmPm(closingEditTime) : "Select the time"}
+                    <Clock size={18} color={tokens.color.mutedText} />
+                  </div>
+                  <input
+                    type="time"
+                    style={styles.mdAvailDateFieldNative}
+                    value={closingEditTime}
+                    onChange={(e) => setClosingEditTime(e.target.value)}
+                  />
+                </div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <button style={{ ...styles.mdAvailSecondaryBtn, marginTop: 0, flex: 1 }} onClick={() => setEditingClosing(false)}>
                     Cancel
@@ -269,7 +288,8 @@ export default function AvailabilityScreen({ teamId, coachUid, teamName, roster,
               <button
                 style={styles.mdAvailFixtureDetailBtn}
                 onClick={() => {
-                  setClosingEdit(toDatetimeLocalValue(request.closingAt));
+                  setClosingEditDate(toDateInputValue(request.closingAt));
+                  setClosingEditTime(toTimeInputValue(request.closingAt));
                   setEditingClosing(true);
                 }}
               >
