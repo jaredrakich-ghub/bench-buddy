@@ -76,6 +76,20 @@ export default function SubRotationPlanner({ user }) {
   // cleared the moment a fresh rotation is actually built (isMatchComplete
   // goes false) or the coach switches teams entirely.
   const [hasOpenedSetupThisGame, setHasOpenedSetupThisGame] = useState(false);
+  // Real-use feedback: isRequestStale's own matchAt comparison (below)
+  // assumes real time actually passes matchAt before a match is played
+  // through to completion — true for genuine live play, but a coach can
+  // reach isMatchComplete without that (jumping straight to the last
+  // interval via the 0-5'/…/40-45' quick-select row, previewing a plan
+  // before kickoff, testing). Tapping "Start new game"/"Continue Set Up"
+  // is the coach explicitly saying this round is over regardless of the
+  // clock, so it dismisses whichever request was live at that moment —
+  // belt-and-suspenders alongside isRequestStale, not a replacement for
+  // it (matchAt still covers "I never touched this screen again until
+  // after the match" without requiring the coach to take any action).
+  // Token, not a boolean: a genuinely new request (a fresh link for the
+  // next fixture) always has a different token and is never affected.
+  const dismissedRequestTokenRef = useRef(null);
   // Team & account's own "Manage squad" row — a dedicated screen now
   // (ManageSquadScreen.jsx), not a pre-expanded section inside Game
   // settings. Real-use feedback: Game settings/new-team setup no longer
@@ -94,6 +108,7 @@ export default function SubRotationPlanner({ user }) {
     // all) — the flag shouldn't carry over from whichever team was active
     // before.
     setHasOpenedSetupThisGame(false);
+    dismissedRequestTokenRef.current = null;
     if (!activeTeamId) {
       setAvailabilityRequest(null);
       return;
@@ -118,7 +133,10 @@ export default function SubRotationPlanner({ user }) {
   // resets elapsedSec to 0) without needing this effect to know anything
   // about that reset itself.
   useEffect(() => {
-    if (!isMatchComplete) setHasOpenedSetupThisGame(false);
+    if (!isMatchComplete) {
+      setHasOpenedSetupThisGame(false);
+      dismissedRequestTokenRef.current = null;
+    }
   }, [isMatchComplete]);
 
   // Makes `team` the active one and loads whatever match state belongs to
@@ -444,15 +462,25 @@ export default function SubRotationPlanner({ user }) {
   // live for the one they were setting up — same summary pill, same
   // pre-filled "Who's here" — because nothing ever marked a request "done"
   // once its own match had been played. isRequestStale (matchAt already
-  // passed) is the fix for that; canAnswer (revokedAt not set) covers the
-  // other way a request stops being live — a coach cancelling it from
-  // AvailabilityScreen.jsx. Either way, treated as if no request existed at
-  // all for every UI purpose below, without touching the document itself —
+  // passed) is the fix for the common case; canAnswer (revokedAt not set)
+  // covers the other way a request stops being live — a coach cancelling
+  // it from AvailabilityScreen.jsx. dismissedRequestTokenRef (its own
+  // comment, near hasOpenedSetupThisGame above) is a third, belt-and-
+  // suspenders check for the same symptom: matchAt only reliably reflects
+  // "this match already happened" when the coach played it out in real
+  // time, which isn't the only way to reach isMatchComplete (see that
+  // ref's own comment). Every UI purpose below treats any of the three as
+  // if no request existed at all, without touching the document itself —
   // AvailabilityScreen.jsx fetches its own copy independently and still
-  // shows the real (stale/cancelled) request there, since that's exactly
-  // where a coach regenerates it.
+  // shows the real (stale/cancelled/dismissed) request there, since that's
+  // exactly where a coach regenerates it.
   const currentAvailabilityRequest =
-    availabilityRequest && !isRequestStale(availabilityRequest) && canAnswer(availabilityRequest) ? availabilityRequest : null;
+    availabilityRequest &&
+    !isRequestStale(availabilityRequest) &&
+    canAnswer(availabilityRequest) &&
+    availabilityRequest.token !== dismissedRequestTokenRef.current
+      ? availabilityRequest
+      : null;
 
   // SaveTeamSheet's own "team photo" — the coach's current on-field/bench
   // split, same interval MatchView itself is showing live (intervalAtElapsed,
@@ -623,6 +651,13 @@ export default function SubRotationPlanner({ user }) {
                   .filter((p) => currentAvailabilityRequest.answers[p.id]?.status === "in")
                   .map((p) => p.id);
                 if (inIds.length > 0) setAvailableIds(inIds);
+                // dismissedRequestTokenRef's own comment above has the full
+                // reasoning — the pre-fill above still gets to use this
+                // request's answers as a starting point for the new game,
+                // but the request itself stops being "current" for every
+                // other purpose (the summary pill, the chip-row suffixes)
+                // from this tap onward, whatever its own matchAt says.
+                dismissedRequestTokenRef.current = currentAvailabilityRequest.token;
               }
               setHasOpenedSetupThisGame(true);
               setShowSettingsModal(true);
