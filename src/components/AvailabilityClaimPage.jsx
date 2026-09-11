@@ -82,8 +82,10 @@ export default function AvailabilityClaimPage({ teamId, token }) {
           <div style={styles.mdClaimCrest}>
             <img src={headerMascot} alt="" style={styles.mdClaimCrestImg} />
           </div>
-          <div style={styles.mdClaimTitle}>Tap your child</div>
-          <div style={styles.mdClaimBody}>{formatFixture(request.teamName, request.opponent)}</div>
+          <div style={styles.mdClaimTitle}>Select a player</div>
+          <div style={styles.mdClaimBody}>
+            {formatFixture(request.teamName, request.opponent)} · {formatMatchWhen(request.matchAt)}
+          </div>
           <div style={{ ...styles.mdAvailSquadChipRow, marginTop: 10, justifyContent: "center" }}>
             {request.squad.map((p) => (
               <button key={p.id} style={styles.mdAvailSquadChip} onClick={() => pickChild(p.id)}>
@@ -119,18 +121,14 @@ export default function AvailabilityClaimPage({ teamId, token }) {
     // (real-use feedback). The short screens (pick-a-child, thanks,
     // dead-link) keep mdClaimPage's own centering — only this one, which
     // reliably runs long enough to scroll, opts out.
-    <div style={{ ...styles.mdClaimPage, justifyContent: "flex-start", paddingTop: 40 }}>
+    <div style={{ ...styles.mdClaimPage, justifyContent: "flex-start", paddingTop: 40, paddingBottom: 60 }}>
       <div style={styles.mdClaimInner}>
-        <button style={styles.mdAvailFixtureDetailBtn} onClick={() => setSelectedChildId(null)}>
-          ‹ Not your child? Pick again
-        </button>
-
-        <div style={{ ...styles.mdAvailCard, width: "100%", textAlign: "center", marginTop: 12 }}>
+        <div style={{ ...styles.mdAvailCard, width: "100%", textAlign: "center" }}>
           <div style={{ ...styles.mdAvailSquadChipDisc, width: 64, height: 64, fontSize: 26, margin: "0 auto 12px" }}>
             {selectedChild.number}
           </div>
           <div style={styles.mdClaimTitle}>Is {selectedChild.name} playing?</div>
-          <div style={styles.mdClaimBody}>
+          <div style={{ ...styles.mdClaimBody, marginTop: 8 }}>
             {formatFixture(request.teamName, request.opponent)} · {formatMatchWhen(request.matchAt)}
             {request.location ? <br /> : null}
             {request.location}
@@ -187,6 +185,15 @@ export default function AvailabilityClaimPage({ teamId, token }) {
           disabled={!status || busy}
         >
           {busy ? "Sending…" : "Send to coach"}
+        </button>
+
+        {/* Real-use feedback: moved from the top of this screen (where it
+            read as a "back" affordance) to here — a footer link, not a
+            leading nav control, since it's a much rarer thing to need than
+            the actual question above it. Copy changed too ("Not your
+            child?" → "Not the right player?" — plainer). */}
+        <button style={{ ...styles.mdAvailFixtureDetailBtn, textAlign: "center" }} onClick={() => setSelectedChildId(null)}>
+          Not the right player? Select again
         </button>
       </div>
     </div>
