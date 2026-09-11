@@ -1292,8 +1292,10 @@ export default function SquadSettingsForm({
               const waiting = waitingChildren(availabilityRequest.squad, availabilityRequest.answers);
               if (waiting.length === 0) return null;
               const nudge = () => {
+                const totalCount = availabilityRequest.squad.length;
+                const answeredCount = totalCount - waiting.length;
                 const text = encodeURIComponent(
-                  `${buildNudgeMessage(waiting.map((p) => p.name))}\n\n${buildAvailabilityUrl(teamId, availabilityRequest.token)}`
+                  `${buildNudgeMessage({ answeredCount, totalCount })}\n\n${buildAvailabilityUrl(teamId, availabilityRequest.token)}`
                 );
                 window.open(`https://wa.me/?text=${text}`, "_blank", "noopener,noreferrer");
               };

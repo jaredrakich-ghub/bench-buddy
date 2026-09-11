@@ -87,12 +87,28 @@ export default function AvailabilityClaimPage({ teamId, token }) {
             {formatFixture(request.teamName, request.opponent)} · {formatMatchWhen(request.matchAt)}
           </div>
           <div style={{ ...styles.mdAvailSquadChipRow, marginTop: 10, justifyContent: "center" }}>
-            {request.squad.map((p) => (
-              <button key={p.id} style={styles.mdAvailSquadChip} onClick={() => pickChild(p.id)}>
-                <span style={styles.mdAvailSquadChipDisc}>{p.number}</span>
-                <span style={styles.mdAvailSquadChipName}>{p.name}</span>
-              </button>
-            ))}
+            {/* Real-use feedback: a parent picking their child had no idea
+                who else had already answered — same "· out"/"· waiting"
+                text-suffix convention the coach's own manage screen uses
+                (AvailabilityScreen.jsx), reused as-is rather than inventing
+                a second visual language for the same status. Nothing added
+                for "in", same reasoning as there: it's already the default
+                look. The link's own security model already lets anyone
+                holding it see/answer for any child (README > Identity), so
+                surfacing this here isn't a new class of exposure. */}
+            {request.squad.map((p) => {
+              const status = request.answers[p.id]?.status;
+              const suffix = status === "out" ? " · out" : status === "in" ? "" : " · waiting";
+              return (
+                <button key={p.id} style={styles.mdAvailSquadChip} onClick={() => pickChild(p.id)}>
+                  <span style={styles.mdAvailSquadChipDisc}>{p.number}</span>
+                  <span style={styles.mdAvailSquadChipName}>
+                    {p.name}
+                    {suffix && <span style={styles.mdAvailStatusSuffix}>{suffix}</span>}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>

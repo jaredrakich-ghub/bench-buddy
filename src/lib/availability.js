@@ -314,10 +314,15 @@ export function buildShareMessage({ teamName, opponent, matchAt, location }) {
 
 // Step 6 — "Nudge the two waiting". Same URL as the original share (README
 // never describes a second link for this — it's a reminder, not a new
-// request), but names exactly who hasn't answered rather than repeating
-// the full original message, so it reads as a targeted follow-up in the
-// same group chat, not a duplicate of the first ask.
-export function buildNudgeMessage(waitingNames) {
-  const names = waitingNames.length === 1 ? waitingNames[0] : `${waitingNames.slice(0, -1).join(", ")} and ${waitingNames[waitingNames.length - 1]}`;
-  return `Still waiting to hear from ${names} — could you tap the link above and let me know?`;
+// request), so it reads as a targeted follow-up in the same group chat,
+// not a duplicate of the first ask.
+//
+// Real-use feedback: this used to name every still-waiting child in the
+// chat ("Still waiting to hear from Ben and Charlie…") — not something a
+// coach wants broadcast to the whole group. Counts only now, same "X of Y"
+// shape the compose/manage screen's own summary line already uses
+// elsewhere in this file (describeSetupSummary/describeReplyState).
+export function buildNudgeMessage({ answeredCount, totalCount }) {
+  const waitingCount = totalCount - answeredCount;
+  return `${answeredCount} of ${totalCount} have replied — ${waitingCount} still to confirm. Could you tap the link above and let us know?`;
 }

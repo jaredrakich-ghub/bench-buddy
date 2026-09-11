@@ -200,19 +200,15 @@ describe("waitingChildren / buildNudgeMessage", () => {
     expect(waitingChildren(SQUAD, {})).toEqual(SQUAD);
   });
 
-  it("names one waiting child plainly", () => {
-    expect(buildNudgeMessage(["Charlie"])).toBe("Still waiting to hear from Charlie — could you tap the link above and let me know?");
-  });
-
-  it("joins two names with 'and', no Oxford comma needed", () => {
-    expect(buildNudgeMessage(["Ben", "Charlie"])).toBe(
-      "Still waiting to hear from Ben and Charlie — could you tap the link above and let me know?"
+  it("states counts only, no names — real-use feedback: naming kids in the group chat isn't wanted", () => {
+    expect(buildNudgeMessage({ answeredCount: 5, totalCount: 12 })).toBe(
+      "5 of 12 have replied — 7 still to confirm. Could you tap the link above and let us know?"
     );
   });
 
-  it("joins three or more with commas and a final 'and'", () => {
-    expect(buildNudgeMessage(["Alex", "Ben", "Charlie"])).toBe(
-      "Still waiting to hear from Alex, Ben and Charlie — could you tap the link above and let me know?"
+  it("handles nobody having answered yet", () => {
+    expect(buildNudgeMessage({ answeredCount: 0, totalCount: 3 })).toBe(
+      "0 of 3 have replied — 3 still to confirm. Could you tap the link above and let us know?"
     );
   });
 });
