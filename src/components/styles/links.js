@@ -123,7 +123,14 @@ export const linksStyles = {
     height: "100dvh", overflowY: "auto", WebkitOverflowScrolling: "touch",
     background: tokens.color.creamPaper, backgroundImage: paperTexture,
     display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-    padding: "32px 24px", boxSizing: "border-box", gap: 18,
+    // Longhand, not the `padding` shorthand — AvailabilityClaimPage.jsx's
+    // own question-card screen overrides just paddingTop/paddingBottom on
+    // top of this object (a taller screen that scrolls, unlike this
+    // style's usual centered short screens); mixing a shorthand base with
+    // a longhand override is exactly the case React warns "can lead to
+    // styling bugs" on rerender (confirmed via AvailabilityClaimPage's own
+    // tests, which re-render between screens).
+    paddingTop: 32, paddingRight: 24, paddingBottom: 32, paddingLeft: 24, boxSizing: "border-box", gap: 18,
   },
   mdClaimInner: { width: "100%", maxWidth: 400, display: "flex", flexDirection: "column", alignItems: "center", gap: 18 },
   mdClaimCrest: {
