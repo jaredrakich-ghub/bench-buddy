@@ -1270,7 +1270,7 @@ export default function SquadSettingsForm({
               (availabilityRequest ? (
                 <button style={styles.mdAvailSummaryLine} onClick={onShowAvailability}>
                   {describeSetupSummary(availabilityRequest.squad, availabilityRequest.answers) || (
-                    <span style={styles.mdAvailSummaryLineMuted}>Nobody has answered your link yet. Tap to view or resend.</span>
+                    <span style={styles.mdAvailSummaryLineMuted}>No responses yet. View or resend.</span>
                   )}
                 </button>
               ) : (

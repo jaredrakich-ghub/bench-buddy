@@ -1069,7 +1069,7 @@ describe("SquadSettingsForm — Availability link fold-in (1d)", () => {
   it("shows a muted prompt when a request exists but nobody's answered", () => {
     const availabilityRequest = { squad: [{ id: "p1", name: "Alice", number: 1 }], answers: {} };
     render(<SquadSettingsForm {...baseProps({ variant: "edit", confirmAvailability: true, onShowAvailability: vi.fn(), availabilityRequest })} />);
-    expect(screen.getByText(/Nobody has answered your link yet/)).toBeInTheDocument();
+    expect(screen.getByText(/No responses yet/)).toBeInTheDocument();
   });
 
   it("labels an 'out' child with '· out' and a never-answered child with '· waiting', both still tappable", () => {
