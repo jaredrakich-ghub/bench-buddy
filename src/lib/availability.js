@@ -297,11 +297,19 @@ export function formatFixture(teamName, opponent) {
 // the one place that knows the app's own domain — this function stays
 // domain-agnostic on principle, same reasoning as MatchLinkScreen.jsx's
 // own URL construction living in the component, not the pure model.
+//
+// Real-use feedback: the fixture line and the instruction used to run
+// together as one sentence ("...9:30 am. Tap your child..."), and "takes
+// ten seconds" read as filler. The blank line between them (\n\n — a real
+// line break, not just a period) is why the coach's own "WHAT THE GROUP
+// SEES" preview needs white-space: pre-line (see mdAvailPreviewWell) to
+// actually render it; WhatsApp and every other destination for this exact
+// string render a real newline natively, no such change needed there.
 export function buildShareMessage({ teamName, opponent, matchAt, location }) {
   const fixture = formatFixture(teamName, opponent);
   const when = formatMatchWhen(matchAt);
   const atLocation = location ? ` at ${location}` : "";
-  return `${fixture}, ${when}${atLocation}. Tap your child and let me know if they're in — takes ten seconds.`;
+  return `${fixture}, ${when}${atLocation}.\n\nTap your child's name to confirm they're playing.`;
 }
 
 // Step 6 — "Nudge the two waiting". Same URL as the original share (README

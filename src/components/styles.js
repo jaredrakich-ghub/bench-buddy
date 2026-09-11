@@ -2582,6 +2582,13 @@ export const styles = {
   },
   mdAvailFixture: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 21, color: tokens.color.deepGreen, marginBottom: 4 },
   mdAvailFixtureDetail: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 15, color: tokens.color.mutedText },
+  // Real-use feedback: the whole fixture card is now tappable to edit
+  // opponent/match time/location — button-reset, full width, so the
+  // mdAvailFixture/mdAvailFixtureDetail children inside keep their exact
+  // existing look while the whole card area (not just the text) responds.
+  mdAvailFixtureEditBtn: {
+    background: "transparent", border: "none", padding: 0, margin: 0, width: "100%", textAlign: "left", cursor: "pointer", font: "inherit",
+  },
   mdAvailFixtureDetailBtn: {
     background: "transparent", border: "none", padding: 0, font: "inherit", fontWeight: 700, fontSize: 15,
     color: tokens.color.mutedText, textDecoration: "underline", textDecorationStyle: "dotted", cursor: "pointer", textAlign: "left",
@@ -2594,6 +2601,13 @@ export const styles = {
   mdAvailPreviewWell: {
     background: tokens.color.availSand, borderRadius: tokens.radius.rowMd, padding: "14px 16px",
     fontFamily: tokens.font.body, fontWeight: 600, fontSize: 15, color: tokens.color.groupLabel, lineHeight: 1.4,
+    // buildShareMessage's own \n\n between the fixture line and the
+    // instruction (real-use feedback: they used to run together as one
+    // sentence) needs this to actually render as a visible blank line
+    // here — plain block text collapses newlines by default. The literal
+    // WhatsApp message this mirrors renders the same \n\n natively either
+    // way, so this is display-only, not a copy change.
+    whiteSpace: "pre-line",
   },
   mdAvailPreviewUrl: {
     display: "block", marginTop: 8, fontFamily: tokens.font.body, fontWeight: 800, fontSize: 14, color: tokens.color.pitchGreen,

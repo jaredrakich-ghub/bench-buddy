@@ -40,6 +40,19 @@ export async function updateClosingTime(teamId, currentRequest, newClosingAt) {
   return updated;
 }
 
+// Editing the fixture details (opponent/match time/location) on an
+// already-shared request — real-use feedback: a coach fixing a typo'd
+// opponent name or a kick-off time that moved by 15 minutes shouldn't have
+// to mint a whole new link and discard every existing answer the way "Get
+// a new link" does. closingAt is deliberately left untouched here, even
+// though it was originally defaulted from the old matchAt — a coach who's
+// already customized it (or a parent-visible "reopened" state) shouldn't
+// have that silently reset just from fixing the opponent's name; editing
+// the closing time is its own separate action (updateClosingTime above).
+export async function updateFixtureDetails(teamId, { opponent, matchAt, location }) {
+  await updateDoc(availabilityRef(teamId), { opponent, matchAt, location });
+}
+
 // Turns the request off entirely — distinct from letting the closing time
 // pass (README: closing time alone never refuses an answer). The public
 // route's own write rule checks exactly this field.

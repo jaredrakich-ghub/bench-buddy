@@ -7,8 +7,8 @@ import {
   formatDateStringFull, formatTimeStringAmPm,
 } from "../lib/availability.js";
 import {
-  fetchAvailabilityRequest, createOrRegenerateAvailabilityRequest, updateClosingTime, revokeAvailabilityRequest,
-  subscribeAvailabilityRequest,
+  fetchAvailabilityRequest, createOrRegenerateAvailabilityRequest, updateClosingTime, updateFixtureDetails,
+  revokeAvailabilityRequest, subscribeAvailabilityRequest,
 } from "../lib/availabilityIo.js";
 import LoadingScreen from "./LoadingScreen.jsx";
 
@@ -40,12 +40,13 @@ function toTimeInputValue(ms) {
 
 // Real-use feedback split the create form's own match time into two native
 // inputs — <input type="date"> and <input type="time"> — instead of one
-// combined datetime-local (kept above for the post-creation "Closes… Tap to
-// change" edit, untouched). Explicit Y/M/D/H/M construction here, not
-// `new Date(\`${dateStr}T${timeStr}\`)` — the latter's ISO-string parsing is
-// UTC by spec for a bare date part, which can land on the wrong local day
-// depending on the viewer's timezone offset; this stays local end to end,
-// same "plain getters" convention as availability.js's own formatters.
+// combined datetime-local; the "Closes… Tap to change" edit and the
+// fixture-details edit both reuse this same helper. Explicit Y/M/D/H/M
+// construction here, not `new Date(\`${dateStr}T${timeStr}\`)` — the
+// latter's ISO-string parsing is UTC by spec for a bare date part, which
+// can land on the wrong local day depending on the viewer's timezone
+// offset; this stays local end to end, same "plain getters" convention as
+// availability.js's own formatters.
 function fromDateAndTime(dateStr, timeStr) {
   if (!dateStr || !timeStr) return null;
   const [y, mo, d] = dateStr.split("-").map(Number);
@@ -60,6 +61,7 @@ export default function AvailabilityScreen({ teamId, coachUid, teamName, roster,
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [editingClosing, setEditingClosing] = useState(false);
+  const [editingFixture, setEditingFixture] = useState(false);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
 
   const [opponent, setOpponent] = useState("");
@@ -68,6 +70,17 @@ export default function AvailabilityScreen({ teamId, coachUid, teamName, roster,
   const [location, setLocation] = useState("");
   const [closingEditDate, setClosingEditDate] = useState("");
   const [closingEditTime, setClosingEditTime] = useState("");
+  // Real-use feedback: tapping the fixture card (the "My Team v Rovers"
+  // summary) now opens an edit — a coach fixing a typo'd opponent name or a
+  // kick-off time that moved shouldn't have to mint a whole new link and
+  // lose every existing answer the way "Get a new link" does. Separate
+  // state from opponent/matchDate/matchTime above — those belong to the
+  // blank create form and must stay untouched by editing an existing
+  // request.
+  const [fixtureEditDate, setFixtureEditDate] = useState("");
+  const [fixtureEditTime, setFixtureEditTime] = useState("");
+  const [fixtureEditOpponent, setFixtureEditOpponent] = useState("");
+  const [fixtureEditLocation, setFixtureEditLocation] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -119,6 +132,19 @@ export default function AvailabilityScreen({ teamId, coachUid, teamName, roster,
       if (!newClosingAtMs) return;
       await updateClosingTime(teamId, request, newClosingAtMs);
       setEditingClosing(false);
+    });
+
+  const saveFixtureEdit = () =>
+    runAction(async () => {
+      const matchAtMs = fromDateAndTime(fixtureEditDate, fixtureEditTime);
+      if (!matchAtMs) {
+        setError("Set the match date and kick-off time first.");
+        return;
+      }
+      await updateFixtureDetails(teamId, {
+        opponent: fixtureEditOpponent.trim(), matchAt: matchAtMs, location: fixtureEditLocation.trim(),
+      });
+      setEditingFixture(false);
     });
 
   // Real-use feedback: revokeAvailabilityRequest existed server-side from
@@ -234,13 +260,87 @@ export default function AvailabilityScreen({ teamId, coachUid, teamName, roster,
       ) : (
         <>
           <div style={styles.mdAvailCard}>
-            <div style={styles.mdAvailFixture}>{request.opponent ? `${teamName} v ${request.opponent}` : teamName}</div>
-            <div style={styles.mdAvailFixtureDetail}>
-              {new Date(request.matchAt).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })}
-              {" · "}
-              {new Date(request.matchAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
-              {request.location ? ` · ${request.location}` : ""}
-            </div>
+            {/* Real-use feedback: the fixture card used to be a plain,
+                unclickable summary — a coach who typo'd the opponent's
+                name or needed to move the kick-off time by 15 minutes had
+                no way to fix it short of "Get a new link", which discards
+                the token and every existing answer. Tapping the card now
+                opens the same field set the create form uses (Match Date/
+                Kick off time/Opponent/Location), pre-filled from the
+                current request, saved via updateFixtureDetails — a
+                targeted update that leaves the token, squad, and answers
+                completely untouched. */}
+            {editingFixture ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <span style={styles.mdAvailLabel}>MATCH DATE</span>
+                <div style={styles.mdAvailDateFieldWrap}>
+                  <div style={{ ...styles.mdAvailDateFieldDisplay, color: fixtureEditDate ? tokens.color.deepGreen : tokens.color.mutedText }}>
+                    {fixtureEditDate ? formatDateStringFull(fixtureEditDate) : "Select the date"}
+                    <Calendar size={18} color={tokens.color.mutedText} />
+                  </div>
+                  <input
+                    type="date"
+                    style={styles.mdAvailDateFieldNative}
+                    value={fixtureEditDate}
+                    onChange={(e) => setFixtureEditDate(e.target.value)}
+                  />
+                </div>
+                <span style={styles.mdAvailLabel}>KICK OFF TIME</span>
+                <div style={styles.mdAvailDateFieldWrap}>
+                  <div style={{ ...styles.mdAvailDateFieldDisplay, color: fixtureEditTime ? tokens.color.deepGreen : tokens.color.mutedText }}>
+                    {fixtureEditTime ? formatTimeStringAmPm(fixtureEditTime) : "Select the time"}
+                    <Clock size={18} color={tokens.color.mutedText} />
+                  </div>
+                  <input
+                    type="time"
+                    style={styles.mdAvailDateFieldNative}
+                    value={fixtureEditTime}
+                    onChange={(e) => setFixtureEditTime(e.target.value)}
+                  />
+                </div>
+                <span style={styles.mdAvailLabel}>OPPONENT (OPTIONAL)</span>
+                <input
+                  style={styles.mdAvailInput}
+                  placeholder="Rovers"
+                  value={fixtureEditOpponent}
+                  onChange={(e) => setFixtureEditOpponent(e.target.value)}
+                />
+                <span style={styles.mdAvailLabel}>LOCATION (OPTIONAL)</span>
+                <input
+                  style={styles.mdAvailInput}
+                  placeholder="Hillcrest Park"
+                  value={fixtureEditLocation}
+                  onChange={(e) => setFixtureEditLocation(e.target.value)}
+                />
+                <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                  <button style={{ ...styles.mdAvailSecondaryBtn, marginTop: 0, flex: 1 }} onClick={() => setEditingFixture(false)}>
+                    Cancel
+                  </button>
+                  <button style={{ ...styles.mdAvailPrimaryBtn, height: 56, fontSize: 18, flex: 1 }} onClick={saveFixtureEdit}>
+                    Save
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                style={styles.mdAvailFixtureEditBtn}
+                onClick={() => {
+                  setFixtureEditDate(toDateInputValue(request.matchAt));
+                  setFixtureEditTime(toTimeInputValue(request.matchAt));
+                  setFixtureEditOpponent(request.opponent || "");
+                  setFixtureEditLocation(request.location || "");
+                  setEditingFixture(true);
+                }}
+              >
+                <div style={styles.mdAvailFixture}>{request.opponent ? `${teamName} v ${request.opponent}` : teamName}</div>
+                <div style={styles.mdAvailFixtureDetail}>
+                  {new Date(request.matchAt).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })}
+                  {" · "}
+                  {new Date(request.matchAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+                  {request.location ? ` · ${request.location}` : ""}
+                </div>
+              </button>
+            )}
           </div>
 
           <div style={styles.mdAvailCard}>
