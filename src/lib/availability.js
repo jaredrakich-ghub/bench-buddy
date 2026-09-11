@@ -239,7 +239,6 @@ export function waitingChildren(squad, answers) {
 }
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const WEEKDAYS_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 // "Sat 13 Sep · 9:30 am" — the date/time half of 1a's own fixture card and
@@ -256,30 +255,6 @@ export function formatMatchWhen(matchAt) {
   const hours = hours24 % 12 || 12;
   const minutes = String(d.getMinutes()).padStart(2, "0");
   return `${day} · ${hours}:${minutes} ${hours24 >= 12 ? "pm" : "am"}`;
-}
-
-// "Saturday, 12 Sep 2026" and "9:30 am" — real-use feedback split 1a's
-// compose form into separate date/kick-off fields (native <input
-// type="date">/<input type="time"> can't be made to display a weekday or
-// AM/PM inside the control itself — that's the browser's own rendering,
-// not a styling choice), so these give the form a formatted caption under
-// each field instead. Deliberately take the RAW string straight off the
-// input (not a matchAt ms timestamp — see fromDateAndTime's own comment in
-// AvailabilityScreen.jsx) so there's no Date-parsing timezone ambiguity to
-// worry about; explicit Y/M/D construction, same "plain getters, no Intl"
-// convention as formatMatchWhen above.
-export function formatDateStringFull(dateStr) {
-  if (!dateStr) return "";
-  const [y, m, d] = dateStr.split("-").map(Number);
-  if (!y || !m || !d) return "";
-  return `${WEEKDAYS_FULL[new Date(y, m - 1, d).getDay()]}, ${d} ${MONTHS[m - 1]} ${y}`;
-}
-export function formatTimeStringAmPm(timeStr) {
-  if (!timeStr) return "";
-  const [h, m] = timeStr.split(":").map(Number);
-  if (Number.isNaN(h) || Number.isNaN(m)) return "";
-  const hours = h % 12 || 12;
-  return `${hours}:${String(m).padStart(2, "0")} ${h >= 12 ? "pm" : "am"}`;
 }
 
 // "Tigers FC v Rovers" — falls back to just the team name if no opponent

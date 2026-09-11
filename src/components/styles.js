@@ -2620,14 +2620,19 @@ export const styles = {
     width: "100%", height: 56, borderRadius: 18, background: "#fff", boxShadow: "0 3px 0 rgba(28,58,46,.10)",
     border: "none", padding: "0 16px", fontFamily: tokens.font.body, fontWeight: 700, fontSize: 16,
     color: tokens.color.deepGreen, boxSizing: "border-box", textAlign: "left",
-  },
-  // The formatted preview under the native date/kick-off-time fields —
-  // real-use feedback wanted the weekday and am/pm visible, which a native
-  // <input type="date">/<input type="time"> can't be made to show inside
-  // the control itself (that's the browser's own rendering). This is that
-  // information instead, right under the field it describes.
-  mdAvailInputCaption: {
-    fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13, color: tokens.color.mutedText, marginTop: -4,
+    // Real-use feedback, live on a real phone: <input type="date">/
+    // type="time"> were barely visible next to the plain-text fields —
+    // iOS Safari (and to a lesser extent other WebKit/Blink browsers)
+    // ignores custom background/border/shadow/padding on these two input
+    // types and draws its own native control chrome instead, unless told
+    // explicitly to stop. `appearance: none` is that instruction — once
+    // set, the browser hands full box styling AND text alignment back to
+    // this CSS, which is also what makes textAlign:left actually take
+    // effect on the picker's own displayed value (without it, Safari was
+    // centering/right-aligning that text regardless of this rule).
+    WebkitAppearance: "none",
+    MozAppearance: "textfield",
+    appearance: "none",
   },
 
   mdAvailPrimaryBtn: {

@@ -13,8 +13,6 @@ import {
   describeSetupSummary,
   waitingChildren,
   formatMatchWhen,
-  formatDateStringFull,
-  formatTimeStringAmPm,
   formatFixture,
   buildShareMessage,
   buildNudgeMessage,
@@ -231,26 +229,6 @@ describe("formatMatchWhen / formatFixture / buildShareMessage", () => {
     expect(formatMatchWhen(fivePastNoon)).toBe("Sat 13 Sep · 12:05 pm");
     const midnight = new Date(2025, 8, 13, 0, 0).getTime();
     expect(formatMatchWhen(midnight)).toBe("Sat 13 Sep · 12:00 am");
-  });
-
-  it("formatDateStringFull spells out the weekday and year from a raw 'YYYY-MM-DD' input string", () => {
-    expect(formatDateStringFull("2026-09-12")).toBe("Saturday, 12 Sep 2026");
-  });
-
-  it("formatDateStringFull is blank for an incomplete or empty date string", () => {
-    expect(formatDateStringFull("")).toBe("");
-    expect(formatDateStringFull("2026-09")).toBe("");
-  });
-
-  it("formatTimeStringAmPm converts a raw 'HH:MM' input string to 12-hour with am/pm", () => {
-    expect(formatTimeStringAmPm("09:30")).toBe("9:30 am");
-    expect(formatTimeStringAmPm("00:00")).toBe("12:00 am");
-    expect(formatTimeStringAmPm("12:05")).toBe("12:05 pm");
-    expect(formatTimeStringAmPm("23:59")).toBe("11:59 pm");
-  });
-
-  it("formatTimeStringAmPm is blank for an empty time string", () => {
-    expect(formatTimeStringAmPm("")).toBe("");
   });
 
   it("formatFixture includes the opponent when given, falls back to just the team name otherwise", () => {

@@ -3,8 +3,7 @@ import { Share2 } from "lucide-react";
 import { styles, tokens } from "./styles.js";
 import { getSquadNumber } from "../lib/squadNumber.js";
 import {
-  buildShareMessage, describeReplyState, isRequestClosed, canAnswer, buildAvailabilityUrl,
-  formatDateStringFull, formatTimeStringAmPm, defaultClosingAt,
+  buildShareMessage, describeReplyState, isRequestClosed, canAnswer, buildAvailabilityUrl, defaultClosingAt,
 } from "../lib/availability.js";
 import {
   fetchAvailabilityRequest, createOrRegenerateAvailabilityRequest, updateClosingTime, revokeAvailabilityRequest,
@@ -193,7 +192,6 @@ export default function AvailabilityScreen({ teamId, coachUid, teamName, roster,
               value={matchDate}
               onChange={(e) => setMatchDate(e.target.value)}
             />
-            {matchDate && <span style={styles.mdAvailInputCaption}>{formatDateStringFull(matchDate)}</span>}
             <span style={styles.mdAvailLabel}>KICK OFF TIME</span>
             <input
               type="time"
@@ -201,7 +199,6 @@ export default function AvailabilityScreen({ teamId, coachUid, teamName, roster,
               value={matchTime}
               onChange={(e) => setMatchTime(e.target.value)}
             />
-            {matchTime && <span style={styles.mdAvailInputCaption}>{formatTimeStringAmPm(matchTime)}</span>}
             <span style={styles.mdAvailLabel}>OPPONENT (OPTIONAL)</span>
             <input style={styles.mdAvailInput} placeholder="Rovers" value={opponent} onChange={(e) => setOpponent(e.target.value)} />
             <span style={styles.mdAvailLabel}>LOCATION (OPTIONAL)</span>
