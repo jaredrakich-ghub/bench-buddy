@@ -144,14 +144,23 @@ export default function AvailabilityClaimPage({ teamId, token }) {
             {selectedChild.number}
           </div>
           <div style={styles.mdClaimTitle}>Is {selectedChild.name} playing?</div>
+          {/* Real-use feedback (screen 6): the fixture, date/time, and
+              location used to run together as one wrapping line — narrow
+              enough that "am"/"pm" could land pushed onto its own line,
+              stranded. Three deliberate lines instead, one fact each; the
+              date/time line stays nowrap on purpose — short enough to
+              always fit this card's width, so "9:30" and "am" can never
+              separate. */}
           <div style={{ ...styles.mdClaimBody, marginTop: 8 }}>
-            {formatFixture(request.teamName, request.opponent)} · {formatMatchWhen(request.matchAt)}
-            {request.location ? <br /> : null}
-            {request.location}
+            <div>{formatFixture(request.teamName, request.opponent)}</div>
+            <div style={{ whiteSpace: "nowrap" }}>{formatMatchWhen(request.matchAt)}</div>
+            {request.location && <div>{request.location}</div>}
           </div>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", marginTop: 14 }}>
+        {/* Real-use feedback: the gap to the Yes/Can't make it buttons felt
+            too large — trimmed from 14 to 5. */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", marginTop: 5 }}>
           <button
             style={{ ...styles.mdAvailPrimaryBtn, ...(status !== "in" ? { background: "#fff", color: tokens.color.deepGreen, boxShadow: "none" } : {}) }}
             onClick={() => setStatus("in")}

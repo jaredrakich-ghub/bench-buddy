@@ -2595,8 +2595,17 @@ export const styles = {
   mdAvailFixtureEditBtn: {
     background: "transparent", border: "none", padding: 0, margin: 0, width: "100%", textAlign: "left", cursor: "pointer", font: "inherit",
   },
+  // Real-use feedback: "Not the right player? Select again" (screen 6)
+  // rendered as plain text directly inside this button, with no child span
+  // of its own to carry a font — font: "inherit" pulled whatever the
+  // browser's own default typeface is (this app sets font-family inline on
+  // every piece of text itself; nothing at the page root does), which read
+  // as visibly off from the rest of the app. AvailabilityScreen.jsx's own
+  // use of this style always wraps its text in a span with an explicit
+  // font (mdAvailClosesLine) that overrode the inherited value anyway, so
+  // this was invisible there — explicit fontFamily here now covers both.
   mdAvailFixtureDetailBtn: {
-    background: "transparent", border: "none", padding: 0, font: "inherit", fontWeight: 700, fontSize: 15,
+    background: "transparent", border: "none", padding: 0, fontFamily: tokens.font.body, fontWeight: 700, fontSize: 15,
     color: tokens.color.mutedText, textDecoration: "underline", textDecorationStyle: "dotted", cursor: "pointer", textAlign: "left",
   },
 
