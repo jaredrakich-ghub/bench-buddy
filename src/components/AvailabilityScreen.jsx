@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Share2, Calendar, Clock } from "lucide-react";
 import { styles, tokens } from "./styles.js";
 import { getSquadNumber } from "../lib/squadNumber.js";
@@ -81,6 +81,22 @@ export default function AvailabilityScreen({ teamId, coachUid, teamName, roster,
   const [fixtureEditTime, setFixtureEditTime] = useState("");
   const [fixtureEditOpponent, setFixtureEditOpponent] = useState("");
   const [fixtureEditLocation, setFixtureEditLocation] = useState("");
+  // Real-use feedback (screen 4 walkthrough): "no point seeing a long list
+  // of players" the instant a link's created — every chip just says
+  // "waiting". Collapsed by default, same "› rotates open" chevron
+  // convention as the Game Settings accordion rows. Auto-opens itself the
+  // moment the first real answer lands (including "it already had answers
+  // when this screen opened") so the coach isn't stuck tapping to see the
+  // one thing that actually changed — but only that once; a coach who
+  // collapses it back down afterward isn't fought on every new reply.
+  // prevTokenRef/prevHasAnswersRef track just enough state across renders
+  // to tell "first answer just arrived" apart from "still has answers from
+  // before" and "this is actually a brand-new link" (regenerate/cancel +
+  // recreate mints a new token with a fresh, empty answers map — that
+  // re-collapses on purpose, it's a long waiting list again).
+  const [squadExpanded, setSquadExpanded] = useState(false);
+  const prevTokenRef = useRef(null);
+  const prevHasAnswersRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -91,6 +107,19 @@ export default function AvailabilityScreen({ teamId, coachUid, teamName, roster,
       unsubscribe();
     };
   }, [teamId]);
+
+  useEffect(() => {
+    if (!request) return;
+    const hasAnswers = Object.keys(request.answers || {}).length > 0;
+    const isNewToken = prevTokenRef.current !== null && prevTokenRef.current !== request.token;
+    if (isNewToken) {
+      setSquadExpanded(hasAnswers);
+    } else if (hasAnswers && !prevHasAnswersRef.current) {
+      setSquadExpanded(true);
+    }
+    prevTokenRef.current = request.token;
+    prevHasAnswersRef.current = hasAnswers;
+  }, [request]);
 
   const runAction = async (fn) => {
     setError("");
@@ -403,31 +432,42 @@ export default function AvailabilityScreen({ teamId, coachUid, teamName, roster,
           </div>
 
           <div style={styles.mdAvailCard}>
-            <div style={styles.mdAvailCardLabel}>SQUAD · {request.squad.length}</div>
-            <div style={styles.mdAvailSquadChipRow}>
-              {/* Real-use feedback ("what does it look like once a parent
-                  confirms?"): these chips used to look identical no matter
-                  how — or whether — a child had answered; only the summary
-                  line below reflected any progress, and only in aggregate.
-                  Same "· out"/"· waiting" text suffix convention as the
-                  separate confirm-roster screen's own chips (state
-                  conveyed in text, not color alone) — nothing added for
-                  "in", since that's already the default look. */}
-              {request.squad.map((p) => {
-                const status = request.answers?.[p.id]?.status;
-                const suffix = status === "out" ? " · out" : status === "in" ? "" : " · waiting";
-                return (
-                  <span key={p.id} style={styles.mdAvailSquadChip}>
-                    <span style={styles.mdAvailSquadChipDisc}>{p.number}</span>
-                    <span style={styles.mdAvailSquadChipName}>
-                      {p.name}
-                      {suffix && <span style={styles.mdAvailStatusSuffix}>{suffix}</span>}
+            <button style={styles.mdAvailSquadToggle} onClick={() => setSquadExpanded((v) => !v)}>
+              <span style={{ ...styles.mdAvailCardLabel, marginBottom: 0 }}>SQUAD · {request.squad.length}</span>
+              <span
+                style={{ ...styles.mdAvailSquadToggleChevron, transform: squadExpanded ? "rotate(90deg)" : "none" }}
+              >
+                ›
+              </span>
+            </button>
+            {squadExpanded && (
+              <div style={{ ...styles.mdAvailSquadChipRow, marginTop: 10 }}>
+                {/* Real-use feedback ("what does it look like once a parent
+                    confirms?"): these chips used to look identical no matter
+                    how — or whether — a child had answered; only the summary
+                    line below reflected any progress, and only in aggregate.
+                    Same "· out"/"· waiting" text suffix convention as the
+                    separate confirm-roster screen's own chips (state
+                    conveyed in text, not color alone) — nothing added for
+                    "in", since that's already the default look. */}
+                {request.squad.map((p) => {
+                  const status = request.answers?.[p.id]?.status;
+                  const suffix = status === "out" ? " · out" : status === "in" ? "" : " · waiting";
+                  return (
+                    <span key={p.id} style={styles.mdAvailSquadChip}>
+                      <span style={styles.mdAvailSquadChipDisc}>{p.number}</span>
+                      <span style={styles.mdAvailSquadChipName}>
+                        {p.name}
+                        {suffix && <span style={styles.mdAvailStatusSuffix}>{suffix}</span>}
+                      </span>
                     </span>
-                  </span>
-                );
-              })}
+                  );
+                })}
+              </div>
+            )}
+            <div style={{ ...styles.mdAvailReplyState, marginTop: squadExpanded ? undefined : 10 }}>
+              {describeReplyState(request.squad, request.answers)}
             </div>
-            <div style={styles.mdAvailReplyState}>{describeReplyState(request.squad, request.answers)}</div>
           </div>
 
           <button style={styles.mdAvailPrimaryBtn} onClick={shareToWhatsApp}>

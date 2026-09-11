@@ -2604,6 +2604,20 @@ export const styles = {
     fontFamily: tokens.font.body, fontWeight: 800, fontSize: 13, color: tokens.color.mutedText,
     textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10,
   },
+  // The SQUAD label doubles as its own expand/collapse control — real-use
+  // feedback: a fresh link's chip list is nothing but "· waiting" the
+  // instant it's created, no point showing that by default. Same "›
+  // rotates open" chevron language as the Game Settings accordion rows
+  // (mdSetupAccordionChevron), just light enough to live inside an
+  // existing card rather than being one itself.
+  mdAvailSquadToggle: {
+    display: "flex", alignItems: "center", gap: 6, width: "100%", background: "transparent",
+    border: "none", padding: 0, cursor: "pointer", textAlign: "left", font: "inherit",
+  },
+  mdAvailSquadToggleChevron: {
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 14, color: tokens.color.chevron,
+    display: "inline-block", transition: "transform .2s ease",
+  },
   mdAvailPreviewWell: {
     background: tokens.color.availSand, borderRadius: tokens.radius.rowMd, padding: "14px 16px",
     fontFamily: tokens.font.body, fontWeight: 600, fontSize: 15, color: tokens.color.groupLabel, lineHeight: 1.4,
