@@ -1566,8 +1566,11 @@ export const styles = {
   // ---- The cancel confirmation dialog — centred over the whole screen,
   // above even the execute sheet itself (mdFinal60Overlay's own zIndex
   // 46) since it has to interrupt that sheet, not sit inside it. The one
-  // centred-card dialog in this app; everything else here is a bottom
-  // sheet or an anchored popover.
+  // centred-card dialog style in this app; everything else here is a
+  // bottom sheet or an anchored popover. Originally MatchView-only (a
+  // scheduled sub not coming on); reused as-is for AvailabilityScreen's
+  // own "cancel this link" confirm — the shape (title/body/two buttons,
+  // one destructive one safe) fits both, no new style needed.
   mdCancelDialogScrim: { position: "fixed", inset: 0, background: tokens.color.scrim, zIndex: 48 },
   mdCancelDialogCard: {
     position: "fixed", left: 20, right: 20, top: "50%", transform: "translateY(-50%)", zIndex: 49,

@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { Share2 } from "lucide-react";
-import { styles } from "./styles.js";
+import { styles, tokens } from "./styles.js";
 import { getSquadNumber } from "../lib/squadNumber.js";
 import {
-  buildShareMessage, describeReplyState, isRequestClosed, buildAvailabilityUrl,
+  buildShareMessage, describeReplyState, isRequestClosed, canAnswer, buildAvailabilityUrl,
 } from "../lib/availability.js";
 import {
-  fetchAvailabilityRequest, createOrRegenerateAvailabilityRequest, updateClosingTime, subscribeAvailabilityRequest,
+  fetchAvailabilityRequest, createOrRegenerateAvailabilityRequest, updateClosingTime, revokeAvailabilityRequest,
+  subscribeAvailabilityRequest,
 } from "../lib/availabilityIo.js";
 import LoadingScreen from "./LoadingScreen.jsx";
 
@@ -40,6 +41,7 @@ export default function AvailabilityScreen({ teamId, coachUid, teamName, roster,
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [editingClosing, setEditingClosing] = useState(false);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
 
   const [opponent, setOpponent] = useState("");
   const [matchAt, setMatchAt] = useState("");
@@ -96,6 +98,23 @@ export default function AvailabilityScreen({ teamId, coachUid, teamName, roster,
       setEditingClosing(false);
     });
 
+  // Real-use feedback: revokeAvailabilityRequest existed server-side from
+  // the very first build (README > The link: "revoking turns it off") but
+  // was never wired to anything — no way for a coach to actually cancel a
+  // link once sent, short of manually changing the closing time. Confirmed
+  // (mdCancelDialog — the one centred dialog in this app, previously
+  // MatchView-only) since it's a real, one-way action: existing recipients
+  // immediately see "This link isn't active" (AvailabilityClaimPage's own
+  // canAnswer check already handles that — nothing new needed there). The
+  // request document itself isn't deleted (revokedAt is just set), so
+  // there's still a real record, and "Get a new link" mints a fresh
+  // request the same as ever — cancelling doesn't remove that option.
+  const cancelLink = () =>
+    runAction(async () => {
+      await revokeAvailabilityRequest(teamId);
+      setConfirmingCancel(false);
+    });
+
   const fullClaimUrl = request ? buildAvailabilityUrl(teamId, request.token) : "";
   const claimUrl = fullClaimUrl.replace(/^https:\/\//, "");
   const message = request
@@ -120,6 +139,13 @@ export default function AvailabilityScreen({ teamId, coachUid, teamName, roster,
     return <LoadingScreen message="Loading…" />;
   }
 
+  // A cancelled request (revokedAt set) shows exactly like no request at
+  // all here — same as SubRotationPlanner.jsx's own currentAvailabilityRequest
+  // derivation for the "Set up next game" fold-in. The document itself
+  // isn't gone (still a real record, canAnswer is what actually gates it),
+  // this is purely which of the two views below renders.
+  const showCreateForm = !request || !canAnswer(request);
+
   return (
     <section>
       <div style={styles.mdSubHeader}>
@@ -131,7 +157,7 @@ export default function AvailabilityScreen({ teamId, coachUid, teamName, roster,
 
       {error && <div style={styles.modalWarning}>{error}</div>}
 
-      {!request ? (
+      {showCreateForm ? (
         <div style={styles.mdAvailCard}>
           <div style={styles.mdAvailFixture}>Ask the group</div>
           <div style={{ ...styles.mdAvailFixtureDetail, marginBottom: 14 }}>
@@ -237,6 +263,27 @@ export default function AvailabilityScreen({ teamId, coachUid, teamName, roster,
           <button style={styles.mdAvailGhostBtn} onClick={regenerate}>
             Get a new link
           </button>
+          <button style={{ ...styles.mdAvailGhostBtn, color: tokens.color.availOut }} onClick={() => setConfirmingCancel(true)}>
+            Cancel this link
+          </button>
+
+          {confirmingCancel && (
+            <>
+              <div style={styles.mdCancelDialogScrim} onClick={() => setConfirmingCancel(false)} />
+              <div style={styles.mdCancelDialogCard} role="dialog" aria-modal="true">
+                <span style={styles.mdCancelDialogTitle}>Cancel this link?</span>
+                <span style={styles.mdCancelDialogBody}>
+                  Anyone who already has it won't be able to answer any more. You can always send a new one after.
+                </span>
+                <button style={styles.mdCancelDialogCancelBtn} onClick={cancelLink}>
+                  Cancel the link
+                </button>
+                <button style={styles.mdCancelDialogKeepBtn} onClick={() => setConfirmingCancel(false)}>
+                  Keep it
+                </button>
+              </div>
+            </>
+          )}
         </>
       )}
     </section>

@@ -19,7 +19,7 @@ import MatchLinkScreen from "./MatchLinkScreen.jsx";
 import AvailabilityScreen from "./AvailabilityScreen.jsx";
 import LoadingScreen from "./LoadingScreen.jsx";
 import { fetchAvailabilityRequest } from "../lib/availabilityIo.js";
-import { isRequestStale } from "../lib/availability.js";
+import { isRequestStale, canAnswer } from "../lib/availability.js";
 import RotationProgressOverlay from "./RotationProgressOverlay.jsx";
 import headerMascot from "../assets/header-mascot.svg";
 
@@ -444,12 +444,15 @@ export default function SubRotationPlanner({ user }) {
   // live for the one they were setting up — same summary pill, same
   // pre-filled "Who's here" — because nothing ever marked a request "done"
   // once its own match had been played. isRequestStale (matchAt already
-  // passed) is the fix: a stale request is treated as if none existed at
+  // passed) is the fix for that; canAnswer (revokedAt not set) covers the
+  // other way a request stops being live — a coach cancelling it from
+  // AvailabilityScreen.jsx. Either way, treated as if no request existed at
   // all for every UI purpose below, without touching the document itself —
   // AvailabilityScreen.jsx fetches its own copy independently and still
-  // shows the real (stale) request there, since that's exactly where a
-  // coach regenerates it.
-  const currentAvailabilityRequest = availabilityRequest && !isRequestStale(availabilityRequest) ? availabilityRequest : null;
+  // shows the real (stale/cancelled) request there, since that's exactly
+  // where a coach regenerates it.
+  const currentAvailabilityRequest =
+    availabilityRequest && !isRequestStale(availabilityRequest) && canAnswer(availabilityRequest) ? availabilityRequest : null;
 
   // SaveTeamSheet's own "team photo" — the coach's current on-field/bench
   // split, same interval MatchView itself is showing live (intervalAtElapsed,
