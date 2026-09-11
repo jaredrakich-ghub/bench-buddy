@@ -405,12 +405,27 @@ export default function AvailabilityScreen({ teamId, coachUid, teamName, roster,
           <div style={styles.mdAvailCard}>
             <div style={styles.mdAvailCardLabel}>SQUAD · {request.squad.length}</div>
             <div style={styles.mdAvailSquadChipRow}>
-              {request.squad.map((p) => (
-                <span key={p.id} style={styles.mdAvailSquadChip}>
-                  <span style={styles.mdAvailSquadChipDisc}>{p.number}</span>
-                  <span style={styles.mdAvailSquadChipName}>{p.name}</span>
-                </span>
-              ))}
+              {/* Real-use feedback ("what does it look like once a parent
+                  confirms?"): these chips used to look identical no matter
+                  how — or whether — a child had answered; only the summary
+                  line below reflected any progress, and only in aggregate.
+                  Same "· out"/"· waiting" text suffix convention as the
+                  separate confirm-roster screen's own chips (state
+                  conveyed in text, not color alone) — nothing added for
+                  "in", since that's already the default look. */}
+              {request.squad.map((p) => {
+                const status = request.answers?.[p.id]?.status;
+                const suffix = status === "out" ? " · out" : status === "in" ? "" : " · waiting";
+                return (
+                  <span key={p.id} style={styles.mdAvailSquadChip}>
+                    <span style={styles.mdAvailSquadChipDisc}>{p.number}</span>
+                    <span style={styles.mdAvailSquadChipName}>
+                      {p.name}
+                      {suffix && <span style={styles.mdAvailStatusSuffix}>{suffix}</span>}
+                    </span>
+                  </span>
+                );
+              })}
             </div>
             <div style={styles.mdAvailReplyState}>{describeReplyState(request.squad, request.answers)}</div>
           </div>
