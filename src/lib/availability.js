@@ -239,6 +239,7 @@ export function waitingChildren(squad, answers) {
 }
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const WEEKDAYS_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 // "Sat 13 Sep · 9:30 am" — the date/time half of 1a's own fixture card and
@@ -255,6 +256,31 @@ export function formatMatchWhen(matchAt) {
   const hours = hours24 % 12 || 12;
   const minutes = String(d.getMinutes()).padStart(2, "0");
   return `${day} · ${hours}:${minutes} ${hours24 >= 12 ? "pm" : "am"}`;
+}
+
+// "Saturday, 12 Sep 2026" and "9:30 am" — real-use feedback, second round:
+// native <input type="date">/<input type="time"> render their own value
+// through browser-internal layout that plain CSS (text-align included)
+// can't reliably reach in either Safari or Chrome — appearance:none fixes
+// the input's own box styling but not this. The actual fix is to make the
+// native input itself invisible-but-interactive (still opens the real OS
+// picker on tap) and show our OWN left-aligned text on top of it — these
+// are that text. Take the RAW string straight off the input (not a
+// matchAt ms timestamp) so there's no Date-parsing timezone ambiguity;
+// explicit Y/M/D construction, same "plain getters, no Intl" convention
+// as formatMatchWhen above.
+export function formatDateStringFull(dateStr) {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split("-").map(Number);
+  if (!y || !m || !d) return "";
+  return `${WEEKDAYS_FULL[new Date(y, m - 1, d).getDay()]}, ${d} ${MONTHS[m - 1]} ${y}`;
+}
+export function formatTimeStringAmPm(timeStr) {
+  if (!timeStr) return "";
+  const [h, m] = timeStr.split(":").map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return "";
+  const hours = h % 12 || 12;
+  return `${hours}:${String(m).padStart(2, "0")} ${h >= 12 ? "pm" : "am"}`;
 }
 
 // "Tigers FC v Rovers" — falls back to just the team name if no opponent

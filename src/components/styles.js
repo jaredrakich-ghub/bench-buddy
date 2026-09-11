@@ -2621,18 +2621,47 @@ export const styles = {
     border: "none", padding: "0 16px", fontFamily: tokens.font.body, fontWeight: 700, fontSize: 16,
     color: tokens.color.deepGreen, boxSizing: "border-box", textAlign: "left",
     // Real-use feedback, live on a real phone: <input type="date">/
-    // type="time"> were barely visible next to the plain-text fields —
+    // type="time"> (and this datetime-local, used for the "Closes… Tap to
+    // change" edit) were barely visible next to the plain-text fields —
     // iOS Safari (and to a lesser extent other WebKit/Blink browsers)
-    // ignores custom background/border/shadow/padding on these two input
-    // types and draws its own native control chrome instead, unless told
-    // explicitly to stop. `appearance: none` is that instruction — once
-    // set, the browser hands full box styling AND text alignment back to
-    // this CSS, which is also what makes textAlign:left actually take
-    // effect on the picker's own displayed value (without it, Safari was
-    // centering/right-aligning that text regardless of this rule).
+    // ignores custom background/border/shadow/padding on these types and
+    // draws its own native control chrome instead, unless told explicitly
+    // to stop. `appearance: none` is that instruction, and it does fix the
+    // box styling. It does NOT fix text-align on the picker's own
+    // displayed value, though — a second round of feedback confirmed that
+    // in both Safari and Chrome. That value is rendered through
+    // browser-internal layout plain CSS can't reach; see
+    // mdAvailDateFieldWrap/Display/Native below for the actual fix used on
+    // 1a's own create-form date/time fields (an invisible-but-interactive
+    // native input under fully custom-styled display text). The Closes
+    // edit still uses this bare input — same underlying limitation
+    // there, not yet raised as its own issue.
     WebkitAppearance: "none",
     MozAppearance: "textfield",
     appearance: "none",
+  },
+  // The create form's own date/time fields (MATCH DATE, KICK OFF TIME) —
+  // the fix for text-align not reaching a native picker's displayed value.
+  // The real <input type="date">/type="time"> stays fully present and
+  // functional (tapping anywhere in the wrap still opens the actual OS
+  // picker), just invisible; mdAvailDateFieldDisplay is what's actually
+  // seen, fully our own markup so left-align (and the "Saturday, 12 Sep
+  // 2026"/"9:30 am" formatting real-use feedback originally asked for) are
+  // both trivially just correct, no fighting the browser required.
+  mdAvailDateFieldWrap: { position: "relative", width: "100%" },
+  mdAvailDateFieldDisplay: {
+    width: "100%", height: 56, borderRadius: 18, background: "#fff", boxShadow: "0 3px 0 rgba(28,58,46,.10)",
+    padding: "0 16px", fontFamily: tokens.font.body, fontWeight: 700, fontSize: 16, boxSizing: "border-box",
+    display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
+    pointerEvents: "none", // the invisible native input on top handles every tap
+  },
+  mdAvailDateFieldNative: {
+    position: "absolute", inset: 0, width: "100%", height: "100%",
+    opacity: 0, border: "none", padding: 0, margin: 0, cursor: "pointer",
+    // opacity (not display:none/visibility:hidden) — stays in the
+    // accessibility tree and keyboard-focusable, same as any other real
+    // input; it just isn't painted, since mdAvailDateFieldDisplay sits
+    // visually in its place.
   },
 
   mdAvailPrimaryBtn: {

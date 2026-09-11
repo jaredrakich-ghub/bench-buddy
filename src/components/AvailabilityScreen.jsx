@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { Share2 } from "lucide-react";
+import { Share2, Calendar, Clock } from "lucide-react";
 import { styles, tokens } from "./styles.js";
 import { getSquadNumber } from "../lib/squadNumber.js";
 import {
   buildShareMessage, describeReplyState, isRequestClosed, canAnswer, buildAvailabilityUrl, defaultClosingAt,
+  formatDateStringFull, formatTimeStringAmPm,
 } from "../lib/availability.js";
 import {
   fetchAvailabilityRequest, createOrRegenerateAvailabilityRequest, updateClosingTime, revokeAvailabilityRequest,
@@ -185,20 +186,40 @@ export default function AvailabilityScreen({ teamId, coachUid, teamName, roster,
             when you set up the game.
           </div>
           <div style={styles.mdAvailForm}>
+            {/* Real-use feedback, round two: neither Safari nor Chrome let
+                plain CSS (text-align included) reach a native date/time
+                input's own displayed value — that's rendered through
+                browser-internal layout appearance:none doesn't expose. The
+                native input is still here and still does the real work
+                (tapping anywhere opens the actual OS picker, same as
+                before) — it's just invisible, sat under our own left-
+                aligned text showing the formatted value. */}
             <span style={styles.mdAvailLabel}>MATCH DATE</span>
-            <input
-              type="date"
-              style={styles.mdAvailInput}
-              value={matchDate}
-              onChange={(e) => setMatchDate(e.target.value)}
-            />
+            <div style={styles.mdAvailDateFieldWrap}>
+              <div style={{ ...styles.mdAvailDateFieldDisplay, color: matchDate ? tokens.color.deepGreen : tokens.color.mutedText }}>
+                {matchDate ? formatDateStringFull(matchDate) : "Select the date"}
+                <Calendar size={18} color={tokens.color.mutedText} />
+              </div>
+              <input
+                type="date"
+                style={styles.mdAvailDateFieldNative}
+                value={matchDate}
+                onChange={(e) => setMatchDate(e.target.value)}
+              />
+            </div>
             <span style={styles.mdAvailLabel}>KICK OFF TIME</span>
-            <input
-              type="time"
-              style={styles.mdAvailInput}
-              value={matchTime}
-              onChange={(e) => setMatchTime(e.target.value)}
-            />
+            <div style={styles.mdAvailDateFieldWrap}>
+              <div style={{ ...styles.mdAvailDateFieldDisplay, color: matchTime ? tokens.color.deepGreen : tokens.color.mutedText }}>
+                {matchTime ? formatTimeStringAmPm(matchTime) : "Select the time"}
+                <Clock size={18} color={tokens.color.mutedText} />
+              </div>
+              <input
+                type="time"
+                style={styles.mdAvailDateFieldNative}
+                value={matchTime}
+                onChange={(e) => setMatchTime(e.target.value)}
+              />
+            </div>
             <span style={styles.mdAvailLabel}>OPPONENT (OPTIONAL)</span>
             <input style={styles.mdAvailInput} placeholder="Rovers" value={opponent} onChange={(e) => setOpponent(e.target.value)} />
             <span style={styles.mdAvailLabel}>LOCATION (OPTIONAL)</span>
