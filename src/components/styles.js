@@ -122,6 +122,12 @@ export const tokens = {
   font: {
     display: "'Baloo 2', system-ui, sans-serif",
     body: "'Nunito', system-ui, sans-serif",
+    // Real-use feedback: the raw claim URL in the "WHAT THE GROUP SEES"
+    // preview read as an unreadable jumble of random characters set in
+    // the body font. Monospace is the standard convention for a URL/code
+    // string — it reads as "this is deliberately technical", not noise —
+    // system stack only, no webfont needed for a handful of characters.
+    mono: "ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace",
   },
   // Named for what each radius is *for*, not just its pixel value, since
   // several different values share the same rough purpose (three "row"
@@ -2609,11 +2615,27 @@ export const styles = {
     // way, so this is display-only, not a copy change.
     whiteSpace: "pre-line",
   },
+  // Real-use feedback: the raw claim URL used to sit as plain bold text
+  // directly in the sand-coloured preview well, breaking mid-character
+  // wherever it happened to wrap — read as noise, not a link. Framed as
+  // its own light "chip" now (own background, radius, padding) so it
+  // visually reads as a distinct, deliberate element rather than part of
+  // the sentence above it; monospace (tokens.font.mono) is the standard
+  // convention for a URL/code string. The text itself is untouched — full,
+  // real, un-truncated — this label is titled "WHAT THE GROUP SEES" and
+  // still needs to show byte-identically what actually ships.
   mdAvailPreviewUrl: {
-    display: "block", marginTop: 8, fontFamily: tokens.font.body, fontWeight: 800, fontSize: 14, color: tokens.color.pitchGreen,
-    wordBreak: "break-all",
+    display: "block", marginTop: 10, background: "#fff", borderRadius: 10, padding: "8px 10px",
+    fontFamily: tokens.font.mono, fontWeight: 600, fontSize: 13, color: tokens.color.pitchGreen,
+    wordBreak: "break-word", overflowWrap: "anywhere",
   },
-  mdAvailClosesLine: { marginTop: 10, fontFamily: tokens.font.body, fontWeight: 700, fontSize: 14, color: tokens.color.mutedText },
+  // Real-use feedback: "feels a little cramped" — nudged right and given
+  // a touch more breathing room from the preview well above it (both
+  // small, deliberate adjustments, not a restyle).
+  mdAvailClosesLine: {
+    marginTop: 13, marginLeft: 3, display: "inline-block",
+    fontFamily: tokens.font.body, fontWeight: 700, fontSize: 14, color: tokens.color.mutedText,
+  },
 
   mdAvailSquadChipRow: { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 },
   mdAvailSquadChip: {
