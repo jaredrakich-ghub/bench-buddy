@@ -205,28 +205,32 @@ export function describeReplyState(squad, answers) {
   return answeredCount === 0 ? "Nobody has answered yet." : `${answeredCount} of ${total} answered`;
 }
 
-// 1d's one-line summary — "6 answered your link. Sarah is out, 2 haven't
-// replied." Names every "out" child individually up to a small cap (the
-// same "+N more" instinct the squad card already uses elsewhere in this
-// app, not a new pattern) so the sentence can't run away on a big squad.
-// Returns null when nobody's answered yet — 1d falls back to its own
-// plain "Who's here" state with nothing to summarize (no link sent yet,
-// or sent but silent so far).
+// 1d's one-line summary — "6 of 9 answered. Sarah is out." Names every
+// "out" child individually up to a small cap (the same "+N more" instinct
+// the squad card already uses elsewhere in this app, not a new pattern) so
+// the sentence can't run away on a big squad. Returns null when nobody's
+// answered yet — 1d falls back to its own plain "Who's here" state with
+// nothing to summarize (no link sent yet, or sent but silent so far).
+//
+// Real-use feedback: this used to end with its own "N haven't replied"
+// clause ("...Ben is out. 3 haven't replied.") — dropped as pure
+// redundancy, not a copy trim for its own sake: "2 of 5 answered" already
+// implies 3 didn't, and the Nudge button rendered right below this same
+// line already says "Nudge the 3 still waiting" — the same fact a third
+// time in as many lines.
 const MAX_NAMED_OUT = 3;
 export function describeSetupSummary(squad, answers) {
-  const { answeredCount, waitingCount } = summarizeAnswers(squad, answers);
+  const { answeredCount } = summarizeAnswers(squad, answers);
   if (answeredCount === 0) return null;
 
   const outNames = squad.filter((p) => answers[p.id]?.status === "out").map((p) => p.name);
-  const parts = [`${answeredCount} of ${squad.length} answered your link.`];
+  const parts = [`${answeredCount} of ${squad.length} answered.`];
   if (outNames.length > 0) {
     const named = outNames.slice(0, MAX_NAMED_OUT).join(", ");
     const rest = outNames.length - MAX_NAMED_OUT;
     const outPhrase = rest > 0 ? `${named} +${rest} more` : named;
     parts.push(`${outPhrase} ${outNames.length === 1 ? "is" : "are"} out.`);
   }
-  if (waitingCount === 1) parts.push("1 hasn't replied.");
-  else if (waitingCount > 1) parts.push(`${waitingCount} haven't replied.`);
   return parts.join(" ");
 }
 

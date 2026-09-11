@@ -173,19 +173,19 @@ describe("describeSetupSummary", () => {
 
   it("names a single out child", () => {
     const answers = { p1: { status: "in" }, p2: { status: "out" }, p3: { status: "in" } };
-    expect(describeSetupSummary(SQUAD, answers)).toBe("3 of 3 answered your link. Ben is out.");
+    expect(describeSetupSummary(SQUAD, answers)).toBe("3 of 3 answered. Ben is out.");
   });
 
-  it("mentions waiting children when some haven't replied", () => {
+  it("says nothing about waiting children — real-use feedback: redundant with the Nudge button rendered right below this line", () => {
     const answers = { p1: { status: "in" } };
-    expect(describeSetupSummary(SQUAD, answers)).toBe("1 of 3 answered your link. 2 haven't replied.");
+    expect(describeSetupSummary(SQUAD, answers)).toBe("1 of 3 answered.");
   });
 
   it("caps named 'out' children and folds the rest into a '+N more'", () => {
     const bigSquad = Array.from({ length: 5 }, (_, i) => ({ id: `p${i}`, name: `Player ${i}`, number: i + 1 }));
     const answers = Object.fromEntries(bigSquad.map((p) => [p.id, { status: "out" }]));
     expect(describeSetupSummary(bigSquad, answers)).toBe(
-      "5 of 5 answered your link. Player 0, Player 1, Player 2 +2 more are out."
+      "5 of 5 answered. Player 0, Player 1, Player 2 +2 more are out."
     );
   });
 });

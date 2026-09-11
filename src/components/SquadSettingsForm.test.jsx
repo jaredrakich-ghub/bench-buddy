@@ -1042,7 +1042,7 @@ describe("SquadSettingsForm — Availability link fold-in (1d)", () => {
     const onShowAvailability = vi.fn();
     render(<SquadSettingsForm {...baseProps({ variant: "edit", confirmAvailability: true, onShowAvailability, availabilityRequest: null })} />);
     expect(screen.getByText("Generate link to track availability")).toBeInTheDocument();
-    expect(screen.queryByText(/answered your link/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\d+ of \d+ answered/)).not.toBeInTheDocument();
   });
 
   it("positions the prompt after the chip grid — the manual roster edit is the primary action, the link a secondary one", () => {
@@ -1062,7 +1062,7 @@ describe("SquadSettingsForm — Availability link fold-in (1d)", () => {
     };
     render(<SquadSettingsForm {...baseProps({ variant: "edit", confirmAvailability: true, onShowAvailability, availabilityRequest })} />);
     expect(screen.queryByText("Generate link to track availability")).not.toBeInTheDocument();
-    await user.click(screen.getByText(/answered your link/));
+    await user.click(screen.getByText(/1 of 2 answered/));
     expect(onShowAvailability).toHaveBeenCalledTimes(1);
   });
 
