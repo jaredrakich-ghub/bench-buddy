@@ -10,17 +10,31 @@ import { useMatchState, fetchResumeData } from "../hooks/useMatchState.js";
 import { useCurrentAvailability } from "../hooks/useCurrentAvailability.js";
 import { fontStyle, styles } from "./styles.js";
 import SummaryModal from "./SummaryModal.jsx";
-import SeasonSummaryModal from "./SeasonSummaryModal.jsx";
 import SquadSettingsForm from "./SquadSettingsForm.jsx";
 import MatchView from "./MatchView.jsx";
-import TeamAccountScreen from "./TeamAccountScreen.jsx";
-import ManageSquadScreen from "./ManageSquadScreen.jsx";
-import SquadChangeScreen from "./SquadChangeScreen.jsx";
 import MatchLinkScreen from "./MatchLinkScreen.jsx";
 import AvailabilityScreen from "./AvailabilityScreen.jsx";
 import LoadingScreen from "./LoadingScreen.jsx";
 import RotationProgressOverlay from "./RotationProgressOverlay.jsx";
 import headerMascot from "../assets/header-mascot.svg";
+
+// Debt ledger, Later lane: code-split the screens that aren't on the
+// critical first-paint path — a coach opening the app pitch-side (this
+// PWA's own stated use case, see public/sw.js) shouldn't have to download
+// Team & account, Manage squad, Squad change, and Season Minutes before
+// they can see the match timer, on a day most games never touch any of
+// them. Each is its own real screen, only ever entered through a full-
+// screen takeover already wrapped in a <React.Suspense> below — a coach
+// tapping into one for the first time in a session pays a small one-time
+// fetch (same origin, already-warm connection) instead of it padding out
+// the very first bundle everyone downloads. fallback={null}: the
+// takeover's own shell (background/shape) renders immediately either way
+// (it's not part of the lazy import), so there's nothing worth showing a
+// spinner over for what's normally a sub-100ms wait.
+const TeamAccountScreen = React.lazy(() => import("./TeamAccountScreen.jsx"));
+const ManageSquadScreen = React.lazy(() => import("./ManageSquadScreen.jsx"));
+const SquadChangeScreen = React.lazy(() => import("./SquadChangeScreen.jsx"));
+const SeasonSummaryModal = React.lazy(() => import("./SeasonSummaryModal.jsx"));
 
 // Both of these are now read-only, used exactly once each: migrating an
 // existing browser's local data into the signed-in user's Firestore account
@@ -639,25 +653,27 @@ export default function SubRotationPlanner({ user }) {
         // MatchView.jsx.)
         <div style={styles.mdFullScreenTakeoverOuter}>
           <div style={styles.mdFullScreenTakeoverInner}>
-            <TeamAccountScreen
-              teams={teams}
-              activeTeamId={activeTeamId}
-              onSwitch={switchTeam}
-              onAdd={addNewTeam}
-              onRename={renameTeamById}
-              onDelete={deleteTeamById}
-              onClose={() => setShowTeamSwitcher(false)}
-              userEmail={user.email}
-              isAnonymous={user.isAnonymous}
-              onSignOut={signOutUser}
-              onDeleteAccount={deleteMyAccount}
-              onShowManageSquad={() => setShowManageSquad(true)}
-              crestSrc={headerMascot}
-              onFieldPlayers={saveTeamOnFieldPlayers}
-              benchIds={saveTeamBenchIds}
-              nameOf={nameOf}
-              numberOf={numberOf}
-            />
+            <React.Suspense fallback={null}>
+              <TeamAccountScreen
+                teams={teams}
+                activeTeamId={activeTeamId}
+                onSwitch={switchTeam}
+                onAdd={addNewTeam}
+                onRename={renameTeamById}
+                onDelete={deleteTeamById}
+                onClose={() => setShowTeamSwitcher(false)}
+                userEmail={user.email}
+                isAnonymous={user.isAnonymous}
+                onSignOut={signOutUser}
+                onDeleteAccount={deleteMyAccount}
+                onShowManageSquad={() => setShowManageSquad(true)}
+                crestSrc={headerMascot}
+                onFieldPlayers={saveTeamOnFieldPlayers}
+                benchIds={saveTeamBenchIds}
+                nameOf={nameOf}
+                numberOf={numberOf}
+              />
+            </React.Suspense>
           </div>
         </div>
       )}
@@ -708,14 +724,16 @@ export default function SubRotationPlanner({ user }) {
         // screen rather than a pre-expanded section of a per-game form.
         <div style={styles.mdFullScreenTakeoverOuter}>
           <div style={styles.mdFullScreenTakeoverInner}>
-            <ManageSquadScreen
-              roster={teamData.roster}
-              numberOf={numberOf}
-              setPlayerNumber={setPlayerNumber}
-              renamePlayer={renamePlayer}
-              removePlayer={removePlayer}
-              onClose={() => setShowManageSquad(false)}
-            />
+            <React.Suspense fallback={null}>
+              <ManageSquadScreen
+                roster={teamData.roster}
+                numberOf={numberOf}
+                setPlayerNumber={setPlayerNumber}
+                renamePlayer={renamePlayer}
+                removePlayer={removePlayer}
+                onClose={() => setShowManageSquad(false)}
+              />
+            </React.Suspense>
           </div>
         </div>
       )}
@@ -741,11 +759,13 @@ export default function SubRotationPlanner({ user }) {
         // A8-Team-account and A5-Minutes.
         <div style={styles.mdFullScreenTakeoverOuter}>
           <div style={styles.mdFullScreenTakeoverInner}>
-            <SeasonSummaryModal
-              teamId={activeTeamId}
-              numberOf={numberOf}
-              onClose={() => setShowSeasonModal(false)}
-            />
+            <React.Suspense fallback={null}>
+              <SeasonSummaryModal
+                teamId={activeTeamId}
+                numberOf={numberOf}
+                onClose={() => setShowSeasonModal(false)}
+              />
+            </React.Suspense>
           </div>
         </div>
       )}
@@ -755,17 +775,19 @@ export default function SubRotationPlanner({ user }) {
         // every other non-match screen.
         <div style={styles.mdFullScreenTakeoverOuter}>
           <div style={styles.mdFullScreenTakeoverInner}>
-            <SquadChangeScreen
-              roster={teamData.roster}
-              availableIds={availableIds}
-              plan={plan}
-              activeInterval={activeInterval}
-              numberOf={numberOf}
-              onAddArrival={addArrival}
-              onRemoveAvailability={removeAvailability}
-              onAddRosterPlayer={addRosterPlayer}
-              onClose={() => setShowSquadChange(false)}
-            />
+            <React.Suspense fallback={null}>
+              <SquadChangeScreen
+                roster={teamData.roster}
+                availableIds={availableIds}
+                plan={plan}
+                activeInterval={activeInterval}
+                numberOf={numberOf}
+                onAddArrival={addArrival}
+                onRemoveAvailability={removeAvailability}
+                onAddRosterPlayer={addRosterPlayer}
+                onClose={() => setShowSquadChange(false)}
+              />
+            </React.Suspense>
           </div>
         </div>
       )}
