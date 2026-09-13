@@ -74,3 +74,34 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # Debt ledger, Later lane #2 — firestore.rules used to deploy only by
+  # hand (see README's own "Deployment" section), a standing gap between
+  # "the code that decided this write should be allowed" and "the rules
+  # actually enforcing that in production," with nothing forcing the two
+  # to stay in sync except memory. Runs on every push to main, same as
+  # the app deploy above — a repeat deploy of unchanged rules is a cheap
+  # no-op, and always-in-sync is simpler to reason about than only
+  # deploying when firestore.rules itself changed.
+  #
+  # Authenticated via a service account key (Settings > Secrets and
+  # variables > Actions > FIREBASE_SERVICE_ACCOUNT), scoped to the
+  # minimal "Firebase Rules Admin" role — not the broader login:ci-style
+  # personal token the manual command in the README still uses. Separate
+  # job (not a step in `build` above) so a rules-deploy failure is
+  # immediately obvious as its own red X in the Actions tab, not buried
+  # inside the same job that also builds/tests the app.
+  deploy-rules:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      - run: npx firebase deploy --only firestore:rules --project bench-buddy-ada85

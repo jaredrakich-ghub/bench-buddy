@@ -80,8 +80,15 @@ The `dist/` folder is a plain static site — no server-side code involved.
 Pushing to `main` automatically builds and deploys the app to GitHub Pages
 (see `.github/workflows/deploy.yml`) — both test suites have to pass first.
 
-**`firestore.rules` is not part of that automated deploy.** Database
-security rules are deployed separately, by hand, whenever they change:
+**`firestore.rules` deploys automatically too**, in its own job (`deploy-rules`
+in that same workflow) right after those same test suites pass — so the
+deployed rules can never drift out of sync with what's committed. It's
+authenticated via a service account key stored as the `FIREBASE_SERVICE_ACCOUNT`
+repository secret (Settings > Secrets and variables > Actions), scoped to
+the minimal "Firebase Rules Admin" role.
+
+A manual deploy is still occasionally useful (checking a local edit before
+pushing, or if CI itself is down):
 
 ```bash
 npx firebase login
