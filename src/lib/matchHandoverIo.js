@@ -12,7 +12,7 @@
 // matchState too, once both parties are live on the same match at once.
 import { doc, getDoc, setDoc, updateDoc, onSnapshot } from "firebase/firestore";
 import { db } from "./firebaseClient.js";
-import { initialExpiresAt, generateClaimToken } from "./matchHandover.js";
+import { initialExpiresAt, expiresAtOnFullTime, generateClaimToken } from "./matchHandover.js";
 
 const TEAMS_COLLECTION = "teams";
 const HANDOVER_SUBCOLLECTION = "matchHandover";
@@ -73,6 +73,34 @@ export async function regenerateClaimToken(teamId, currentHandover) {
 // this off" action, distinct from revoking one holder (below).
 export async function revokeHandover(teamId) {
   await updateDoc(handoverRef(teamId), { revokedAt: Date.now() });
+}
+
+// Called from useMatchState's own clock tick, the moment full time is
+// actually reached (same real-time trigger as archiveGame) — was
+// previously never called at all: expiresAtOnFullTime existed and was
+// tested, but nothing in the running app ever invoked it, so "Stop
+// working 24 hrs after full time" silently did nothing regardless of the
+// toggle. A plain no-op (not an error) when Match Link was never turned
+// on for this match, or the toggle is off, or nothing would actually
+// change — no point in a write that alters nothing.
+//
+// Coach-only by design (see useMatchState.js's own isCoach guard on the
+// caller): firestore.rules' coach update rule for this doc is the only
+// one broad enough to touch expiresAt directly — the parent's own two
+// narrow claim-write rules only ever touch pendingClaim/claim, never
+// this field. A parent who's the only one with the app open when full
+// time hits won't trigger this until the coach's own tab is next open,
+// same "best-effort, client-driven" limits every other side effect in
+// this app already has (there's no server/Cloud Function backing any of
+// this).
+export async function applyFullTimeExpiry(teamId) {
+  const snap = await getDoc(handoverRef(teamId));
+  if (!snap.exists()) return;
+  const handover = snap.data();
+  if (handover.revokedAt || !handover.stopsAtFullTime) return;
+  const expiresAt = expiresAtOnFullTime(handover);
+  if (expiresAt === handover.expiresAt) return;
+  await updateDoc(handoverRef(teamId), { expiresAt });
 }
 
 // Revokes THIS holder specifically ("Who has the game" row's own revoke),

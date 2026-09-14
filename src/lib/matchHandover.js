@@ -73,6 +73,15 @@
 // emailed anywhere yet.
 
 const HARD_CAP_MS = 4 * 60 * 60 * 1000; // kickoff + 4 hours
+// Real-use feedback: this used to cut expiresAt to the exact moment full
+// time was recorded — the parent's own screen had no idea this had
+// happened (nothing subscribes to handover state there), so their very
+// next tap after the final whistle would just fail with a generic
+// permission error, no explanation. A same-day grace window instead lets
+// them review the finished match (the summary, who played what) without
+// getting cut off mid-look, while still closing the link out same-day
+// rather than leaving it live for the full 4-hour hard cap.
+const FULL_TIME_GRACE_MS = 24 * 60 * 60 * 1000;
 
 // The expiry set when a handover is first created. Always the hard cap,
 // regardless of the "stops at full time" toggle — if that toggle is on,
@@ -83,12 +92,13 @@ export function initialExpiresAt(kickoffAt) {
 }
 
 // Called when full time is actually recorded, if stopsAtFullTime is on.
-// Brings expiresAt forward to now rather than replacing it outright, so a
-// handover that's already past its hard cap for some unrelated reason
-// doesn't get accidentally extended by a late full-time call.
+// Brings expiresAt forward to 24 hours from now, rather than replacing it
+// outright, so a handover that's already past its hard cap for some
+// unrelated reason doesn't get accidentally extended by a late full-time
+// call.
 export function expiresAtOnFullTime(handover, now = Date.now()) {
   if (!handover.stopsAtFullTime) return handover.expiresAt;
-  return Math.min(handover.expiresAt, now);
+  return Math.min(handover.expiresAt, now + FULL_TIME_GRACE_MS);
 }
 
 // True only while a claim genuinely, currently has the match: the handover

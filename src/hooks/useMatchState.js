@@ -13,6 +13,7 @@ import {
   describeSaveError,
 } from "../lib/firestoreTeams.js";
 import { archiveGame } from "../lib/gameHistory.js";
+import { applyFullTimeExpiry } from "../lib/matchHandoverIo.js";
 
 // Shared by fetchResumeData and fetchResumeDataFromCache below — turns a
 // raw matchState document into { saved, live, stillRunning }, recomputing
@@ -62,7 +63,12 @@ export async function fetchResumeDataFromCache(teamId) {
 // *which* team is active, and reloading this match state to match, has to
 // happen as one atomic batch (see activateTeam in SubRotationPlanner.jsx),
 // so that orchestration deliberately lives there rather than in either hook.
-export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
+//
+// isCoach (default false — ParentMatchSession never passes it,
+// SubRotationPlanner always does) gates the one coach-only side effect
+// below (applyFullTimeExpiry) — see that function's own comment for why a
+// parent's own session can't perform it anyway (firestore.rules).
+export function useMatchState({ activeTeamId, teamData, saveTeamData, isCoach = false }) {
   const [availableIds, setAvailableIds] = useState([]);
   const [gameSettings, setGameSettings] = useState(defaultSettings());
   const [plan, setPlan] = useState(null);
@@ -253,6 +259,15 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
           archiveGame(activeTeamId, { date: Date.now(), settings: gameSettings, players }).catch((err) => {
             setSaveError(describeSaveError(err));
           });
+          // Best-effort, coach-only (see isCoach's own comment above and
+          // applyFullTimeExpiry's in matchHandoverIo.js) — silently
+          // swallowed on failure rather than surfaced through setSaveError:
+          // the overwhelmingly common case is simply "Match Link was never
+          // turned on for this match" (the function itself no-ops on that),
+          // and even a genuine write failure here just leaves the link
+          // active a little longer than intended, not a real loss like a
+          // failed match-state save would be.
+          if (isCoach) applyFullTimeExpiry(activeTeamId).catch(() => {});
         }
       }
     };

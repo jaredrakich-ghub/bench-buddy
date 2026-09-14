@@ -42,9 +42,14 @@ describe("initialExpiresAt", () => {
 });
 
 describe("expiresAtOnFullTime", () => {
-  it("brings the expiry forward to now when stopsAtFullTime is on", () => {
-    const h = activeHandover({ expiresAt: NOW + 60_000 });
-    expect(expiresAtOnFullTime(h, NOW)).toBe(NOW);
+  it("brings the expiry forward to 24 hours from now when stopsAtFullTime is on", () => {
+    // Starting expiresAt is well beyond the new 24-hour grace window, so
+    // this only passes if the grace window is actually what wins the
+    // min() below (a real mistake made here first — the original hard
+    // cap is only 4 hours, smaller than the grace window, so it has to
+    // be well past 24h for this test to be meaningful at all).
+    const h = activeHandover({ expiresAt: NOW + 48 * 60 * 60 * 1000 });
+    expect(expiresAtOnFullTime(h, NOW)).toBe(NOW + 24 * 60 * 60 * 1000);
   });
 
   it("leaves the expiry unchanged when stopsAtFullTime is off", () => {
@@ -52,9 +57,9 @@ describe("expiresAtOnFullTime", () => {
     expect(expiresAtOnFullTime(h, NOW)).toBe(NOW + 60_000);
   });
 
-  it("does not extend an expiry that's already earlier than now", () => {
+  it("does not extend an expiry that's already earlier than the 24-hour grace window", () => {
     // A late full-time call shouldn't accidentally push expiry later than
-    // an already-passed hard cap.
+    // an already-earlier hard cap.
     const h = activeHandover({ expiresAt: NOW - 5_000 });
     expect(expiresAtOnFullTime(h, NOW)).toBe(NOW - 5_000);
   });

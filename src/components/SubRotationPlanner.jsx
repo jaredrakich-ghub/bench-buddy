@@ -51,7 +51,7 @@ export default function SubRotationPlanner({ user }) {
   // deliberately stays here rather than inside either hook.
   const teamRegistry = useTeamRegistry();
   const { teams, setTeams, activeTeamId, setActiveTeamId, teamData, loading, setLoading, saveTeamData, renameTeamById } = teamRegistry;
-  const match = useMatchState({ activeTeamId, teamData, saveTeamData });
+  const match = useMatchState({ activeTeamId, teamData, saveTeamData, isCoach: true });
   const {
     availableIds, setAvailableIds, gameSettings, setGameSettings, plan,
     activeInterval, setActiveInterval,
