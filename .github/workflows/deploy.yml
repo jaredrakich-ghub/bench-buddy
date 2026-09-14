@@ -105,3 +105,40 @@ jobs:
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
       - run: npx firebase deploy --only firestore:rules --project bench-buddy-ada85
+
+  # Match Link's email delivery (functions/, sendMatchLinkClaimEmail) used
+  # to deploy only by hand, the same standing gap deploy-rules above was
+  # built to close for firestore.rules — same fix, same reasoning, applied
+  # to the one Cloud Function this project now has. Separate job, same
+  # "own red X" reasoning as deploy-rules.
+  #
+  # Two separate npm ci's on purpose: root (for firebase-tools itself, the
+  # CLI actually running the deploy) and functions/ (its own, separate
+  # dependency tree — Cloud Functions run in their own Node process, not
+  # the browser bundle, so functions/package.json's deps are never touched
+  # by the root install).
+  #
+  # Same FIREBASE_SERVICE_ACCOUNT secret as deploy-rules — Cloud Functions
+  # deploys need a materially broader set of IAM roles than a plain rules
+  # deploy (Cloud Functions, Cloud Run, Artifact Registry, Eventarc, and
+  # Service Account User, at minimum, on top of what deploy-rules already
+  # needed), granted on that same service account in the GCP console.
+  deploy-functions:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            functions/package-lock.json
+      - run: npm ci
+      - run: npm ci
+        working-directory: functions
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      - run: npx firebase deploy --only functions --project bench-buddy-ada85
