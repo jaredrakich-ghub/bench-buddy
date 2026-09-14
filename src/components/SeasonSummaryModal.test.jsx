@@ -99,38 +99,37 @@ describe("SeasonSummaryModal", () => {
     });
   });
 
-  it("orders rows by average playing time descending, and explains the bar's average line/colour in the note card", async () => {
+  it("orders rows by average playing time descending, and explains the diverging bar in the note card", async () => {
     fetchGameHistory.mockResolvedValue(GAMES);
     renderModal();
     await screen.findByText("Alice");
     const names = screen.getAllByText(/Alice|Bob/).map((el) => el.textContent);
     expect(names).toEqual(["Alice", "Bob"]);
-    expect(screen.getByText(/The line marks the squad's own average/)).toBeInTheDocument();
+    expect(screen.getByText(/compared with the squad's own average/)).toBeInTheDocument();
   });
 
-  it("colours a player's bar green at/above the squad average and amber below it, with a tick marking the average", async () => {
+  it("grows a player's bar from the squad average — green rightward if ahead of it, amber leftward if behind", async () => {
     fetchGameHistory.mockResolvedValue(GAMES);
     renderModal();
     await screen.findByText("Alice");
-    // Squad average = (30 + 25) / 2 = 27.5'. Alice (30') sits at/above it —
-    // green; Bob (25') sits below it — amber. Real-use feedback: a flat
-    // single-colour bar didn't communicate anything on its own, so the
-    // fill colour itself now carries the "keeping up with the squad or
-    // not" signal, same green/amber a coach already reads elsewhere.
+    // Real-use feedback, round two: colouring a min-to-max-scaled bar
+    // (round one's fix) still didn't read as anything, since the bar's
+    // length and its colour were each answering a different question.
+    // Now both answer the same one — distance from the squad's own
+    // average (27.5' = (30+25)/2) — so Alice (30', ahead) gets a bar
+    // growing right from the centre, Bob (25', behind) growing left.
     const aliceRow = screen.getByText("Alice").closest("div").parentElement;
     const aliceBar = aliceRow.querySelector('div[style*="height: 100%"]');
-    expect(aliceBar).toHaveStyle({ backgroundColor: "rgb(46, 125, 83)" }); // tokens.color.pitchGreen
+    expect(aliceBar).toHaveStyle({ backgroundColor: "rgb(46, 125, 83)", left: "50%" }); // tokens.color.pitchGreen
 
     const bobRow = screen.getByText("Bob").closest("div").parentElement;
     const bobBar = bobRow.querySelector('div[style*="height: 100%"]');
-    expect(bobBar).toHaveStyle({ backgroundColor: "rgb(245, 185, 59)" }); // tokens.color.yellow
+    expect(bobBar).toHaveStyle({ backgroundColor: "rgb(245, 185, 59)", right: "50%" }); // tokens.color.yellow
 
-    // Both rows get the same average tick, since it's the same squad-wide
-    // value — position isn't asserted here (that's barPct/meanPct's own
-    // arithmetic, not this component's job to re-derive), just that it
-    // renders.
-    expect(aliceRow.querySelector('div[style*="position: absolute"]')).toBeInTheDocument();
-    expect(bobRow.querySelector('div[style*="position: absolute"]')).toBeInTheDocument();
+    // Both rows get the same centre mark, since it's the same squad-wide
+    // average — always exactly in the middle, nothing to compute per row.
+    expect(aliceRow.querySelector('div[style*="left: 50%"][style*="width: 2px"]')).toBeInTheDocument();
+    expect(bobRow.querySelector('div[style*="left: 50%"][style*="width: 2px"]')).toBeInTheDocument();
   });
 
   it("has no Injured column — a deliberate change from the previous version", async () => {

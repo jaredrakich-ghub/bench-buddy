@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { fetchGameHistory, deleteGame } from "../lib/gameHistory.js";
 import { aggregateSeasonSummary } from "../lib/rotation.js";
-import { styles, tokens } from "./styles.js";
+import { styles } from "./styles.js";
 
 // Rollup of every archived game for this team — see gameHistory.js for
 // where those records come from (one per completed game, written
@@ -91,24 +91,26 @@ export default function SeasonSummaryModal({ teamId, numberOf, onClose }) {
     .sort((a, b) => b.avgTotalMin - a.avgTotalMin);
 
   const avgValues = rows.map((r) => r.avgTotalMin);
-  const maxAvg = avgValues.length ? Math.max(...avgValues) : 0;
-  const minAvg = avgValues.length ? Math.min(...avgValues) : 0;
-  const gapMin = maxAvg - minAvg;
-  // "Bars are scaled from the squad's lowest average, not from zero" — a
-  // player sitting exactly at the squad's low end reads as an empty bar,
-  // not a mostly-full one, so the actual spread is what's visible.
-  const barPct = (avgTotalMin) => (gapMin > 0 ? ((avgTotalMin - minAvg) / gapMin) * 100 : 100);
 
-  // Real-use feedback: a flat green bar next to a number didn't read as
-  // anything in particular — same colour whether a player was miles ahead
-  // of the squad or the one being shortchanged. The fix isn't a longer
-  // caption, it's giving the bar itself something to mean: a tick at the
-  // squad's own average (meanPct), and the fill coloured green at/above
-  // that average, amber below it — so "is this kid keeping up" reads at a
-  // glance, the same green/amber a coach already reads as fine/attention
-  // everywhere else in the app.
+  // Real-use feedback, round two: the first fix (a tick at the squad
+  // average, colouring the same min-to-max-scaled bar green/above or
+  // amber/below) still didn't click — because the bar's LENGTH and its
+  // COLOUR were answering two different questions (length: "where do you
+  // sit between this squad's worst-off and best-off player", colour:
+  // "are you above or below the average"). Now both answer the same one:
+  // every bar's length is itself the distance from the squad's own
+  // average, in the direction of the colour. The average is the centre
+  // of the track (mdSeasonBarAvgMark, fixed at 50% — that's what "the
+  // centre" means for a diverging scale, not something to recompute), a
+  // green bar grows right from there for a player getting MORE than the
+  // average, an amber bar grows left for LESS — no more of "is this 80%
+  // full bar close to the top of the squad, or just close to average?".
   const meanAvg = avgValues.length ? avgValues.reduce((sum, v) => sum + v, 0) / avgValues.length : 0;
-  const meanPct = gapMin > 0 ? ((meanAvg - minAvg) / gapMin) * 100 : null;
+  const maxDeviation = avgValues.length ? Math.max(...avgValues.map((v) => Math.abs(v - meanAvg))) : 0;
+  // Half the track (0-50%) is all either direction gets — the player
+  // furthest from average, whichever way, is the only one who ever
+  // reaches the full half.
+  const deviationPct = (avgTotalMin) => (maxDeviation > 0 ? (Math.abs(avgTotalMin - meanAvg) / maxDeviation) * 50 : 0);
 
   const oldestGameDate = games && games.length > 0 ? games[games.length - 1].date : null;
 
@@ -138,8 +140,8 @@ export default function SeasonSummaryModal({ teamId, numberOf, onClose }) {
       {games !== null && !error && games.length > 0 && (
         <>
           <div style={styles.mdMinutesNote}>
-            Average minutes per game. The line marks the squad's own average — amber bars are below it, green at or
-            above.
+            Average minutes per game, compared with the squad's own average (the centre line). Green bars are ahead
+            of it, amber bars behind.
           </div>
 
           <div style={styles.mdMinutesList}>
@@ -154,13 +156,13 @@ export default function SeasonSummaryModal({ teamId, numberOf, onClose }) {
                     </span>
                   </div>
                   <div style={styles.mdSeasonBarTrack}>
-                    {meanPct !== null && <div style={{ ...styles.mdSeasonBarAvgMark, left: `${meanPct}%` }} />}
+                    <div style={styles.mdSeasonBarAvgMark} />
                     <div
-                      style={{
-                        ...styles.mdSeasonBarFill,
-                        width: `${barPct(r.avgTotalMin)}%`,
-                        background: r.avgTotalMin < meanAvg ? tokens.color.yellow : tokens.color.pitchGreen,
-                      }}
+                      style={
+                        r.avgTotalMin < meanAvg
+                          ? { ...styles.mdSeasonBarFillNeg, width: `${deviationPct(r.avgTotalMin)}%` }
+                          : { ...styles.mdSeasonBarFillPos, width: `${deviationPct(r.avgTotalMin)}%` }
+                      }
                     />
                   </div>
                   <span style={styles.mdSeasonAvg}>{Math.round(r.avgTotalMin)}′</span>

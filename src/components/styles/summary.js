@@ -118,25 +118,39 @@ export const summaryStyles = {
   mdSeasonNameStack: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 },
   mdSeasonName: { fontFamily: tokens.font.body, fontWeight: 800, fontSize: 15.5, color: tokens.color.deepGreen },
   mdSeasonSubline: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 12, color: tokens.color.mutedText },
-  // "Bars are scaled from the squad's lowest average, not from zero, so a
-  // small spread stays visible" — the component computes the fill
-  // percentage; this is just the track/fill shapes. `position: relative`
-  // so mdSeasonBarAvgMark (the squad-average tick) can sit on top of it —
-  // real-use feedback: a flat single-colour bar next to a number read as
-  // pure decoration, with no way to tell at a glance whether a player was
-  // actually keeping up with the squad. The tick plus the fill's own
-  // green/amber colour (set at the call site, since it depends on that
-  // player's own average vs. the squad's) give that a real reference
-  // point instead of just relative bar length.
+  // Real-use feedback, round two: a single bar scaled min-to-max with a
+  // colour keyed to the average (round one's fix) still didn't read as
+  // anything, because length and colour were each answering a DIFFERENT
+  // question. Now the track is a diverging scale centred on the squad's
+  // own average (mdSeasonBarAvgMark, fixed at the middle) — every bar's
+  // length AND colour both answer the same one question, "ahead of or
+  // behind the average, and by how much." `position: relative` so the
+  // centre mark and whichever fill applies (Pos/Neg below) can sit inside
+  // it as absolutely-positioned children.
   mdSeasonBarTrack: {
     position: "relative", width: 96, flexShrink: 0, height: 11, borderRadius: tokens.radius.chip,
     background: tokens.color.creamDeep, overflow: "hidden",
   },
-  mdSeasonBarFill: { height: "100%", borderRadius: tokens.radius.chip },
-  // Sits at the squad's own average — deliberately not one of the bar's
-  // two colours (green/amber) so it never gets misread as "another
-  // player's bar"; a plain dark tick reads as "the ruler mark," not data.
-  mdSeasonBarAvgMark: { position: "absolute", top: 0, bottom: 0, width: 2, background: "rgba(28,58,46,.45)" },
+  // Deliberately not one of the two fill colours below, so it never gets
+  // misread as "another player's bar" sitting in the middle — a plain
+  // dark line reads as "the ruler's centre," not data. Always exactly in
+  // the middle: that IS what "the squad average" means on a scale that's
+  // centred on it, not a position to compute per player.
+  mdSeasonBarAvgMark: {
+    position: "absolute", top: 0, bottom: 0, left: "50%", width: 2, marginLeft: -1, background: "rgba(28,58,46,.45)",
+  },
+  // Grows rightward FROM the centre line — a player getting more than the
+  // squad's own average. Only the outer (right) corner rounds; the inner
+  // edge sits flush against the centre mark, not floating away from it.
+  mdSeasonBarFillPos: {
+    position: "absolute", top: 0, bottom: 0, left: "50%", height: "100%", background: tokens.color.pitchGreen,
+    borderRadius: `0 ${tokens.radius.chip}px ${tokens.radius.chip}px 0`,
+  },
+  // Mirror of Pos, growing leftward from the centre line — below average.
+  mdSeasonBarFillNeg: {
+    position: "absolute", top: 0, bottom: 0, right: "50%", height: "100%", background: tokens.color.yellow,
+    borderRadius: `${tokens.radius.chip}px 0 0 ${tokens.radius.chip}px`,
+  },
   mdSeasonAvg: {
     width: 48, flexShrink: 0, textAlign: "right", fontFamily: tokens.font.display, fontWeight: 800, fontSize: 18,
     color: tokens.color.deepGreen,
