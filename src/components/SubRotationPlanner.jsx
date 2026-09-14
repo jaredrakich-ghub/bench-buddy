@@ -3,10 +3,10 @@ import { intervalAtElapsed, computeFairnessSpread, computeAveragePitchMinutes, f
 import { generateId } from "../lib/id.js";
 import { getSquadNumber } from "../lib/squadNumber.js";
 import { normalizeTeam, migrateLegacyTeam, createTeam, findTeam, addTeam, removeTeam } from "../lib/teams.js";
-import { fetchTeams, createTeamDoc, deleteTeamDoc, describeSaveError } from "../lib/firestoreTeams.js";
+import { fetchTeams, fetchTeamsFromCache, createTeamDoc, deleteTeamDoc, describeSaveError } from "../lib/firestoreTeams.js";
 import { signOutUser, deleteAccount } from "../lib/auth.js";
 import { useTeamRegistry } from "../hooks/useTeamRegistry.js";
-import { useMatchState, fetchResumeData } from "../hooks/useMatchState.js";
+import { useMatchState, fetchResumeData, fetchResumeDataFromCache } from "../hooks/useMatchState.js";
 import { useCurrentAvailability } from "../hooks/useCurrentAvailability.js";
 import { fontStyle, styles } from "./styles.js";
 import SummaryModal from "./SummaryModal.jsx";
@@ -138,6 +138,22 @@ export default function SubRotationPlanner({ user }) {
   // activeTeamId changed before plan/gameSettings/etc. caught up, the
   // match-state-persist effect in useMatchState could fire in between and
   // write the *previous* team's game into the *new* team's storage slot.
+  // The synchronous half of activating a team — split out so the bootstrap
+  // effect below can also call it directly with a cache-sourced `resume`
+  // (its own fetch already awaited, before this runs), without duplicating
+  // this reset logic.
+  const applyActivateTeam = useCallback((team, resume, opts) => {
+    setActiveTeamId(team.id);
+    setShowSettingsModal(false);
+    setShowSummaryModal(false);
+    setShowSeasonModal(false);
+    setShowSquadChange(false);
+    setShowMatchLink(false);
+    setSwapPickId(null);
+    setStartingGkId(null);
+    match.applyMatchState(team, resume, opts);
+  }, [setActiveTeamId, setSwapPickId, setStartingGkId, match]);
+
   const activateTeam = useCallback(async (team) => {
     // fetchResumeData is pure (no state touched) — safe to await here,
     // BEFORE any setState call. See its own and applyMatchState's comments
@@ -147,17 +163,8 @@ export default function SubRotationPlanner({ user }) {
     // same synchronous batch, or the persist effect in useMatchState can
     // fire in between and write one team's game into the other's slot.
     const resume = await fetchResumeData(team.id);
-
-    setActiveTeamId(team.id);
-    setShowSettingsModal(false);
-    setShowSummaryModal(false);
-    setShowSeasonModal(false);
-    setShowSquadChange(false);
-    setShowMatchLink(false);
-    setSwapPickId(null);
-    setStartingGkId(null);
-    match.applyMatchState(team, resume);
-  }, [setActiveTeamId, setSwapPickId, setStartingGkId, match]);
+    applyActivateTeam(team, resume);
+  }, [applyActivateTeam]);
 
   // Load this account's teams from Firestore. On a brand-new account (no
   // teams yet), migrate whatever's in this browser's local storage instead
@@ -183,6 +190,26 @@ export default function SubRotationPlanner({ user }) {
     if (!user || loadStartedForUser.current === user.uid) return;
     loadStartedForUser.current = user.uid;
     (async () => {
+      // Real-use feedback ("first load ... quite slow"): before the real,
+      // authoritative fetch below, try painting instantly from this
+      // phone's own offline copy (persistentLocalCache, firebaseClient.js)
+      // if one exists — a disk read, not a network round trip, so this
+      // resolves in a couple of milliseconds rather than however long the
+      // real Firestore round trip takes on a field's actual signal. The
+      // fetch below still runs regardless and is still what determines
+      // final state a moment later; suppressPersist:true is essential
+      // here, not decoration — see applyMatchState's own comment
+      // (useMatchState.js) for why skipping it could let a stale cached
+      // snapshot overwrite a genuinely newer change made from another
+      // device (e.g. a Match Link) in the meantime.
+      const cachedTeams = await fetchTeamsFromCache(user.uid);
+      if (cachedTeams.length > 0) {
+        setTeams(cachedTeams);
+        const cachedResume = await fetchResumeDataFromCache(cachedTeams[0].id);
+        applyActivateTeam(cachedTeams[0], cachedResume, { suppressPersist: true });
+        setLoading(false);
+      }
+
       let loadedTeams = await fetchTeams(user.uid);
 
       if (loadedTeams.length === 0) {
@@ -213,7 +240,7 @@ export default function SubRotationPlanner({ user }) {
       await activateTeam(loadedTeams[0]);
       setLoading(false);
     })();
-  }, [user, activateTeam, setTeams, setLoading]);
+  }, [user, activateTeam, applyActivateTeam, setTeams, setLoading]);
 
   // These two live here, above the loading guard below, not next to
   // handleGenerate/the effect that actually uses them (their more natural

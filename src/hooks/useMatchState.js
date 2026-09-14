@@ -8,8 +8,23 @@ import { generateFixedPlan, generateFixedPlanBiasedFor } from "../lib/fixedRotat
 import { validateGameSettings } from "../lib/validation.js";
 import { computeLiveElapsedSec } from "../lib/clock.js";
 import { defaultSettings } from "../lib/teams.js";
-import { fetchMatchState, saveMatchState, updateMatchState, subscribeMatchState, describeSaveError } from "../lib/firestoreTeams.js";
+import {
+  fetchMatchState, fetchMatchStateFromCache, saveMatchState, updateMatchState, subscribeMatchState,
+  describeSaveError,
+} from "../lib/firestoreTeams.js";
 import { archiveGame } from "../lib/gameHistory.js";
+
+// Shared by fetchResumeData and fetchResumeDataFromCache below — turns a
+// raw matchState document into { saved, live, stillRunning }, recomputing
+// the true current elapsed time (computeLiveElapsedSec) fresh either way,
+// since that's always relative to *now*, not to whenever `saved` itself
+// was read.
+function deriveResumeData(saved) {
+  if (!saved?.plan?.length) return null;
+  const capSec = saved.plan[saved.plan.length - 1].endMin * 60;
+  const live = computeLiveElapsedSec(saved.baseElapsedSec, saved.timerRunning ? saved.runStartedAt : null, capSec);
+  return { saved, live, stillRunning: saved.timerRunning && live < capSec };
+}
 
 // Step 5 — pure async fetch, no component/hook state touched: given a
 // teamId, returns { saved, live, stillRunning } if there's an in-progress
@@ -20,13 +35,23 @@ import { archiveGame } from "../lib/gameHistory.js";
 export async function fetchResumeData(teamId) {
   try {
     const saved = await fetchMatchState(teamId);
-    if (!saved?.plan?.length) return null;
-    const capSec = saved.plan[saved.plan.length - 1].endMin * 60;
-    const live = computeLiveElapsedSec(saved.baseElapsedSec, saved.timerRunning ? saved.runStartedAt : null, capSec);
-    return { saved, live, stillRunning: saved.timerRunning && live < capSec };
+    return deriveResumeData(saved);
   } catch {
     return null; // no in-progress match for this team — normal
   }
+}
+
+// Cache-only counterpart, same shape — used for the fast first paint (see
+// SubRotationPlanner.jsx's bootstrap effect). Whatever this returns is
+// necessarily provisional: applyMatchState's caller MUST pass
+// { suppressPersist: true } when applying it, or the persist effects below
+// would write this possibly-stale snapshot straight back to Firestore
+// before the real, authoritative fetch has had a chance to correct it —
+// exactly the "one device clobbers another's newer change" race
+// applyRemoteMatchState's own suppressPersistRef already exists to avoid.
+export async function fetchResumeDataFromCache(teamId) {
+  const saved = await fetchMatchStateFromCache(teamId);
+  return deriveResumeData(saved);
 }
 
 // Owns everything about the match currently being run for whichever team is
@@ -794,7 +819,18 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData }) {
   // opposite interleaving. fetchResumeData is pure (no state touched) and
   // safe to await anywhere; applyMatchState is synchronous and must be
   // called in the same tick as whatever else needs to land in that batch.
-  const applyMatchState = (team, resume) => {
+  //
+  // `suppressPersist` (used only for the cache-sourced fast paint —
+  // fetchResumeDataFromCache above) sets the exact same flag
+  // applyRemoteMatchState below already uses for the same reason: without
+  // it, the persist effects a few lines down would immediately write this
+  // possibly-stale `resume` straight back to Firestore, ahead of the real
+  // fetch that's still on its way. The ordinary call from activateTeam
+  // (SubRotationPlanner.jsx) already has the true, current server state by
+  // the time it gets here, so persisting it back is a harmless no-op —
+  // only the cache path needs this.
+  const applyMatchState = (team, resume, { suppressPersist = false } = {}) => {
+    if (suppressPersist) suppressPersistRef.current = true;
     if (resume) {
       const { saved, live, stillRunning } = resume;
       setAvailableIds(saved.availableIds || team.roster.map((p) => p.id));

@@ -15,7 +15,10 @@
 // uid, not a single owner field, so inviting a collaborator later is adding
 // a uid to that array, not a schema change. Each team's in-progress match
 // lives in a `matchState/current` subdocument underneath it.
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot, query, where } from "firebase/firestore";
+import {
+  collection, doc, getDoc, getDocs, getDocFromCache, getDocsFromCache, setDoc, updateDoc, deleteDoc, onSnapshot,
+  query, where,
+} from "firebase/firestore";
 import { db } from "./firebaseClient.js";
 import { deleteAllGames } from "./gameHistory.js";
 
@@ -41,6 +44,29 @@ export async function fetchTeams(uid) {
   const q = query(collection(db, TEAMS_COLLECTION), where("memberIds", "array-contains", uid));
   const snap = await getDocs(q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+// Real-use feedback ("first load ... quite slow"): plain fetchTeams above
+// always waits for a live server reply when the phone is online — it never
+// touches the offline copy firebaseClient.js already keeps on disk
+// (persistentLocalCache) for exactly this "patchy signal at a sports field"
+// case, even on a repeat visit where nothing's actually changed since last
+// time. This is a pure IndexedDB read (no network involved), used as a
+// near-instant first paint while the real fetchTeams() above is still what
+// determines final state a moment later — see SubRotationPlanner.jsx's
+// bootstrap effect for how the two are combined. Resolves to [] (never
+// throws) whether that's because there's genuinely nothing cached yet (a
+// first-ever load on this device) or the query hasn't been run before —
+// either way the caller treats "nothing" as "no fast path available," not
+// as "this account has no teams" (that's the server fetch's call to make).
+export async function fetchTeamsFromCache(uid) {
+  try {
+    const q = query(collection(db, TEAMS_COLLECTION), where("memberIds", "array-contains", uid));
+    const snap = await getDocsFromCache(q);
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch {
+    return [];
+  }
 }
 
 // Step 5 — a direct fetch by id, not a membership query. ParentMatchSession
@@ -90,6 +116,19 @@ export async function deleteTeamDoc(teamId) {
 export async function fetchMatchState(teamId) {
   const snap = await getDoc(doc(db, TEAMS_COLLECTION, teamId, "matchState", MATCH_STATE_DOC));
   return snap.exists() ? snap.data() : null;
+}
+
+// Cache-only counterpart to fetchMatchState, same reasoning as
+// fetchTeamsFromCache above — a disk read, used only for the fast first
+// paint. Resolves to null (never throws) if nothing's cached for this team
+// yet, same "no fast path" meaning as fetchTeamsFromCache's empty array.
+export async function fetchMatchStateFromCache(teamId) {
+  try {
+    const snap = await getDocFromCache(doc(db, TEAMS_COLLECTION, teamId, "matchState", MATCH_STATE_DOC));
+    return snap.exists() ? snap.data() : null;
+  } catch {
+    return null;
+  }
 }
 
 // The ONE full-document write matchState ever gets — a brand new match
