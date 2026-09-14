@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { fetchGameHistory, deleteGame } from "../lib/gameHistory.js";
 import { aggregateSeasonSummary } from "../lib/rotation.js";
-import { styles } from "./styles.js";
+import { styles, tokens } from "./styles.js";
 
 // Rollup of every archived game for this team — see gameHistory.js for
 // where those records come from (one per completed game, written
@@ -99,6 +99,17 @@ export default function SeasonSummaryModal({ teamId, numberOf, onClose }) {
   // not a mostly-full one, so the actual spread is what's visible.
   const barPct = (avgTotalMin) => (gapMin > 0 ? ((avgTotalMin - minAvg) / gapMin) * 100 : 100);
 
+  // Real-use feedback: a flat green bar next to a number didn't read as
+  // anything in particular — same colour whether a player was miles ahead
+  // of the squad or the one being shortchanged. The fix isn't a longer
+  // caption, it's giving the bar itself something to mean: a tick at the
+  // squad's own average (meanPct), and the fill coloured green at/above
+  // that average, amber below it — so "is this kid keeping up" reads at a
+  // glance, the same green/amber a coach already reads as fine/attention
+  // everywhere else in the app.
+  const meanAvg = avgValues.length ? avgValues.reduce((sum, v) => sum + v, 0) / avgValues.length : 0;
+  const meanPct = gapMin > 0 ? ((meanAvg - minAvg) / gapMin) * 100 : null;
+
   const oldestGameDate = games && games.length > 0 ? games[games.length - 1].date : null;
 
   return (
@@ -127,7 +138,8 @@ export default function SeasonSummaryModal({ teamId, numberOf, onClose }) {
       {games !== null && !error && games.length > 0 && (
         <>
           <div style={styles.mdMinutesNote}>
-            Average minutes per game. Widest gap across the squad is {Math.round(gapMin)} minute{Math.round(gapMin) === 1 ? "" : "s"}.
+            Average minutes per game. The line marks the squad's own average — amber bars are below it, green at or
+            above.
           </div>
 
           <div style={styles.mdMinutesList}>
@@ -142,7 +154,14 @@ export default function SeasonSummaryModal({ teamId, numberOf, onClose }) {
                     </span>
                   </div>
                   <div style={styles.mdSeasonBarTrack}>
-                    <div style={{ ...styles.mdSeasonBarFill, width: `${barPct(r.avgTotalMin)}%` }} />
+                    {meanPct !== null && <div style={{ ...styles.mdSeasonBarAvgMark, left: `${meanPct}%` }} />}
+                    <div
+                      style={{
+                        ...styles.mdSeasonBarFill,
+                        width: `${barPct(r.avgTotalMin)}%`,
+                        background: r.avgTotalMin < meanAvg ? tokens.color.yellow : tokens.color.pitchGreen,
+                      }}
+                    />
                   </div>
                   <span style={styles.mdSeasonAvg}>{Math.round(r.avgTotalMin)}′</span>
                 </div>

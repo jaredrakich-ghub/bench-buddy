@@ -99,14 +99,38 @@ describe("SeasonSummaryModal", () => {
     });
   });
 
-  it("orders rows by average playing time descending, and states the gap in the note card", async () => {
+  it("orders rows by average playing time descending, and explains the bar's average line/colour in the note card", async () => {
     fetchGameHistory.mockResolvedValue(GAMES);
     renderModal();
     await screen.findByText("Alice");
     const names = screen.getAllByText(/Alice|Bob/).map((el) => el.textContent);
     expect(names).toEqual(["Alice", "Bob"]);
-    // 30' (Alice) - 25' (Bob) = 5' gap.
-    expect(screen.getByText(/Widest gap across the squad is 5 minutes\./)).toBeInTheDocument();
+    expect(screen.getByText(/The line marks the squad's own average/)).toBeInTheDocument();
+  });
+
+  it("colours a player's bar green at/above the squad average and amber below it, with a tick marking the average", async () => {
+    fetchGameHistory.mockResolvedValue(GAMES);
+    renderModal();
+    await screen.findByText("Alice");
+    // Squad average = (30 + 25) / 2 = 27.5'. Alice (30') sits at/above it —
+    // green; Bob (25') sits below it — amber. Real-use feedback: a flat
+    // single-colour bar didn't communicate anything on its own, so the
+    // fill colour itself now carries the "keeping up with the squad or
+    // not" signal, same green/amber a coach already reads elsewhere.
+    const aliceRow = screen.getByText("Alice").closest("div").parentElement;
+    const aliceBar = aliceRow.querySelector('div[style*="height: 100%"]');
+    expect(aliceBar).toHaveStyle({ backgroundColor: "rgb(46, 125, 83)" }); // tokens.color.pitchGreen
+
+    const bobRow = screen.getByText("Bob").closest("div").parentElement;
+    const bobBar = bobRow.querySelector('div[style*="height: 100%"]');
+    expect(bobBar).toHaveStyle({ backgroundColor: "rgb(245, 185, 59)" }); // tokens.color.yellow
+
+    // Both rows get the same average tick, since it's the same squad-wide
+    // value — position isn't asserted here (that's barPct/meanPct's own
+    // arithmetic, not this component's job to re-derive), just that it
+    // renders.
+    expect(aliceRow.querySelector('div[style*="position: absolute"]')).toBeInTheDocument();
+    expect(bobRow.querySelector('div[style*="position: absolute"]')).toBeInTheDocument();
   });
 
   it("has no Injured column — a deliberate change from the previous version", async () => {
