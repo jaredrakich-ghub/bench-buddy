@@ -157,7 +157,11 @@ export default function MatchClaimPage({ teamId, token, user }) {
           </button>
         </form>
         {submitError && <div style={styles.mdClaimFootnote}>{submitError}</div>}
-        <div style={styles.mdClaimFootnote}>Used once, to send this link. Nothing else.</div>
+        {/* Real-use feedback: "Used once, to send this link. Nothing else."
+            read as if it might describe the LINK (as if it's single-use) —
+            it's actually reassuring the parent about their EMAIL address.
+            Naming the subject explicitly removes the ambiguity. */}
+        <div style={styles.mdClaimFootnote}>Your email is only used to send you this link — nothing else.</div>
       </div>
 
       {sent && (
