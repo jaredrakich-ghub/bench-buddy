@@ -520,9 +520,14 @@ export default function SubRotationPlanner({ user }) {
     // every browser's Tab key out of a hidden-but-still-focusable
     // control), so the build sequence can't be restarted underneath it.
     overlayOpen: Boolean(rotationOverlayStats),
-    // Availability link — the "Who's here" entry point/summary line
-    // (rendered only for confirmAvailability's own "Set up next game"
-    // moment, same gate the chip-row confirm block already uses).
+    // Availability link — the entry point/summary line SquadSettingsForm's
+    // own "edit" variant (Game settings) now shows any time it's open, not
+    // just at "Set up next game" (real-use feedback — see that component's
+    // own comment on this exact prop for why). Part of this same shared
+    // squadSettingsProps object, so it's technically passed to the
+    // "inline" first-time-setup variant too — that variant's own render
+    // just never reads it, deliberately: a brand-new team with nothing set
+    // up yet doesn't need this offered before it has any real use.
     // currentAvailabilityRequest, not the raw fetched one — a stale
     // request (its own match already happened) renders exactly like null
     // here: the plain "Confirm who's here via link" prompt, not last

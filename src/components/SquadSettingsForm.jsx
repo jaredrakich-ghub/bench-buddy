@@ -1243,41 +1243,41 @@ export default function SquadSettingsForm({
               {renderSelectAll()}
             </div>
             {renderSquadChips()}
-            {/* Availability link — README > 1d, redesigned twice per
-                real-use feedback: first moved from its own card ABOVE
-                "Who's here" (read as a second, separate question) to a
-                line directly under the heading; then moved again, to here
-                — after the chip grid, not before it. Setting the roster by
-                hand (the chip grid above) is the primary, step-one action;
-                the link is a secondary tool for doing that same thing
-                without touching each chip yourself, so it reads better
-                coming after the primary action than ahead of it. Same pill
-                styling both states already shared, no icon, no chevron
-                (the pill's own background already says "tap me"). The
-                summary line IS the entry point back into 1a (edit the
-                closing time, reshare, regenerate) once a request exists;
-                the plain prompt shows instead when there's none yet. Only
-                ever rendered for this same "Set up next game" moment —
-                asking availability for a game already mid-setup elsewhere
-                (plain "Game settings") isn't this feature's job. Copy went
-                through three rounds: "Ask who's playing" → "Confirm who's
-                here via link" (too open-ended — "here when?") → "Confirm
-                availability for the game via link" (clearer, but passive —
-                didn't say what tapping it actually *does*) → this,
-                action-first and accurate to the real next step (tapping it
-                opens the compose screen, which mints/sends the link). */}
-            {onShowAvailability &&
-              (availabilityRequest ? (
-                <button style={styles.mdAvailSummaryLine} onClick={onShowAvailability}>
-                  {describeSetupSummary(availabilityRequest.squad, availabilityRequest.answers) || (
-                    <span style={styles.mdAvailSummaryLineMuted}>No responses yet. View or resend.</span>
-                  )}
-                </button>
-              ) : (
-                <button style={styles.mdAvailSummaryLine} onClick={onShowAvailability}>
-                  Generate link to track availability
-                </button>
-              ))}
+          </div>
+        )}
+
+        {/* Availability link — README > 1d, redesigned twice per real-use
+            feedback before this; real-use feedback again moved it out here:
+            it used to only ever render alongside the "Who's here" block
+            above, i.e. only the moment a just-finished game's "Set up next
+            game" opens — a coach wanting to send this out mid-week, not
+            specifically at that moment, had no way to. Since this whole
+            "edit" variant only ever renders once at least one rotation has
+            already been built (Game settings needs a live match to reach
+            at all — see SubRotationPlanner's own {plan && <MatchView/>}
+            gate), onShowAvailability alone is now the only real gate here —
+            same "not scary for a brand-new team with nothing set up yet"
+            reasoning as before, just decoupled from confirmAvailability's
+            own, narrower "just finished a game" moment. Copy went through
+            three rounds before landing here: "Ask who's playing" → "Confirm
+            who's here via link" (too open-ended — "here when?") → "Confirm
+            availability for the game via link" (clearer, but passive —
+            didn't say what tapping it actually *does*) → this, action-first
+            and accurate to the real next step (tapping it opens the compose
+            screen, which mints/sends the link). */}
+        {onShowAvailability && (
+          <div style={{ marginTop: confirmAvailability ? 12 : 2 }}>
+            {availabilityRequest ? (
+              <button style={styles.mdAvailSummaryLine} onClick={onShowAvailability}>
+                {describeSetupSummary(availabilityRequest.squad, availabilityRequest.answers) || (
+                  <span style={styles.mdAvailSummaryLineMuted}>No responses yet. View or resend.</span>
+                )}
+              </button>
+            ) : (
+              <button style={styles.mdAvailSummaryLine} onClick={onShowAvailability}>
+                Generate link to track availability
+              </button>
+            )}
             {/* Step 6 — "the loop back": a one-tap reminder for whoever
                 hasn't answered yet, composed client-side from the same
                 buildNudgeMessage/buildAvailabilityUrl helpers the compose
@@ -1285,9 +1285,7 @@ export default function SquadSettingsForm({
                 push notifications when an answer lands are Pile 2, deferred
                 until there's a backend to send them from). Only shown once
                 a request exists and somebody's still outstanding; folds
-                away on its own the moment everyone's replied. Stays right
-                after the summary line, not the chip grid — still about the
-                link/answers, not the roster. */}
+                away on its own the moment everyone's replied. */}
             {availabilityRequest && teamId && (() => {
               const waiting = waitingChildren(availabilityRequest.squad, availabilityRequest.answers);
               if (waiting.length === 0) return null;
@@ -1297,7 +1295,13 @@ export default function SquadSettingsForm({
                 const text = encodeURIComponent(
                   `${buildNudgeMessage({ answeredCount, totalCount })}\n\n${buildAvailabilityUrl(teamId, availabilityRequest.token)}`
                 );
-                window.open(`https://wa.me/?text=${text}`, "_blank", "noopener,noreferrer");
+                // Real-use feedback (Match Link's own identical button hit
+                // this first — see MatchLinkScreen.jsx's comment on this
+                // exact line): window.open with "_blank" left a stray blank
+                // tab behind in the installed PWA once WhatsApp opened.
+                // Navigating the current window lets iOS's own handoff to
+                // the WhatsApp app happen in place instead.
+                window.location.href = `https://wa.me/?text=${text}`;
               };
               return (
                 <button style={styles.mdAvailNudgeBtn} onClick={nudge}>

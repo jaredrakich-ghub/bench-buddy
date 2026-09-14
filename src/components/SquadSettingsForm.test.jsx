@@ -1033,10 +1033,14 @@ describe("SquadSettingsForm — validation and submit", () => {
   });
 });
 
-// Availability link — README > 1d. Only ever rendered for the same
-// confirmAvailability moment the "Who's here" confirm block above already
-// uses; onShowAvailability being undefined (every other call site) means
-// none of this new UI renders at all, same as today.
+// Availability link — README > 1d. Real-use feedback moved this off the
+// same confirmAvailability gate the "Who's here" chip-confirm block above
+// uses (a coach wanting to send this mid-week, not only right at "Set up
+// next game", had no way to) — onShowAvailability alone is the real gate
+// now; confirmAvailability's own block is untouched, just no longer
+// something this section's rendering depends on. onShowAvailability being
+// undefined (every other call site) still means none of this renders at
+// all, same as today.
 describe("SquadSettingsForm — Availability link fold-in (1d)", () => {
   it("shows the plain 'Generate link to track availability' prompt when no request exists yet, after the chip grid", () => {
     const onShowAvailability = vi.fn();
@@ -1094,5 +1098,16 @@ describe("SquadSettingsForm — Availability link fold-in (1d)", () => {
   it("renders none of this when onShowAvailability isn't passed — every other call site is unaffected", () => {
     render(<SquadSettingsForm {...baseProps({ variant: "edit", confirmAvailability: true })} />);
     expect(screen.queryByText("Generate link to track availability")).not.toBeInTheDocument();
+  });
+
+  // Real-use feedback: a coach wanted to send this out any time Game
+  // settings is open, not only right when confirmAvailability's own
+  // "Set up next game" moment is showing the chip-confirm block above.
+  it("still shows the entry point even when confirmAvailability is false — the two are independent now", () => {
+    render(<SquadSettingsForm {...baseProps({ variant: "edit", confirmAvailability: false, onShowAvailability: vi.fn(), availabilityRequest: null })} />);
+    expect(screen.getByText("Generate link to track availability")).toBeInTheDocument();
+    // The chip-confirm "Who's here" block stays gated as before — only the
+    // link entry point below it was decoupled.
+    expect(screen.queryByText("Who's here")).not.toBeInTheDocument();
   });
 });
