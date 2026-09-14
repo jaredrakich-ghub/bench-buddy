@@ -4,13 +4,15 @@
 // component files can focus on structure/behavior — see the architecture
 // notes for the trade-offs of this approach vs. a CSS framework.
 
-// @import (not a <link> in index.html) so this stays self-contained with
-// the rest of the app's styling approach — fontStyle is already injected
-// as a real <style> tag in SubRotationPlanner, this just adds one more
-// rule to it. Only the weights actually specified by the design tokens
-// below (Baloo 2 800, Nunito 700/800) — no point loading unused weights.
+// Real-use feedback (slow/flashing first load): fonts used to be loaded via
+// an `@import` right here, which doesn't run until SubRotationPlanner
+// mounts and injects this as a <style> tag — after the loading screen and
+// sign-in have already rendered in a fallback font, and well after the JS
+// bundle itself could have started fetching them. That `@import` moved to
+// a real <link rel="stylesheet"> in index.html's <head> instead, so the
+// fetch starts immediately, in parallel with everything else. Only the
+// box-sizing reset is left here.
 export const fontStyle = `
-  @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@800&family=Nunito:wght@700;800&display=swap');
   * { box-sizing: border-box; }
 `;
 
