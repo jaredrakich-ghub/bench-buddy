@@ -1,7 +1,28 @@
+import React from "react";
 import SubRotationPlanner from "./components/SubRotationPlanner.jsx";
-import MatchClaimPage from "./components/MatchClaimPage.jsx";
-import AvailabilityClaimPage from "./components/AvailabilityClaimPage.jsx";
 import AuthGate from "./components/AuthGate.jsx";
+import LoadingScreen from "./components/LoadingScreen.jsx";
+
+// Debt ledger, bundle-size pass — real data (a build with
+// vite-bundle-visualizer), not a guess: MatchClaimPage/ParentMatchSession/
+// AvailabilityClaimPage (the screens a PARENT sees opening a shared link)
+// were padding out the exact same bundle every coach downloads too, even
+// though the coach's own normal use of this app — the overwhelming
+// majority of real visits — never touches any of them at all. Same
+// React.lazy pattern as SubRotationPlanner.jsx's own "Later lane" split
+// (see its comment for the fuller reasoning), applied at this file's own
+// routing boundary instead — the two are mutually exclusive with the main
+// app on every load, so lazy-loading them costs the coach's path nothing.
+//
+// fallback isn't null here the way that lane's own takeover screens use —
+// there's no surrounding shell already on screen to show through while
+// this loads (this component's own return IS the whole page), so a blank
+// fallback would just be a blank white flash, precisely the kind of thing
+// already fixed once this session. LoadingScreen instead — the exact same
+// spinner AuthGate already shows while checking the session, so this reads
+// as one continuous load, not a new, separate-looking pause.
+const MatchClaimPage = React.lazy(() => import("./components/MatchClaimPage.jsx"));
+const AvailabilityClaimPage = React.lazy(() => import("./components/AvailabilityClaimPage.jsx"));
 
 // Match Link, Step 4 — the only "routing" this app has: a claim link
 // (MatchLinkScreen.jsx's own Share/Copy) is a query string on this exact
@@ -28,12 +49,24 @@ function App() {
 
   if (claimTeamId && claimToken) {
     return (
-      <AuthGate>{(user) => <MatchClaimPage teamId={claimTeamId} token={claimToken} user={user} />}</AuthGate>
+      <AuthGate>
+        {(user) => (
+          <React.Suspense fallback={<LoadingScreen message="Loading…" />}>
+            <MatchClaimPage teamId={claimTeamId} token={claimToken} user={user} />
+          </React.Suspense>
+        )}
+      </AuthGate>
     );
   }
   if (claimTeamId && availabilityToken) {
     return (
-      <AuthGate>{() => <AvailabilityClaimPage teamId={claimTeamId} token={availabilityToken} />}</AuthGate>
+      <AuthGate>
+        {() => (
+          <React.Suspense fallback={<LoadingScreen message="Loading…" />}>
+            <AvailabilityClaimPage teamId={claimTeamId} token={availabilityToken} />
+          </React.Suspense>
+        )}
+      </AuthGate>
     );
   }
 
