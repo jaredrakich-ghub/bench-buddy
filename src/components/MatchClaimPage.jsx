@@ -18,9 +18,7 @@ import headerMascot from "../assets/header-mascot.svg";
 //
 // This page's own job ends the moment a claim succeeds — from there it
 // hands off to ParentMatchSession.jsx, the SAME <MatchView> the coach's
-// own screen renders (README rule 2). Level ("subs" vs "full") only ever
-// changes that screen's own sub-line copy, never what the claim page here
-// decides — see matchHandover.js's canControlClock for why.
+// own screen renders (README rule 2).
 export default function MatchClaimPage({ teamId, token, user }) {
   const [handover, setHandover] = useState(undefined); // undefined = still loading
   const [loadError, setLoadError] = useState(false);
@@ -105,7 +103,7 @@ export default function MatchClaimPage({ teamId, token, user }) {
   // "already-yours" vs "just claimed" distinction needed here — both mean
   // the same thing: this viewer holds it right now.
   if (justClaimed || status === "already-yours") {
-    return <ParentMatchSession teamId={teamId} level={handover.level} />;
+    return <ParentMatchSession teamId={teamId} />;
   }
   if (status === "taken-back") {
     return (

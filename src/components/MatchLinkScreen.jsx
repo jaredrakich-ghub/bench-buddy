@@ -14,6 +14,25 @@ import {
 // Step 4), no parent match session (2c/2d, Steps 5-6), no live sync beyond
 // the "Who has the game" row below (Step 7).
 //
+// Real-use feedback, a round of simplification after the original build:
+// - Dropped the Subs/Full game level picker — matchHandover.js's own
+//   comment already said level was DISPLAY ONLY (never changed what a
+//   holder could actually do), so it was a choice that wasn't really a
+//   choice. Every handover is level: "full" now; that field stays in the
+//   schema (firestore.rules' isValidHandover still requires it) purely so
+//   an old handover created before this change keeps reading correctly.
+// - Dropped "Ask for an email first" — its "Take the subs" email form
+//   (MatchClaimPage.jsx) had no actual email-sending behind it (Pile 2, an
+//   email extension, was never built), so turning it on was a dead end
+//   with no way out for whoever hit it. Every handover is
+//   requireEmailClaim: false now — the working, instant-claim path.
+// - Dropped the raw link display — Share/Copy already cover getting the
+//   link out; showing the literal URL on screen was pure clutter (and put
+//   the secret token on screen for no reason).
+// - The two toggles that were always-visible are now one toggle inside a
+//   collapsed-by-default "Link settings" section — this isn't something
+//   most coaches need to open every time.
+//
 // Step 4 — a query string on the app's own root, not a path
 // (app.benchbuddysports.com/m/...). GitHub Pages serves index.html for the
 // root regardless of query string, so this needs no server-side routing;
@@ -32,6 +51,8 @@ export default function MatchLinkScreen({ teamId, coachUid, onClose }) {
   const [handover, setHandover] = useState(undefined);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  // Collapsed by default — see this file's own top comment.
+  const [settingsExpanded, setSettingsExpanded] = useState(false);
 
   useEffect(() => {
     const unsubscribe = subscribeHandover(teamId, setHandover);
@@ -54,15 +75,10 @@ export default function MatchLinkScreen({ teamId, coachUid, onClose }) {
   };
 
   const turnOn = () =>
-    runAction(() =>
-      createHandover(teamId, coachUid, { level: "subs", stopsAtFullTime: true, requireEmailClaim: true, kickoffAt: Date.now() })
-    );
+    runAction(() => createHandover(teamId, coachUid, { level: "full", stopsAtFullTime: true, requireEmailClaim: false, kickoffAt: Date.now() }));
   const turnOff = () => runAction(() => revokeHandover(teamId));
-  const setLevel = (level) => runAction(() => updateHandoverSettings(teamId, { level }));
   const toggleStopsAtFullTime = () =>
     runAction(() => updateHandoverSettings(teamId, { stopsAtFullTime: !handover.stopsAtFullTime }));
-  const toggleRequireEmailClaim = () =>
-    runAction(() => updateHandoverSettings(teamId, { requireEmailClaim: !handover.requireEmailClaim }));
   const revoke = () => runAction(() => revokeHolder(teamId, handover.claim));
 
   const claimUrl = handover
@@ -81,8 +97,17 @@ export default function MatchLinkScreen({ teamId, coachUid, onClose }) {
   };
 
   const shareToWhatsApp = () => {
-    const text = encodeURIComponent(`Here's the link to run ${handover.level === "full" ? "today's game" : "the subs"}: ${fullClaimUrl}`);
-    window.open(`https://wa.me/?text=${text}`, "_blank", "noopener,noreferrer");
+    const text = encodeURIComponent(`Here's the link to run today's game: ${fullClaimUrl}`);
+    // Real-use feedback: window.open(..., "_blank") — opening a NEW window
+    // to hand off to WhatsApp — left a stray blank tab (just a close "×")
+    // behind in the installed PWA once WhatsApp itself opened; coming back
+    // to Bench Buddy landed on that blank tab, not the app, reading as "I
+    // got kicked out." Navigating the CURRENT window instead means iOS's
+    // own link handoff to the WhatsApp app happens in place — there's no
+    // second window left behind to come back to. Same fix applied to
+    // AvailabilityScreen.jsx's own identical call, so both share-to-
+    // WhatsApp buttons behave the same way.
+    window.location.href = `https://wa.me/?text=${text}`;
   };
 
   return (
@@ -109,66 +134,35 @@ export default function MatchLinkScreen({ teamId, coachUid, onClose }) {
         </div>
       ) : (
         <>
-          {/* README/INSTRUCTIONS.md: the level control goes directly above
-              the link card. */}
-          <div style={styles.mdMatchLinkLevelRow}>
-            <button
-              style={{ ...styles.mdMatchLinkLevelBtn, ...(handover.level === "subs" ? styles.mdMatchLinkLevelBtnActive : {}) }}
-              onClick={() => setLevel("subs")}
-            >
-              Subs
-            </button>
-            <button
-              style={{ ...styles.mdMatchLinkLevelBtn, ...(handover.level === "full" ? styles.mdMatchLinkLevelBtnActive : {}) }}
-              onClick={() => setLevel("full")}
-            >
-              Full game
-            </button>
-          </div>
-
           <div style={styles.mdMatchLinkExplainerCard}>
-            <div style={styles.mdMatchLinkExplainerTitle}>
-              {handover.level === "full" ? "Hand over the whole game" : "Hand the subs to someone"}
-            </div>
+            <div style={styles.mdMatchLinkExplainerTitle}>Hand over the game</div>
             <div style={styles.mdMatchLinkExplainerBody}>
-              {handover.level === "full"
-                ? "Send this to the parent running today's game. They get your screen and your plan, and they control the clock and the subs while you coach. Only the person you send it to can open it."
-                : "Send this to the parent taking the subs today. They get your screen and your plan, and they make the changes while you coach. Only the person you send it to can open it."}
+              Send this to the parent running today's game. They get your screen and your plan, and they control the
+              clock and the subs while you coach. Only the person you send it to can open it.
             </div>
           </div>
 
           <div style={styles.mdMatchLinkCard}>
-            <span style={styles.mdMatchLinkCardLabel}>Link for today</span>
-            <div style={styles.mdMatchLinkUrlWell}>{claimUrl}</div>
-
-            <div style={styles.mdMatchLinkToggleRow}>
-              <span style={styles.mdMatchLinkToggleLabel}>Stops working at full time</span>
-              <button
-                style={{ ...styles.mdMatchLinkToggleTrack, ...(handover.stopsAtFullTime ? styles.mdMatchLinkToggleTrackOn : {}) }}
-                onClick={toggleStopsAtFullTime}
-                role="switch"
-                aria-checked={handover.stopsAtFullTime}
-                title="Stops working at full time"
+            <button style={styles.mdMatchLinkSettingsToggle} onClick={() => setSettingsExpanded((v) => !v)}>
+              <span style={{ ...styles.mdMatchLinkCardLabel, marginBottom: 0 }}>Link settings</span>
+              <span
+                style={{ ...styles.mdMatchLinkSettingsChevron, transform: settingsExpanded ? "rotate(90deg)" : "none" }}
               >
-                <span style={styles.mdMatchLinkToggleKnob} />
-              </button>
-            </div>
-            <div style={styles.mdMatchLinkToggleRow}>
-              <span style={styles.mdMatchLinkToggleLabel}>Ask for an email first</span>
-              <button
-                style={{ ...styles.mdMatchLinkToggleTrack, ...(handover.requireEmailClaim ? styles.mdMatchLinkToggleTrackOn : {}) }}
-                onClick={toggleRequireEmailClaim}
-                role="switch"
-                aria-checked={handover.requireEmailClaim}
-                title="Ask for an email first"
-              >
-                <span style={styles.mdMatchLinkToggleKnob} />
-              </button>
-            </div>
-            {handover.requireEmailClaim && (
-              <div style={styles.mdMatchLinkFootnote}>
-                They enter their email and get their own link, so you know exactly who has the game. A forwarded
-                link is useless.
+                ›
+              </span>
+            </button>
+            {settingsExpanded && (
+              <div style={{ ...styles.mdMatchLinkToggleRow, marginTop: 12 }}>
+                <span style={styles.mdMatchLinkToggleLabel}>Stop working 24 hrs after full time</span>
+                <button
+                  style={{ ...styles.mdMatchLinkToggleTrack, ...(handover.stopsAtFullTime ? styles.mdMatchLinkToggleTrackOn : {}) }}
+                  onClick={toggleStopsAtFullTime}
+                  role="switch"
+                  aria-checked={handover.stopsAtFullTime}
+                  title="Stop working 24 hrs after full time"
+                >
+                  <span style={styles.mdMatchLinkToggleKnob} />
+                </button>
               </div>
             )}
           </div>
@@ -178,10 +172,8 @@ export default function MatchLinkScreen({ teamId, coachUid, onClose }) {
             {holderActive ? (
               <div style={styles.mdMatchLinkHolderRow}>
                 <div style={styles.mdMatchLinkHolderInfo}>
-                  <span style={styles.mdMatchLinkHolderEmail}>{handover.claim.email || "No email given"}</span>
-                  <span style={styles.mdMatchLinkHolderStatus}>
-                    on {handover.level === "full" ? "the whole game" : "subs"} today
-                  </span>
+                  <span style={styles.mdMatchLinkHolderEmail}>{handover.claim.email || "A parent"}</span>
+                  <span style={styles.mdMatchLinkHolderStatus}>on the game today</span>
                 </div>
                 <button style={styles.mdTeamAcctIconBtn} onClick={revoke} title="Remove their access">
                   <Trash2 size={14} />
@@ -192,10 +184,10 @@ export default function MatchLinkScreen({ teamId, coachUid, onClose }) {
             )}
           </div>
 
-          <button style={styles.mdMatchLinkShareBtn} onClick={shareToWhatsApp}>
+          <button style={styles.mdAvailPrimaryBtn} onClick={shareToWhatsApp}>
             <Share2 size={18} /> Share to WhatsApp
           </button>
-          <button style={styles.mdMatchLinkCopyBtn} onClick={copyLink}>
+          <button style={styles.mdAvailSecondaryBtn} onClick={copyLink}>
             {copied ? "Copied!" : "Copy link"}
           </button>
 

@@ -210,7 +210,13 @@ export default function AvailabilityScreen({ teamId, coachUid, teamName, roster,
   };
   const shareToWhatsApp = () => {
     const text = encodeURIComponent(`${message}\n\n${fullClaimUrl}`);
-    window.open(`https://wa.me/?text=${text}`, "_blank", "noopener,noreferrer");
+    // Real-use feedback (on Match Link's own identical button — see
+    // MatchLinkScreen.jsx's own comment on this exact line): window.open
+    // with "_blank" left a stray blank tab behind in the installed PWA
+    // once WhatsApp opened, reading as "I got kicked out of the app" on
+    // the way back. Navigating the current window lets iOS's own handoff
+    // to the WhatsApp app happen in place, with no second window left over.
+    window.location.href = `https://wa.me/?text=${text}`;
   };
 
   if (request === undefined) {

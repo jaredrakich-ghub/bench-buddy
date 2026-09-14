@@ -8,21 +8,20 @@ import SummaryModal from "./SummaryModal.jsx";
 import LoadingScreen from "./LoadingScreen.jsx";
 import headerMascot from "../assets/header-mascot.svg";
 
-// Match Link, Step 5 — the parent's own match session (README 2c subs,
-// 2d full game). This is deliberately the SAME <MatchView> the coach's own
-// SubRotationPlanner renders (rule 2: "different controls live", never a
-// second UI) — everything here is just getting that one component the data
-// it needs when the caller isn't a team member, plus the two small props
-// (parentMode/roleLine) that change what's live. See matchHandover.js's own
-// comment on canControlClock for why subs vs. full only changes copy here,
-// never capability: an active holder owns the clock and can make subs/mark
-// injuries either way — level is display-only, by deliberate design.
+// Match Link, Step 5 — the parent's own match session (README 2c/2d, now
+// merged into one "full game" role — see MatchLinkScreen.jsx's own top
+// comment for why the Subs/Full game picker was dropped). This is
+// deliberately the SAME <MatchView> the coach's own SubRotationPlanner
+// renders (rule 2: "different controls live", never a second UI) —
+// everything here is just getting that one component the data it needs
+// when the caller isn't a team member, plus the two small props
+// (parentMode/roleLine) that change what's live.
 //
 // No squad editing, no season data, no team settings, no team switcher —
 // there's simply no prop wiring any of those callbacks to, the same way
 // the parent is excluded from teams/{teamId}'s write rule regardless of
 // what this component does or doesn't render.
-export default function ParentMatchSession({ teamId, level }) {
+export default function ParentMatchSession({ teamId }) {
   const [team, setTeam] = useState(undefined); // undefined = loading, null = not found/no longer accessible
   const [showSummaryModal, setShowSummaryModal] = useState(false);
 
@@ -80,7 +79,13 @@ export default function ParentMatchSession({ teamId, level }) {
 
   const nameOf = (id) => team.roster.find((p) => p.id === id)?.name || "?";
   const numberOf = (id) => getSquadNumber(team.roster.find((p) => p.id === id) || { id }, team.roster);
-  const roleLine = level === "full" ? "You're running the whole game today" : "You're on subs today";
+  // Real-use feedback: MatchLinkScreen.jsx dropped the Subs/Full game
+  // picker (level was always DISPLAY ONLY, never a real capability
+  // difference — see matchHandover.js's own comment), so this no longer
+  // branches. `level` still exists on old handover docs created before
+  // that change (some may briefly still say "subs") — this line just
+  // shows the one message everyone gets now, regardless.
+  const roleLine = "You're running the whole game today";
 
   if (!plan) {
     // The coach hasn't built a rotation yet — nothing for MatchView to

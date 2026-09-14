@@ -2,7 +2,7 @@
 // (AvailabilityScreen.jsx/AvailabilityClaimPage.jsx) and Match Link
 // (MatchLinkScreen.jsx/MatchClaimPage.jsx/ParentMatchSession.jsx).
 // Moved out of the old monolithic styles.js as-is.
-import { tokens, colors, paperTexture } from "./tokens.js";
+import { tokens, paperTexture } from "./tokens.js";
 
 export const linksStyles = {
 
@@ -12,8 +12,10 @@ export const linksStyles = {
   // pitchGreen, deepGreen, mutedText, groupLabel, yellow, yellowShadow,
   // goldText, alertRed, creamPaper, creamDeep) already confirmed to match
   // the design's own spec table exactly — nothing here re-points a shared
-  // hex, and the two genuinely new pieces (the toggle switch, the level
-  // segmented row) are built from existing card/tab styles, not new colors.
+  // hex, and the toggle switch below is built from existing card styles,
+  // not new colors. The level segmented row the original design called for
+  // is gone (real-use feedback — see MatchLinkScreen.jsx's own top
+  // comment: it was a choice that never actually changed anything).
   mdMatchLinkExplainerCard: {
     background: "#fff", borderRadius: tokens.radius.rowLg, padding: "14px 16px",
     boxShadow: tokens.shadow.solid(3, "rgba(28,58,46,.10)"), marginBottom: 14,
@@ -25,22 +27,6 @@ export const linksStyles = {
     fontFamily: tokens.font.body, fontWeight: 700, fontSize: 13.5, color: tokens.color.mutedText, lineHeight: 1.4,
   },
 
-  // Subs / Full game — a two-option segmented row, same visual language as
-  // the interval-tabs strip (colors.grass/colors.chalk on the active tab)
-  // rather than the design handoff's own stale interval-chip colors, per
-  // the real-device revert already governing intervalTab/intervalTabActive
-  // above. Genuinely new shape (equal-width segments, not a scrolling
-  // strip), so its own styles rather than reusing intervalTab directly.
-  mdMatchLinkLevelRow: {
-    display: "flex", gap: 6, marginBottom: 14, background: colors.cardBg, borderRadius: tokens.radius.rowMd,
-    border: `1px solid ${colors.border}`, padding: 4,
-  },
-  mdMatchLinkLevelBtn: {
-    flex: 1, padding: "10px 8px", borderRadius: tokens.radius.rowSm, border: "none", background: "transparent",
-    fontFamily: tokens.font.body, fontWeight: 800, fontSize: 13.5, color: colors.ink, cursor: "pointer", textAlign: "center",
-  },
-  mdMatchLinkLevelBtnActive: { background: colors.grass, color: colors.chalk },
-
   mdMatchLinkCard: {
     background: "#fff", borderRadius: tokens.radius.rowLg, padding: "14px 16px",
     boxShadow: tokens.shadow.solid(3, "rgba(28,58,46,.10)"), marginBottom: 14,
@@ -50,10 +36,21 @@ export const linksStyles = {
     fontFamily: tokens.font.body, fontWeight: 800, fontSize: 12, color: tokens.color.groupLabel,
     textTransform: "uppercase", letterSpacing: "0.04em",
   },
-  mdMatchLinkUrlWell: {
-    background: tokens.color.creamDeep, borderRadius: tokens.radius.rowSm, padding: "12px 14px",
-    fontFamily: tokens.font.body, fontWeight: 800, fontSize: 15, color: tokens.color.pitchGreen,
-    wordBreak: "break-all",
+  // "Link settings"'s own expand/collapse control — collapsed by default,
+  // real-use feedback: this used to always show two toggles (one now
+  // removed entirely, see MatchLinkScreen.jsx) up front, more than most
+  // coaches ever need to touch. Same "› rotates open" chevron idiom as
+  // AvailabilityScreen.jsx's own SQUAD toggle (mdAvailSquadToggle/
+  // mdAvailSquadToggleChevron) and the Game Settings accordion rows
+  // (mdSetupAccordionChevron) — third use of the same convention, not a
+  // new one.
+  mdMatchLinkSettingsToggle: {
+    display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: "transparent",
+    border: "none", padding: 0, cursor: "pointer", textAlign: "left", font: "inherit",
+  },
+  mdMatchLinkSettingsChevron: {
+    fontFamily: tokens.font.display, fontWeight: 800, fontSize: 14, color: tokens.color.chevron,
+    display: "inline-block", transition: "transform .2s ease",
   },
   mdMatchLinkToggleRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 },
   mdMatchLinkToggleLabel: { fontFamily: tokens.font.body, fontWeight: 700, fontSize: 14, color: tokens.color.deepGreen },
@@ -70,9 +67,6 @@ export const linksStyles = {
   mdMatchLinkToggleTrackOn: { background: tokens.color.pitchGreen, justifyContent: "flex-end" },
   mdMatchLinkToggleKnob: {
     width: 28, height: 28, borderRadius: "50%", background: "#fff", boxShadow: tokens.shadow.solid(2, "rgba(28,58,46,.20)"),
-  },
-  mdMatchLinkFootnote: {
-    fontFamily: tokens.font.body, fontWeight: 700, fontSize: 12.5, color: tokens.color.mutedText, lineHeight: 1.4,
   },
 
   mdMatchLinkHolderRow: {
@@ -92,11 +86,11 @@ export const linksStyles = {
     boxShadow: tokens.shadow.solid(4, tokens.color.greenShadow), display: "flex", alignItems: "center",
     justifyContent: "center", gap: 8,
   },
-  mdMatchLinkCopyBtn: {
-    width: "100%", height: 52, borderRadius: tokens.radius.buttonMd, border: "none", background: tokens.color.creamDeep,
-    color: tokens.color.deepGreen, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 16, cursor: "pointer",
-    marginTop: 8,
-  },
+  // Real-use feedback: Share to WhatsApp / Copy link now reuse
+  // mdAvailPrimaryBtn/mdAvailSecondaryBtn directly (below) rather than
+  // their own near-duplicate styles, so the two "share a link" screens
+  // feel like the same control, not two slightly different ones — this
+  // file's own mdMatchLinkCopyBtn is gone, not just unused.
   mdMatchLinkOffBtn: {
     width: "100%", background: "transparent", border: "none", padding: "10px 0", marginTop: 4,
     fontFamily: tokens.font.body, fontWeight: 800, fontSize: 13.5, color: tokens.color.alertRed, cursor: "pointer",
