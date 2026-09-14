@@ -26,13 +26,21 @@ next.
   injuries for whichever match is currently running).
 - **Firebase** (`src/lib/firebaseClient.js`, `auth.js`, `firestoreTeams.js`,
   `crashReports.js`) — Google sign-in and a Firestore database. There's no
-  separate backend server; the browser talks to Firebase directly, and
-  `firestore.rules` is what keeps one account's data private from another.
+  separate backend server for the app itself; the browser talks to Firebase
+  directly, and `firestore.rules` is what keeps one account's data private
+  from another.
+- **Cloud Functions** (`functions/`) — the one place there *is* a small
+  server-side piece: Match Link's "ask for an email first" flow needs an
+  actual email sent (`sendMatchLinkClaimEmail`, triggered off a Firestore
+  write, sending via Resend's API). Its own `package.json`/dependencies are
+  separate from the root app — Cloud Functions run in their own Node
+  process, not the browser bundle.
 
 ```
 sub-tracker/
 ├── firestore.rules          Database security rules (deployed separately — see below)
 ├── firebase.json / .firebaserc   Local emulator config
+├── functions/                Cloud Functions (deployed separately — see below)
 ├── src/
 │   ├── main.jsx               Boots React
 │   ├── App.jsx                 Top-level wiring (sign-in gate → the app)
@@ -84,8 +92,18 @@ Pushing to `main` automatically builds and deploys the app to GitHub Pages
 in that same workflow) right after those same test suites pass — so the
 deployed rules can never drift out of sync with what's committed. It's
 authenticated via a service account key stored as the `FIREBASE_SERVICE_ACCOUNT`
-repository secret (Settings > Secrets and variables > Actions), scoped to
-the minimal "Firebase Rules Admin" role.
+repository secret (Settings > Secrets and variables > Actions).
+
+**So does `functions/`**, in its own job (`deploy-functions`), same service
+account. Cloud Functions deploys need a much broader set of IAM roles than
+a plain rules deploy — that same service account currently carries all of:
+Firebase Rules Admin, Firebase Viewer, Secret Manager Secret Accessor,
+Secret Manager Viewer, Service Account User, and Service Usage Consumer.
+Each was added one at a time, from the specific permission error the
+previous attempt actually hit (via GCP Console > IAM & Admin > IAM > find
+the service account > edit > Add another role) — the exact set above is
+what it took to get a green deploy, not a principled minimum worked out in
+advance.
 
 A manual deploy is still occasionally useful (checking a local edit before
 pushing, or if CI itself is down):
@@ -93,10 +111,18 @@ pushing, or if CI itself is down):
 ```bash
 npx firebase login
 npx firebase deploy --only firestore:rules --project bench-buddy-ada85
+npx firebase deploy --only functions --project bench-buddy-ada85
 ```
 
 The `--project` flag matters — `.firebaserc`'s default project is the
 emulator-only `demo-bench-buddy-test`, not the real one.
+
+`functions/` also needs its own `RESEND_API_KEY` secret, set once (not
+part of CI — it doesn't change on every deploy):
+
+```bash
+npx firebase functions:secrets:set RESEND_API_KEY --project bench-buddy-ada85
+```
 
 ## Credits
 
