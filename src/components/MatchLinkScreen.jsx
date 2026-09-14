@@ -21,17 +21,19 @@ import {
 //   choice. Every handover is level: "full" now; that field stays in the
 //   schema (firestore.rules' isValidHandover still requires it) purely so
 //   an old handover created before this change keeps reading correctly.
-// - Dropped "Ask for an email first" — its "Take the subs" email form
-//   (MatchClaimPage.jsx) had no actual email-sending behind it (Pile 2, an
-//   email extension, was never built), so turning it on was a dead end
-//   with no way out for whoever hit it. Every handover is
-//   requireEmailClaim: false now — the working, instant-claim path.
 // - Dropped the raw link display — Share/Copy already cover getting the
 //   link out; showing the literal URL on screen was pure clutter (and put
 //   the secret token on screen for no reason).
-// - The two toggles that were always-visible are now one toggle inside a
+// - The toggles that were always-visible now live inside a
 //   collapsed-by-default "Link settings" section — this isn't something
 //   most coaches need to open every time.
+//
+// "Ask for an email first" was briefly dropped entirely (its "Take the
+// subs" email form, MatchClaimPage.jsx, had no actual email-sending
+// behind it — Pile 2, deferred at the time) — now restored, backed by a
+// real Cloud Function (functions/index.js, sendMatchLinkClaimEmail,
+// triggered off the same pendingClaim write submitClaimEmail already
+// made) that actually delivers it via Resend.
 //
 // Step 4 — a query string on the app's own root, not a path
 // (app.benchbuddysports.com/m/...). GitHub Pages serves index.html for the
@@ -79,6 +81,8 @@ export default function MatchLinkScreen({ teamId, coachUid, onClose }) {
   const turnOff = () => runAction(() => revokeHandover(teamId));
   const toggleStopsAtFullTime = () =>
     runAction(() => updateHandoverSettings(teamId, { stopsAtFullTime: !handover.stopsAtFullTime }));
+  const toggleRequireEmailClaim = () =>
+    runAction(() => updateHandoverSettings(teamId, { requireEmailClaim: !handover.requireEmailClaim }));
   const revoke = () => runAction(() => revokeHolder(teamId, handover.claim));
 
   const claimUrl = handover
@@ -152,17 +156,37 @@ export default function MatchLinkScreen({ teamId, coachUid, onClose }) {
               </span>
             </button>
             {settingsExpanded && (
-              <div style={{ ...styles.mdMatchLinkToggleRow, marginTop: 12 }}>
-                <span style={styles.mdMatchLinkToggleLabel}>Stop working 24 hrs after full time</span>
-                <button
-                  style={{ ...styles.mdMatchLinkToggleTrack, ...(handover.stopsAtFullTime ? styles.mdMatchLinkToggleTrackOn : {}) }}
-                  onClick={toggleStopsAtFullTime}
-                  role="switch"
-                  aria-checked={handover.stopsAtFullTime}
-                  title="Stop working 24 hrs after full time"
-                >
-                  <span style={styles.mdMatchLinkToggleKnob} />
-                </button>
+              <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+                <div style={styles.mdMatchLinkToggleRow}>
+                  <span style={styles.mdMatchLinkToggleLabel}>Stop working 24 hrs after full time</span>
+                  <button
+                    style={{ ...styles.mdMatchLinkToggleTrack, ...(handover.stopsAtFullTime ? styles.mdMatchLinkToggleTrackOn : {}) }}
+                    onClick={toggleStopsAtFullTime}
+                    role="switch"
+                    aria-checked={handover.stopsAtFullTime}
+                    title="Stop working 24 hrs after full time"
+                  >
+                    <span style={styles.mdMatchLinkToggleKnob} />
+                  </button>
+                </div>
+                <div style={styles.mdMatchLinkToggleRow}>
+                  <span style={styles.mdMatchLinkToggleLabel}>Ask for an email first</span>
+                  <button
+                    style={{ ...styles.mdMatchLinkToggleTrack, ...(handover.requireEmailClaim ? styles.mdMatchLinkToggleTrackOn : {}) }}
+                    onClick={toggleRequireEmailClaim}
+                    role="switch"
+                    aria-checked={handover.requireEmailClaim}
+                    title="Ask for an email first"
+                  >
+                    <span style={styles.mdMatchLinkToggleKnob} />
+                  </button>
+                </div>
+                {handover.requireEmailClaim && (
+                  <div style={styles.mdMatchLinkFootnote}>
+                    They enter their email and get their own link, so you know exactly who has the game. A forwarded
+                    link is useless.
+                  </div>
+                )}
               </div>
             )}
           </div>

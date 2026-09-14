@@ -68,6 +68,9 @@ export const linksStyles = {
   mdMatchLinkToggleKnob: {
     width: 28, height: 28, borderRadius: "50%", background: "#fff", boxShadow: tokens.shadow.solid(2, "rgba(28,58,46,.20)"),
   },
+  mdMatchLinkFootnote: {
+    fontFamily: tokens.font.body, fontWeight: 700, fontSize: 12.5, color: tokens.color.mutedText, lineHeight: 1.4,
+  },
 
   mdMatchLinkHolderRow: {
     display: "flex", alignItems: "center", gap: 10,
