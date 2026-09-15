@@ -1070,10 +1070,22 @@ describe("SquadSettingsForm — Availability link fold-in (1d)", () => {
     expect(onShowAvailability).toHaveBeenCalledTimes(1);
   });
 
-  it("shows a muted prompt when a request exists but nobody's answered", () => {
+  it("shows a muted prompt when a request exists but nobody's answered, without a fixture time if there isn't one", () => {
     const availabilityRequest = { squad: [{ id: "p1", name: "Alice", number: 1 }], answers: {} };
     render(<SquadSettingsForm {...baseProps({ variant: "edit", confirmAvailability: true, onShowAvailability: vi.fn(), availabilityRequest })} />);
-    expect(screen.getByText(/No responses yet/)).toBeInTheDocument();
+    expect(screen.getByText("No responses yet. View or resend.")).toBeInTheDocument();
+  });
+
+  // Real-use feedback: bare "No responses yet" read as if it might be for
+  // a request the coach never actually sent, especially now this entry
+  // point shows any time Game settings is open — naming which fixture
+  // it's for settles that at a glance.
+  it("names the fixture's own kickoff time in that muted prompt when one is set", () => {
+    const availabilityRequest = {
+      squad: [{ id: "p1", name: "Alice", number: 1 }], answers: {}, matchAt: new Date(2026, 8, 13, 9, 30).getTime(),
+    };
+    render(<SquadSettingsForm {...baseProps({ variant: "edit", confirmAvailability: true, onShowAvailability: vi.fn(), availabilityRequest })} />);
+    expect(screen.getByText("No responses yet for Sun 13 Sep · 9:30 am. View or resend.")).toBeInTheDocument();
   });
 
   it("labels an 'out' child with '· out' and a never-answered child with '· waiting', both still tappable", () => {

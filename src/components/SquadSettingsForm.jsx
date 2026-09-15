@@ -11,7 +11,7 @@ import { styles, tokens } from "./styles.js";
 import { RotateIcon } from "./strokeIcons.jsx";
 import SignIn from "./SignIn.jsx";
 import {
-  describeSetupSummary, waitingChildren, buildNudgeMessage, buildAvailabilityUrl,
+  describeSetupSummary, waitingChildren, buildNudgeMessage, buildAvailabilityUrl, formatMatchWhen,
 } from "../lib/availability.js";
 
 // Drawn (stroke, not solid-fill) icons for the edit layout's own four
@@ -1270,7 +1270,19 @@ export default function SquadSettingsForm({
             {availabilityRequest ? (
               <button style={styles.mdAvailSummaryLine} onClick={onShowAvailability}>
                 {describeSetupSummary(availabilityRequest.squad, availabilityRequest.answers) || (
-                  <span style={styles.mdAvailSummaryLineMuted}>No responses yet. View or resend.</span>
+                  // Real-use feedback: "No responses yet" alone, with no
+                  // hint of WHICH game it's for, read as if it might be
+                  // about a request the coach never actually sent —
+                  // especially now this shows any time Game settings is
+                  // open, not just right after building the game it was
+                  // actually for. Naming the fixture's own kickoff time
+                  // (already computed for the compose screen's own fixture
+                  // card — formatMatchWhen, availability.js) answers that
+                  // directly: recognizable as theirs, or obviously old.
+                  <span style={styles.mdAvailSummaryLineMuted}>
+                    No responses yet{formatMatchWhen(availabilityRequest.matchAt) &&
+                      ` for ${formatMatchWhen(availabilityRequest.matchAt)}`}. View or resend.
+                  </span>
                 )}
               </button>
             ) : (

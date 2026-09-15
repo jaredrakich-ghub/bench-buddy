@@ -328,9 +328,13 @@ export const linksStyles = {
     fontFamily: tokens.font.display, fontWeight: 800, fontSize: 23, cursor: "pointer",
     display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
   },
+  // marginTop bumped 8 -> 14 (real-use feedback: felt cramped directly
+  // under mdAvailPrimaryBtn's own 64px-tall button) — shared by both
+  // Match Link and Availability's Share/Copy pairs, so this one change
+  // fixes the gap on both screens at once.
   mdAvailSecondaryBtn: {
     width: "100%", height: 56, borderRadius: 22, border: "none", background: tokens.color.availSand,
-    color: tokens.color.deepGreen, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 20, cursor: "pointer", marginTop: 8,
+    color: tokens.color.deepGreen, fontFamily: tokens.font.display, fontWeight: 800, fontSize: 20, cursor: "pointer", marginTop: 14,
   },
   mdAvailGhostBtn: {
     width: "100%", background: "transparent", border: "none", padding: "10px 0", marginTop: 4,
