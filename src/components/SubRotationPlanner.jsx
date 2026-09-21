@@ -557,6 +557,7 @@ export default function SubRotationPlanner({ user }) {
           is underway, unaffected by any of this. */}
 
       {saveError && <div style={styles.saveErrorBanner}>⚠️ {saveError}</div>}
+      {!saveError && match.justSynced && <div style={styles.syncedPill}>✓ Synced</div>}
 
       {/* aria-hidden while RotationProgressOverlay is up — startPlanning()
           sets `plan` immediately (before the overlay's own fade-in even

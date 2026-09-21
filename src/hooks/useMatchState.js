@@ -96,6 +96,20 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData, isCoach = 
   const [subLog, setSubLog] = useState({});
   const [swapPickId, setSwapPickId] = useState(null); // bench player id awaiting a pitch target to swap with
   const [saveError, setSaveError] = useState(null);
+  // Launch-audit finding #5 ("did that just save?"): success was silence —
+  // only a failure ever showed anything. justSynced flips true for a brief
+  // moment after a real match-day write actually lands, so a coach on
+  // patchy sideline signal gets a quiet positive signal, not just the
+  // absence of a red banner. Restarts its own hide timer on every fresh
+  // success rather than letting overlapping writes race to clear it early.
+  const [justSynced, setJustSynced] = useState(false);
+  const syncedTimeoutRef = useRef(null);
+  const flashSynced = () => {
+    setJustSynced(true);
+    clearTimeout(syncedTimeoutRef.current);
+    syncedTimeoutRef.current = setTimeout(() => setJustSynced(false), 1500);
+  };
+  useEffect(() => () => clearTimeout(syncedTimeoutRef.current), []);
   // A coach's manual pick for who starts in goal on the next game (e.g.
   // honoring "can I start in goal?"), set from the squad setup screen.
   // One-shot, like swapPickId — consumed and cleared by startPlanning.
@@ -148,21 +162,30 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData, isCoach = 
   useEffect(() => {
     if (!plan || !activeTeamId || suppressPersistRef.current) return;
     updateMatchState(activeTeamId, { baseElapsedSec, runStartedAt, timerRunning })
-      .then(() => setSaveError(null))
+      .then(() => {
+        setSaveError(null);
+        flashSynced();
+      })
       .catch((err) => setSaveError(describeSaveError(err)));
   }, [activeTeamId, plan, baseElapsedSec, runStartedAt, timerRunning]);
 
   useEffect(() => {
     if (!plan || !activeTeamId || suppressPersistRef.current) return;
     updateMatchState(activeTeamId, { plan, activeInterval, availableIds, injuredThisGame, injuredAt, subLog })
-      .then(() => setSaveError(null))
+      .then(() => {
+        setSaveError(null);
+        flashSynced();
+      })
       .catch((err) => setSaveError(describeSaveError(err)));
   }, [activeTeamId, plan, activeInterval, availableIds, injuredThisGame, injuredAt, subLog]);
 
   useEffect(() => {
     if (!plan || !activeTeamId || suppressPersistRef.current) return;
     updateMatchState(activeTeamId, { gameSettings })
-      .then(() => setSaveError(null))
+      .then(() => {
+        setSaveError(null);
+        flashSynced();
+      })
       .catch((err) => setSaveError(describeSaveError(err)));
   }, [activeTeamId, plan, gameSettings]);
 
@@ -899,6 +922,7 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData, isCoach = 
     swapPickId, setSwapPickId,
     startingGkId, setStartingGkId,
     saveError, setSaveError,
+    justSynced,
     keeperEligibleIds,
     startPlanning, handleInjury, bringBack, performSwap, addArrival, removeAvailability, resetClock,
     previewImprovedFairness, useImprovedPlan, applyMatchState,

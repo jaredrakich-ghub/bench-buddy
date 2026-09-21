@@ -178,6 +178,21 @@ export const sharedStyles = {
     background: colors.danger, color: "#fff", fontSize: 12, fontWeight: 700, textAlign: "center",
     padding: "8px 16px", lineHeight: 1.4,
   },
+  // Launch-audit finding #5's quiet success signal — same fixed/zIndex:53
+  // reasoning as saveErrorBanner above (has to beat a full-screen takeover's
+  // own stacking context), but small and centered rather than full-width:
+  // this is a brief "yes, that saved" pulse, not something that needs to
+  // interrupt the way a failure does. Centered (not a header corner) so it
+  // can never sit over MatchView's own top-right cog button — the one
+  // interactive thing up there — even though it may briefly cross the team
+  // name text behind it, which is a fine trade for something this quiet and
+  // short-lived (1.5s, see useMatchState's own flashSynced).
+  syncedPill: {
+    position: "fixed", top: 8, left: "50%", transform: "translateX(-50%)", zIndex: 53,
+    background: colors.grass, color: "#fff", fontSize: 11, fontWeight: 700, textAlign: "center",
+    padding: "4px 12px", borderRadius: 999, boxShadow: "0 2px 8px rgba(0,0,0,0.18)",
+    pointerEvents: "none",
+  },
 
   // ---- Non-match screens (Direction A round 2) — see
   // design_handoff_bench_buddy_match_day/README.md. mdSubHeader* is the

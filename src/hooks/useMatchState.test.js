@@ -247,6 +247,17 @@ describe("useMatchState — archiving to season history", () => {
       await Promise.resolve();
     });
     expect(result.current.saveError).toMatch(/offline/);
+
+    // mockRejectedValue (not ...Once) above is deliberate — this test needs
+    // BOTH the clock-start write and the freeze-at-full-time write to keep
+    // rejecting (see the comment above) — but that means it's still the
+    // mock's persistent default when this test ends, silently poisoning
+    // every updateMatchState call in every test declared after this one in
+    // the file (vi.clearAllMocks() in the top-level afterEach only clears
+    // call history, not implementations — caught the hard way once a later
+    // test actually needed a successful resolution to check the state that
+    // follows it, rather than just asserting the call happened).
+    updateMatchState.mockResolvedValue(undefined);
   });
 });
 
@@ -856,6 +867,50 @@ describe("useMatchState — scoped persistence after the initial save (Step 7)",
     act(() => applyRemote(null));
 
     expect(result.current.plan).toBe(planBefore);
+  });
+});
+
+// Launch-audit finding #5: success used to be silent — only a failure ever
+// showed anything. justSynced is the quiet positive signal a coach on
+// patchy sideline connection can actually see.
+describe("useMatchState — quiet sync signal (launch-audit #5)", () => {
+  it("flashes justSynced after a scoped write succeeds", async () => {
+    const { result } = setupWithPlan();
+    updateMatchState.mockClear();
+    await act(async () => {
+      result.current.setGameSettings({ fieldSize: 5, gameMinutes: 12, subIntervalMinutes: 6, breakSegments: 2 });
+      await Promise.resolve();
+      await Promise.resolve(); // let the write's own .then() settle
+    });
+    expect(result.current.justSynced).toBe(true);
+  });
+
+  it("does not flash justSynced when the write fails", async () => {
+    vi.useFakeTimers();
+    try {
+      const { result } = setupWithPlan();
+      // Let setup's own redundant successful writes (commitFreshPlan's own
+      // comment on why those happen) fully settle and their brief flash
+      // expire first, so this test starts from a clean baseline instead of
+      // an unrelated earlier success still being mid-flash when the write
+      // under test here fails.
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      act(() => vi.advanceTimersByTime(1500));
+      updateMatchState.mockClear();
+      updateMatchState.mockRejectedValueOnce({ code: "unavailable" });
+      await act(async () => {
+        result.current.setGameSettings({ fieldSize: 5, gameMinutes: 12, subIntervalMinutes: 6, breakSegments: 2 });
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(result.current.saveError).toMatch(/offline/);
+      expect(result.current.justSynced).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
