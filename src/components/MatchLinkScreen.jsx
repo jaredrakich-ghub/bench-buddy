@@ -55,6 +55,13 @@ export default function MatchLinkScreen({ teamId, coachUid, onClose }) {
   const [copied, setCopied] = useState(false);
   // Collapsed by default — see this file's own top comment.
   const [settingsExpanded, setSettingsExpanded] = useState(false);
+  // Launch-audit finding: turning Match Link off (and later back on) mints
+  // a fresh token — createHandover always does — silently killing whatever
+  // link was already sent, with nothing telling the coach it happened. We
+  // can't actually know whether THIS link was shared (that's an external
+  // WhatsApp/copy action, not tracked across sessions), so the safe default
+  // is to always warn before turning it off rather than guess.
+  const [confirmingOff, setConfirmingOff] = useState(false);
 
   useEffect(() => {
     const unsubscribe = subscribeHandover(teamId, setHandover);
@@ -78,7 +85,10 @@ export default function MatchLinkScreen({ teamId, coachUid, onClose }) {
 
   const turnOn = () =>
     runAction(() => createHandover(teamId, coachUid, { level: "full", stopsAtFullTime: true, requireEmailClaim: false, kickoffAt: Date.now() }));
-  const turnOff = () => runAction(() => revokeHandover(teamId));
+  const turnOff = () => {
+    setConfirmingOff(false);
+    runAction(() => revokeHandover(teamId));
+  };
   const toggleStopsAtFullTime = () =>
     runAction(() => updateHandoverSettings(teamId, { stopsAtFullTime: !handover.stopsAtFullTime }));
   const toggleRequireEmailClaim = () =>
@@ -215,9 +225,26 @@ export default function MatchLinkScreen({ teamId, coachUid, onClose }) {
             {copied ? "Copied!" : "Copy link"}
           </button>
 
-          <button style={styles.mdMatchLinkOffBtn} onClick={turnOff}>
-            Turn off Match Link
-          </button>
+          {confirmingOff ? (
+            <div style={styles.mdTeamAcctConfirmCard}>
+              <span style={styles.mdTeamAcctConfirmText}>
+                Turn off Match Link? If you've already sent this link to someone, it'll stop working — you'll need
+                to send a new one if you turn it back on.
+              </span>
+              <div style={styles.mdTeamAcctConfirmBtnRow}>
+                <button style={styles.mdTeamAcctBtnCancel} onClick={() => setConfirmingOff(false)}>
+                  Cancel
+                </button>
+                <button style={styles.mdTeamAcctBtnDanger} onClick={turnOff}>
+                  Turn off
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button style={styles.mdMatchLinkOffBtn} onClick={() => setConfirmingOff(true)}>
+              Turn off Match Link
+            </button>
+          )}
         </>
       )}
     </section>
