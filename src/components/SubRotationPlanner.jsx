@@ -11,9 +11,6 @@ import { useCurrentAvailability } from "../hooks/useCurrentAvailability.js";
 import { fontStyle, styles } from "./styles.js";
 import SummaryModal from "./SummaryModal.jsx";
 import SquadSettingsForm from "./SquadSettingsForm.jsx";
-import MatchView from "./MatchView.jsx";
-import MatchLinkScreen from "./MatchLinkScreen.jsx";
-import AvailabilityScreen from "./AvailabilityScreen.jsx";
 import LoadingScreen from "./LoadingScreen.jsx";
 import RotationProgressOverlay from "./RotationProgressOverlay.jsx";
 import headerMascot from "../assets/header-mascot.svg";
@@ -21,20 +18,36 @@ import headerMascot from "../assets/header-mascot.svg";
 // Debt ledger, Later lane: code-split the screens that aren't on the
 // critical first-paint path — a coach opening the app pitch-side (this
 // PWA's own stated use case, see public/sw.js) shouldn't have to download
-// Team & account, Manage squad, Squad change, and Season Minutes before
-// they can see the match timer, on a day most games never touch any of
-// them. Each is its own real screen, only ever entered through a full-
-// screen takeover already wrapped in a <React.Suspense> below — a coach
-// tapping into one for the first time in a session pays a small one-time
-// fetch (same origin, already-warm connection) instead of it padding out
-// the very first bundle everyone downloads. fallback={null}: the
-// takeover's own shell (background/shape) renders immediately either way
-// (it's not part of the lazy import), so there's nothing worth showing a
-// spinner over for what's normally a sub-100ms wait.
+// Team & account, Manage squad, Squad change, Season Minutes, Match Link,
+// or Availability before they can see the match timer, on a day most games
+// never touch any of them. Each is its own real screen, only ever entered
+// through a full-screen takeover already wrapped in a <React.Suspense>
+// below — a coach tapping into one for the first time in a session pays a
+// small one-time fetch (same origin, already-warm connection) instead of
+// it padding out the very first bundle everyone downloads. fallback={null}:
+// the takeover's own shell (background/shape) renders immediately either
+// way (it's not part of the lazy import), so there's nothing worth showing
+// a spinner over for what's normally a sub-100ms wait.
 const TeamAccountScreen = React.lazy(() => import("./TeamAccountScreen.jsx"));
 const ManageSquadScreen = React.lazy(() => import("./ManageSquadScreen.jsx"));
 const SquadChangeScreen = React.lazy(() => import("./SquadChangeScreen.jsx"));
 const SeasonSummaryModal = React.lazy(() => import("./SeasonSummaryModal.jsx"));
+const MatchLinkScreen = React.lazy(() => import("./MatchLinkScreen.jsx"));
+const AvailabilityScreen = React.lazy(() => import("./AvailabilityScreen.jsx"));
+// Launch-audit follow-up: a real PageSpeed trace (Slow 4G, Moto G Power)
+// found ~155KB of this app's own ~300KB main bundle going unused on a
+// brand-new visitor's first paint — MatchView.jsx (the single largest
+// component in the app) was the biggest piece of that, bundled in eagerly
+// even though nobody sees it until AFTER filling in Squad settings and
+// tapping "Build rotation". Splitting it out here doesn't fight this
+// file's own "pitch-side, resume a match fast" priority above: resuming an
+// EXISTING match always means a PRIOR session already built that rotation
+// (and so already fetched/cached this exact chunk) — the only real cost
+// lands on a coach's absolute first-ever rotation build, where it loads
+// during RotationProgressOverlay's own scrim (same fallback={null} as
+// every lazy screen above — that scrim already covers a moment of real
+// compute, not just network).
+const MatchView = React.lazy(() => import("./MatchView.jsx"));
 
 // Both of these are now read-only, used exactly once each: migrating an
 // existing browser's local data into the signed-in user's Firestore account
@@ -596,72 +609,74 @@ export default function SubRotationPlanner({ user }) {
         )}
 
         {plan && (
-          <MatchView
-            plan={plan}
-            activeInterval={activeInterval}
-            setActiveInterval={setActiveInterval}
-            elapsedSec={elapsedSec}
-            setElapsedSec={setElapsedSec}
-            baseElapsedSec={baseElapsedSec}
-            setBaseElapsedSec={setBaseElapsedSec}
-            runStartedAt={runStartedAt}
-            setRunStartedAt={setRunStartedAt}
-            timerRunning={timerRunning}
-            setTimerRunning={setTimerRunning}
-            subLog={subLog}
-            swapPickId={swapPickId}
-            setSwapPickId={setSwapPickId}
-            injuredThisGame={injuredThisGame}
-            injuredAt={injuredAt}
-            keeperEligibleIds={keeperEligibleIds}
-            availableIds={availableIds}
-            breakSegments={gameSettings.breakSegments || 1}
-            nameOf={nameOf}
-            numberOf={numberOf}
-            teamName={teamData.name}
-            crestSrc={headerMascot}
-            availableCount={availableIds.length}
-            isAnonymous={user.isAnonymous}
-            gameSettingsSummary={`${gameSettings.fieldSize} a side · sub ${gameSettings.subIntervalMinutes}′`}
-            onInjury={handleInjury}
-            onBringBack={bringBack}
-            onSwap={performSwap}
-            onReset={resetClock}
-            onShowSummary={() => setShowSummaryModal(true)}
-            onShowSeason={() => setShowSeasonModal(true)}
-            setupInProgress={hasOpenedSetupThisGame}
-            onShowSettings={() => {
-              // Availability link, Step 5's own fold-in: opening "Set up
-              // next game" specifically (not a plain mid-match Game
-              // settings visit — isMatchComplete is exactly the condition
-              // squadSettingsProps' own confirmAvailability already keys
-              // on) pre-selects whoever answered "in", when there's an
-              // active, non-stale request with real answers to draw from.
-              // Falls through to the existing carried-over-list behavior
-              // (untouched) whenever there's no request, it's stale (see
-              // currentAvailabilityRequest), or nobody's answered yet —
-              // same "confirm, don't re-decide from scratch" contract this
-              // screen already had before this feature existed.
-              if (isMatchComplete && currentAvailabilityRequest?.answers) {
-                const inIds = teamData.roster
-                  .filter((p) => currentAvailabilityRequest.answers[p.id]?.status === "in")
-                  .map((p) => p.id);
-                if (inIds.length > 0) setAvailableIds(inIds);
-                // useCurrentAvailability's own comment has the full
-                // reasoning — the pre-fill above still gets to use this
-                // request's answers as a starting point for the new game,
-                // but the request itself stops being "current" for every
-                // other purpose (the summary pill, the chip-row suffixes)
-                // from this tap onward, whatever its own matchAt says.
-                dismissCurrentAvailabilityRequest();
-              }
-              setHasOpenedSetupThisGame(true);
-              setShowSettingsModal(true);
-            }}
-            onShowSquadChange={() => setShowSquadChange(true)}
-            onShowMatchLink={() => setShowMatchLink(true)}
-            onShowTeamSwitcher={() => setShowTeamSwitcher(true)}
-          />
+          <React.Suspense fallback={null}>
+            <MatchView
+              plan={plan}
+              activeInterval={activeInterval}
+              setActiveInterval={setActiveInterval}
+              elapsedSec={elapsedSec}
+              setElapsedSec={setElapsedSec}
+              baseElapsedSec={baseElapsedSec}
+              setBaseElapsedSec={setBaseElapsedSec}
+              runStartedAt={runStartedAt}
+              setRunStartedAt={setRunStartedAt}
+              timerRunning={timerRunning}
+              setTimerRunning={setTimerRunning}
+              subLog={subLog}
+              swapPickId={swapPickId}
+              setSwapPickId={setSwapPickId}
+              injuredThisGame={injuredThisGame}
+              injuredAt={injuredAt}
+              keeperEligibleIds={keeperEligibleIds}
+              availableIds={availableIds}
+              breakSegments={gameSettings.breakSegments || 1}
+              nameOf={nameOf}
+              numberOf={numberOf}
+              teamName={teamData.name}
+              crestSrc={headerMascot}
+              availableCount={availableIds.length}
+              isAnonymous={user.isAnonymous}
+              gameSettingsSummary={`${gameSettings.fieldSize} a side · sub ${gameSettings.subIntervalMinutes}′`}
+              onInjury={handleInjury}
+              onBringBack={bringBack}
+              onSwap={performSwap}
+              onReset={resetClock}
+              onShowSummary={() => setShowSummaryModal(true)}
+              onShowSeason={() => setShowSeasonModal(true)}
+              setupInProgress={hasOpenedSetupThisGame}
+              onShowSettings={() => {
+                // Availability link, Step 5's own fold-in: opening "Set up
+                // next game" specifically (not a plain mid-match Game
+                // settings visit — isMatchComplete is exactly the condition
+                // squadSettingsProps' own confirmAvailability already keys
+                // on) pre-selects whoever answered "in", when there's an
+                // active, non-stale request with real answers to draw from.
+                // Falls through to the existing carried-over-list behavior
+                // (untouched) whenever there's no request, it's stale (see
+                // currentAvailabilityRequest), or nobody's answered yet —
+                // same "confirm, don't re-decide from scratch" contract this
+                // screen already had before this feature existed.
+                if (isMatchComplete && currentAvailabilityRequest?.answers) {
+                  const inIds = teamData.roster
+                    .filter((p) => currentAvailabilityRequest.answers[p.id]?.status === "in")
+                    .map((p) => p.id);
+                  if (inIds.length > 0) setAvailableIds(inIds);
+                  // useCurrentAvailability's own comment has the full
+                  // reasoning — the pre-fill above still gets to use this
+                  // request's answers as a starting point for the new game,
+                  // but the request itself stops being "current" for every
+                  // other purpose (the summary pill, the chip-row suffixes)
+                  // from this tap onward, whatever its own matchAt says.
+                  dismissCurrentAvailabilityRequest();
+                }
+                setHasOpenedSetupThisGame(true);
+                setShowSettingsModal(true);
+              }}
+              onShowSquadChange={() => setShowSquadChange(true)}
+              onShowMatchLink={() => setShowMatchLink(true)}
+              onShowTeamSwitcher={() => setShowTeamSwitcher(true)}
+            />
+          </React.Suspense>
         )}
       </main>
 
@@ -830,7 +845,9 @@ export default function SubRotationPlanner({ user }) {
         // pattern as every other non-match screen.
         <div style={styles.mdFullScreenTakeoverOuter}>
           <div style={styles.mdFullScreenTakeoverInner}>
-            <MatchLinkScreen teamId={activeTeamId} coachUid={user.uid} onClose={() => setShowMatchLink(false)} />
+            <React.Suspense fallback={null}>
+              <MatchLinkScreen teamId={activeTeamId} coachUid={user.uid} onClose={() => setShowMatchLink(false)} />
+            </React.Suspense>
           </div>
         </div>
       )}
@@ -841,16 +858,18 @@ export default function SubRotationPlanner({ user }) {
         // summary reflects whatever was just created/edited/regenerated.
         <div style={styles.mdFullScreenTakeoverOuter}>
           <div style={styles.mdFullScreenTakeoverInner}>
-            <AvailabilityScreen
-              teamId={activeTeamId}
-              coachUid={user.uid}
-              teamName={teamData.name}
-              roster={teamData.roster}
-              onClose={() => {
-                setShowAvailability(false);
-                refreshCurrentAvailabilityRequest();
-              }}
-            />
+            <React.Suspense fallback={null}>
+              <AvailabilityScreen
+                teamId={activeTeamId}
+                coachUid={user.uid}
+                teamName={teamData.name}
+                roster={teamData.roster}
+                onClose={() => {
+                  setShowAvailability(false);
+                  refreshCurrentAvailabilityRequest();
+                }}
+              />
+            </React.Suspense>
           </div>
         </div>
       )}
