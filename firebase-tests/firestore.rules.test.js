@@ -105,6 +105,27 @@ describe("firestore.rules — teams collection", () => {
     await assertSucceeds(getDoc(doc(bob.firestore(), "teams", "team1")));
     await assertSucceeds(updateDoc(doc(bob.firestore(), "teams", "team1"), { name: "Scorpions FC" }));
   });
+
+  // Launch-audit finding: nothing used to stop a member editing memberIds
+  // itself — not reachable through today's UI, but real via a direct
+  // Firestore call. A member may only ever add or remove their OWN uid.
+  test("a member cannot remove another member from memberIds", async () => {
+    await seedTeam("team1", validTeam({ memberIds: ["alice", "bob"] }));
+    const alice = testEnv.authenticatedContext("alice");
+    await assertFails(updateDoc(doc(alice.firestore(), "teams", "team1"), { memberIds: ["alice"] }));
+  });
+
+  test("a member can remove themself from memberIds (leaving)", async () => {
+    await seedTeam("team1", validTeam({ memberIds: ["alice", "bob"] }));
+    const bob = testEnv.authenticatedContext("bob");
+    await assertSucceeds(updateDoc(doc(bob.firestore(), "teams", "team1"), { memberIds: ["alice"] }));
+  });
+
+  test("a member cannot add an arbitrary stranger to memberIds", async () => {
+    await seedTeam("team1", validTeam());
+    const alice = testEnv.authenticatedContext("alice");
+    await assertFails(updateDoc(doc(alice.firestore(), "teams", "team1"), { memberIds: ["alice", "stranger"] }));
+  });
 });
 
 describe("firestore.rules — matchState subcollection", () => {

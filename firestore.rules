@@ -52,6 +52,19 @@ service cloud.firestore {
       return request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.memberIds;
     }
 
+    // Launch-audit finding: the team update rule below only ever checked
+    // that the CALLER is a current member and the new document is
+    // shape-valid — nothing stopped them editing memberIds itself, e.g.
+    // silently removing a co-coach or adding an arbitrary stranger. Not
+    // reachable through today's UI (there's no invite/remove-member screen
+    // yet), but closing it now rather than inheriting the gap the day that
+    // screen gets built. A member may only ever add or remove their OWN
+    // uid — accepting a future invite, or leaving — never anyone else's.
+    function memberIdsChangeIsSafe(beforeIds, afterIds) {
+      return afterIds.toSet().difference(beforeIds.toSet()).hasOnly([request.auth.uid])
+        && beforeIds.toSet().difference(afterIds.toSet()).hasOnly([request.auth.uid]);
+    }
+
     // Match Link — shared by both matchHandover and matchState below, so
     // this is the ONE place either has to change. Mirrors
     // src/lib/matchHandover.js's isHandoverActive exactly (same four
@@ -93,7 +106,8 @@ service cloud.firestore {
         && isValidTeam(request.resource.data);
       allow update: if request.auth != null
         && request.auth.uid in resource.data.memberIds
-        && isValidTeam(request.resource.data);
+        && isValidTeam(request.resource.data)
+        && memberIdsChangeIsSafe(resource.data.memberIds, request.resource.data.memberIds);
 
       // Match Link — a handover session lets one holder (usually a parent)
       // act on a team's current match without being a team member at all.
