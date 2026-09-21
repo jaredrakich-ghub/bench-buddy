@@ -5,7 +5,7 @@
 import { afterAll, beforeAll, beforeEach, describe, test } from "vitest";
 import { readFileSync } from "node:fs";
 import { initializeTestEnvironment, assertSucceeds, assertFails } from "@firebase/rules-unit-testing";
-import { doc, getDoc, setDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
 
 let testEnv;
 
@@ -167,21 +167,68 @@ describe("firestore.rules — games subcollection (season history)", () => {
 });
 
 describe("firestore.rules — crashReports collection", () => {
-  test("a signed-in user can file a crash report", async () => {
+  // Matches crashReports.js's own real write shape exactly — the rule now
+  // enforces this, so a fixture that doesn't match it isn't testing the
+  // real thing.
+  const validReport = (overrides = {}) => ({
+    message: "boom",
+    stack: "at foo (bar.js:1:1)",
+    componentStack: "in Foo",
+    uid: "alice",
+    url: "https://app.benchbuddysports.com/",
+    userAgent: "Mozilla/5.0",
+    createdAt: serverTimestamp(),
+    ...overrides,
+  });
+
+  test("a signed-in user can file a real-shaped crash report", async () => {
     const alice = testEnv.authenticatedContext("alice");
     const ref = doc(alice.firestore(), "crashReports", "report1");
-    await assertSucceeds(setDoc(ref, { message: "boom", uid: "alice" }));
+    await assertSucceeds(setDoc(ref, validReport()));
   });
 
   test("an unauthenticated user can also file a crash report (e.g. a crash before sign-in)", async () => {
     const anon = testEnv.unauthenticatedContext();
     const ref = doc(anon.firestore(), "crashReports", "report1");
-    await assertSucceeds(setDoc(ref, { message: "boom", uid: null }));
+    await assertSucceeds(setDoc(ref, validReport({ uid: null })));
+  });
+
+  // Launch-audit finding: this collection used to accept `if true` — any
+  // shape, any size, from anyone. These are the tests for the fix.
+  test("rejects a message longer than the client's own 2000-char cap", async () => {
+    const anon = testEnv.unauthenticatedContext();
+    const ref = doc(anon.firestore(), "crashReports", "report1");
+    await assertFails(setDoc(ref, validReport({ message: "x".repeat(2001) })));
+  });
+
+  test("rejects a stack longer than the client's own 4000-char cap", async () => {
+    const anon = testEnv.unauthenticatedContext();
+    const ref = doc(anon.firestore(), "crashReports", "report1");
+    await assertFails(setDoc(ref, validReport({ stack: "x".repeat(4001) })));
+  });
+
+  test("rejects a document with an extra field the client never sends", async () => {
+    const anon = testEnv.unauthenticatedContext();
+    const ref = doc(anon.firestore(), "crashReports", "report1");
+    await assertFails(setDoc(ref, validReport({ somethingElse: "x" })));
+  });
+
+  test("rejects a document missing a required field", async () => {
+    const anon = testEnv.unauthenticatedContext();
+    const ref = doc(anon.firestore(), "crashReports", "report1");
+    const { userAgent: _userAgent, ...withoutUserAgent } = validReport();
+    await assertFails(setDoc(ref, withoutUserAgent));
+  });
+
+  test("rejects a forged createdAt instead of the real serverTimestamp() sentinel", async () => {
+    const anon = testEnv.unauthenticatedContext();
+    const ref = doc(anon.firestore(), "crashReports", "report1");
+    await assertFails(setDoc(ref, validReport({ createdAt: new Date("2020-01-01") })));
   });
 
   test("nobody can read, update, or delete a crash report through the app — not even its author", async () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), "crashReports", "report1"), { message: "boom" });
+      await setDoc(doc(ctx.firestore(), "crashReports", "report1"), validReport());
     });
     const alice = testEnv.authenticatedContext("alice");
     await assertFails(getDoc(doc(alice.firestore(), "crashReports", "report1")));

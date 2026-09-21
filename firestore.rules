@@ -275,8 +275,31 @@ service cloud.firestore {
     // can read, change, or delete one back through the app. They're only
     // ever visible via the Firebase console, which authenticates as the
     // project owner and doesn't go through these rules at all.
+    //
+    // Launch-audit finding: this used to be a bare `if true` — genuinely
+    // open, not just to signed-in users, with no shape or size limit
+    // enforced here at all. crashReports.js's own 2000/4000-char caps only
+    // ever applied to a caller going through the app's real UI; anyone
+    // calling the Firestore API directly could write documents of any
+    // shape or size, unlimited times, for free. This enforces the exact
+    // same shape crashReports.js actually sends — the fix is scoping WHAT
+    // can be written, not who can write it (a crash before sign-in still
+    // has to be reportable, so this stays open to anyone).
+    function isValidCrashReport(data) {
+      return data.keys().hasAll(['message', 'stack', 'componentStack', 'uid', 'url', 'userAgent', 'createdAt'])
+        && data.keys().hasOnly(['message', 'stack', 'componentStack', 'uid', 'url', 'userAgent', 'createdAt'])
+        && data.message is string && data.message.size() <= 2000
+        && data.stack is string && data.stack.size() <= 4000
+        && data.componentStack is string && data.componentStack.size() <= 4000
+        && (data.uid == null || data.uid is string)
+        && (data.url == null || (data.url is string && data.url.size() <= 2000))
+        && (data.userAgent == null || (data.userAgent is string && data.userAgent.size() <= 500))
+        // Proves createdAt is the real serverTimestamp() sentinel, not a
+        // caller-supplied value — the standard idiom for validating it.
+        && data.createdAt == request.time;
+    }
     match /crashReports/{reportId} {
-      allow create: if true;
+      allow create: if isValidCrashReport(request.resource.data);
       allow read, update, delete: if false;
     }
   }
