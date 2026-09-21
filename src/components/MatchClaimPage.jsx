@@ -3,6 +3,7 @@ import { Mail } from "lucide-react";
 import { styles, tokens } from "./styles.js";
 import { classifyClaimLink } from "../lib/matchHandover.js";
 import { fetchHandoverForClaim, submitClaimEmail, confirmClaim } from "../lib/matchHandoverIo.js";
+import { logEvent, EVENT_NAMES } from "../lib/analytics.js";
 import LoadingScreen from "./LoadingScreen.jsx";
 import ParentMatchSession from "./ParentMatchSession.jsx";
 import headerMascot from "../assets/header-mascot.svg";
@@ -61,7 +62,16 @@ export default function MatchClaimPage({ teamId, token, user }) {
             revokedAt: null,
           };
     confirmClaim(teamId, claim)
-      .then(() => !cancelled && setJustClaimed(true))
+      .then(() => {
+        if (cancelled) return;
+        // Launch-audit finding #3's "someone used a shared link" — this
+        // effect only ever runs once per genuine claim (see status ===
+        // "already-yours" above, a *separate* branch for reopening an
+        // already-claimed link on the same device), so this can't double-
+        // fire for the same parent reloading their own link.
+        logEvent(EVENT_NAMES.MATCH_LINK_CLAIMED, { teamId });
+        setJustClaimed(true);
+      })
       .catch(() => !cancelled && setClaimFailed(true));
     return () => {
       cancelled = true;

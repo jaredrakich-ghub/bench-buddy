@@ -302,5 +302,26 @@ service cloud.firestore {
       allow create: if isValidCrashReport(request.resource.data);
       allow read, update, delete: if false;
     }
+
+    // Minimal usage instrumentation (launch-audit finding #3, analytics.js)
+    // — same write-only, console-only-visible shape as crashReports above,
+    // for the same reason. `name` is checked against a closed list rather
+    // than just "is a string" — same lesson crashReports' own rule just
+    // learned: don't let an open-ended field become a place to smuggle
+    // arbitrary data through. Requires a signed-in caller (unlike
+    // crashReports) since every real visitor already has at least an
+    // anonymous session by the time any of these fire.
+    function isValidAnalyticsEvent(data) {
+      return data.keys().hasAll(['name', 'uid', 'teamId', 'createdAt'])
+        && data.keys().hasOnly(['name', 'uid', 'teamId', 'createdAt'])
+        && data.name in ['account_created', 'team_created', 'rotation_built', 'match_link_claimed', 'availability_answered']
+        && (data.uid == null || data.uid is string)
+        && (data.teamId == null || data.teamId is string)
+        && data.createdAt == request.time;
+    }
+    match /events/{eventId} {
+      allow create: if request.auth != null && isValidAnalyticsEvent(request.resource.data);
+      allow read, update, delete: if false;
+    }
   }
 }

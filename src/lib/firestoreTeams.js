@@ -15,6 +15,7 @@
 // uid, not a single owner field, so inviting a collaborator later is adding
 // a uid to that array, not a schema change. Each team's in-progress match
 // lives in a `matchState/current` subdocument underneath it.
+import { logEvent, EVENT_NAMES } from "./analytics.js";
 import {
   collection, doc, getDoc, getDocs, getDocFromCache, getDocsFromCache, setDoc, updateDoc, deleteDoc, onSnapshot,
   query, where,
@@ -85,6 +86,11 @@ export async function createTeamDoc(uid, team) {
   const ref = doc(collection(db, TEAMS_COLLECTION));
   const data = { name: team.name, roster: team.roster, settings: team.settings, ownerId: uid, memberIds: [uid] };
   await setDoc(ref, data);
+  // One choke point for every real "a team got created" path — the initial
+  // bootstrap for a brand-new account and TeamAccountScreen's own "+ Add a
+  // team" both call this, so instrumenting here catches both (and any
+  // future caller) without duplicating the call at each site.
+  logEvent(EVENT_NAMES.TEAM_CREATED, { teamId: ref.id });
   return { id: ref.id, ...data };
 }
 

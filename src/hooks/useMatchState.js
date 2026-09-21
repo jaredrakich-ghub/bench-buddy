@@ -14,6 +14,7 @@ import {
 } from "../lib/firestoreTeams.js";
 import { archiveGame } from "../lib/gameHistory.js";
 import { applyFullTimeExpiry } from "../lib/matchHandoverIo.js";
+import { logEvent, EVENT_NAMES } from "../lib/analytics.js";
 
 // Shared by fetchResumeData and fetchResumeDataFromCache below — turns a
 // raw matchState document into { saved, live, stillRunning }, recomputing
@@ -441,6 +442,12 @@ export function useMatchState({ activeTeamId, teamData, saveTeamData, isCoach = 
     // now than delay it waiting on a mid-game-continuation design.
     const { intervals } = generateFixedPlan({ ...planArgs, startingGkId });
     commitFreshPlan(intervals, { availableIds: planArgs.availableIds, gameSettings: planArgs.settings });
+    // Deliberately here, not inside commitFreshPlan itself — that's also
+    // called by useImprovedPlan (the "Improve fairness" refinement of an
+    // already-built plan), which isn't a new rotation being built, just an
+    // existing one being tweaked. This only fires for the real "Build new
+    // rotation" action.
+    logEvent(EVENT_NAMES.ROTATION_BUILT, { teamId: activeTeamId });
     return true;
   };
 

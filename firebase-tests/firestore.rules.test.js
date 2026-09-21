@@ -236,3 +236,52 @@ describe("firestore.rules — crashReports collection", () => {
     await assertFails(deleteDoc(doc(alice.firestore(), "crashReports", "report1")));
   });
 });
+
+// Launch-audit finding #3 — minimal usage instrumentation (analytics.js).
+// Same shape/rigor as crashReports above: a closed event-name list rather
+// than an open string, since that's the exact lesson crashReports' own
+// rule just learned.
+describe("firestore.rules — events collection (analytics)", () => {
+  const validEvent = (overrides = {}) => ({
+    name: "team_created",
+    uid: "alice",
+    teamId: "team1",
+    createdAt: serverTimestamp(),
+    ...overrides,
+  });
+
+  test("a signed-in user can log a real event", async () => {
+    const alice = testEnv.authenticatedContext("alice");
+    await assertSucceeds(setDoc(doc(alice.firestore(), "events", "event1"), validEvent()));
+  });
+
+  test("an event with no teamId yet is fine (account_created, before any team exists)", async () => {
+    const alice = testEnv.authenticatedContext("alice");
+    await assertSucceeds(setDoc(doc(alice.firestore(), "events", "event1"), validEvent({ name: "account_created", teamId: null })));
+  });
+
+  test("a signed-out caller cannot log an event", async () => {
+    const anon = testEnv.unauthenticatedContext();
+    await assertFails(setDoc(doc(anon.firestore(), "events", "event1"), validEvent()));
+  });
+
+  test("rejects an event name outside the known list", async () => {
+    const alice = testEnv.authenticatedContext("alice");
+    await assertFails(setDoc(doc(alice.firestore(), "events", "event1"), validEvent({ name: "something_made_up" })));
+  });
+
+  test("rejects an extra field", async () => {
+    const alice = testEnv.authenticatedContext("alice");
+    await assertFails(setDoc(doc(alice.firestore(), "events", "event1"), validEvent({ extra: "x" })));
+  });
+
+  test("nobody can read, update, or delete an event through the app", async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "events", "event1"), validEvent());
+    });
+    const alice = testEnv.authenticatedContext("alice");
+    await assertFails(getDoc(doc(alice.firestore(), "events", "event1")));
+    await assertFails(updateDoc(doc(alice.firestore(), "events", "event1"), { name: "edited" }));
+    await assertFails(deleteDoc(doc(alice.firestore(), "events", "event1")));
+  });
+});

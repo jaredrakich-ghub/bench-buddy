@@ -4,6 +4,7 @@
 import { doc, getDoc, setDoc, updateDoc, onSnapshot } from "firebase/firestore";
 import { db } from "./firebaseClient.js";
 import { createAvailabilityRequest, reopenAvailabilityRequest, isRequestClosed } from "./availability.js";
+import { logEvent, EVENT_NAMES } from "./analytics.js";
 
 const TEAMS_COLLECTION = "teams";
 const AVAILABILITY_SUBCOLLECTION = "availability";
@@ -68,6 +69,7 @@ export async function revokeAvailabilityRequest(teamId) {
 // Stage A/B established.
 export async function submitAnswer(teamId, childId, answer, token) {
   await updateDoc(availabilityRef(teamId), { [`answers.${childId}`]: answer, lastAnsweredViaToken: token });
+  logEvent(EVENT_NAMES.AVAILABILITY_ANSWERED, { teamId });
 }
 
 // Live updates for the coach's own compose screen (1a) — so "3 of 9

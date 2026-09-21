@@ -3,6 +3,7 @@ import {
   onAuthChange, signInAnon, completeEmailLinkSignInIfPresent, completeEmailLinkSignInWithEmail,
   signInWithExistingCredential, consumeJustSignedOutFlag,
 } from "../lib/auth.js";
+import { logEvent, EVENT_NAMES } from "../lib/analytics.js";
 import SignIn from "./SignIn.jsx";
 import LoadingScreen from "./LoadingScreen.jsx";
 import { styles, tokens } from "./styles.js";
@@ -82,14 +83,22 @@ export default function AuthGate({ children }) {
       return undefined;
     }
     let cancelled = false;
-    signInAnon().catch(() => {
-      // Most likely the Anonymous provider isn't turned on yet in the
-      // Firebase console (a one-time setup step, not a code bug) — either
-      // way, a real Google sign-in is still a completely valid way in, so
-      // fall back to the full sign-in screen rather than getting stuck on
-      // a spinner that will never resolve.
-      if (!cancelled) setAnonFailed(true);
-    });
+    signInAnon()
+      .then(() => {
+        // This effect only ever runs for user === null — genuinely no
+        // session at all, not a restore — so every successful call here
+        // really is a brand-new anonymous account, not an existing one
+        // reconnecting. Launch-audit finding #3's "someone signed up".
+        if (!cancelled) logEvent(EVENT_NAMES.ACCOUNT_CREATED);
+      })
+      .catch(() => {
+        // Most likely the Anonymous provider isn't turned on yet in the
+        // Firebase console (a one-time setup step, not a code bug) — either
+        // way, a real Google sign-in is still a completely valid way in, so
+        // fall back to the full sign-in screen rather than getting stuck on
+        // a spinner that will never resolve.
+        if (!cancelled) setAnonFailed(true);
+      });
     return () => {
       cancelled = true;
     };
