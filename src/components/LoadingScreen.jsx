@@ -1,4 +1,4 @@
-import { colors } from "./styles.js";
+import { colors, tokens } from "./styles.js";
 import headerMascot from "../assets/header-mascot.svg";
 
 // Shared "something's loading" screen — used both by AuthGate (checking
@@ -12,6 +12,15 @@ import headerMascot from "../assets/header-mascot.svg";
 // app-wide <style>{fontStyle}</style> tag in SubRotationPlanner) because
 // this renders BEFORE that tag ever mounts — both the auth-check screen and
 // the sign-in screen exist entirely outside SubRotationPlanner's tree.
+//
+// Real-use feedback: a bare spinner read as "waiting on something," not
+// "this is Bench Buddy" — for a stranger arriving cold, that gap matters
+// more than it does for a returning coach who already knows what app
+// they're in. The "Bench Buddy" wordmark below reuses SignIn.jsx's own copy
+// verbatim (no new brand text invented), and this same wordmark is baked
+// into index.html's #boot-splash too, so the very first paint (before any
+// JS has even run) already matches what this component swaps in moments
+// later — no mismatched handoff.
 export default function LoadingScreen({ message = "Loading…" }) {
   return (
     <div style={styles.wrap}>
@@ -24,6 +33,7 @@ export default function LoadingScreen({ message = "Loading…" }) {
           </div>
         </div>
       </div>
+      <div style={styles.wordmark}>Bench Buddy</div>
       <div style={styles.text}>{message}</div>
     </div>
   );
@@ -78,5 +88,9 @@ const styles = {
   // just computed at higher resolution first.
   logoSuper: { width: 396, height: 396, transform: "scale(0.3333333)", transformOrigin: "0 0" },
   logoImg: { width: 396, height: 396, objectFit: "cover", objectPosition: "50% 46%", transform: "scale(1.7)" },
-  text: { color: colors.grass, fontWeight: 700, fontSize: 14 },
+  // Deliberately smaller than SignIn.jsx's own 42px wordmark — this is a
+  // brief transitional moment, not a destination screen, so it reads as a
+  // brand mark rather than competing with the spinner for attention.
+  wordmark: { fontFamily: tokens.font.display, fontWeight: 800, fontSize: 22, color: colors.grass, marginTop: -4 },
+  text: { color: colors.grass, fontWeight: 700, fontSize: 14, opacity: 0.75 },
 };

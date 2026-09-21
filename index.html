@@ -11,26 +11,27 @@
 
     <!--
       Real-use feedback: first load on a phone was slow, and briefly showed
-      a plain background before the app's own fonts/content appeared. Two
-      independent causes, fixed together here:
+      a plain background before the app's own fonts/content appeared. Fixed
+      by loading the app's own fonts (Baloo 2, Nunito) via a real <link>
+      here instead of the `@import` SubRotationPlanner used to inject (which
+      didn't exist until React had already mounted the signed-in app) — this
+      starts the font fetch immediately, in parallel with the JS bundle.
 
-      1. The app's own fonts (Baloo 2, Nunito) were only ever loaded via an
-         `@import` inside a <style> tag that SubRotationPlanner injects —
-         which doesn't exist until React has already rendered the signed-in
-         app (styles/tokens.js's `fontStyle`, still used there for the
-         shared `* { box-sizing: border-box }` reset). Every screen that
-         renders before that — the loading screen, sign-in — was stuck on
-         the browser's fallback font, then visibly swapped mid-boot once
-         SubRotationPlanner mounted and the font fetch could finally start.
-         A real <link> here starts that fetch immediately, in parallel with
-         the JS bundle, so fonts are ready before there's anything on
-         screen that needs them.
-      2. Firestore/Auth/App Check calls (firebaseClient.js) don't begin
-         until the JS bundle has downloaded and run — so the DNS+TLS
-         handshake to Google's servers hadn't even started yet at the point
-         those calls are made. `preconnect` does that handshake in parallel
-         with everything else, so by the time the app is ready to call
-         Firestore, that round-trip is already warmed up.
+      A later real PageSpeed trace (Slow 4G, Moto G Power) found this had
+      grown to 7 preconnects, which Lighthouse itself flags as
+      counterproductive past ~4: each one is a real DNS+TCP+TLS handshake
+      competing for bandwidth/CPU with the actual critical resources during
+      the exact window that matters most. Trimmed to the two pairs that
+      trace actually measured as worth it: fonts (proven above) and
+      reCAPTCHA Enterprise/App Check — that same trace found reCAPTCHA's own
+      script is the single biggest thing this page loads (~690KB across two
+      requests), and App Check runs unconditionally on every load, so
+      warming that connection early is a real, measured win. Firestore/Auth/
+      securetoken's own preconnects were dropped: those calls only fire
+      *after* App Check itself resolves and the JS bundle has fully run, by
+      which point a fresh handshake is cheap relative to everything already
+      waited on — preconnecting to them this early mostly just idled out
+      before use.
     -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -38,9 +39,6 @@
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@800&family=Nunito:wght@700;800&display=swap"
     />
-    <link rel="preconnect" href="https://firestore.googleapis.com" />
-    <link rel="preconnect" href="https://identitytoolkit.googleapis.com" />
-    <link rel="preconnect" href="https://securetoken.googleapis.com" />
     <!-- reCAPTCHA Enterprise (App Check) -->
     <link rel="preconnect" href="https://www.google.com" />
     <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
@@ -52,8 +50,10 @@
       "did this actually load?" moment a stranger arriving from the
       marketing site would hit. #boot-splash below is pure HTML/CSS, no
       JS, so it paints the instant this document arrives, in the same
-      colors/crest/spinner as the real LoadingScreen.jsx it's standing in
-      for. It needs no removal logic of its own: main.jsx's
+      colors/crest/spinner/wordmark as the real LoadingScreen.jsx it's
+      standing in for — including the "Bench Buddy" wordmark added there so
+      this brief wait reads as the app's own front door, not a generic
+      spinner. It needs no removal logic of its own: main.jsx's
       ReactDOM.createRoot(...).render() replaces #root's entire contents
       on first render, so this is simply gone the moment React (or its
       own LoadingScreen) takes over — see that file's own comment.
@@ -74,7 +74,10 @@
         width: 132px; height: 132px; border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.7);
       }
       #boot-splash .crest img { width: 100%; height: 100%; object-fit: cover; }
-      #boot-splash .text { color: #1F4D36; font-weight: 700; font-size: 14px; }
+      #boot-splash .wordmark {
+        font-family: "Baloo 2", system-ui, sans-serif; font-weight: 800; font-size: 22px; color: #1F4D36; margin-top: -4px;
+      }
+      #boot-splash .text { color: #1F4D36; font-weight: 700; font-size: 14px; opacity: 0.75; }
     </style>
   </head>
   <body>
@@ -84,6 +87,7 @@
           <div class="ring"></div>
           <div class="crest"><img src="/icons/icon-512.png" alt="" /></div>
         </div>
+        <div class="wordmark">Bench Buddy</div>
         <div class="text">Loading…</div>
       </div>
     </div>
