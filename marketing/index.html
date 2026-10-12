@@ -3,424 +3,230 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Bench Buddy — Fair rotations. Less thinking. More time enjoying the game.</title>
-  <meta name="description" content="Bench Buddy takes care of substitutions, playing time and goalkeeper rotations for junior football teams, so every child gets a fair game.">
+  <title>Bench Buddy Cricket — Junior pairs cricket, scored properly by any parent.</title>
+  <meta name="description" content="Bench Buddy Cricket: your club sets the rules once, coaches pick teams and send availability, and on match day whoever has the phone taps through each ball while parents follow the score from the boundary.">
   <link rel="canonical" href="https://benchbuddysports.com/">
-  <link rel="icon" href="assets/bench-buddy-mark.svg">
+  <link rel="icon" href="assets/cricket/bench-buddy-mark.svg">
 
-  <!-- Open Graph / Twitter — what a share to Facebook, WhatsApp, Slack,
-       iMessage, or X actually renders. og:image reuses a real frame from
-       the hero clip (assets/og-image.jpg, 1200x630) rather than a generic
-       banner, so a shared link looks like the app's own footage, not a
-       stock graphic. -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://benchbuddysports.com/">
   <meta property="og:site_name" content="Bench Buddy">
-  <meta property="og:title" content="Bench Buddy — Fair rotations. Less thinking. More time enjoying the game.">
-  <meta property="og:description" content="Bench Buddy takes care of substitutions, playing time and goalkeeper rotations for junior football teams, so every child gets a fair game.">
-  <meta property="og:image" content="https://benchbuddysports.com/assets/og-image.jpg">
+  <meta property="og:title" content="Bench Buddy Cricket — Junior pairs cricket, scored properly by any parent.">
+  <meta property="og:description" content="Your club sets the rules once. Coaches pick teams and send availability. On match day, whoever has the phone taps through each ball and parents follow the score from the boundary.">
+  <meta property="og:image" content="https://benchbuddysports.com/assets/cricket/og-cricket.jpg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Bench Buddy — Fair rotations. Less thinking. More time enjoying the game.">
-  <meta name="twitter:description" content="Bench Buddy takes care of substitutions, playing time and goalkeeper rotations for junior football teams, so every child gets a fair game.">
-  <meta name="twitter:image" content="https://benchbuddysports.com/assets/og-image.jpg">
+  <meta name="twitter:title" content="Bench Buddy Cricket — Junior pairs cricket, scored properly by any parent.">
+  <meta name="twitter:description" content="Your club sets the rules once. Coaches pick teams and send availability. On match day, whoever has the phone taps through each ball and parents follow the score from the boundary.">
+  <meta name="twitter:image" content="https://benchbuddysports.com/assets/cricket/og-cricket.jpg">
 
-  <!-- WebApplication structured data — Bench Buddy is a web app (no native
-       iOS/Android build, no store listing), so this uses WebApplication
-       rather than SoftwareApplication and carries no operatingSystem
-       field, unlike a native-app listing. No aggregateRating/review
-       fields either: no real rating data exists, and fabricating one
-       would be exactly the kind of fake-review content Google's own
-       structured-data guidelines penalise. -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "WebApplication",
-    "name": "Bench Buddy",
-    "applicationCategory": "SportsApplication",
-    "description": "Bench Buddy takes care of substitutions, playing time and goalkeeper rotations for junior football teams, so every child gets a fair game.",
-    "url": "https://benchbuddysports.com/",
-    "image": "https://benchbuddysports.com/assets/og-image.jpg",
-    "offers": {
-      "@type": "Offer",
-      "price": "0",
-      "priceCurrency": "USD"
-    }
-  }
-  </script>
-
-  <link rel="stylesheet" href="styles.css">
+  <link rel="preload" href="assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="cricket.css">
 </head>
 <body>
 
-<header class="bb-header">
-  <div class="bb-header__brand">
-    <img src="assets/bench-buddy-mark.svg" alt="Bench Buddy" width="56" height="56">
-    <span class="bb-wordmark">Bench Buddy</span>
+<header class="cb-header">
+  <div class="cb-header__inner">
+    <a href="/" class="cb-brand">
+      <img src="assets/cricket/bench-buddy-mark.svg" alt="" width="34" height="34">
+      <span>Bench Buddy</span>
+    </a>
+    <nav class="cb-nav" id="cb-nav" aria-label="Main">
+      <a href="#journeys">How it works</a>
+      <a href="#club-form">For clubs</a>
+      <a href="#story">The story</a>
+      <a href="/football">Football</a>
+      <a href="https://cricket.benchbuddysports.com" class="cb-nav__signin">Sign in</a>
+    </nav>
+    <div class="cb-header__right">
+      <a href="https://cricket.benchbuddysports.com" class="cb-signin">Sign in</a>
+      <a href="#club-form" class="cb-btn cb-btn--small"><span class="cb-long">Get your club started</span><span class="cb-short">Get started</span></a>
+      <button type="button" class="cb-menu" id="cb-menu" aria-expanded="false" aria-controls="cb-nav" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
   </div>
-  <!-- No header nav for now: the only candidate item (The story) already
-       has its own entry point via the hero's "Watch the story" button, so
-       a menu holding just that one link was pure redundancy dressed up as
-       navigation. Bring the hamburger back (see git history around this
-       comment) once there's a second real page — Privacy, Contact — that
-       actually needs a home. -->
 </header>
 
 <main>
 
-  <!-- 1 · Hero -->
-  <section class="bb-hero">
-    <div class="bb-hero__media">
-      <video class="bb-hero__video" data-video="hero" aria-hidden="true" muted loop playsinline preload="auto"></video>
-      <div class="bb-scrim bb-scrim--flat" style="--scrim-alpha:.5"></div>
-      <div class="bb-scrim bb-scrim--gradient" style="--scrim-alpha:.52; --scrim-height:66%"></div>
-    </div>
-    <div class="bb-hero__content">
-      <div class="bb-hero__copy" data-reveal>
-        <p class="bb-eyebrow bb-eyebrow--yellow">For coaches, parents and clubs</p>
-        <h1 class="bb-hero__title">Fair rotations.<br>Less thinking.<br>More time enjoying the game.</h1>
-        <p class="bb-hero__subhead">Bench Buddy takes care of substitutions, playing time and goalkeeper rotations—so every child gets a fair game.</p>
+<section class="cb-hero">
+  <div class="cb-hero__inner">
+    <div class="cb-hero__copy">
+      <div class="cb-eyebrow-row">
+        <img src="assets/cricket/mascot.webp" alt="" width="40" height="40">
+        <div class="cb-eyebrow cb-eyebrow--navy">Bench Buddy Cricket</div>
       </div>
-      <div class="bb-hero__actions" data-reveal>
-        <a href="https://app.benchbuddysports.com" class="bb-btn bb-btn--yellow bb-btn--hero">Open Bench Buddy</a>
-        <a href="#story" class="bb-btn bb-btn--outline bb-btn--hero">
-          <svg width="15" height="17" viewBox="0 0 15 17" fill="none" aria-hidden="true"><path d="M1.5 1.6 L13.4 8.5 L1.5 15.4 Z" fill="#FFFFFF"/></svg>
-          Watch the story
-        </a>
+      <h1>Junior pairs cricket, scored properly by any parent.</h1>
+      <p class="cb-lead">Your club sets the rules once. Coaches pick teams and send availability. On match day, whoever has the phone taps through each ball and parents follow the score from the boundary.</p>
+      <div class="cb-actions">
+        <a href="#club-form" class="cb-btn">Get your club started</a>
+        <a href="#journeys" class="cb-btn cb-btn--soft">See it in action</a>
       </div>
     </div>
-  </section>
+    <div class="cb-hero__phones">
+      <div class="cb-phone cb-phone--back"><img src="assets/cricket/hero-scorecard.webp" alt="The scorecard in Bench Buddy Cricket: batting pairs, runs and balls, and the bowling figures" width="600" height="1299"></div>
+      <div class="cb-phone cb-phone--front"><img src="assets/cricket/hero-live-scoring.webp" alt="Live scoring in Bench Buddy Cricket: the score, the pair at the crease, this over, and one-tap run buttons" width="600" height="1299"></div>
+    </div>
+  </div>
+</section>
 
-  <!-- 2 · Act one -->
-  <section id="story" class="bb-act">
-    <div class="bb-section-inner bb-act__inner">
-      <div class="bb-act__head" data-reveal>
-        <p class="bb-eyebrow bb-eyebrow--dim">Act one</p>
-        <h2 class="bb-h2 bb-h2--dark">The Saturday morning every coach knows.</h2>
-        <p class="bb-lead bb-lead--dim">A paper team sheet and the impossible task of remembering who’s had a turn.</p>
+<section class="cb-early">
+  <div class="cb-early__inner">
+    <div class="cb-early__panel">
+      <div class="cb-early__head">
+        <div class="cb-eyebrow cb-eyebrow--amber">Early clubs</div>
+        <h2>We're looking for the first clubs to run it this season.</h2>
       </div>
-
-      <div class="bb-carousel" data-reveal role="region" aria-roledescription="carousel" aria-label="Act one, in seven moments">
-        <div class="bb-carousel__track">
-          <div class="bb-carousel__slide">
-            <div class="bb-frame-43"><video data-video="act1_01" aria-hidden="true" muted loop playsinline preload="none"></video></div>
-            <div class="bb-beat__text">
-              <p class="bb-beat__num">01</p>
-              <h3 class="bb-h3">The plan</h3>
-              <p class="bb-body bb-body--dim">An AI-generated plan, ready to implement.</p>
-            </div>
-          </div>
-          <div class="bb-carousel__slide">
-            <div class="bb-frame-43"><video data-video="act1_02" aria-hidden="true" muted loop playsinline preload="none"></video></div>
-            <div class="bb-beat__text">
-              <p class="bb-beat__num">02</p>
-              <h3 class="bb-h3">“When am I going on?”</h3>
-              <p class="bb-body bb-body--dim">I can handle this. My plan tells you exactly when you go on.</p>
-            </div>
-          </div>
-          <div class="bb-carousel__slide">
-            <div class="bb-frame-43"><video data-video="act1_03" aria-hidden="true" muted loop playsinline preload="none"></video></div>
-            <div class="bb-beat__text">
-              <p class="bb-beat__num">03</p>
-              <h3 class="bb-h3">First confusion</h3>
-              <p class="bb-body bb-body--dim">“Why am I coming off? I just came on.” First loss of trust.</p>
-            </div>
-          </div>
-          <div class="bb-carousel__slide">
-            <div class="bb-frame-43"><video data-video="act1_04" aria-hidden="true" muted loop playsinline preload="none"></video></div>
-            <div class="bb-beat__text">
-              <p class="bb-beat__num">04</p>
-              <h3 class="bb-h3">The knock</h3>
-              <p class="bb-body bb-body--dim">A kid gets a knock and needs a quick break — they’ll likely be back soon. The plan has to adapt, and there’s shuffling required.</p>
-            </div>
-          </div>
-          <div class="bb-carousel__slide">
-            <div class="bb-frame-43"><video data-video="act1_05" aria-hidden="true" muted loop playsinline preload="none"></video></div>
-            <div class="bb-beat__text">
-              <p class="bb-beat__num">05</p>
-              <h3 class="bb-h3">Rotation fairness</h3>
-              <p class="bb-body bb-body--dim">Has everyone had a go in goal?</p>
-            </div>
-          </div>
-          <div class="bb-carousel__slide">
-            <div class="bb-frame-43"><video data-video="act1_06" aria-hidden="true" muted loop playsinline preload="none"></video></div>
-            <div class="bb-beat__text">
-              <p class="bb-beat__num">06</p>
-              <h3 class="bb-h3">The blur</h3>
-              <p class="bb-body bb-body--dim">Asking the sideline for help.</p>
-            </div>
-          </div>
-          <div class="bb-carousel__slide">
-            <div class="bb-frame-43"><video data-video="act1_07" aria-hidden="true" muted loop playsinline preload="none"></video></div>
-            <div class="bb-beat__text">
-              <p class="bb-beat__num">07</p>
-              <h3 class="bb-h3">Give-up moment</h3>
-              <p class="bb-body bb-body--dim">Too many changes. Kids and parents are confused.</p>
-            </div>
-          </div>
-        </div>
-        <div class="bb-carousel__controls">
-          <button type="button" class="bb-carousel__arrow bb-carousel__arrow--prev" aria-label="Previous">
-            <svg width="10" height="16" viewBox="0 0 10 16" fill="none" aria-hidden="true"><path d="M8.5 1.5 L1.5 8 L8.5 14.5" stroke="#FFFFFF" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
-          <div class="bb-carousel__dots"></div>
-          <button type="button" class="bb-carousel__arrow bb-carousel__arrow--next" aria-label="Next">
-            <svg width="10" height="16" viewBox="0 0 10 16" fill="none" aria-hidden="true"><path d="M8.5 1.5 L1.5 8 L8.5 14.5" stroke="#FFFFFF" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
-        </div>
+      <div class="cb-early__points">
+        <div><h3>We set it up with you</h3><p>Your competitions, scoring rules and squads, loaded before your first fixture.</p></div>
+        <div><h3>Your coaches shape it</h3><p>What your volunteers find on Saturday decides what we build next.</p></div>
+        <div><h3>A direct line</h3><p>You talk to the coach who built it, not a support queue.</p></div>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- 3 · The turn -->
-  <section class="bb-turn">
-    <div class="bb-turn__media">
-      <video data-video="turn" aria-hidden="true" muted loop playsinline preload="none"></video>
-      <div class="bb-scrim bb-scrim--flat" style="--scrim-alpha:.46"></div>
-      <div class="bb-scrim bb-scrim--gradient" style="--scrim-alpha:.78; --scrim-height:72%"></div>
+<section class="cb-journeys" id="journeys">
+  <div class="cb-journeys__inner">
+    <div class="cb-journeys__copy">
+      <div class="cb-journeys__head">
+        <div class="cb-eyebrow cb-eyebrow--navy">See it in action</div>
+        <h2>Everyone does their part. Nobody needs a scorebook.</h2>
+      </div>
+      <ol class="cb-journeys__list" id="cb-journeys-list">
+        <li><button type="button" class="cb-journey is-active" aria-current="true" data-index="0">
+          <span class="cb-journey__n">1</span>
+          <span class="cb-journey__text">
+            <span class="cb-journey__title"><span class="cb-journey__name">Score a match</span><span class="cb-journey__who">Scorer</span></span>
+            <span class="cb-journey__body">Tap each ball on one screen. Pairs, overs and who is on strike are tracked, and any parent can pick it up mid-game.</span>
+          </span>
+        </button></li>
+        <li><button type="button" class="cb-journey" data-index="1">
+          <span class="cb-journey__n">2</span>
+          <span class="cb-journey__text">
+            <span class="cb-journey__title"><span class="cb-journey__name">Link to your child</span><span class="cb-journey__who">Parents</span></span>
+            <span class="cb-journey__body">Open the link your coach shared, pick your child, reply to availability and see every fixture in one place.</span>
+          </span>
+        </button></li>
+        <li><button type="button" class="cb-journey" data-index="2">
+          <span class="cb-journey__n">3</span>
+          <span class="cb-journey__text">
+            <span class="cb-journey__title"><span class="cb-journey__name">Set up a game</span><span class="cb-journey__who">Coach</span></span>
+            <span class="cb-journey__body">Pick the fixture, check who is here today and set the batting order. Ready before the umpire is.</span>
+          </span>
+        </button></li>
+        <li><button type="button" class="cb-journey" data-index="3">
+          <span class="cb-journey__n">4</span>
+          <span class="cb-journey__text">
+            <span class="cb-journey__title"><span class="cb-journey__name">Handle changes on the fly</span><span class="cb-journey__who">Coach</span></span>
+            <span class="cb-journey__body">Someone arrives late or a team is short. Add them mid-match and the batting order and overs update for both teams.</span>
+          </span>
+        </button></li>
+        <li><button type="button" class="cb-journey" data-index="4">
+          <span class="cb-journey__n">5</span>
+          <span class="cb-journey__text">
+            <span class="cb-journey__title"><span class="cb-journey__name">Set up the season</span><span class="cb-journey__who">Club admin</span></span>
+            <span class="cb-journey__body">Create competitions with their own rules, add squads and load fixtures for every team once.</span>
+          </span>
+        </button></li>
+      </ol>
     </div>
-    <div class="bb-section-inner bb-turn__content">
-      <div class="bb-turn__copy" data-reveal>
-        <p class="bb-eyebrow bb-eyebrow--yellow">The turn</p>
-        <h2 class="bb-h2 bb-h2--turn">Ten minutes before kick-off, Dave is asked to referee.</h2>
-        <p class="bb-lead bb-lead--turn">He hands the subs to Emma, one of the parents. She has never run a rotation before.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- 4 · Act two -->
-  <section class="bb-act bb-act--two">
-    <div class="bb-section-inner bb-act__inner">
-      <div class="bb-act__head" data-reveal>
-        <p class="bb-eyebrow bb-eyebrow--yellow">Act two</p>
-        <h2 class="bb-h2 bb-h2--dark">The same Saturday. Just easier.</h2>
-        <p class="bb-lead bb-lead--dim">Emma opens Bench Buddy. Everything Dave had to keep in his head is already worked out.</p>
-      </div>
-
-      <div class="bb-carousel bb-carousel--accent" data-reveal role="region" aria-roledescription="carousel" aria-label="Act two, in five moments">
-        <div class="bb-carousel__track">
-          <div class="bb-carousel__slide">
-            <div class="bb-frame-43 bb-frame--accent"><video data-video="act2_01" aria-hidden="true" muted loop playsinline preload="none"></video></div>
-            <div class="bb-beat__text">
-              <p class="bb-beat__num bb-beat__num--yellow">01</p>
-              <h3 class="bb-h3">She never has to guess.</h3>
-              <p class="bb-body bb-body--dim">Lily asks when she is going on. Emma reads the answer straight off the screen.</p>
-            </div>
-          </div>
-          <div class="bb-carousel__slide">
-            <div class="bb-frame-43 bb-frame--accent"><video data-video="act2_02" aria-hidden="true" muted loop playsinline preload="none"></video></div>
-            <div class="bb-beat__text">
-              <p class="bb-beat__num bb-beat__num--yellow">02</p>
-              <h3 class="bb-h3">Every position, already decided.</h3>
-              <p class="bb-body bb-body--dim">Who comes on, and where they play. Nobody has to hold it in their head.</p>
-            </div>
-          </div>
-          <div class="bb-carousel__slide">
-            <div class="bb-frame-43 bb-frame--accent"><video data-video="act2_03" aria-hidden="true" muted loop playsinline preload="none"></video></div>
-            <div class="bb-beat__text">
-              <p class="bb-beat__num bb-beat__num--yellow">03</p>
-              <h3 class="bb-h3">Late arrivals are fine.</h3>
-              <p class="bb-body bb-body--dim">Leo turns up after kick-off. The rotation re-plans itself around him.</p>
-            </div>
-          </div>
-          <div class="bb-carousel__slide">
-            <div class="bb-frame-43 bb-frame--accent"><video data-video="act2_04" aria-hidden="true" muted loop playsinline preload="none"></video></div>
-            <div class="bb-beat__text">
-              <p class="bb-beat__num bb-beat__num--yellow">04</p>
-              <h3 class="bb-h3">Managing the knock.</h3>
-              <p class="bb-body bb-body--dim">Jack needed a few minutes off. The app tracks his break and puts him back on when he is ready.</p>
-            </div>
-          </div>
-          <div class="bb-carousel__slide">
-            <div class="bb-frame-43 bb-frame--accent"><video data-video="act2_05" aria-hidden="true" muted loop playsinline preload="none"></video></div>
-            <div class="bb-beat__text">
-              <p class="bb-beat__num bb-beat__num--yellow">05</p>
-              <h3 class="bb-h3">Life saver.</h3>
-              <p class="bb-body bb-body--dim">A bit to deal with out there. Kids were happy. Thanks for the help.</p>
-            </div>
-          </div>
-        </div>
-        <div class="bb-carousel__controls">
-          <button type="button" class="bb-carousel__arrow bb-carousel__arrow--prev" aria-label="Previous">
-            <svg width="10" height="16" viewBox="0 0 10 16" fill="none" aria-hidden="true"><path d="M8.5 1.5 L1.5 8 L8.5 14.5" stroke="#FFFFFF" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
-          <div class="bb-carousel__dots"></div>
-          <button type="button" class="bb-carousel__arrow bb-carousel__arrow--next" aria-label="Next">
-            <svg width="10" height="16" viewBox="0 0 10 16" fill="none" aria-hidden="true"><path d="M8.5 1.5 L1.5 8 L8.5 14.5" stroke="#FFFFFF" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
-        </div>
-      </div>
-
-      <div class="bb-close-frame" data-reveal>
-        <video data-video="act2_close" aria-hidden="true" muted loop playsinline preload="none"></video>
-        <div class="bb-scrim bb-scrim--gradient" style="--scrim-alpha:.82; --scrim-height:74%"></div>
-        <div class="bb-close-frame__quote">
-          <p class="bb-quote">“Did you enjoy the game, Mum?”</p>
-        </div>
+    <div class="cb-journeys__phone">
+      <div class="cb-phone cb-phone--journey" id="cb-stage">
+        <video id="cb-video" muted playsinline preload="none" poster="assets/cricket/poster-1-scoring.webp" aria-label="Screen recording of the selected journey"></video>
+        <button type="button" class="cb-play" id="cb-play" aria-label="Play this video" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>
+        </button>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- 5 · Benefits -->
-  <section class="bb-benefits">
-    <div class="bb-section-inner">
-      <div class="bb-benefits__head" data-reveal>
-        <p class="bb-eyebrow bb-eyebrow--green">Why Coaches and Parents love it</p>
-        <h2 class="bb-h2 bb-h2--ink">Five fewer things to hold in your head.</h2>
-      </div>
-      <div class="bb-benefits__grid">
-        <div class="bb-card" data-reveal>
-          <svg width="72" height="52" viewBox="0 0 72 52" fill="none" aria-hidden="true"><rect x="1" y="14" width="21" height="24" rx="5" fill="#2E7D53"/><rect x="25.5" y="14" width="21" height="24" rx="5" fill="#2E7D53"/><rect x="50" y="14" width="21" height="24" rx="5" fill="#2E7D53"/></svg>
-          <div class="bb-card__text">
-            <h3 class="bb-h3 bb-h3--card">Fair from the first whistle</h3>
-            <p class="bb-body">Playing time is shared evenly before the match starts, so every kid gets the minutes they need to develop.</p>
-          </div>
-        </div>
-        <div class="bb-card" data-reveal>
-          <svg width="72" height="52" viewBox="0 0 72 52" fill="none" aria-hidden="true"><path d="M4 18 H50 M42 10 L50 18 L42 26" stroke="#2E7D53" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M68 34 H22 M30 26 L22 34 L30 42" stroke="#F5B93B" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <div class="bb-card__text">
-            <h3 class="bb-h3 bb-h3--card">Handles the unexpected</h3>
-            <p class="bb-body">Injuries, late arrivals, a change of shape at half time. The rotation re-plans itself and stays fair.</p>
-          </div>
-        </div>
-        <div class="bb-card" data-reveal>
-          <svg width="72" height="52" viewBox="0 0 72 52" fill="none" aria-hidden="true"><circle cx="26" cy="26" r="21" stroke="#2E7D53" stroke-width="4.5"/><path d="M47 26 H70 M62 18 L70 26 L62 34" stroke="#F5B93B" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <div class="bb-card__text">
-            <h3 class="bb-h3 bb-h3--card">Goalkeeper rotations made easy</h3>
-            <p class="bb-body">Set who goes in goal and when. Everyone gets a turn between the posts without you tracking it.</p>
-          </div>
-        </div>
-        <div class="bb-card" data-reveal>
-          <svg width="72" height="52" viewBox="0 0 72 52" fill="none" aria-hidden="true"><path d="M36 8 C27 8 20 15 20 24 V33 L14 41 H58 L52 33 V24 C52 15 45 8 36 8 Z" stroke="#2E7D53" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="56" cy="12" r="7" fill="#F5B93B"/></svg>
-          <div class="bb-card__text">
-            <h3 class="bb-h3 bb-h3--card">Never caught out by a sub</h3>
-            <p class="bb-body">An early nudge before each change, so the next player is warmed up and ready on the touchline.</p>
-          </div>
-        </div>
-        <div class="bb-card" data-reveal>
-          <svg width="72" height="52" viewBox="0 0 72 52" fill="none" aria-hidden="true"><path d="M6 44 V30 M22 44 V22 M38 44 V26 M54 44 V12" stroke="#2E7D53" stroke-width="4.5" stroke-linecap="round"/><path d="M6 44 H66" stroke="#2E7D53" stroke-width="4.5" stroke-linecap="round"/><circle cx="54" cy="12" r="7" fill="#F5B93B"/></svg>
-          <div class="bb-card__text">
-            <h3 class="bb-h3 bb-h3--card">A record of the whole season</h3>
-            <p class="bb-body">Minutes, positions and goalkeeping turns add up week to week, so you can show any parent where their child stands.</p>
-          </div>
+<section class="cb-story" id="story">
+  <div class="cb-story__inner">
+    <div class="cb-story__card">
+      <div class="cb-story__photo">
+        <!-- PLACEHOLDER: replace this block with a real photo (an <img> with object-fit: cover). -->
+        <div class="cb-placeholder">
+          <div class="cb-placeholder__tag">Placeholder</div>
+          <div class="cb-placeholder__text">Photo: junior pairs match, parent scoring on the boundary</div>
         </div>
       </div>
-
-      <!-- The five cards above are claims; this is the receipt. Todays
-           Minutes is the screen a coach actually turns round to show a
-           parent, so it earns a place next to the fairness promise rather
-           than being buried in "How it works" as a fourth step (which
-           would also break that sections three-step sequence, and the
-           "Five fewer things" headline above, which counts the cards). -->
-      <div class="bb-proof" data-reveal>
-        <div class="bb-phone bb-proof__phone">
-          <div class="bb-phone__screen"><img src="assets/screen-minutes.webp" alt="Today&rsquo;s Minutes in Bench Buddy: pitch, goal and bench time listed for all seven players, with totals" width="870" height="1778" loading="lazy" decoding="async"></div>
-        </div>
-        <div class="bb-proof__copy">
-          <h3 class="bb-h3 bb-h3--card">See exactly where the minutes went.</h3>
-          <p class="bb-body">Pitch, goal and bench time for every player, adding up as the game runs. When someone asks whether it has been fair, you don&rsquo;t have to remember &mdash; you can just show them.</p>
-        </div>
-      </div>
-
-      <!-- Second receipt, for the "whole season" card specifically — not
-           just one game staying fair, the fairness holding up over time.
-           Mirrored layout (image right) purely for rhythm, so two proof
-           bands in a row do not read as one block repeated twice. -->
-      <div class="bb-proof bb-proof--reverse" data-reveal>
-        <div class="bb-phone bb-proof__phone">
-          <div class="bb-phone__screen"><img src="assets/screen-season.webp" alt="Season Minutes in Bench Buddy: average minutes per player across five games, widest gap three minutes" width="870" height="1778" loading="lazy" decoding="async"></div>
-        </div>
-        <div class="bb-proof__copy">
-          <h3 class="bb-h3 bb-h3--card">Fair isn&rsquo;t just one good game.</h3>
-          <p class="bb-body">Every match adds to the season record. Across five games this squad&rsquo;s widest gap between any two players was three minutes &mdash; not a one-off, the whole season.</p>
-        </div>
+      <div class="cb-story__copy">
+        <div class="cb-eyebrow cb-eyebrow--amber">Built for real Saturday mornings</div>
+        <h2>Made by a coach on the sideline, not in an office.</h2>
+        <p>Bench Buddy was created by a volunteer coach who wanted to spend less time on admin and more time coaching kids. It is built between matches, for clubs run by volunteers.</p>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- 6 · How it works -->
-  <section class="bb-how">
-    <div class="bb-section-inner">
-      <div class="bb-how__head" data-reveal>
-        <p class="bb-eyebrow bb-eyebrow--green">How it works</p>
-        <h2 class="bb-h2 bb-h2--ink">Set up once. Then enjoy the game.</h2>
-      </div>
-      <div class="bb-how__grid">
-        <div class="bb-step" data-reveal>
-          <div class="bb-phone"><div class="bb-phone__screen"><img src="assets/screen-setup.webp" alt="Adding players to a squad in Bench Buddy, six in so far, with sub settings already rated a fair rotation" width="870" height="1778" loading="lazy" decoding="async"></div></div>
-          <div class="bb-step__text">
-            <span class="bb-step__num">1</span>
-            <div>
-              <h3 class="bb-h3 bb-h3--step">Add your players</h3>
-              <p class="bb-body">Names, shirt numbers, and who is available today.</p>
-            </div>
-          </div>
+<section class="cb-form" id="club-form">
+  <div class="cb-form__inner">
+    <div class="cb-form__copy">
+      <h2>Get your club started.</h2>
+      <p>Tell us a bit about your club. We'll be in touch soon to set up your first competition with you.</p>
+    </div>
+    <div class="cb-form__card" id="cb-form-card">
+      <form id="cb-form" novalidate>
+        <div class="cb-form__row">
+          <label class="cb-field"><span>Club name</span><input type="text" name="club" autocomplete="organization" placeholder="e.g. Ashfield Cricket Club" maxlength="120"></label>
+          <label class="cb-field"><span>Your role</span><input type="text" name="role" autocomplete="organization-title" placeholder="e.g. Junior coordinator" maxlength="120"></label>
         </div>
-        <div class="bb-step" data-reveal>
-          <div class="bb-phone"><div class="bb-phone__screen"><img src="assets/screen-rotation-ready.webp" alt="The rotation Bench Buddy has built, rated fair, averaging 32 minutes on the pitch each" width="870" height="1778" loading="lazy" decoding="async"></div></div>
-          <div class="bb-step__text">
-            <span class="bb-step__num">2</span>
-            <div>
-              <h3 class="bb-h3 bb-h3--step">Bench Buddy builds the fairest rotation</h3>
-              <p class="bb-body">Even minutes across the squad, goalkeeper included.</p>
-            </div>
+        <label class="cb-field"><span>Email</span><input type="email" name="email" autocomplete="email" inputmode="email" placeholder="you@club.org" maxlength="200" required aria-describedby="cb-email-error"></label>
+        <div class="cb-error" id="cb-email-error" role="alert" hidden>Please enter a valid email address.</div>
+        <fieldset class="cb-teams">
+          <legend>Junior teams this season</legend>
+          <div class="cb-teams__options">
+            <label><input type="radio" name="teams" value="1–3"><span>1–3</span></label>
+            <label><input type="radio" name="teams" value="4–8"><span>4–8</span></label>
+            <label><input type="radio" name="teams" value="9+"><span>9+</span></label>
           </div>
-        </div>
-        <div class="bb-step" data-reveal>
-          <div class="bb-phone"><div class="bb-phone__screen"><img src="assets/screen-match.webp" alt="A match in progress: two players coming off, one coming on, and the countdown to the next sub" width="870" height="1778" loading="lazy" decoding="async"></div></div>
-          <div class="bb-step__text">
-            <span class="bb-step__num">3</span>
-            <div>
-              <h3 class="bb-h3 bb-h3--step">Follow the match with confidence</h3>
-              <p class="bb-body">Tap through the subs as they come. Nothing left to remember.</p>
-            </div>
-          </div>
-        </div>
+        </fieldset>
+        <div class="cb-hp" aria-hidden="true"><label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+        <div class="cb-error" id="cb-send-error" role="alert" hidden>Sorry, that didn't go through. Please try again, or email <a href="mailto:hello@benchbuddysports.com">hello@benchbuddysports.com</a>.</div>
+        <button type="submit" class="cb-submit" id="cb-submit">Get your club started</button>
+        <p class="cb-note">Just a coach? Send it anyway and we'll help you make the case to your committee.</p>
+      </form>
+      <div class="cb-thanks" id="cb-thanks" tabindex="-1" hidden>
+        <div class="cb-thanks__tick" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+        <h3>Thanks, we've got it.</h3>
+        <p>We'll be in touch soon to set up your first competition with you.</p>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- 7 · Saturday mornings -->
-  <section class="bb-split">
-    <div class="bb-section-inner bb-split__inner">
-      <div class="bb-split__media" data-reveal>
-        <video data-video="saturday" aria-hidden="true" muted loop playsinline preload="metadata"></video>
-      </div>
-      <div class="bb-split__copy" data-reveal>
-        <p class="bb-eyebrow bb-eyebrow--green">Built for real Saturday mornings</p>
-        <h2 class="bb-h2 bb-h2--split">Made by a coach on the sideline, not in an office.</h2>
-        <p class="bb-body bb-body--split">Bench Buddy was created by a volunteer coach who wanted to spend less time tracking rotations and more time coaching kids. It was built between matches, on muddy pitches, for teams with one coach, no assistant and eleven parents watching.</p>
-      </div>
+<section class="cb-others">
+  <div class="cb-others__inner">
+    <a href="/football" class="cb-other cb-other--football">
+      <span class="cb-other__dot" aria-hidden="true"></span>
+      <span class="cb-other__text"><strong>Bench Buddy Football</strong><span>Fair rotations. Less thinking. More time enjoying the game.</span></span>
+      <span class="cb-other__arrow" aria-hidden="true">&rarr;</span>
+    </a>
+    <div class="cb-other cb-other--soon">
+      <span class="cb-other__text"><strong>Basketball and netball</strong><span>Coming later. Same idea, built with the clubs who ask for them.</span></span>
     </div>
-  </section>
-
-  <!-- 8 · Final CTA -->
-  <section id="get" class="bb-cta">
-    <div class="bb-cta__inner">
-      <h2 class="bb-h2 bb-cta__headline" data-reveal>Enjoy the game again.</h2>
-      <a href="https://app.benchbuddysports.com" class="bb-btn bb-btn--yellow bb-btn--cta" data-reveal>Open Bench Buddy</a>
-    </div>
-  </section>
+  </div>
+</section>
 
 </main>
 
-<footer class="bb-footer">
-  <div class="bb-section-inner bb-footer__inner">
-    <div class="bb-footer__brand">
-      <img src="assets/bench-buddy-mark.svg" alt="" width="42" height="42">
-      <span class="bb-wordmark bb-wordmark--footer">Bench Buddy</span>
-    </div>
-    <nav class="bb-footer__links">
-      <a href="#story">The story</a>
+<footer class="cb-footer">
+  <div class="cb-footer__inner">
+    <div class="cb-footer__brand"><img src="assets/cricket/bench-buddy-mark.svg" alt="" width="26" height="26"><span>Bench Buddy Sports</span></div>
+    <nav class="cb-footer__links" aria-label="Footer">
+      <a href="/">Cricket</a>
+      <a href="/football">Football</a>
       <a href="/contact">Help</a>
       <a href="/privacy">Privacy</a>
       <a href="/terms">Terms</a>
-      <a href="https://app.benchbuddysports.com">Open the app</a>
     </nav>
   </div>
 </footer>
 
-<script src="site.js"></script>
+<script src="cricket.js"></script>
 </body>
 </html>
