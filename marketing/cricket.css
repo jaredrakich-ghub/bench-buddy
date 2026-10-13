@@ -72,7 +72,7 @@ a:focus-visible, button:focus-visible { outline: 3px solid #fbae28; outline-offs
 .cb-menu[aria-expanded="true"] span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
 
 /* Hero */
-.cb-hero__inner { max-width: 1240px; margin: 0 auto; padding: 48px 40px 72px; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 48px; align-items: center; }
+.cb-hero__inner { max-width: 1240px; margin: 0 auto; padding: 48px 40px 72px; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 48px; align-items: start; }
 .cb-hero__copy { display: flex; flex-direction: column; gap: 24px; }
 .cb-eyebrow-row { display: flex; align-items: center; gap: 10px; }
 .cb-eyebrow-row img { width: 40px; height: 40px; object-fit: contain; }
@@ -95,8 +95,8 @@ a:focus-visible, button:focus-visible { outline: 3px solid #fbae28; outline-offs
 
 /* Match day: the one main screenshot */
 .cb-demo { background: var(--band); }
-.cb-demo__inner { max-width: 1240px; margin: 0 auto; padding: 88px 40px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 64px; align-items: center; }
-.cb-demo__copy { display: flex; flex-direction: column; gap: 22px; }
+.cb-demo__inner { max-width: 1240px; margin: 0 auto; padding: 88px 40px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 64px; align-items: start; }
+.cb-demo__copy { display: flex; flex-direction: column; gap: 22px; padding-top: 24px; }
 .cb-demo h2 { font: 800 42px/1.08 var(--sans); color: var(--ink); letter-spacing: -.02em; text-wrap: balance; }
 .cb-demo__copy > p { font: 400 17.5px/1.6 var(--sans); color: var(--body); text-wrap: pretty; }
 .cb-bullets { list-style: none; margin: 0; padding: 4px 0 0; display: flex; flex-direction: column; gap: 12px; }
@@ -231,6 +231,7 @@ a:focus-visible, button:focus-visible { outline: 3px solid #fbae28; outline-offs
 
 
   .cb-demo__inner { grid-template-columns: minmax(0, 1fr); padding: 56px 20px; gap: 36px; }
+  .cb-demo__copy { padding-top: 0; }
   .cb-demo h2 { font-size: 30px; }
   .cb-screens__inner { padding: 56px 20px 64px; gap: 24px; }
   .cb-screens__head { grid-template-columns: minmax(0, 1fr); gap: 10px; }
