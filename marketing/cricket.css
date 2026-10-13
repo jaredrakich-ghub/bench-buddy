@@ -81,6 +81,16 @@ button { font-family: inherit; }
 .cb-phone--back { position: absolute; left: 20px; top: 56px; width: 250px; height: 541px; border-radius: 38px; box-shadow: 0 30px 60px rgba(20, 22, 26, .14), 0 0 0 1px rgba(0, 0, 0, .06); }
 .cb-phone--front { position: absolute; right: 20px; top: 0; width: 270px; height: 584px; border-radius: 40px; box-shadow: 0 30px 60px rgba(20, 22, 26, .2), 0 0 0 1px rgba(0, 0, 0, .06); }
 
+/* The phone status bar and notch drawn over the top of a screenshot. Sizes scale with the phone: --s is the phone width over the 390px the screenshot was taken at. */
+.cb-phone--back { --s: calc(250 / 390); }
+.cb-phone--front { --s: calc(270 / 390); }
+.cb-status { position: absolute; left: 0; right: 0; top: 0; height: calc(46px * var(--s)); pointer-events: none; color: #fff; }
+.cb-status__time { position: absolute; left: calc(36px * var(--s)); top: calc(15px * var(--s)); font: 600 calc(16px * var(--s)) / 1 var(--sans); letter-spacing: -.01em; }
+.cb-status__island { position: absolute; left: 50%; top: calc(10px * var(--s)); width: calc(118px * var(--s)); height: calc(32px * var(--s)); margin-left: calc(-59px * var(--s)); border-radius: 999px; background: #0b0d10; }
+.cb-status__icons { position: absolute; right: calc(30px * var(--s)); top: calc(16px * var(--s)); display: flex; align-items: center; gap: calc(6px * var(--s)); }
+.cb-status__icons svg { height: calc(12px * var(--s)); width: auto; fill: #fff; stroke: #fff; }
+.cb-status__icons .cb-status__batt { height: calc(13px * var(--s)); }
+
 /* Early clubs */
 .cb-early__inner { max-width: 1240px; margin: 0 auto; padding: 0 40px 88px; }
 .cb-early__panel { background: var(--amber-bg); border-radius: 28px; padding: 44px 48px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); gap: 48px; align-items: start; }
